@@ -1,4 +1,4 @@
--- deus0ww - 2021-01-07
+-- deus0ww - 2021-05-07
 
 local ipairs,loadfile,pairs,pcall,tonumber,tostring = ipairs,loadfile,pairs,pcall,tonumber,tostring
 local debug,io,math,os,string,table,utf8 = debug,io,math,os,string,table,utf8
@@ -133,7 +133,7 @@ end
 local function run_subprocess(command, name)
 	if not command then return false end
 	local subprocess_name, start_time = name or command[1], os.time()
-	-- msg.debug('Subprocess', subprocess_name, 'Starting...', utils.to_string(command))
+	msg.debug('Subprocess', subprocess_name, 'Starting...', utils.to_string(command))
 	local result, mpv_error = mp.command_native( {name='subprocess', args=command, playback_only=false} )
 	local success, _, _, _ = subprocess_result(nil, result, mpv_error, subprocess_name, start_time)
 	return success
@@ -142,7 +142,7 @@ end
 local function run_subprocess_async(command, name)
 	if not command then return false end
 	local subprocess_name, start_time = name or command[1], os.time()
-	-- msg.debug('Subprocess', subprocess_name, 'Starting (async)...')
+	msg.debug('Subprocess', subprocess_name, 'Starting (async)...')
 	mp.command_native_async( {name='subprocess', args=command, playback_only=false}, function(s, r, e) subprocess_result(s, r, e, subprocess_name, start_time) end )
 	return nil
 end
@@ -230,9 +230,9 @@ local function add_timeout(args)
 	local timeout = worker_options.worker_timeout and worker_options.worker_timeout or 0
 	if timeout == 0 then return #args end
 	if OPERATING_SYSTEM == OS_MAC then
-		add_args(args, 'gtimeout', ('--kill-after=%d'):format(timeout + 1), ('%d'):format(timeout + 3))
+		add_args(args, worker_options.exec_path .. 'gtimeout', ('--kill-after=%d'):format(timeout + 1), ('%d'):format(timeout + 3))
 	elseif OPERATING_SYSTEM == OS_NIX then
-		add_args(args, 'timeout',  ('--kill-after=%d'):format(timeout + 1), ('%d'):format(timeout + 3))
+		add_args(args, worker_options.exec_path .. 'timeout',  ('--kill-after=%d'):format(timeout + 1), ('%d'):format(timeout + 3))
 	elseif OPERATING_SYSTEM == OS_WIN then
 		-- unimplemented
 	end
@@ -241,9 +241,9 @@ end
 
 local function add_nice(args)
 	if OPERATING_SYSTEM == OS_MAC then
-		add_args(args, 'gnice', '-19')
+		add_args(args, worker_options.exec_path .. 'gnice', '-19')
 	elseif OPERATING_SYSTEM == OS_NIX then
-		add_args(args, 'nice', '19')
+		add_args(args, worker_options.exec_path .. 'nice', '19')
 	elseif OPERATING_SYSTEM == OS_WIN then
 		-- unimplemented
 	end
@@ -295,7 +295,7 @@ local function create_mpv_command(time, output, force_accurate_seek)
 		add_timeout(args)
 		add_nice(args)
 		
-		worker_extra.index_name = concat_args(args, 'mpv')
+		worker_extra.index_name = concat_args(args, worker_options.exec_path .. 'mpv')
 		-- General
 		concat_args(args, '--no-config')
 		concat_args(args, '--msg-level=all=no')
@@ -364,7 +364,7 @@ local function create_ffmpeg_command(time, output, force_accurate_seek)
 		-- General
 		add_timeout(args)
 		add_nice(args)
-		worker_extra.index_name = add_args(args, 'ffmpeg')
+		worker_extra.index_name = add_args(args, worker_options.exec_path .. 'ffmpeg')
 		add_args(args, '-hide_banner')
 		add_args(args, '-nostats')
 		add_args(args, '-loglevel', 'warning')
