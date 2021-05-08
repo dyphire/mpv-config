@@ -1,7 +1,12 @@
 [
   {
     "git":"https://github.com/mpv-player/mpv",
-    "whitelist":"autocrop%.lua$|autoload%.lua$|autodeint%.lua$|ontop%-playback%.lua$|pause%-when%-minimize%.lua$",
+    "whitelist":"autocrop%.lua$|autodeint%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/hooke007/MPV_lazy",
+    "whitelist":"autoload%.lua$|ontop%-playback%.lua$|pause%-when%-minimize%.lua$|cycle%-adevice%.lua$",
     "dest":"~~/scripts"
   },
   {
