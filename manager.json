@@ -86,7 +86,7 @@
   },
   {
     "git":"https://github.com/deus0ww/mpv-conf",
-    "whitelist":"fsrcnnx%_x2%_8%-0%-4%-1%.glsl$|fsrcnnx%_x2%_16%-0%-4%-1%.glsl$|fsrcnnx%_x2%_8%-0%-4%-1%_lineart%.glsl$",
+    "whitelist":"fsrcnnx%_x2%_8%-0%-4%-1%.glsl$|fsrcnnx%_x2%_16%-0%-4%-1%.glsl$|fsrcnnx%_x2%_8%-0%-4%-1%_lineart%.glsl$|fsrcnnx%_x2%_16%-0%-4%-1%_enhance%.glsl$|fsrcnnx%_x2%_16%-0%-4%-1%_anime%_enhance%.glsl$",
     "dest":"~~/shaders"
   },
   {
