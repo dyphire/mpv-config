@@ -1,4 +1,4 @@
--- deus0ww - 2021-05-03
+-- deus0ww - 2021-05-07
 
 local ipairs,loadfile,pairs,pcall,tonumber,tostring = ipairs,loadfile,pairs,pcall,tonumber,tostring
 local debug,io,math,os,string,table,utf8 = debug,io,math,os,string,table,utf8
@@ -147,13 +147,15 @@ local function file_exists(path)
 	return code == nil
 end
 
-local function exec_exist(name)
+local function exec_exist(name, exec_path)
 	local delim = ':'
 	if OPERATING_SYSTEM == OS_WIN then delim, name = ';', name .. '.exe' end
-	local env_path = (os.getenv('PWD') or mp.get_property('working-directory')) .. delim .. os.getenv('PATH')
+	local env_path = exec_path ~= '' and exec_path or ((os.getenv('PWD') or mp.get_property('working-directory')) .. delim .. os.getenv('PATH'))
+	msg.debug('PATH: ' .. env_path)
 	for path_dir in env_path:gmatch('[^'..delim..']+') do
 		if file_exists(join_paths(path_dir, name)) then return true end
 	end
+	msg.debug(name .. 'not found.')
 	return false
 end
 
@@ -196,6 +198,7 @@ local user_opts = {
 	-- Paths
 	cache_dir             = default_cache_dir,  -- Note: Files are not cleaned afterward, by default
 	worker_script_path    = '',                 -- Only needed if the script can't auto-locate the file to load more workers
+	exec_path            = '',                 -- This is appended to PATH to search for mpv, ffmpeg, and other executables.
 
 	-- Thumbnail
 	dimension             = 320,                -- Max width and height before scaling
@@ -255,7 +258,8 @@ end
 
 local function worker_set_options()
 	return {
-		encoder        = (not state.is_remote and user_opts.use_ffmpeg and exec_exist('ffmpeg')) and 'ffmpeg' or 'mpv',
+		encoder        = (not state.is_remote and user_opts.use_ffmpeg and exec_exist('ffmpeg', user_opts.exec_path)) and 'ffmpeg' or 'mpv',
+		exec_path     = user_opts.exec_path,
 		worker_timeout = state.worker_timeout,
 		accurate_seek  = user_opts.accurate_seek,
 		use_ffmpeg     = user_opts.use_ffmpeg,
@@ -425,9 +429,9 @@ end
 local function hash_string(filepath, filename)
 	if OPERATING_SYSTEM == OS_WIN then return input end
 	local command
-	if     exec_exist('shasum')     then command = {'shasum', '-a', '256', filepath}
-	elseif exec_exist('gsha256sum') then command = {'gsha256sum', filepath}
-	elseif exec_exist('sha256sum')  then command = {'sha256sum', filepath} end
+	if     exec_exist('shasum', user_opts.exec_path)     then command = {user_opts.exec_path .. 'shasum', '-a', '256', filepath}
+	elseif exec_exist('gsha256sum', user_opts.exec_path) then command = {user_opts.exec_path .. 'gsha256sum', filepath}
+	elseif exec_exist('sha256sum', user_opts.exec_path)  then command = {user_opts.exec_path .. 'sha256sum', filepath} end
 	if not command then return filename end -- checksum command unavailable
 	local res = mp.command_native({name = 'subprocess', args = command, playback_only = false, capture_stdout = true, capture_stderr = true,})
 	return (res and res.stdout) and res.stdout:match('%w+') or filename
