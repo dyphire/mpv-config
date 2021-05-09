@@ -24,5 +24,9 @@
     {
       "label": "更新所有脚本",
       "command": ["script-binding", "manager-update-all"]
+    },
+    {
+      "label": "My custom command",
+      "command": ["script-message", "my_custom_command", "some_data", true]
     }
   ]
