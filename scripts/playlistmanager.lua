@@ -54,9 +54,9 @@ local settings = {
   --json array of filetypes to search from directory
   loadfiles_filetypes = [[
     [
-      "apng", "avif", "bmp", "gif", "heic", "heif", "jpeg", "jpg", "png", "svg", "tif", "tiff", "uci", "webp"
-      "aac", "alac", "ape", "flac", "m4a", "mp3", "ogg", "ogm", "opus", "wav", "wma"
-      "3gp", "avi", "f4v", "flv", "m4v", "mkv", "mov", "mp4", "mpeg", "mpg", "ogv", "rm", "rmvb", "webm", "wmv"
+      "jpg", "jpeg", "png", "tif", "tiff", "gif", "webp", "svg", "bmp",
+      "mp3", "wav", "ogm", "flac", "m4a", "wma", "ogg", "opus",
+      "mkv", "avi", "mp4", "ogv", "webm", "rmvb", "flv", "wmv", "mpeg", "mpg", "m4v", "3gp"
     ]
   ]],
 

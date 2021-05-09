@@ -10,6 +10,16 @@
     "dest":"~~/scripts"
   },
   {
+    "git":"https://github.com/Eisa01/mpv-scripts",
+    "whitelist":"undoredo%.lua$|smartcopypaste%-II%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/po5/trackselect",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
     "git":"https://github.com/NurioHin/mpv-bookmarker",
     "whitelist":"%.lua$",
     "dest":"~~/scripts"
@@ -42,11 +52,6 @@
   {
     "git":"https://github.com/zc62/mpv-scripts",
     "whitelist":"exit%-fullscreen%.lua$|save%-sub%-delay%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
-    "git":"https://github.com/nmoorthy524/mpv-Change-OSD-Media-Title",
-    "whitelist":"%.lua$",
     "dest":"~~/scripts"
   },
   {
@@ -93,6 +98,61 @@
     "git":"https://github.com/deus0ww/mpv-conf",
     "whitelist":"fsrcnnx%_x2%_8%-0%-4%-1%.glsl$|fsrcnnx%_x2%_16%-0%-4%-1%.glsl$|fsrcnnx%_x2%_8%-0%-4%-1%_lineart%.glsl$|fsrcnnx%_x2%_16%-0%-4%-1%_enhance%.glsl$|fsrcnnx%_x2%_16%-0%-4%-1%_anime%_enhance%.glsl$",
     "dest":"~~/shaders"
+  },
+  {
+    "git":"https://github.com/CogentRedTester/mpv-scroll-list",
+    "whitelist":"scroll%-list%.lua$",
+    "dest":"~~/script-modules"
+  },
+  {
+    "git":"https://github.com/CogentRedTester/mpv-scroll-list",
+    "whitelist":"chapter%-list%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/CogentRedTester/mpv-user-input",
+    "whitelist":"user%-input%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/CogentRedTester/mpv-user-input",
+    "whitelist":"user%-input%-module%.lua$",
+    "dest":"~~/script-modules"
+  },
+  {
+    "git":"https://github.com/CogentRedTester/mpv-file-browser",
+    "whitelist":"file%-browser%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/CogentRedTester/mpv-file-browser/tree/master/addons",
+    "whitelist":"%.lua$",
+    "dest":"~~/script-modules/file-browser-addons"
+  },
+  {
+    "git":"https://github.com/CogentRedTester/mpv-changerefresh",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/CogentRedTester/mpv-segment-linking",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/CogentRedTester/mpv-scripts",
+    "whitelist":"onedrive%-hook%.lua$|ordered%-chapters%-playlist%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/CogentRedTester/mpv-search-page",
+    "whitelist":"search%-page%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/CogentRedTester/mpv-sub-select",
+    "whitelist":"sub%-select%.lua$",
+    "dest":"~~/scripts"
   },
   {
     "git":"https://github.com/po5/mpv_manager",

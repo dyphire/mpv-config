@@ -1,9 +1,9 @@
--- Copyright (c) 2020, Eisa AlAwadhi
+-- Copyright (c) 2021, Eisa AlAwadhi
 -- License: BSD 2-Clause License
 
 -- Creator: Eisa AlAwadhi
 -- Project: SmartCopyPaste-II
--- Version: 2.3
+-- Version: 2.4.1
 
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
