@@ -100,6 +100,11 @@
     "dest":"~~/shaders"
   },
   {
+    "git":"https://github.com/CogentRedTester/mpv-menu/tree/scroll-list",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
     "git":"https://github.com/CogentRedTester/mpv-scroll-list",
     "whitelist":"scroll%-list%.lua$",
     "dest":"~~/script-modules"
