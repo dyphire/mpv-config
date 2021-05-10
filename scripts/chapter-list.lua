@@ -44,4 +44,4 @@ mp.observe_property('chapter', 'number', function(_, curr_chapter)
     list:update()
 end)
 
-mp.add_key_binding("Shift+F8", "toggle-chapter-browser", function() list:toggle() end)
+mp.add_key_binding("F7", "toggle-chapter-browser", function() list:toggle() end)
