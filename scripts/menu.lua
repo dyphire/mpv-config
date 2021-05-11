@@ -5,7 +5,7 @@ local settings = {
 
   key_moveup = "UP WHEEL_UP",
   key_movedown = "DOWN WHEEL_DOWN",
-  key_execute = "ENTER MBTN_MID",
+  key_execute = "ENTER MBTN_LEFT",
   key_closemenu = "ESC MBTN_RIGHT",
 }
 

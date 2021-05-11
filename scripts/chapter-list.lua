@@ -1,3 +1,14 @@
+local settings = {
+    display_timeout = 5,
+  
+    loop_cursor = true,
+  
+    key_scroll_down = "DOWN WHEEL_DOWN",
+    key_scroll_up = "UP WHEEL_UP",
+    key_open_chapter = "ENTER MBTN_LEFT",
+    key_close_browser = "ESC MBTN_RIGHT",
+  }
+
 --[[
     This script implements an interractive chapter list
 
@@ -21,12 +32,6 @@ local function open_chapter()
 end
 
 --dynamic keybinds to bind when the list is open
-list.keybinds = {
-    {'DOWN', 'scroll_down', function() list:scroll_down() end, {repeatable = true}},
-    {'UP', 'scroll_up', function() list:scroll_up() end, {repeatable = true}},
-    {'ENTER', 'open_chapter', open_chapter, {} },
-    {'ESC', 'close_browser', function() list:close() end, {}}
-}
 
 --update the list when the current chapter changes
 mp.observe_property('chapter', 'number', function(_, curr_chapter)
@@ -43,5 +48,19 @@ mp.observe_property('chapter', 'number', function(_, curr_chapter)
     end
     list:update()
 end)
+
+list.keybinds = {}
+
+local function add_keys(keys, name, fn, flags)
+    local i = 1
+    for key in keys:gmatch("%S+") do
+      table.insert(list.keybinds, {key, name..i, fn, flags})
+      i = i + 1
+    end
+end
+add_keys(settings.key_scroll_down, 'scroll_down', function() list:scroll_down() end, {repeatable = true})
+add_keys(settings.key_scroll_up, 'scroll_up', function() list:scroll_up() end, {repeatable = true})
+add_keys(settings.key_open_chapter, 'open_chapter', open_chapter, {})
+add_keys(settings.key_close_browser, 'close_browser', function() list:close() end, {})
 
 mp.add_key_binding("F7", "toggle-chapter-browser", function() list:toggle() end)
