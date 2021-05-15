@@ -118,7 +118,7 @@ if settings.language =="zh-cn" and osd_level_value >= "1" then
 			--mp.observe_property("window-scale", "none", function() mp.command("show-text \"视频画面大小倍数 ${window-scale}\"") end)
 			
 			--使用string可以避免下面2条之间的干扰
-			mp.observe_property("video-aspect", "string", function() mp.command("show-text \"画面宽高比例 ${video-aspect}\"") end)
+			mp.observe_property("video-params/aspect", "string", function() mp.command("show-text \"画面宽高比例 ${video-params/aspect}\"") end)
 			mp.observe_property("video-rotate", "none", function() mp.command("show-text \"画面旋转角度: ${video-rotate}\"") end)
 			
 
