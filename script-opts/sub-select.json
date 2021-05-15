@@ -116,27 +116,27 @@
     {
         "alang": "*",
         "slang": ["chs?","sc?","chi?","tc?","zh?","eng?", "und", "no"],
-        "whitelist": ["chs&jpn"]  
+        "whitelist": ["chs&j[ap]n?"]  
     },
     {
         "alang": "*",
         "slang": ["chs?","sc?","chi?","tc?","zh?","eng?", "und", "no"],
-        "whitelist": ["sc&jpn"]  
+        "whitelist": ["sc&j[ap]n?"]  
     },
     {
         "alang": "*",
         "slang": ["chs?","sc?","chi?","tc?","zh?","eng?", "und", "no"],
-        "whitelist": ["chi&jpn"]  
+        "whitelist": ["chi&j[ap]n?"]  
     },
     {
         "alang": "*",
         "slang": ["chs?","sc?","chi?","tc?","zh?","eng?", "und", "no"],
-        "whitelist": ["tc&jpn"]  
+        "whitelist": ["tc&j[ap]n?"]  
     },
     {
         "alang": "*",
         "slang": ["chs?","sc?","chi?","tc?","zh?","eng?", "und", "no"],
-        "whitelist": ["zh&jpn"]  
+        "whitelist": ["zh&j[ap]n?"]  
     },
     {
         "alang": "*",
