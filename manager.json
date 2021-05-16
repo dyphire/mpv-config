@@ -24,7 +24,6 @@
     "whitelist":"%.lua$",
     "dest":"~~/scripts"
   },
-  
   {
     "git":"https://github.com/NurioHin/mpv-bookmarker",
     "whitelist":"%.lua$",
