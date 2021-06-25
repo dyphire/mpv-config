@@ -1,7 +1,10 @@
 --[[
 source: https://gist.github.com/bitingsock/ad58ee5da560ecb922fa4a867ac0ecfd
-默认快捷键 Ctrl+a 和 Alt+a 向上/向下快速切换音频输出设备
 此脚本优于在 input.conf 中使用 cycle-values audio-device 参数的方案
+自定义快捷键 快速切换音频输出设备
+示例在 input.conf 中写入两行：
+CTRL+a  script-binding  cycle_adevice/back
+ALT+a  script-binding  cycle_adevice/next
 ]]--
 
 local api = "wasapi"
@@ -48,5 +51,5 @@ local function cycle_forward()
 	cycle_adevice(1, #deviceList, 1) --'s'tart at device 1, 'e'nd at last device, iterate forward 'd'elta=1
 end
 
-mp.add_key_binding("Alt+a", "cycle_adevice", cycle_forward)
-mp.add_key_binding("Ctrl+a", "cycleBack_adevice", cycle_back)
+mp.add_key_binding(nil, "next", cycle_forward)
+mp.add_key_binding(nil, "back", cycle_back)

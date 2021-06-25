@@ -6,7 +6,7 @@
   },
   {
     "git":"https://github.com/hooke007/MPV_lazy",
-    "whitelist":"autoload%.lua$|ontop%-playback%.lua$|pause%-when%-minimize%.lua$|cycle%-adevice%.lua$",
+    "whitelist":"autoload%.lua$|ontop%_playback%.lua$|pause%-when%-minimize%.lua$|cycle%_adevice%.lua$",
     "dest":"~~/scripts"
   },
   {
