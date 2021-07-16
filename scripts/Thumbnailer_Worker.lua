@@ -243,7 +243,7 @@ local function add_nice(args)
 	if OPERATING_SYSTEM == OS_MAC then
 		add_args(args, worker_options.exec_path .. 'gnice', '-19')
 	elseif OPERATING_SYSTEM == OS_NIX then
-		add_args(args, worker_options.exec_path .. 'nice', '19')
+		add_args(args, worker_options.exec_path .. 'nice', '-n', '19')
 	elseif OPERATING_SYSTEM == OS_WIN then
 		-- unimplemented
 	end

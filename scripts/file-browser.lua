@@ -81,9 +81,13 @@ local o = {
     ass_cursor = "{\\c&00ccff&}"
 }
 
-package.path = mp.command_native({"expand-path", o.module_directory.."/?.lua;"})..package.path
 opt.read_options(o, 'file_browser')
+
+--the osd_overlay API was not added until v0.31. The expand-path command was not added until 0.30
 local ass = mp.create_osd_overlay("ass-events")
+if not ass then return msg.error("Script requires minimum mpv version 0.31") end
+
+package.path = mp.command_native({"expand-path", o.module_directory}).."/?.lua;"..package.path
 
 local state = {
     list = {},
@@ -106,6 +110,7 @@ local state = {
 local parsers = {}
 local extensions = {}
 local sub_extensions = {}
+local parseable_extensions = {}
 
 local dvd_device = nil
 local osd_font = ""
@@ -140,33 +145,37 @@ local subtitle_extensions = {
 --------------------------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------------------------
 
---metatable of methods to manage the cache 
-local __cache = {
-    push = function(self)
-        table.insert(self, {
-            directory = state.directory,
-            directory_label = state.directory_label,
-            list = state.list,
-            selected = state.selected,
-            parser = state.parser,
-            empty_text = state.empty_text
-        })
-    end,
+--metatable of methods to manage the cache
+local __cache = {}
 
-    pop = function(self) table.remove(self) end,
+--inserts latest state values onto the cache stack
+function __cache:push()
+    table.insert(self, {
+        directory = state.directory,
+        directory_label = state.directory_label,
+        list = state.list,
+        selected = state.selected,
+        selection = state.selection,
+        parser = state.parser,
+        empty_text = state.empty_text
+    })
+end
 
-    apply = function(self)
-        for key, value in pairs(self[#self]) do
-            state[key] = value
-        end
-    end,
+function __cache:pop()
+    table.remove(self)
+end
 
-    clear = function(self)
-        for i = 1, #self do
-            self[i] = nil
-        end
+function __cache:apply()
+    for key, value in pairs(self[#self]) do
+        state[key] = value
     end
-}
+end
+
+function __cache:clear()
+    for i = 1, #self do
+        self[i] = nil
+    end
+end
 
 local cache = setmetatable({}, { __index = __cache })
 
@@ -181,6 +190,12 @@ local cache = setmetatable({}, { __index = __cache })
 local function get_full_path(item, dir)
     if item.path then return item.path end
     return (dir or state.directory)..item.name
+end
+
+local function concatenate_path(item, directory)
+    if directory == "" then return item.name end
+    if directory:sub(-1) == "/" then return directory..item.name end
+    return directory.."/"..item.name
 end
 
 --returns the file extension of the given file
@@ -298,55 +313,6 @@ end
 
 
 --------------------------------------------------------------------------------------------------------
------------------------------------------Setup Functions------------------------------------------------
---------------------------------------------------------------------------------------------------------
---------------------------------------------------------------------------------------------------------
-
---sets up the compatible extensions list
-local function setup_extensions_list()
-    if not o.filter_files then return end
-
-    --adding file extensions to the set
-    for i=1, #compatible_file_extensions do
-        extensions[compatible_file_extensions[i]] = true
-    end
-
-    --setting up subtitle extensions
-    for i = 1, #subtitle_extensions do
-        extensions[subtitle_extensions[i]] = true
-        sub_extensions[subtitle_extensions[i]] = true
-    end
-
-    --adding extra extensions on the whitelist
-    for str in string.gmatch(o.extension_whitelist, "([^"..o.root_seperators.."]+)") do
-        extensions[str] = true
-    end
-
-    --removing extensions that are in the blacklist
-    for str in string.gmatch(o.extension_blacklist, "([^"..o.root_seperators.."]+)") do
-        extensions[str] = nil
-    end
-end
-
---splits the string into a table on the semicolons
-local function setup_root()
-    root = {}
-    for str in string.gmatch(o.root, "([^"..o.root_seperators.."]+)") do
-        local path = mp.command_native({'expand-path', str})
-        path = fix_path(path, true)
-
-        local temp = {name = path, type = 'dir', label = str, ass = ass_escape(str)}
-
-        root[#root+1] = temp
-    end
-end
-
-setup_extensions_list()
-setup_root()
-
-
-
---------------------------------------------------------------------------------------------------------
 ------------------------------------Parser Object Implementation----------------------------------------
 --------------------------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------------------------
@@ -360,7 +326,24 @@ end
 
 --setting up functions to provide to addons
 local parser_index = {}
+local parser_ids = {}
 local parser_mt = {}
+
+--create a unique id for the given parser
+local existing_ids = {}
+local function set_parser_id(parser)
+    if not existing_ids[parser.name] then
+        existing_ids[parser.name] = true
+        parser_ids[parser] = parser.name
+        return
+    end
+
+    local n = 2
+    while existing_ids[parser.name..n] do n = n + 1 end
+    existing_ids[parser.name..n] = true
+    parser_ids[parser] = parser.name..n
+end
+
 parser_mt.__index = parser_mt
 parser_mt.valid_file = valid_file
 parser_mt.valid_dir = valid_dir
@@ -376,18 +359,28 @@ parser_mt.join_path = join_path
 function parser_mt.get_script_opts() return copy_table(o) end
 function parser_mt.get_extensions() return copy_table(extensions) end
 function parser_mt.get_sub_extensions() return copy_table(sub_extensions) end
+function parser_mt.get_parseable_extensions() return copy_table(parseable_extensions) end
 function parser_mt.get_state() return copy_table(state) end
 function parser_mt.get_dvd_device() return dvd_device end
 function parser_mt.get_parsers() return copy_table(parsers) end
 function parser_mt.get_root() return copy_table(root) end
 function parser_mt.get_directory() return state.directory end
 function parser_mt.get_current_file() return copy_table(current_file) end
-function parser_mt.get_current_parser() return state.parser.name end
+function parser_mt.get_current_parser() return state.parser:get_id() end
+function parser_mt.get_current_parser_keyname() return state.parser.keybind_name or state.parser.name end
 function parser_mt.get_selected_index() return state.selected end
 function parser_mt.get_selected_item() return copy_table(state.list[state.selected]) end
 function parser_mt.get_open_status() return not state.hidden end
 
 function parser_mt:get_index() return parser_index[self] end
+function parser_mt:get_id() return parser_ids[self] end
+
+--register file extensions which can be opened by the browser
+function parser_mt.register_parseable_extension(ext) parseable_extensions[ext] = true end
+function parser_mt.remove_parseable_extension(ext) parseable_extensions[ext] = nil end
+
+--add a compatible extension to show through the filter, only applies if run during the setup() method
+function parser_mt.add_default_extension(ext) table.insert(compatible_file_extensions, ext) end
 
 --add item to root at position pos
 function parser_mt:insert_root_item(item, pos)
@@ -404,14 +397,14 @@ local function choose_and_parse(directory, index)
     while list == nil and not ( opts and opts.already_deferred ) and index <= #parsers do
         parser = parsers[index]
         if parser:can_parse(directory) then
-            msg.trace("attempting parser:", parser.name)
+            msg.trace("attempting parser:", parser:get_id())
             list, opts = parser:parse(directory)
         end
         index = index + 1
     end
     if not list then return nil, {} end
 
-    msg.debug("list returned from:", parser.name)
+    msg.debug("list returned from:", parser:get_id())
     opts = opts or {}
     if list then opts.index = opts.index or parser_index[parser] end
     return list, opts
@@ -419,6 +412,7 @@ end
 
 --runs choose_and_parse starting from the next parser
 function parser_mt:defer(directory)
+    msg.trace("deferring to other parsers...")
     local list, opts = choose_and_parse(directory, self:get_index() + 1)
     opts.already_deferred = true
     return list, opts
@@ -486,6 +480,9 @@ local file_parser = {
 }
 
 parsers[1] = setmetatable(file_parser, parser_mt)
+setmetatable(root_parser, parser_mt)
+set_parser_id(file_parser)
+set_parser_id(root_parser)
 
 --loading external addons
 if o.addons then
@@ -495,18 +492,17 @@ if o.addons then
 
     for _, file in ipairs(files) do
         if file:sub(-4) == ".lua" then
-            local addon = dofile(addon_dir..file)
-            local addon_parsers = {}
+            local addon_parsers = dofile(addon_dir..file)
 
             --if the table contains a priority key then we assume it isn't an array of parsers
-            if addon.priority then addon_parsers[1] = addon
-            else addon_parsers = addon end
+            if addon_parsers.priority then addon_parsers = {addon_parsers} end
 
             for _, parser in ipairs(addon_parsers) do
                 parser = setmetatable(parser, copy_table(parser_mt))
                 parser.name = parser.name or file:gsub("%-browser%.lua$", ""):gsub("%.lua$", "")
+                set_parser_id(parser)
 
-                msg.verbose("imported parser", parser.name, "from", file)
+                msg.verbose("imported parser", parser:get_id(), "from", file)
                 if type(parser.priority) ~= "number" then error("addon "..file.." needs a numeric priority") end
 
                 table.insert(parsers, parser)
@@ -514,12 +510,9 @@ if o.addons then
         end
     end
     table.sort(parsers, function(a, b) return a.priority < b.priority end)
-end
 
---we want to store the index of each parser and run the setup functions
-for i = #parsers, 1, -1 do
-    parser_index[ parsers[i] ] = i
-    if parsers[i].setup then parsers[i]:setup() end
+    --we want to store the indexes of the parsers
+    for i = #parsers, 1, -1 do parser_index[ parsers[i] ] = i end
 end
 
 
@@ -543,7 +536,7 @@ end
 --detects whether or not to highlight the given entry as being played
 local function highlight_entry(v)
     if current_file.name == nil then return false end
-    if v.type == "dir" then
+    if v.type == "dir" or parseable_extensions[get_extension(v.name) or ""] then
         return current_file.directory:find(get_full_path(v), 1, true)
     else
         return current_file.directory..current_file.name == get_full_path(v)
@@ -747,7 +740,7 @@ end
 local function select_prev_directory()
     if state.prev_directory:find(state.directory, 1, true) == 1 then
         local i = 1
-        while (state.list[i] and state.list[i].type == "dir") do
+        while (state.list[i] and (state.list[i].type == "dir" or parseable_extensions[get_extension(state.list[i].name) or ""])) do
             if state.prev_directory:find(get_full_path(state.list[i]), 1, true) then
                 state.selected = i
                 return
@@ -771,7 +764,7 @@ local function scan_directory(directory)
     msg.verbose("scanning files in", directory)
     local list, opts = choose_and_parse(directory, 1)
 
-    if list == nil then msg.debug("no successful parsers - using root"); return root_parser:parse() end
+    if list == nil then msg.debug("no successful parsers found"); return nil end
     opts.parser = parsers[opts.index]
     if not opts.filtered then filter(list) end
     if not opts.sorted then sort(list) end
@@ -792,11 +785,23 @@ local function update_list()
         msg.verbose('found directory in cache')
         cache:apply()
         state.prev_directory = state.directory
-        update_ass()
         return
     end
 
     local list, opts = scan_directory(state.directory)
+
+    --apply fallbacks if the scan failed
+    if not list and cache[1] then
+        --switches settings back to the previously opened directory
+        --to the user it will be like the directory never changed
+        msg.warn("could not read directory", state.directory)
+        cache:apply()
+        return
+    elseif not list then
+        msg.warn("could not read directory", state.directory)
+        list, opts = root_parser:parse()
+    end
+
     state.list = list
     state.parser = opts.parser
 
@@ -826,7 +831,6 @@ local function update_list()
 
     select_prev_directory()
     state.prev_directory = state.directory
-    update_ass()
 end
 
 --rescans the folder and updates the list
@@ -840,6 +844,7 @@ local function update(moving_adjacent)
     update_ass()
     state.empty_text = "empty directory"
     update_list()
+    update_ass()
 end
 
 --loads the root list
@@ -880,10 +885,10 @@ end
 --moves down a directory
 local function down_dir()
     local current = state.list[state.selected]
-    if not current or current.type ~= 'dir' then return end
+    if not current or current.type ~= 'dir' and not parseable_extensions[get_extension(current.name)] then return end
 
     cache:push()
-    state.directory = state.directory..current.name
+    state.directory = concatenate_path(current, state.directory)
 
     --we can make some assumptions about the next directory label when moving up or down
     if state.directory_label then state.directory_label = state.directory_label..(current.label or current.name) end
@@ -956,16 +961,27 @@ end
 --recursive function to load directories using the script custom parsers
 local function custom_loadlist_recursive(directory, flag)
     local list, opts = scan_directory(directory)
-    if not list or list == root then return end
+    if list == root then return end
+
+    --if we can't parse the directory then append it and hope mpv fares better
+    if list == nil then
+        msg.warn("Could not parse", directory, "appending to playlist anyway")
+        mp.commandv("loadfile", directory, flag)
+        flag = "append"
+        return true
+    end
+
     directory = opts.directory or directory
     if directory == "" then return end
 
     for _, item in ipairs(list) do
         if not sub_extensions[ get_extension(item.name) ] then
-            local path = get_full_path(item, directory)
-            if item.type == "dir" then
-                if custom_loadlist_recursive(path, flag) then flag = "append" end
+            if item.type == "dir" or parseable_extensions[get_extension(item.name)] then
+                if custom_loadlist_recursive( concatenate_path(item, directory) , flag) then flag = "append" end
             else
+                local path = get_full_path(item, directory)
+
+                msg.warn("Appending", path, "to the playlist")
                 mp.commandv("loadfile", path, flag)
                 flag = "append"
             end
@@ -1011,7 +1027,7 @@ end
 --runs the loadfile or loadlist command
 local function loadfile(item, flag, autoload)
     local path = get_full_path(item)
-    if item.type == "dir" then return loadlist(path, flag) end
+    if item.type == "dir" or parseable_extensions[ get_extension(item.name) ] then return loadlist(path, flag) end
 
     if sub_extensions[ get_extension(item.name) ] then
         mp.commandv("sub-add", path, flag == "replace" and "select" or "auto")
@@ -1084,8 +1100,8 @@ local function format_command_table(t, cmd, items)
             ["%P"] = string.format("%q", cmd.directory or ""),
             ["%d"] = (cmd.directory_label or cmd.directory):match("([^/]+)/?$") or "",
             ["%D"] = string.format("%q", (cmd.directory_label or cmd.directory):match("([^/]+)/$") or ""),
-            ["%r"] = state.parser.name or "",
-            ["%R"] = string.format("%q", state.parser.name or "")
+            ["%r"] = state.parser.keybind_name or state.parser.name or "",
+            ["%R"] = string.format("%q", state.parser.keybind_name or state.parser.name or "")
         })
     end
     return copy
@@ -1125,7 +1141,7 @@ end
 
 --runs one of the custom commands
 local function custom_command(cmd)
-    if cmd.parser and cmd.parser ~= state.parser.name then return false end
+    if cmd.parser and cmd.parser ~= (state.parser.keybind_name or state.parser.name) then return false end
 
     --saving these values in-case the directory is changes while commands are being passed
     cmd.directory = state.directory
@@ -1216,6 +1232,60 @@ if o.custom_keybinds then
 end
 
 
+--------------------------------------------------------------------------------------------------------
+-----------------------------------------Setup Functions------------------------------------------------
+--------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------
+
+--sets up the compatible extensions list
+local function setup_extensions_list()
+    if not o.filter_files then return end
+
+    --adding file extensions to the set
+    for i=1, #compatible_file_extensions do
+        extensions[compatible_file_extensions[i]] = true
+    end
+
+    --setting up subtitle extensions
+    for i = 1, #subtitle_extensions do
+        extensions[subtitle_extensions[i]] = true
+        sub_extensions[subtitle_extensions[i]] = true
+    end
+
+    --adding extra extensions on the whitelist
+    for str in string.gmatch(o.extension_whitelist, "([^"..o.root_seperators.."]+)") do
+        extensions[str] = true
+    end
+
+    --removing extensions that are in the blacklist
+    for str in string.gmatch(o.extension_blacklist, "([^"..o.root_seperators.."]+)") do
+        extensions[str] = nil
+    end
+end
+
+--splits the string into a table on the semicolons
+local function setup_root()
+    root = {}
+    for str in string.gmatch(o.root, "([^"..o.root_seperators.."]+)") do
+        local path = mp.command_native({'expand-path', str})
+        path = fix_path(path, true)
+
+        local temp = {name = path, type = 'dir', label = str, ass = ass_escape(str)}
+
+        root[#root+1] = temp
+    end
+end
+
+setup_root()
+
+--we want to store the index of each parser and run the setup functions
+for i = #parsers, 1, -1 do
+    if parsers[i].setup then parsers[i]:setup() end
+end
+
+setup_extensions_list()
+
+
 
 ------------------------------------------------------------------------------------------
 --------------------------------mpv API Callbacks-----------------------------------------
@@ -1266,10 +1336,10 @@ mp.register_script_message('browse-directory', browse_directory)
 ------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
-local ui = nil
+local input = nil
 
-if pcall(function() ui = require "user-input-module" end) then
+if pcall(function() input = require "user-input-module" end) then
     mp.add_key_binding("Alt+o", "browse-directory/get-user-input", function()
-        ui.get_user_input(browse_directory, {text = "[file-browser] open directory:"})
+        input.get_user_input(browse_directory, {request_text = "open directory:"})
     end)
 end
