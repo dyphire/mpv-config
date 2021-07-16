@@ -33,7 +33,7 @@ function mod.get_user_input(fn, options)
     mp.commandv("script-message-to", "user_input", "request-user-input",
         response_string,
         name .. '/' .. (options.id or ""),      -- id code for the request
-        options.request_text or options.text or (name.." is requesting user input:"),
+        "["..(options.source or name).."] "..(options.request_text or options.text or ("requesting user input:")),
         options.default_input or "",
         options.queueable and "1" or "",
         options.replace and "1" or ""

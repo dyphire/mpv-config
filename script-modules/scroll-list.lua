@@ -162,8 +162,8 @@ end
 
 --modifiable function that opens the list
 function scroll_list:open()
+    if self.hidden then self:add_keybinds() end
     self:open_list()
-    self:add_keybinds()
 end
 
 --modifiable function that closes the list
