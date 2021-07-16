@@ -302,4 +302,3 @@ mp.register_script_message("sub-select", function(arg)
     async_load()
     if o.observe_audio_switches then latest_audio = find_current_audio() end
 end)
-

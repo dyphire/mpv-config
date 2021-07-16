@@ -268,12 +268,13 @@ end
 if o.auto_save then
     -- Using hook, as at the "end-file" event the playback position info is already unset.
     mp.add_hook("on_unload", 9, function ()
-       local pos = mp.get_property("percent-pos")
-       if tonumber(pos) <= o.auto_save_skip_past then
-          write_log(false)
-       else
-          write_log(true)
-       end
+        local pos = mp.get_property("percent-pos")
+        if not pos then return end
+        if tonumber(pos) <= o.auto_save_skip_past then
+            write_log(false)
+        else
+            write_log(true)
+        end
     end)
 else
     mp.add_key_binding(o.save_bind, "recent-save", function()

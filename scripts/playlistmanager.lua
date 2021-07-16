@@ -78,6 +78,9 @@ local settings = {
   --Use ~ for home directory. Leave as empty to use mpv/playlists
   playlist_savepath = "",
 
+  --save playlist automatically after current file was unloaded
+  save_playlist_on_file_end = false,
+
 
   --show playlist or filename every time a new file is loaded
   --2 shows playlist, 1 shows current file(filename strip applied) as osd text, 0 shows nothing
@@ -290,6 +293,7 @@ function on_loaded()
 end
 
 function on_closed()
+  if settings.save_playlist_on_file_end then save_playlist() end
   strippedname = nil
   path = nil
   directory = nil
@@ -530,9 +534,8 @@ end
 
 function write_watch_later(force_write)
   if mp.get_property_bool("save-position-on-quit") or force_write then
-    print("WRITING WATHC LATER FIEL")
-	  mp.command("write-watch-later-config")
-	end
+    mp.command("write-watch-later-config")
+  end
 end
 
 function playlist_next(force_write)
