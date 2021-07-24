@@ -93,11 +93,11 @@
         "slang": ["chs?","sc?","chi?","tc?","zh?","eng?", "und", "no"],
         "whitelist": ["sc"]  
     },
-    {
-        "alang": "eng?",
-        "slang": ["chs?","sc?","chi?","tc?","zh?","eng?", "und", "no"],
-        "whitelist": ["chi"]  
-    },
+    //{
+    //    "alang": "eng?",
+    //    "slang": ["chs?","sc?","chi?","tc?","zh?","eng?", "und", "no"],
+    //    "whitelist": ["chi"]  
+    //},
     {
         "alang": "eng?",
         "slang": ["chs?","sc?","chi?","tc?","zh?","eng?", "und", "no"],
@@ -173,11 +173,11 @@
         "slang": ["chs?","sc?","chi?","tc?","zh?","eng?", "und", "no"],
         "whitelist": ["sc"]  
     },
-    {
-        "alang": "*",
-        "slang": ["chs?","sc?","chi?","tc?","zh?","eng?", "und", "no"],
-        "whitelist": ["chi"]  
-    },
+    //{
+    //    "alang": "*",
+    //    "slang": ["chs?","sc?","chi?","tc?","zh?","eng?", "und", "no"],
+    //    "whitelist": ["chi"]  
+    //},
     {
         "alang": "*",
         "slang": ["chs?","sc?","chi?","tc?","zh?","eng?", "und", "no"],
