@@ -41,11 +41,6 @@
     {
         "alang": "j[ap]n?",
         "slang": ["chs?","sc?","chi?","tc?","zh?","eng?", "und", "no"],
-        "whitelist": ["chi"]  
-    },
-    {
-        "alang": "j[ap]n?",
-        "slang": ["chs?","sc?","chi?","tc?","zh?","eng?", "und", "no"],
         "whitelist": ["tc"]  
     },
     {
