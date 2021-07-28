@@ -1,7 +1,7 @@
 [
   {
     "git":"https://github.com/mpv-player/mpv",
-    "whitelist":"autocrop%.lua$|autodeint%.lua$|pause%-when%-minimize%.lua$",
+    "whitelist":"autocrop%.lua$|autodeint%.lua$",
     "dest":"~~/scripts"
   },
   {
@@ -47,11 +47,6 @@
   {
     "git":"https://github.com/VideoPlayerCode/mpv-tools",
     "whitelist":"cycle%-video%-rotate%.lua$|quick%-scale%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
-    "git":"https://github.com/zenyd/mpv-scripts",
-    "whitelist":"delete%_file%.lua$",
     "dest":"~~/scripts"
   },
   {
