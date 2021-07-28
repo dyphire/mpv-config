@@ -1,3 +1,25 @@
+--[[
+SOURCE_https://github.com/deus0ww/mpv-conf/blob/master/scripts/Thumbnailer_OSC.lua
+COMMIT_20210706_11c840d
+SOURCE_https://github.com/mpv-player/mpv/blob/master/player/lua/osc.lua
+COMMIT_20210705_d2dd4ca
+缩略图引擎的OSC部分
+
+示例在 input.conf 中写入：
+SHIFT+DEL  script-binding Thumbnailer_OSC/visibility  # 切换 Thumbnailer_OSC的可见性
+--]]
+
+local orig_osc = mp.get_property('osc')
+if orig_osc == 'yes' then
+    local err = "_____\n{\\1c&H0000FF&}注意：\n必须设置 {\\1c&H0000FF&}osc=no\n打开控制台查看更多信息"
+    mp.set_osd_ass(1280, 720, err)
+    mp.msg.warn("脚本已自动执行 osc=no 以临时兼容缩略图脚本")
+    mp.msg.warn("正确编辑 mpv.conf 重启程序即可")
+    mp.msg.warn("不要在运行中更改参数 --osc 的状态")
+    mp.msg.warn("注意其它osc类脚本亦不应共存")
+    mp.set_property('osc', 'no')
+end
+
 local ipairs,loadfile,pairs,pcall,tonumber,tostring = ipairs,loadfile,pairs,pcall,tonumber,tostring
 local debug,io,math,os,string,table,utf8 = debug,io,math,os,string,table,utf8
 local min,max,floor,ceil,huge = math.min,math.max,math.floor,math.ceil,math.huge
@@ -60,7 +82,7 @@ local user_opts = {
 }
 
 -- read options from config and command-line
-opt.read_options(user_opts, "osc", function(list) update_options(list) end)
+opt.read_options(user_opts, "Thumbnailer_OSC", function(list) update_options(list) end)
 
 
 
@@ -68,7 +90,6 @@ opt.read_options(user_opts, "osc", function(list) update_options(list) end)
 
 
 
--- deus0ww - 2021-06-21
 
 ------------
 -- tn_osc --
@@ -3054,9 +3075,9 @@ function tick()
         end
 
         ass:new_event()
-        ass:pos(320, icon_y+65)
+        ass:pos(320, icon_y+100)
         ass:an(8)
-        ass:append("Drop files or URLs to play here.")
+        ass:append("拖入文件或网址进行播放")
         set_osd(640, 360, ass.text)
 
         if state.showhide_enabled then
@@ -3278,7 +3299,7 @@ function visibility_mode(mode, no_osd)
     utils.shared_script_property_set("osc-visibility", mode)
 
     if not no_osd and tonumber(mp.get_property("osd-level")) >= 1 then
-        mp.osd_message("OSC visibility: " .. mode)
+        mp.osd_message("Thumbnailer_OSC的可见性：" .. mode)
     end
 
     -- Reset the input state on a mode change. The input state will be

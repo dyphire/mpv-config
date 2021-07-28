@@ -1,12 +1,12 @@
 [
   {
     "git":"https://github.com/mpv-player/mpv",
-    "whitelist":"autocrop%.lua$|autodeint%.lua$",
+    "whitelist":"autocrop%.lua$|autodeint%.lua$|pause%-when%-minimize%.lua$",
     "dest":"~~/scripts"
   },
   {
     "git":"https://github.com/hooke007/MPV_lazy",
-    "whitelist":"autoload%.lua$|ontop%_playback%.lua$|pause%-when%-minimize%.lua$|cycle%_adevice%.lua$",
+    "whitelist":"autoload%.lua$|ontop%_playback%.lua$|cycle%_adevice%.lua$|thumbnailer%.lua$|thumbnailer%_osc%.lua$|thumbnailer%_worker%.lua$",
     "dest":"~~/scripts"
   },
   {
@@ -67,11 +67,6 @@
   {
     "git":"https://github.com/hacel/mpv-scripts",
     "whitelist":"recent%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
-    "git":"https://github.com/deus0ww/mpv-conf",
-    "whitelist":"thumbnailer%.lua$|thumbnailer%_osc%.lua$|thumbnailer%_worker%.lua$",
     "dest":"~~/scripts"
   },
   {
