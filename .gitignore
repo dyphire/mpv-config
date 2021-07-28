@@ -1,0 +1,8 @@
+*.log
+*.xml
+
+playlists/
+screen/
+shaders_cache/
+watch_later/
+icc_cache/
