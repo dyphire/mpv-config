@@ -21,6 +21,11 @@
     {
         "alang": "j[ap]n?",
         "slang": ["chs?","sc?","cht?","tc?","zh?","eng?", "und", "no"],
+        "whitelist": ["ch&j[ap]n?"]  
+    },
+    {
+        "alang": "j[ap]n?",
+        "slang": ["chs?","sc?","cht?","tc?","zh?","eng?", "und", "no"],
         "whitelist": ["tc&j[ap]n?"]  
     },
     {
@@ -67,6 +72,11 @@
         "alang": "eng?",
         "slang": ["chs?","sc?","cht?","tc?","zh?","eng?", "und", "no"],
         "whitelist": ["cht&eng?"]  
+    },
+    {
+        "alang": "eng?",
+        "slang": ["chs?","sc?","cht?","tc?","zh?","eng?", "und", "no"],
+        "whitelist": ["ch&eng?"]  
     },
     {
         "alang": "eng?",
@@ -126,6 +136,11 @@
     {
         "alang": "*",
         "slang": ["chs?","sc?","cht?","tc?","zh?","eng?", "und", "no"],
+        "whitelist": ["ch&j[ap]n?"]  
+    },
+    {
+        "alang": "*",
+        "slang": ["chs?","sc?","cht?","tc?","zh?","eng?", "und", "no"],
         "whitelist": ["tc&j[ap]n?"]  
     },
     {
@@ -147,6 +162,11 @@
         "alang": "*",
         "slang": ["chs?","sc?","cht?","tc?","zh?","eng?", "und", "no"],
         "whitelist": ["cht&eng?"]  
+    },
+    {
+        "alang": "*",
+        "slang": ["chs?","sc?","cht?","tc?","zh?","eng?", "und", "no"],
+        "whitelist": ["ch&eng?"]  
     },
     {
         "alang": "*",
