@@ -1,5 +1,7 @@
 *.log
 *.xml
+*.ttc
+*.ttf
 
 playlists/
 screen/
