@@ -10,8 +10,13 @@
     "dest":"~~/scripts"
   },
   {
-    "git":"https://github.com/Eisa01/mpv-scripts",
-    "whitelist":"undoredo%.lua$|smartcopypaste%-II%.lua$",
+    "git":"https://github.com/snylonue/mpv_slicing_copy",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/DonCanjas/mpv-webp-generator",
+    "whitelist":"%.lua$",
     "dest":"~~/scripts"
   },
   {
@@ -37,11 +42,6 @@
   {
     "git":"https://github.com/jonniek/mpv-playlistmanager",
     "whitelist":"%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
-    "git":"https://github.com/jonniek/mpv-scripts",
-    "whitelist":"customscreenshot%.lua$|trashfileonend%.lua$",
     "dest":"~~/scripts"
   },
   {
