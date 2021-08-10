@@ -2,6 +2,7 @@
 *.ttc
 *.ttf
 
+cutfragments/
 playlists/
 screen/
 shaders_cache/
