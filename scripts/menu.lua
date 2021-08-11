@@ -83,4 +83,4 @@ add_keys(settings.key_movedown, 'movedown', function() list:scroll_down() end, {
 add_keys(settings.key_execute, 'execute', execute, {})
 add_keys(settings.key_closemenu, 'closemenu', function() list:close() end, {})
 
-mp.add_key_binding("MBTN_MID", "simplemenu-toggle", function() list:toggle() end)
+mp.add_key_binding(nil, "simplemenu-toggle", function() list:toggle() end)
