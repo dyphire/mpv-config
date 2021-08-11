@@ -66,12 +66,12 @@
   },
   {
     "git":"https://github.com/deus0ww/mpv-conf",
-    "whitelist":"krigbilateral%.glsl$|ssimdownscaler%.glsl$|ssimsuperres%.glsl$",
+    "whitelist":"krigbilateral%.glsl$|ssimdownscaler%.glsl$|ssimsuperres%.glsl$|adaptive%-sharpen%.glsl$",
     "dest":"~~/shaders"
   },
   {
     "git":"https://github.com/bjin/mpv-prescalers",
-    "whitelist":"ravu%-zoom%-r4%.hook$",
+    "whitelist":"ravu%-zoom%-r4%.hook$|ravu%-lite%-r4%.hook$",
     "dest":"~~/shaders"
   },
   {
