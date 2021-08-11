@@ -45,6 +45,11 @@
     "dest":"~~/scripts"
   },
   {
+    "git":"https://github.com/zenyd/mpv-scripts",
+    "whitelist":"delete%_file%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
     "git":"https://github.com/zc62/mpv-scripts",
     "whitelist":"exit%-fullscreen%.lua$|save%-sub%-delay%.lua$",
     "dest":"~~/scripts"
