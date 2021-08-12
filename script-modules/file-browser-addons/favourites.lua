@@ -55,7 +55,12 @@ local function create_favourite_object(str)
 end
 
 function favs:setup()
-    self:insert_root_item({name = "Favourites/", label = "Favourites"}, 1)
+    local root = self.get_root()
+    local fav_exists = false
+    for _, item in ipairs(root) do
+        if item.name:find("Favourites/?$") then fav_exists = true end
+    end
+    if not fav_exists then self:insert_root_item({name = "Favourites/", label = "Favourites"}, 1) end
 end
 
 local function update_favourites()
