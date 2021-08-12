@@ -164,4 +164,4 @@ end
 o.target_dir = mp.command_native({ "expand-path", o.target_dir })
 mp.add_key_binding("c", "slicing_mark", toggle_mark)
 mp.add_key_binding("a", "slicing_audio", toggle_audio)
-mp.add_key_binding("CTRL+c", "clear_slicing_mark", clear_toggle_mark)
+mp.add_key_binding("C", "clear_slicing_mark", clear_toggle_mark)

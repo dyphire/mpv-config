@@ -11,10 +11,12 @@ local drive_letters = {
 }
 
 local mp = require "mp"
+local msg = require "mp.msg"
 
 local wn = {
     priority = 109,
-    name = "file"
+    name = "powershell",
+    keybind_name = "file"
 }
 
 local drives = {}
@@ -27,10 +29,11 @@ local function command(args)
         name = "subprocess",
         playback_only = false,
         capture_stdout = true,
+        capture_stderr = true,
         args = args
     })
 
-    return cmd.status == 0 and cmd.stdout or nil
+    return cmd.status == 0 and cmd.stdout or nil, cmd.stderr
 end
 
 function wn:can_parse(directory)
@@ -39,7 +42,7 @@ end
 
 function wn:parse(directory)
     local list = {}
-    local files = command({"powershell", "-noprofile", "-command", [[
+    local files, err = command({"powershell", "-noprofile", "-command", [[
         $dirs = Get-ChildItem -LiteralPath ]]..string.format("%q", directory)..[[ -Directory
         $files = Get-ChildItem -LiteralPath ]]..string.format("%q", directory)..[[ -File
 
@@ -57,7 +60,7 @@ function wn:parse(directory)
         }
     ]]})
 
-    if not files then return nil end
+    if not files then msg.debug(err) ; return nil end
 
     for str in files:gmatch("[^\n\r]+") do
         local is_dir = str:sub(-1) == "/"
