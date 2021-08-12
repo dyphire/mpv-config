@@ -16,7 +16,7 @@
   },
   {
     "git":"https://github.com/DonCanjas/mpv-webp-generator",
-    "whitelist":"%.lua$",
+    "whitelist":"mpv%-webp%.lua$",
     "dest":"~~/scripts"
   },
   {
@@ -35,13 +35,13 @@
     "dest":"~~/scripts"
   },
   {
-    "git":"https://github.com/detuur/mpv-scripts",
-    "whitelist":"boss%-key%.lua$",
+    "git":"https://github.com/jonniek/mpv-playlistmanager",
+    "whitelist":"%.lua$",
     "dest":"~~/scripts"
   },
   {
-    "git":"https://github.com/jonniek/mpv-playlistmanager",
-    "whitelist":"%.lua$",
+    "git":"https://github.com/detuur/mpv-scripts",
+    "whitelist":"boss%-key%.lua$",
     "dest":"~~/scripts"
   },
   {
@@ -85,11 +85,6 @@
     "dest":"~~/shaders"
   },
   {
-    "git":"https://github.com/bjin/mpv-prescalers",
-    "whitelist":"ravu%-zoom%-r4%.hook$|ravu%-lite%-r4%.hook$",
-    "dest":"~~/shaders"
-  },
-  {
     "git":"https://github.com/deus0ww/mpv-conf",
     "whitelist":"fsrcnnx%_x2%_8%-0%-4%-1%.glsl$|fsrcnnx%_x2%_16%-0%-4%-1%.glsl$|fsrcnnx%_x2%_8%-0%-4%-1%_lineart%.glsl$|fsrcnnx%_x2%_16%-0%-4%-1%_enhance%.glsl$|fsrcnnx%_x2%_16%-0%-4%-1%_anime%_enhance%.glsl$",
     "dest":"~~/shaders"
@@ -115,8 +110,8 @@
     "dest":"~~/scripts"
   },
   {
-    "git":"https://github.com/CogentRedTester/mpv-file-browser/tree/master/addons",
-    "whitelist":"%.lua$",
+    "git":"https://github.com/CogentRedTester/mpv-file-browser",
+    "whitelist":"ls%.lua$|favourites%.lua$|powershell%.lua$|apache%-browser%.lua$|home%-label%.lua$|m3u%-browser%.lua$|ftp%-browser%.lua$",
     "dest":"~~/script-modules/file-browser-addons"
   },
   {
