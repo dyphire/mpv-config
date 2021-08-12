@@ -16,7 +16,7 @@
   },
   {
     "git":"https://github.com/DonCanjas/mpv-webp-generator",
-    "whitelist":"%.lua$",
+    "whitelist":"mpv%-webp%.lua$",
     "dest":"~~/scripts"
   },
   {
@@ -30,18 +30,23 @@
     "dest":"~~/scripts"
   },
   {
+    "git":"https://github.com/CogentRedTester/mpv-sub-select",
+    "whitelist":"sub%-select%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
     "git":"https://github.com/NurioHin/mpv-bookmarker",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/jonniek/mpv-playlistmanager",
     "whitelist":"%.lua$",
     "dest":"~~/scripts"
   },
   {
     "git":"https://github.com/detuur/mpv-scripts",
     "whitelist":"boss%-key%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
-    "git":"https://github.com/jonniek/mpv-playlistmanager",
-    "whitelist":"%.lua$",
     "dest":"~~/scripts"
   },
   {
@@ -52,6 +57,21 @@
   {
     "git":"https://github.com/zc62/mpv-scripts",
     "whitelist":"exit%-fullscreen%.lua$|save%-sub%-delay%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/CogentRedTester/mpv-changerefresh",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/CogentRedTester/mpv-segment-linking",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/CogentRedTester/mpv-scripts",
+    "whitelist":"onedrive%-hook%.lua$|ordered%-chapters%-playlist%.lua$",
     "dest":"~~/scripts"
   },
   {
@@ -72,11 +92,6 @@
   {
     "git":"https://github.com/deus0ww/mpv-conf",
     "whitelist":"krigbilateral%.glsl$|ssimdownscaler%.glsl$|ssimsuperres%.glsl$|adaptive%-sharpen%.glsl$",
-    "dest":"~~/shaders"
-  },
-  {
-    "git":"https://github.com/bjin/mpv-prescalers",
-    "whitelist":"ravu%-zoom%-r4%.hook$|ravu%-lite%-r4%.hook$",
     "dest":"~~/shaders"
   },
   {
