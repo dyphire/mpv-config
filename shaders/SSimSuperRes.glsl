@@ -16,21 +16,20 @@
 //!HOOK POSTKERNEL
 //!BIND HOOKED
 //!SAVE LOWRES
-//!WIDTH NATIVE_CROPPED.w
 //!HEIGHT NATIVE_CROPPED.h
 //!WHEN NATIVE_CROPPED.h OUTPUT.h <
 //!COMPONENTS 4
-//!DESC SSSR Downscaling 1 [robidoux]
+//!DESC SSSR Downscaling I
 
 #define axis 1
 
 #define offset      vec2(0,0)
 
 #define MN(B,C,x)   (x < 1.0 ? ((2.-1.5*B-(C))*x + (-3.+2.*B+C))*x*x + (1.-(B)/3.) : (((-(B)/6.-(C))*x + (B+5.*C))*x + (-2.*B-8.*C))*x+((4./3.)*B+4.*C))
-#define Kernel(x)   MN(0.3782157550939987, 0.3108921224530007, abs(x))
+#define Kernel(x)   MN(0.334, 0.333, abs(x))
 #define taps        2.0
 
-#define Luma(rgb)   ( dot(rgb*rgb, vec3(0.212655, 0.715158, 0.072187)) )
+#define Luma(rgb)   ( dot(rgb*rgb, vec3(0.2126, 0.7152, 0.0722)) )
 
 vec4 hook() {
     // Calculate bounds
@@ -64,17 +63,17 @@ vec4 hook() {
 //!HEIGHT NATIVE_CROPPED.h
 //!WHEN NATIVE_CROPPED.w OUTPUT.w <
 //!COMPONENTS 4
-//!DESC SSSR Downscaling 2 [robidoux]
+//!DESC SSSR Downscaling II
 
 #define axis 0
 
 #define offset      vec2(0,0)
 
 #define MN(B,C,x)   (x < 1.0 ? ((2.-1.5*B-(C))*x + (-3.+2.*B+C))*x*x + (1.-(B)/3.) : (((-(B)/6.-(C))*x + (B+5.*C))*x + (-2.*B-8.*C))*x+((4./3.)*B+4.*C))
-#define Kernel(x)   MN(0.3782157550939987, 0.3108921224530007, abs(x))
+#define Kernel(x)   MN(0.334, 0.333, abs(x))
 #define taps        2.0
 
-#define Luma(rgb)   ( dot(rgb*rgb, vec3(0.212655, 0.715158, 0.072187)) )
+#define Luma(rgb)   ( dot(rgb*rgb, vec3(0.2126, 0.7152, 0.0722)) )
 
 vec4 hook() {
     // Calculate bounds
@@ -116,7 +115,7 @@ vec4 hook() {
 #define GetL(x,y)   PREKERNEL_tex(PREKERNEL_pt*(PREKERNEL_pos * input_size + tex_offset + vec2(x,y))).rgb
 
 #define Gamma(x)    ( pow(clamp(x, 0.0, 1.0), vec3(1.0/2.0)) )
-#define Luma(rgb)   ( dot(rgb*rgb, vec3(0.212655, 0.715158, 0.072187)) )
+#define Luma(rgb)   ( dot(rgb*rgb, vec3(0.2126, 0.7152, 0.0722)) )
 
 vec4 hook() {
     vec3 meanL = vec3(0);
@@ -151,7 +150,7 @@ vec4 hook() {
 #define GetH(x,y)   LOWRES_texOff(vec2(x,y)).rgb
 
 #define Gamma(x)    ( pow(clamp(x, 0.0, 1.0), vec3(1.0/2.0)) )
-#define Luma(rgb)   ( dot(rgb*rgb, vec3(0.212655, 0.715158, 0.072187)) )
+#define Luma(rgb)   ( dot(rgb*rgb, vec3(0.2126, 0.7152, 0.0722)) )
 
 vec4 hook() {
     vec3 meanH = vec3(0);
@@ -177,7 +176,7 @@ vec4 hook() {
 //!BIND varL
 //!BIND varH
 //!WHEN NATIVE_CROPPED.h OUTPUT.h <
-//!DESC SSSR Final
+//!DESC SSSR final pass
 
 // -- Window Size --
 #define taps        3.0
@@ -197,7 +196,7 @@ vec4 hook() {
 
 #define Gamma(x)    ( pow(clamp(x, 0.0, 1.0), vec3(1.0/2.0)) )
 #define GammaInv(x) ( pow(clamp(x, 0.0, 1.0), vec3(2.0)) )
-#define Luma(rgb)   ( dot(rgb*rgb, vec3(0.212655, 0.715158, 0.072187)) )
+#define Luma(rgb)   ( dot(rgb*rgb, vec3(0.2126, 0.7152, 0.0722)) )
 
 vec4 hook() {
     vec4 c0 = HOOKED_tex(HOOKED_pos);
