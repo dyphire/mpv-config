@@ -19,13 +19,13 @@
 //!SAVE LOWRES_Y
 //!WIDTH LUMA.w
 //!WHEN CHROMA.w LUMA.w <
-//!DESC KrigBilateral Downscaling Y 1
+//!DESC KrigBilateral Downscaling Y pass 1
 
 #define offset      vec2(0)
 
 #define axis        1
 
-#define Kernel(x)   dot(vec3(0.426590713671539, -0.496560619088564, 0.0768486672398968), cos(vec3(0, 1, 2) * acos(-1.) * (x + 1.)))
+#define Kernel(x)   dot(vec3(0.42659, -0.49656, 0.076849), cos(vec3(0, 1, 2) * acos(-1.) * (x + 1.)))
 
 vec4 hook() {
     // Calculate bounds
@@ -56,13 +56,13 @@ vec4 hook() {
 //!BIND LOWRES_Y
 //!SAVE LOWRES_Y
 //!WHEN CHROMA.w LUMA.w <
-//!DESC KrigBilateral Downscaling Y 2
+//!DESC KrigBilateral Downscaling Y pass 2
 
 #define offset      vec2(0)
 
 #define axis        0
 
-#define Kernel(x)   dot(vec3(0.426590713671539, -0.496560619088564, 0.0768486672398968), cos(vec3(0, 1, 2) * acos(-1.) * (x + 1.)))
+#define Kernel(x)   dot(vec3(0.42659, -0.49656, 0.076849), cos(vec3(0, 1, 2) * acos(-1.) * (x + 1.)))
 
 vec4 hook() {
     // Calculate bounds
