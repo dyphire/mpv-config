@@ -1,7 +1,12 @@
 [
   {
     "git":"https://github.com/mpv-player/mpv",
-    "whitelist":"autocrop%.lua$|autodeint%.lua$",
+    "whitelist":"autodeint%.lua$|pause%-when%-minimize%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/Ashyni/mpv-scripts#dynamic-croplua",
+    "whitelist":"dynamic%-crop%.lua$",
     "dest":"~~/scripts"
   },
   {
