@@ -5,7 +5,7 @@
     "dest":"~~/scripts"
   },
   {
-    "git":"https://github.com/Ashyni/mpv-scripts#dynamic-croplua",
+    "git":"https://github.com/Ashyni/mpv-scripts",
     "whitelist":"dynamic%-crop%.lua$",
     "dest":"~~/scripts"
   },
