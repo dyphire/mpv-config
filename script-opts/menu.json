@@ -11,10 +11,14 @@
     {
       "label": "3840x2160 60Hz",
       "command": ["script-message","change-refresh","3840","2160","60"]
-   },
+    },
     {
       "label": "切换Deband+配置",
       "command": [["apply-profile", "Deband+"], ["show-text", "Deband+"]],
+    },
+    {
+      "label": "切换着色器配置",
+      "command": [["apply-profile", "Anime+"], ["show-text", "Anime+"]],
     },
     {
       "label": "重置所有更改设置",
