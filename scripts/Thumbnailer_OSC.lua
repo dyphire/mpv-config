@@ -164,11 +164,11 @@ local function reset_all()
 		osc_scale         = {},
 		spacer            = {},
 		osd               = {},
-		background        = {text = '︎✇',},
+		background        = {},
 		font_scale        = {},
 		display_progress  = {},
 		progress          = {},
-		mini              = {text = '⚆',},
+		mini              = {},
 		thumbnail = {
 			visible       = false,
 			path_last     = nil,
