@@ -82,32 +82,42 @@
   {
     "git":"https://github.com/deus0ww/mpv-conf",
     "whitelist":"krigbilateral%.glsl$|ssimdownscaler%.glsl$|ssimsuperres%.glsl$|adaptive%-sharpen%.glsl$",
-    "dest":"~~/shaders"
+    "dest":"~~/shaders/igv"
   },
   {
     "git":"https://gist.github.com/igv/8a77e4eb8276753b54bb94c1c50c317e",
     "whitelist":"%.glsl$",
-    "dest":"~~/shaders"
+    "dest":"~~/shaders/igv"
   },
   {
     "git":"https://gist.github.com/igv/a015fc885d5c22e6891820ad89555637",
     "whitelist":"%.glsl$",
-    "dest":"~~/shaders"
+    "dest":"~~/shaders/igv"
   },
   {
     "git":"https://gist.github.com/igv/2364ffa6e81540f29cb7ab4c9bc05b6b",
     "whitelist":"%.glsl$",
-    "dest":"~~/shaders"
+    "dest":"~~/shaders/igv"
   },
   {
     "git":"https://gist.github.com/igv/36508af3ffc84410fe39761d6969be10",
     "whitelist":"%.glsl$",
-    "dest":"~~/shaders"
+    "dest":"~~/shaders/igv"
   },
   {
     "git":"https://github.com/deus0ww/mpv-conf",
     "whitelist":"fsrcnnx%_x2%_8%-0%-4%-1%.glsl$|fsrcnnx%_x2%_16%-0%-4%-1%.glsl$|fsrcnnx%_x2%_8%-0%-4%-1%_lineart%.glsl$|fsrcnnx%_x2%_16%-0%-4%-1%_enhance%.glsl$|fsrcnnx%_x2%_16%-0%-4%-1%_anime%_enhance%.glsl$",
-    "dest":"~~/shaders"
+    "dest":"~~/shaders/igv"
+  },
+  {
+    "git":"https://github.com/TianZerL/ACNetGLSL",
+    "whitelist":"ACNet%.glsl$|ACNet%_HDN%_L1%.glsl$|ACNet%_HDN%_L2%.glsl$|ACNet%_HDN%_L3%.glsl$",
+    "dest":"~~/shaders/ACNet"
+  },
+  {
+    "git":"https://github.com/bloc97/Anime4K",
+    "whitelist":"%.glsl$",
+    "dest":"~~/shaders/Anime4k"
   },
   {
     "git":"https://github.com/po5/mpv_manager",
