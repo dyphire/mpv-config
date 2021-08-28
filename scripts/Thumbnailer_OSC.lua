@@ -76,6 +76,7 @@ local user_opts = {
     greenandgrumpy = false,     -- disable santa hat
     livemarkers = true,         -- update seekbar chapter markers on duration change
 
+    wctitle = "${media-title}",
     font = "sans",
     font_mono = "monospace",
     font_bold = 600,
@@ -1635,7 +1636,7 @@ function window_controls(topbar)
     -- Window Title
     ne = new_element("wctitle", "button")
     ne.content = function ()
-        local title = mp.command_native({"expand-text", user_opts.title})
+        local title = mp.command_native({"expand-text", user_opts.wctitle})
         -- escape ASS, and strip newlines and trailing slashes
         title = title:gsub("\\n", " "):gsub("\\$", ""):gsub("{","\\{")
         return not (title == "") and title or "mpv"

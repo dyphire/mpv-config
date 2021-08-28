@@ -175,7 +175,7 @@ local function print_debug(meta, type_, label)
         if not type_ then print(meta) end
     end
 
-    if type_ == "stats" and stats.trusted then
+    if type_ == "stats" and stats and stats.trusted then
         mp.msg.info("Meta Stats:")
         local read_maj_offset = {x = "", y = ""}
         for axis, _ in pairs(read_maj_offset) do
@@ -380,8 +380,7 @@ local function process_metadata(event, time_pos_)
     end
 
     -- cleanup buffer
-    while buffer.unique_meta > buffer.fps_known_ratio and buffer.index_known_ratio > 24 or buffer.time_known >
-        new_known_ratio_timer * (1 + options.segmentation) do
+    while buffer.time_known > new_known_ratio_timer * (1 + options.segmentation) do
         local position = (buffer.index_total + 1) - buffer.index_known_ratio
         local ref = buffer.ordered[position][1]
         local buffer_time = buffer.ordered[position][2]
@@ -402,8 +401,7 @@ local function process_metadata(event, time_pos_)
 
     local buffer_timer = new_fallback_timer
     if not fallback then buffer_timer = new_known_ratio_timer end
-    while buffer.unique_meta > buffer.fps_fallback and buffer.time_total > buffer.time_known or buffer.time_total >
-        buffer_timer * (1 + options.segmentation) do
+    while buffer.time_total > buffer_timer * (1 + options.segmentation) do
         local ref = buffer.ordered[1][1]
         if stats.buffer[ref.whxy] and not (ref.is_known_ratio and ref.is_trusted_offsets) then
             ref.detected_total = ref.detected_total - buffer.ordered[1][2]
@@ -571,14 +569,6 @@ local function on_start()
     source.applied, source.detected_total, source.last_seen = 1, 0, 0
     applied, stats.trusted[source.whxy] = source, source
     time_pos.current = mp.get_property_number("time-pos")
-    -- test to keep the size of the buffer low when too much meta are different
-    if options.segmentation == 0 then
-        buffer.fps_known_ratio, buffer.fps_fallback = 2, 2
-    else
-        local seg_fps = options.segmentation / (1 / mp.get_property_number("container-fps"))
-        buffer.fps_known_ratio = math.ceil(new_known_ratio_timer * seg_fps)
-        buffer.fps_fallback = math.ceil(new_fallback_timer * seg_fps)
-    end
     -- register events
     mp.observe_property("osd-dimensions", "native", osd_size_change)
     mp.register_event("seek", seek_event)
