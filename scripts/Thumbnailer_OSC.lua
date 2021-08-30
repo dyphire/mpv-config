@@ -1105,7 +1105,7 @@ function render_elements(master_ass)
             local possec = get_slider_value(se) * dur / 100 -- of mouse pos
             local ch = get_chapter(possec)
             if ch and ch.title and ch.title ~= "" then
-                state.forced_title = "跳转章节：" .. ch.title
+                state.forced_title = "章节：" .. ch.title
             end
         end
     end
@@ -3078,7 +3078,7 @@ function tick()
         ass:new_event()
         ass:pos(320, icon_y+100)
         ass:an(8)
-        ass:append("拖入文件或网址进行播放")
+        ass:append("")
         set_osd(640, 360, ass.text)
 
         if state.showhide_enabled then
