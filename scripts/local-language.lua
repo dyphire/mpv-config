@@ -76,6 +76,12 @@ if settings.language =="zh-cn" and osd_level_value >= "1" then
 
 			mp.observe_property("sub", "none", function() mp.command("show-text \"字幕切换为: ${sub}\"") end)
 
+			mp.observe_property("Track", "none", function() mp.command("show-text \"轨道: ${Track}\"") end)
+
+			mp.observe_property("Chapters", "none", function() mp.command("show-text \"章节列表: ${Chapters}\"") end)
+
+			mp.observe_property("Chapter", "none", function() mp.command("show-text \"章节: ${Chapter}\"") end)
+
 			mp.observe_property("audio", "string", function() mp.command("show-text \"音轨切换为: ${audio}\"") end)
 
 			mp.observe_property("audio-channels", "none", function() mp.command("show-text \"音频通道: ${audio-channels}\"") end)
