@@ -13,11 +13,11 @@ local orig_osc = mp.get_property('osc')
 if orig_osc == 'yes' then
     local err = "_____\n{\\1c&H0000FF&}注意：\n必须设置 {\\1c&H0000FF&}osc=no\n打开控制台查看更多信息"
     mp.set_osd_ass(1280, 720, err)
+    mp.set_property('osc', 'no')
     mp.msg.warn("脚本已自动执行 osc=no 以临时兼容缩略图脚本")
     mp.msg.warn("正确编辑 mpv.conf 重启程序即可")
     mp.msg.warn("不要在运行中更改参数 --osc 的状态")
     mp.msg.warn("注意其它osc类脚本亦不应共存")
-    mp.set_property('osc', 'no')
 end
 
 local ipairs,loadfile,pairs,pcall,tonumber,tostring = ipairs,loadfile,pairs,pcall,tonumber,tostring
@@ -76,7 +76,7 @@ local user_opts = {
     greenandgrumpy = false,     -- disable santa hat
     livemarkers = true,         -- update seekbar chapter markers on duration change
 
-    wctitle = "${media-title}",
+    wctitle = "${media-title}", -- 无边框的上方标题
     font = "sans",
     font_mono = "monospace",
     font_bold = 600,
@@ -271,7 +271,7 @@ local set_thumbnail_layout = {
 							set_thumbnail_above(38.75)
 							set_mini_below() end,
 	box       = function()	set_thumbnail_above(15)
-							set_mini_above() end,
+							set_mini_above() end,                       
 	slimbox   = function()	set_thumbnail_above(12)
 							set_mini_above() end,
 }
@@ -571,6 +571,19 @@ local osc_styles = {
     wcButtons = "{\\1c&HFFFFFF\\fs24\\fnmpv-osd-symbols}",
     wcTitle = "{\\1c&HFFFFFF\\fs24\\q2}",
     wcBar = "{\\1c&H000000}",
+
+    -- bottombox样式
+    bb_bigButton1 =  "{\\blur0\\bord0\\1c&HF2A823\\3c&HFFFFFF\\fs50\\fnmpv-osd-symbols}",
+    bb_bigButton2 =  "{\\blur0\\bord0\\1c&HFACE87\\3c&HFFFFFF\\fs26\\fnmpv-osd-symbols}",
+    bb_bigButton3 =  "{\\blur0\\bord0\\1c&H9A530E\\3c&HFFFFFF\\fs34\\fnmpv-osd-symbols}",
+    bb_backgroud  =  "{\\blur100\\bord180\\1c&H000000&\\3c&H000000&}",
+    bb_Atracks    =  "{\\blur0\\bord0\\1c&H73CBEF\\3c&HFFFFFF\\fs24\\fnmpv-osd-symbols}",
+    bb_Stracks    =  "{\\blur0\\bord0\\1c&H70DC57\\3c&HFFFFFF\\fs24\\fnmpv-osd-symbols}",
+    bb_volume     =  "{\\blur0\\bord0\\1c&H00F0FF\\3c&HFFFFFF\\fs30\\fnmpv-osd-symbols}",
+    bb_fs         =  "{\\blur0\\bord0\\1c&HAC328E\\3c&HFFFFFF\\fs30\\fnmpv-osd-symbols}",
+    bb_seekbar    = ("{\\blur0\\bord0\\1c&HFFFFFF\\3c&HFFFFFF\\fs14\\b%d\\q2\\fn%s}"):format(user_opts.font_bold, user_opts.font),
+    bb_timecodes  = ("{\\blur0\\bord0\\1c&HDCDCDC\\3c&HFFFFFF\\fs20\\b%d\\fn%s}"):format(user_opts.font_bold, user_opts.font_mono),
+    bb_downtitle  = ("{\\blur0\\bord0\\1c&HC0C0C0\\3c&HFFFFFF\\fs16\\b%d\\q2\\fn%s}"):format(user_opts.font_bold, user_opts.font),
 }
 
 -- internal states, do not touch
@@ -841,13 +854,13 @@ end
 
 -- return a nice list of tracks of the given type (video, audio, sub)
 function get_tracklist(type)
-    local msg = "Available " .. nicetypes[type] .. " Tracks: "
+    local msg = "可用 " .. nicetypes[type] .. " 轨： "
     if #tracks_osc[type] == 0 then
         msg = msg .. "none"
     else
         for n = 1, #tracks_osc[type] do
             local track = tracks_osc[type][n]
-            local lang, title, selected = "unknown", "", "○"
+            local lang, title, selected = "未知", "", "○"
             if not(track.lang == nil) then lang = track.lang end
             if not(track.title == nil) then title = track.title end
             if (track.id == tonumber(mp.get_property(type))) then
@@ -884,7 +897,7 @@ function set_track(type, next)
     else
         show_message(nicetypes[type]  .. "轨："
             .. new_track_osc .. "/" .. #tracks_osc[type]
-            .. " [".. (tracks_osc[type][new_track_osc].lang or "unknown") .."] "
+            .. " [".. (tracks_osc[type][new_track_osc].lang or "未知") .."] "
             .. (tracks_osc[type][new_track_osc].title or ""))
     end
 end
@@ -1382,7 +1395,7 @@ function get_playlist()
         return 'Empty playlist.'
     end
 
-    local message = string.format('Playlist [%d/%d]:\n', pos, count)
+    local message = string.format('播放列表 [%d/%d]:\n', pos, count)
     for i, v in ipairs(limlist) do
         local title = v.title
         local _, filename = utils.split_path(v.filename)
@@ -1837,7 +1850,172 @@ layouts["box"] = function ()
     lo.style = osc_styles.timecodes
 
 end
+-- bottombox布局
+layouts["bottombox"] = function ()
 
+    local osc_geo = {
+        w = osc_param.playresx,     -- 宽
+        h = 180,                    -- 高
+        r = 0,                      -- 圆角
+        p = 15,                     -- 内边距
+    }
+
+    -- bottombox的整体位置
+    local posX = osc_param.playresx / 2
+    local posY = osc_param.playresy - osc_geo.h / 2
+
+    -- position offset for contents aligned at the borders of the box
+    local pos_offsetX = (osc_geo.w - (2*osc_geo.p)) / 2
+    local pos_offsetY = (osc_geo.h - (2*osc_geo.p)) / 2
+
+    osc_param.areas = {} -- delete areas
+
+    -- area for active mouse input
+    add_area("input", get_hitbox_coords(posX, posY, 5, osc_geo.w, osc_geo.h))
+
+    -- area for show/hide
+    local sh_area_y0, sh_area_y1
+    if user_opts.valign > 0 then
+        -- deadzone above OSC
+        sh_area_y0 = get_align(-1 + (2*user_opts.deadzonesize),
+            posY - (osc_geo.h / 2), 0, 0)
+        sh_area_y1 = osc_param.playresy
+    else
+        -- deadzone below OSC
+        sh_area_y0 = 0
+        sh_area_y1 = (posY + (osc_geo.h / 2)) +
+            get_align(1 - (2*user_opts.deadzonesize),
+            osc_param.playresy - (posY + (osc_geo.h / 2)), 0, 0)
+    end
+    add_area("showhide", 0, sh_area_y0, osc_param.playresx, sh_area_y1)
+
+    -- fetch values
+    local osc_w, osc_h, osc_r, osc_p =
+        osc_geo.w, osc_geo.h, osc_geo.r, osc_geo.p
+
+    local lo
+
+    --
+    -- 背景板
+    --
+
+    new_element('bb_backgroud', 'box')
+	lo = add_layout('bb_backgroud')
+	lo.geometry = {x = posX, y = osc_param.playresy, an = 5, w = osc_w, h = 0}
+	lo.layer = 10
+	lo.style = osc_styles.bb_backgroud
+	lo.alpha[1] = 255
+	lo.alpha[3] = 0
+
+    --
+    -- 下方标题
+    --
+
+    local titlerowY = posY + pos_offsetY - 5
+
+    lo = add_layout("title")
+    lo.geometry = {x = posX, y = titlerowY, an = 5, w = 500, h = 18}
+    lo.style = osc_styles.bb_downtitle
+    lo.button.maxchars = user_opts.boxmaxchars
+
+    --
+    -- 播放按钮
+    --
+
+    local bigbtnrowY = posY - pos_offsetY + 65
+    local bigbtndist = 50
+
+    lo = add_layout("playpause")
+    lo.geometry =
+        {x = posX, y = bigbtnrowY, an = 5, w = 40, h = 40}
+    lo.style = osc_styles.bb_bigButton1
+
+    lo = add_layout("skipback")
+    lo.geometry =
+        {x = posX - bigbtndist, y = bigbtnrowY, an = 5, w = 15, h = 15}
+    lo.style = osc_styles.bb_bigButton2
+
+    lo = add_layout("skipfrwd")
+    lo.geometry =
+        {x = posX + bigbtndist, y = bigbtnrowY, an = 5, w = 15, h = 15}
+    lo.style = osc_styles.bb_bigButton2
+
+    lo = add_layout("ch_prev")
+    lo.geometry =
+        {x = posX - (bigbtndist * 2), y = bigbtnrowY, an = 5, w = 15, h = 15}
+    lo.style = osc_styles.bb_bigButton2
+
+    lo = add_layout("ch_next")
+    lo.geometry =
+        {x = posX + (bigbtndist * 2), y = bigbtnrowY, an = 5, w = 15, h = 15}
+    lo.style = osc_styles.bb_bigButton2
+
+    lo = add_layout("pl_prev")
+    lo.geometry =
+        {x = posX - (bigbtndist * 3), y = bigbtnrowY, an = 5, w = 25, h = 25}
+    lo.style = osc_styles.bb_bigButton3
+
+    lo = add_layout("pl_next")
+    lo.geometry =
+        {x = posX + (bigbtndist * 3), y = bigbtnrowY, an = 5, w = 25, h = 25}
+    lo.style = osc_styles.bb_bigButton3
+
+    -- 快捷按钮
+
+    lo = add_layout("cy_audio")
+    lo.geometry =
+        {x = posX - pos_offsetX + 40, y = bigbtnrowY, an = 5, w = 70, h = 25}
+    lo.style = osc_styles.bb_Atracks
+
+    lo = add_layout("cy_sub")
+    lo.geometry =
+        {x = posX - pos_offsetX + (50 * 2) + osc_geo.p, y = bigbtnrowY, an = 5, w = 70, h = 25}
+    lo.style = osc_styles.bb_Stracks
+
+    lo = add_layout("tog_fs")
+    lo.geometry =
+        {x = posX + pos_offsetX - 25, y = bigbtnrowY, an = 5, w = 25, h = 25}
+    lo.style = osc_styles.bb_fs
+
+    lo = add_layout("volume")
+    lo.geometry =
+        {x = posX + pos_offsetX - (25 * 2) - osc_geo.p, y = bigbtnrowY, an = 5, w = 25, h = 25}
+    lo.style = osc_styles.bb_volume
+
+    --
+    -- 进度条
+    --
+
+    lo = add_layout("seekbar")
+    lo.geometry =
+        {x = posX, y = posY+pos_offsetY-22, an = 2, w = pos_offsetX*2, h = 20}
+    lo.style = osc_styles.timecodes
+    lo.slider.tooltip_style = osc_styles.bb_seekbar
+    lo.slider.stype = user_opts["seekbarstyle"]
+    lo.slider.rtype = user_opts["seekrangestyle"]
+
+    --
+    -- 时间码和缓存
+    --
+
+    local bottomrowY = posY + pos_offsetY - 5
+
+    lo = add_layout("tc_left")
+    lo.geometry =
+        {x = posX - pos_offsetX, y = bottomrowY, an = 4, w = 80, h = 18}
+    lo.style = osc_styles.bb_timecodes
+
+    lo = add_layout("tc_right")
+    lo.geometry =
+        {x = posX + pos_offsetX, y = bottomrowY, an = 6, w = 80, h = 18}
+    lo.style = osc_styles.bb_timecodes
+
+    lo = add_layout("cache")
+    lo.geometry =
+        {x = posX, y = bottomrowY, an = 5, w = 110, h = 18}
+    lo.style = osc_styles.bb_timecodes
+
+end
 -- slim box layout
 layouts["slimbox"] = function ()
 
