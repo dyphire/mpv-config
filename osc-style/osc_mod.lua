@@ -2626,7 +2626,7 @@ layouts["box"] = function ()
     local posX = math.floor(get_align(user_opts.halign, osc_param.playresx,
         osc_geo.w, 0))
     local posY = math.floor(get_align(user_opts.valign, osc_param.playresy,
-        osc_geo.h, 0))+40
+        osc_geo.h, 0))
 
     -- position offset for contents aligned at the borders of the box
     local pos_offsetX = (osc_geo.w - (2*osc_geo.p)) / 2
