@@ -8,6 +8,10 @@ PS：自行编辑配置文件时，注意编码格式应为 UTF-8，换行符为
 
 第三方 win10x64 版： [https://sourceforge.net/projects/mpv-player-windows/files/64bit/](https://sourceforge.net/projects/mpv-player-windows/files/64bit/)
 
+目前比较成熟的 mpv/libmpv 前端推荐 ：https://github.com/stax76/mpv.net，其汉化版：https://github.com/hooke007/mpv.net_CM
+
+个人 mpv.net 配置文件参考：https://github.com/dyphire/MPV-own/tree/mpvnet
+
 参考：
 
 * [mpv 原版官方的开发版手册（英文）](https://mpv.io/manual/master/)
