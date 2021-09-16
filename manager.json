@@ -1,5 +1,10 @@
 [
   {
+    "git":"https://github.com/po5/mpv_manager",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
     "git":"https://github.com/mpv-player/mpv",
     "whitelist":"autodeint%.lua$|pause%-when%-minimize%.lua$",
     "dest":"~~/scripts"
@@ -118,10 +123,5 @@
     "git":"https://github.com/bloc97/Anime4K",
     "whitelist":"%.glsl$",
     "dest":"~~/shaders/Anime4k"
-  },
-  {
-    "git":"https://github.com/po5/mpv_manager",
-    "whitelist":"%.lua$",
-    "dest":"~~/scripts"
   }
 ]
