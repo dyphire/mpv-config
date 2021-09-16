@@ -133,7 +133,7 @@ local function compute_meta(meta)
                          meta.offset.y == 0
     meta.is_invalid = meta.h < 0 or meta.w < 0
     meta.is_trusted_offsets = is_trusted_offset(meta.offset.x, "x") and is_trusted_offset(meta.offset.y, "y")
-    meta.detected_total = 0
+    meta.time = {buffer = 0, overall = 0}
     -- check aspect ratio with the known list
     if not meta.is_invalid and meta.w >= source.w * .9 or meta.h >= source.h * .9 then
         for ratio in string.gmatch(options.ratios, "%S+%s?") do
@@ -186,22 +186,23 @@ local function print_debug(meta, type_, label)
         mp.msg.info(string.format("Trusted Offset - X:%s| Y:%s", read_maj_offset.x, read_maj_offset.y))
         for whxy, table_ in pairs(stats.trusted) do
             if stats.trusted[whxy] then
-                mp.msg.info(string.format("%s | offX=%s offY=%s | applied=%s detected_total=%s last=%s", whxy,
-                                          table_.offset.x, table_.offset.y, table_.applied,
-                                          table_.detected_total / 1000, table_.last_seen / 1000))
+                mp.msg.info(string.format("%s | offX=%s offY=%s | applied=%s overall=%s last_seen=%s", whxy,
+                                          table_.offset.x, table_.offset.y, table_.applied, table_.time.overall / 1000,
+                                          table_.time.last_seen / 1000))
             end
         end
-        if options.debug then
-            if stats.buffer then
-                for whxy, table_ in pairs(stats.buffer) do
-                    mp.msg.info(string.format("- %s | offX=%s offY=%s | detected_total=%s ratio=%s", whxy,
-                                              table_.offset.x, table_.offset.y, table_.detected_total / 1000,
-                                              table_.is_known_ratio))
-                end
+        mp.msg.info("Buffer - total: " .. buffer.index_total,
+                    buffer.time_total / 1000 .. "sec, unique_meta: " .. buffer.unique_meta .. " | known_ratio:",
+                    buffer.index_known_ratio, buffer.time_known / 1000 .. "sec")
+        if options.debug and stats.buffer then
+            for whxy, table_ in pairs(stats.buffer) do
+                mp.msg.info(string.format("- %s | offX=%s offY=%s | time.buffer=%ssec known_ratio=%s", whxy,
+                                          table_.offset.x, table_.offset.y, table_.time.buffer / 1000,
+                                          table_.is_known_ratio))
             end
-            mp.msg.info("Buffer - total: " .. buffer.index_total,
-                        buffer.time_total / 1000 .. "sec, unique meta: " .. buffer.unique_meta .. ", known ratio:",
-                        buffer.index_known_ratio, buffer.time_known / 1000 .. "sec")
+            for pos, table_ in pairs(buffer.ordered) do
+                mp.msg.info(string.format("-- %s %s", pos, table_[1].whxy))
+            end
         end
     end
 end
@@ -246,8 +247,8 @@ local function check_stability(current_)
     if not current_.is_source and stats.trusted[current_.whxy] then
         for _, table_ in pairs(stats.trusted) do
             if current_ ~= table_ then
-                if (not found and table_.detected_total > current_.detected_total or found and table_.detected_total >
-                    found.detected_total) and math.abs(current_.w - table_.w) <= 4 and math.abs(current_.h - table_.h) <=
+                if (not found and table_.time.overall > current_.time.overall or found and table_.time.overall >
+                    found.time.overall) and math.abs(current_.w - table_.w) <= 4 and math.abs(current_.h - table_.h) <=
                     4 then found = table_ end
             end
         end
@@ -262,28 +263,35 @@ local function process_metadata(event, time_pos_)
     print_debug(collected, "detail", "Collected")
     time_pos.insert = time_pos_
 
-    collected.detected_total = collected.detected_total + elapsed_time
-
+    -- init stats.buffer[whxy]
+    if not stats.buffer[collected.whxy] then
+        stats.buffer[collected.whxy] = collected
+        buffer.unique_meta = buffer.unique_meta + 1
+    end
     -- add collected meta to the buffer
     if buffer.index_total == 0 or buffer.ordered[buffer.index_total][1] ~= collected then
         table.insert(buffer.ordered, {collected, elapsed_time})
         buffer.index_total = buffer.index_total + 1
         buffer.index_known_ratio = buffer.index_known_ratio + 1
     elseif last_collected == collected then
-        local i = buffer.index_total
-        buffer.ordered[i][2] = buffer.ordered[i][2] + elapsed_time
+        buffer.ordered[buffer.index_total][2] = buffer.ordered[buffer.index_total][2] + elapsed_time
     end
+    collected.time.overall = collected.time.overall + elapsed_time
+    collected.time.buffer = collected.time.buffer + elapsed_time
     buffer.time_total = buffer.time_total + elapsed_time
     if buffer.index_known_ratio > 0 then buffer.time_known = buffer.time_known + elapsed_time end
 
     -- add new offset to trusted_offset list
-    if stats.buffer[collected.whxy] and fallback and collected.detected_total >= new_fallback_timer then
+    if stats.buffer[collected.whxy] and fallback and collected.time.buffer >= new_fallback_timer then
         local add_new_offset = {}
         for _, axis in pairs({"x", "y"}) do
             add_new_offset[axis] = not collected.is_invalid and not is_trusted_offset(collected.offset[axis], axis)
             if add_new_offset[axis] then table.insert(stats.trusted_offset[axis], collected.offset[axis]) end
         end
     end
+
+    -- reset last_seen before correction
+    if stats.trusted[collected.whxy] and collected.time.last_seen < 0 then collected.time.last_seen = 0 end
 
     -- correction with trusted meta for fast change in dark/ambiguous scene
     local corrected
@@ -326,25 +334,25 @@ local function process_metadata(event, time_pos_)
     -- cycle last_seen
     for whxy, table_ in pairs(stats.trusted) do
         if whxy ~= current.whxy then
-            if table_.last_seen > 0 then table_.last_seen = 0 end
-            table_.last_seen = table_.last_seen - elapsed_time
+            if table_.time.last_seen > 0 then table_.time.last_seen = 0 end
+            table_.time.last_seen = table_.time.last_seen - elapsed_time
         else
-            if table_.last_seen < 0 then table_.last_seen = 0 end
-            table_.last_seen = table_.last_seen + elapsed_time
+            if table_.time.last_seen < 0 then table_.time.last_seen = 0 end
+            table_.time.last_seen = table_.time.last_seen + elapsed_time
         end
     end
 
     -- last check before add a new meta as trusted
     local new_ready = stats.buffer[collected.whxy] and
-                          (collected.is_known_ratio and collected.detected_total >= new_known_ratio_timer or fallback and
-                              not collected.is_known_ratio and collected.detected_total >= new_fallback_timer)
+                          (collected.is_known_ratio and collected.time.buffer >= new_known_ratio_timer or fallback and
+                              not collected.is_known_ratio and collected.time.buffer >= new_fallback_timer)
     local detect_source = current.is_source and
-                              (not corrected and last_collected == collected and limit.change == 1 or current.last_seen >=
-                                  fast_change_timer)
+                              (not corrected and last_collected == collected and limit.change == 1 or
+                                  current.time.last_seen >= fast_change_timer)
     local trusted_offset_y = is_trusted_offset(current.offset.y, "y")
     local trusted_offset_x = is_trusted_offset(current.offset.x, "x")
     local confirmation = not current.is_source and
-                             (stats.trusted[current.whxy] and current.last_seen >= fast_change_timer or new_ready)
+                             (stats.trusted[current.whxy] and current.time.last_seen >= fast_change_timer or new_ready)
     local crop_filter = not collected.is_invalid and applied.whxy ~= current.whxy and trusted_offset_x and
                             trusted_offset_y and (confirmation or detect_source)
     -- apply crop
@@ -353,11 +361,10 @@ local function process_metadata(event, time_pos_)
         if stats.trusted[current.whxy] then
             current.applied = current.applied + 1
         else
+            -- add the metadata to the trusted list
             stats.trusted[current.whxy] = current
-            current.applied, current.last_seen = 1, current.detected_total
+            current.applied, current.time.last_seen = 1, current.time.buffer
             current.is_trusted_offsets = true
-            stats.buffer[current.whxy] = nil
-            buffer.unique_meta = buffer.unique_meta - 1
             if check_stability(current) then already_stable, current.applied = true, 0 end
         end
         if not already_stable then
@@ -379,36 +386,21 @@ local function process_metadata(event, time_pos_)
         end
     end
 
+    -- TODO proactive cleanup with index_total and unique_meta
     -- cleanup buffer
     while buffer.time_known > new_known_ratio_timer * (1 + options.segmentation) do
         local position = (buffer.index_total + 1) - buffer.index_known_ratio
-        local ref = buffer.ordered[position][1]
-        local buffer_time = buffer.ordered[position][2]
-        if stats.buffer[ref.whxy] and ref.is_known_ratio and ref.is_trusted_offsets then
-            ref.detected_total = ref.detected_total - buffer_time
-            if ref.detected_total == 0 then
-                stats.buffer[ref.whxy] = nil
-                buffer.unique_meta = buffer.unique_meta - 1
-            end
-        end
+        buffer.time_known = buffer.time_known - buffer.ordered[position][2]
         buffer.index_known_ratio = buffer.index_known_ratio - 1
-        if buffer.index_known_ratio == 0 then
-            buffer.time_known = 0
-        else
-            buffer.time_known = buffer.time_known - buffer_time
-        end
     end
-
     local buffer_timer = new_fallback_timer
     if not fallback then buffer_timer = new_known_ratio_timer end
     while buffer.time_total > buffer_timer * (1 + options.segmentation) do
         local ref = buffer.ordered[1][1]
-        if stats.buffer[ref.whxy] and not (ref.is_known_ratio and ref.is_trusted_offsets) then
-            ref.detected_total = ref.detected_total - buffer.ordered[1][2]
-            if ref.detected_total == 0 then
-                stats.buffer[ref.whxy] = nil
-                buffer.unique_meta = buffer.unique_meta - 1
-            end
+        ref.time.buffer = ref.time.buffer - buffer.ordered[1][2]
+        if stats.buffer[ref.whxy] and ref.time.buffer == 0 then
+            stats.buffer[ref.whxy] = nil
+            buffer.unique_meta = buffer.unique_meta - 1
         end
         buffer.time_total = buffer.time_total - buffer.ordered[1][2]
         buffer.index_total = buffer.index_total - 1
@@ -449,19 +441,13 @@ local function collect_metadata(_, table_)
         tmp.whxy = string.format("w=%s:h=%s:x=%s:y=%s", tmp.w, tmp.h, tmp.x, tmp.y)
         time_pos.insert = time_pos.current
         if tmp.whxy ~= collected.whxy then
+            -- use known table if exists or compute meta
             if stats.trusted[tmp.whxy] then
                 collected = stats.trusted[tmp.whxy]
             elseif stats.buffer[tmp.whxy] then
                 collected = stats.buffer[tmp.whxy]
             else
                 collected = compute_meta(tmp)
-            end
-            -- init stats.buffer[whxy]
-            if not stats.trusted[collected.whxy] and not stats.buffer[collected.whxy] then
-                stats.buffer[collected.whxy] = collected
-                buffer.unique_meta = buffer.unique_meta + 1
-            elseif stats.trusted[collected.whxy] and collected.last_seen < 0 then
-                collected.last_seen = 0
             end
         end
         filter_inserted = false
@@ -566,7 +552,7 @@ local function on_start()
     }
     source.x, source.y = (w - source.w) / 2, (h - source.h) / 2
     source = compute_meta(source)
-    source.applied, source.detected_total, source.last_seen = 1, 0, 0
+    source.applied, source.time.last_seen = 1, 0
     applied, stats.trusted[source.whxy] = source, source
     time_pos.current = mp.get_property_number("time-pos")
     -- register events
@@ -579,4 +565,4 @@ end
 
 mp.add_key_binding("C", "toggle_crop", on_toggle)
 mp.register_event("end-file", cleanup)
-mp.register_event("file-loaded", on_start)
+mp.register_event("file-loaded", on_start)
