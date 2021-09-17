@@ -1,6 +1,10 @@
 *.log
 *.ttc
 *.ttf
+*.xml
+
+mpv_sub-delay.json
+bookmarker.json
 
 cutfragments/
 playlists/
