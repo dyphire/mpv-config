@@ -1,3 +1,4 @@
+*.xml
 *.log
 *.ttc
 *.ttf
@@ -8,5 +9,3 @@ screen/
 shaders_cache/
 watch_later/
 icc_cache/
-mpv_sub-delay.json
-bookmarker.json
