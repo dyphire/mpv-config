@@ -21,7 +21,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-//!DESC Anime4K-v4.0-Restore-CNN-Moderate-(M)-Conv-4x3x3x3
+//!DESC Anime4K-v4.0-Restore-CNN-(M)-Conv-4x3x3x3
 //!HOOK MAIN
 //!BIND MAIN
 //!SAVE conv2d_tf
@@ -42,7 +42,7 @@ vec4 hook() {
     result += vec4(-0.061233472, 0.39222646, 0.029704979, 0.02586828);
     return result;
 }
-//!DESC Anime4K-v4.0-Restore-CNN-Moderate-(M)-Conv-4x3x3x8
+//!DESC Anime4K-v4.0-Restore-CNN-(M)-Conv-4x3x3x8
 //!HOOK MAIN
 //!BIND conv2d_tf
 //!SAVE conv2d_1_tf
@@ -73,7 +73,7 @@ vec4 hook() {
     result += vec4(-0.018297346, -0.080951825, -0.062163066, -0.08050014);
     return result;
 }
-//!DESC Anime4K-v4.0-Restore-CNN-Moderate-(M)-Conv-4x3x3x8
+//!DESC Anime4K-v4.0-Restore-CNN-(M)-Conv-4x3x3x8
 //!HOOK MAIN
 //!BIND conv2d_1_tf
 //!SAVE conv2d_2_tf
@@ -104,7 +104,7 @@ vec4 hook() {
     result += vec4(-0.008952847, -0.0058945753, -0.08097229, 0.020968592);
     return result;
 }
-//!DESC Anime4K-v4.0-Restore-CNN-Moderate-(M)-Conv-4x3x3x8
+//!DESC Anime4K-v4.0-Restore-CNN-(M)-Conv-4x3x3x8
 //!HOOK MAIN
 //!BIND conv2d_2_tf
 //!SAVE conv2d_3_tf
@@ -135,7 +135,7 @@ vec4 hook() {
     result += vec4(-0.059377354, -0.02055341, 0.07234869, -0.015452986);
     return result;
 }
-//!DESC Anime4K-v4.0-Restore-CNN-Moderate-(M)-Conv-4x3x3x8
+//!DESC Anime4K-v4.0-Restore-CNN-(M)-Conv-4x3x3x8
 //!HOOK MAIN
 //!BIND conv2d_3_tf
 //!SAVE conv2d_4_tf
@@ -166,7 +166,7 @@ vec4 hook() {
     result += vec4(-0.048888464, -0.0561434, 0.030690912, -0.030496685);
     return result;
 }
-//!DESC Anime4K-v4.0-Restore-CNN-Moderate-(M)-Conv-4x3x3x8
+//!DESC Anime4K-v4.0-Restore-CNN-(M)-Conv-4x3x3x8
 //!HOOK MAIN
 //!BIND conv2d_4_tf
 //!SAVE conv2d_5_tf
@@ -197,7 +197,7 @@ vec4 hook() {
     result += vec4(0.011169491, 0.032399546, 0.138099, 0.023857072);
     return result;
 }
-//!DESC Anime4K-v4.0-Restore-CNN-Moderate-(M)-Conv-4x3x3x8
+//!DESC Anime4K-v4.0-Restore-CNN-(M)-Conv-4x3x3x8
 //!HOOK MAIN
 //!BIND conv2d_5_tf
 //!SAVE conv2d_6_tf
@@ -228,7 +228,7 @@ vec4 hook() {
     result += vec4(0.013687534, -0.08185164, -0.04755438, 0.290178);
     return result;
 }
-//!DESC Anime4K-v4.0-Restore-CNN-Moderate-(M)-Conv-3x1x1x56
+//!DESC Anime4K-v4.0-Restore-CNN-(M)-Conv-3x1x1x56
 //!HOOK MAIN
 //!BIND MAIN
 //!BIND conv2d_tf
