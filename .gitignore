@@ -3,12 +3,12 @@
 *.ttf
 *.xml
 
-mpv_sub-delay.json
-bookmarker.json
-
 cutfragments/
 playlists/
 screen/
 shaders_cache/
 watch_later/
 icc_cache/
+
+mpv_sub-delay.json
+bookmarker.json
