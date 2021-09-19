@@ -5,14 +5,15 @@
 -- This script skips chapters based on their title.
 
 local categories = {
-    prologue = "^Prologue/^Intro",
-    opening = "^OP/ OP$/^Opening",
-    ending = "^ED/ ED$/^Ending",
-    preview = "Preview$"
+    prologue = "^[Pp]rologue/^[Ii]ntro",
+    opening = "OP$/^OP:/[Oo]pening$/^[Oo]pening:/[Oo]pening [Cc]redits",
+    ending = "ED$/^ED:/[Ee]nding$/^[Ee]nding:/[Ee]nding [Cc]redits",
+    credits = "[Cc]redits:/[Cc]redits$",
+    preview = "[Pp]review$"
 }
 
 local options = {
-    enabled = true,
+    enabled = false,
     skip_once = true,
     categories = "",
     skip = ""
@@ -44,6 +45,14 @@ end
 
 local skipped = {}
 local parsed = {}
+
+local function toggle_chapterskip()
+    if not options.enabled then
+        options.enabled = true 
+    elseif options.enabled then
+        options.enabled = false
+    end
+end
 
 function chapterskip(_, current)
     mp.options.read_options(options, "chapterskip")
@@ -83,3 +92,4 @@ end
 
 mp.observe_property("chapter", "number", chapterskip)
 mp.register_event("file-loaded", function() skipped = {} end)
+mp.add_key_binding(nil, "chapter-skip", toggle_chapterskip)

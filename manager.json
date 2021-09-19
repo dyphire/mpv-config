@@ -29,11 +29,13 @@
     "whitelist":"mpv%-webp%.lua$",
     "dest":"~~/scripts"
   },
+/*
   {
     "git":"https://github.com/po5/chapterskip",
     "whitelist":"%.lua$",
     "dest":"~~/scripts"
   },
+*/
   {
     "git":"https://github.com/po5/trackselect",
     "whitelist":"%.lua$",
