@@ -6,9 +6,9 @@
 
 local categories = {
     prologue = "^[Pp]rologue/^[Ii]ntro",
-    opening = "OP$/^OP:/[Oo]pening$/^[Oo]pening:/[Oo]pening [Cc]redits",
-    ending = "ED$/^ED:/[Ee]nding$/^[Ee]nding:/[Ee]nding [Cc]redits",
-    credits = "[Cc]redits:/[Cc]redits$",
+    opening = "^OP/ OP$/^OP:/^[Oo]pening/[Oo]pening$/^[Oo]pening:/[Oo]pening [Cc]redits",
+    ending = "^ED/ ED$/^ED:/^[Ee]nding/[Ee]nding$/^[Ee]nding:/[Ee]nding [Cc]redits",
+    credits = "^[Cc]redits/[Cc]redits$/^[Cc]redits:",
     preview = "[Pp]review$"
 }
 
