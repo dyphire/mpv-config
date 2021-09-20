@@ -43,7 +43,11 @@ mp.observe_property('chapter', 'number', function(_, curr_chapter)
             item.style = [[{\c&H33ff66&}]]
         end
 
-        item.ass = list.ass_escape(chapter_list[i].title)
+        local time = chapter_list[i].time
+        if time < 0 then time = 0
+        else time = math.floor(time) end
+        item.ass = string.format("[%02d:%02d:%02d]", math.floor(time/60/60), math.floor(time/60)%60, time%60)
+        item.ass = item.ass..'\\h\\h\\h'..list.ass_escape(chapter_list[i].title)
         list.list[i] = item
     end
     list:update()
