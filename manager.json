@@ -68,7 +68,7 @@
   },
   {
     "git":"https://github.com/zc62/mpv-scripts",
-    "whitelist":"exit%-fullscreen%.lua$|save%-sub%-delay%.lua$",
+    "whitelist":"exit%-fullscreen%.lua$",
     "dest":"~~/scripts"
   },
   {
