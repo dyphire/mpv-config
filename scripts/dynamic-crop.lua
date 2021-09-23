@@ -12,7 +12,7 @@ The workflow is as follows: We observe two main events, vf-metadata and time-pos
 
 The default options can be overridden by adding script-opts-append=<script_name>-<parameter>=<value> into mpv.conf
     script-opts-append=dynamic_crop-mode=0
-    script-opts-append=dynamic_crop-ratios=2.4 2.39 2 4/3 ("" aren't needed like below)
+    script-opts-append=dynamic_crop-ratios=2.4 2.39 2 4/3 (quotes aren't needed like below)
 
 List of available parameters (For default values, see <options>)：
 
@@ -23,7 +23,8 @@ resize_windowed: [true/false] - False, prevents the window from being resized, b
     this function always avoids the default behavior to resize the window at the source size, in windowed/maximized mode.
 
 segmentation: % [0.0-n] e.g. 0.5 for 50% - Extra time to allow new metadata to be segmented instead of being continuous.
-    default, new_known_ratio_timer is validated with 5/7.5 sec and new_fallback_timer with 20/30 sec.
+    By default, new_known_ratio_timer is validated with 5 sec accumulated over 7.5 sec elapsed and
+    new_fallback_timer with 20 sec accumulated over 30 sec elapsed.
     to disable this, set 0.
 
 correction: % [0.0-1] e.g. 0.6 for 60% - Size minimum of collected meta (in percent based on source), to attempt a correction.
@@ -256,6 +257,8 @@ local function check_stability(current_)
     return found
 end
 
+local function time_to_cleanup_buffer(time_1, time_2) return time_1 > time_2 * (1 + options.segmentation) end
+
 local function process_metadata(event, time_pos_)
     in_progress = true -- prevent event race
 
@@ -386,16 +389,19 @@ local function process_metadata(event, time_pos_)
         end
     end
 
-    -- TODO proactive cleanup with index_total and unique_meta
     -- cleanup buffer
-    while buffer.time_known > new_known_ratio_timer * (1 + options.segmentation) do
+    while time_to_cleanup_buffer(buffer.time_known, new_known_ratio_timer) do
         local position = (buffer.index_total + 1) - buffer.index_known_ratio
         buffer.time_known = buffer.time_known - buffer.ordered[position][2]
         buffer.index_known_ratio = buffer.index_known_ratio - 1
     end
     local buffer_timer = new_fallback_timer
     if not fallback then buffer_timer = new_known_ratio_timer end
-    while buffer.time_total > buffer_timer * (1 + options.segmentation) do
+    local function proactive_cleanup() -- start to cleanup if too much unique meta are present
+        return buffer.time_total > buffer.time_known and buffer.unique_meta > buffer.index_total *
+                   (buffer_timer * options.segmentation / (buffer_timer * (1 + options.segmentation))) + 1
+    end
+    while time_to_cleanup_buffer(buffer.time_total, buffer_timer) or proactive_cleanup() do
         local ref = buffer.ordered[1][1]
         ref.time.buffer = ref.time.buffer - buffer.ordered[1][2]
         if stats.buffer[ref.whxy] and ref.time.buffer == 0 then
@@ -565,4 +571,4 @@ end
 
 mp.add_key_binding("C", "toggle_crop", on_toggle)
 mp.register_event("end-file", cleanup)
-mp.register_event("file-loaded", on_start)
+mp.register_event("file-loaded", on_start)
