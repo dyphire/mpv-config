@@ -5,6 +5,11 @@
     "dest":"~~/scripts"
   },
   {
+    "git":"https://gist.github.com/CyberShadow/2f71a97fb85ed42146f6d9f522bc34ef",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
     "git":"https://github.com/mpv-player/mpv",
     "whitelist":"autodeint%.lua$|pause%-when%-minimize%.lua$",
     "dest":"~~/scripts"
@@ -46,11 +51,13 @@
     "whitelist":"sub%-select%.lua$",
     "dest":"~~/scripts"
   },
+/*
   {
     "git":"https://github.com/NurioHin/mpv-bookmarker",
     "whitelist":"%.lua$",
     "dest":"~~/scripts"
   },
+*/
   {
     "git":"https://github.com/jonniek/mpv-playlistmanager",
     "whitelist":"%.lua$",
@@ -85,6 +92,11 @@
     "git":"https://github.com/CogentRedTester/mpv-scripts",
     "whitelist":"onedrive%-hook%.lua$|ordered%-chapters%-playlist%.lua$",
     "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/cyl0/mpv-osc-morden-x",
+    "whitelist":"mordenx%.lua$",
+    "dest":"~~/osc-style"
   },
   {
     "git":"https://github.com/deus0ww/mpv-conf",

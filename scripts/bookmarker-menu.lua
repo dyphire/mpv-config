@@ -705,4 +705,4 @@ end
 
 mp.register_script_message("bookmarker-menu", handler)
 mp.register_script_message("bookmarker-quick-save", quickSave)
-mp.register_script_message("bookmarker-quick-load", quickLoad)
+mp.register_script_message("bookmarker-quick-load", quickLoad)
