@@ -92,4 +92,4 @@ end
 
 mp.observe_property("chapter", "number", chapterskip)
 mp.register_event("file-loaded", function() skipped = {} end)
-mp.add_key_binding(nil, "chapter-skip", toggle_chapterskip)
+mp.register_script_message("chapter-skip", toggle_chapterskip)

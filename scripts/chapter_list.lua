@@ -67,4 +67,4 @@ add_keys(settings.key_scroll_up, 'scroll_up', function() list:scroll_up() end, {
 add_keys(settings.key_open_chapter, 'open_chapter', open_chapter, {})
 add_keys(settings.key_close_browser, 'close_browser', function() list:close() end, {})
 
-mp.add_key_binding(nil, "toggle-chapter-browser", function() list:toggle() end)
+mp.register_script_message("toggle-chapter-browser", function() list:toggle() end)

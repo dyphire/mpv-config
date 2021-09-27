@@ -703,6 +703,6 @@ function handler()
   end
 end
 
-mp.register_script_message("bookmarker-menu", handler)
-mp.register_script_message("bookmarker-quick-save", quickSave)
-mp.register_script_message("bookmarker-quick-load", quickLoad)
+mp.add_key_binding("N", "bookmarker-menu", handler)
+mp.add_key_binding("ALT+n", "bookmarker-quick-save", quickSave)
+mp.add_key_binding("CTRL+n", "bookmarker-quick-load", quickLoad)
