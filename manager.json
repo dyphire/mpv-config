@@ -5,6 +5,11 @@
     "dest":"~~/scripts"
   },
   {
+    "git":"https://gist.github.com/CyberShadow/2f71a97fb85ed42146f6d9f522bc34ef",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
     "git":"https://github.com/mpv-player/mpv",
     "whitelist":"autodeint%.lua$|pause%-when%-minimize%.lua$",
     "dest":"~~/scripts"
@@ -41,11 +46,13 @@
     "whitelist":"%.lua$",
     "dest":"~~/scripts"
   },
+/*
   {
     "git":"https://github.com/NurioHin/mpv-bookmarker",
     "whitelist":"%.lua$",
     "dest":"~~/scripts"
   },
+*/
   {
     "git":"https://github.com/jonniek/mpv-playlistmanager",
     "whitelist":"%.lua$",
@@ -92,11 +99,6 @@
     "dest":"~~/scripts"
   },
   {
-    "git":"https://github.com/CogentRedTester/mpv-search-page",
-    "whitelist":"search%-page%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
     "git":"https://github.com/CogentRedTester/mpv-sub-select",
     "whitelist":"sub%-select%.lua$",
     "dest":"~~/scripts"
@@ -111,6 +113,13 @@
     "whitelist":"file%-browser%.lua$",
     "dest":"~~/scripts"
   },
+/*
+  {
+    "git":"https://github.com/CogentRedTester/mpv-search-page",
+    "whitelist":"search%-page%.lua$",
+    "dest":"~~/scripts"
+  },
+*/
 /*
   {
     "git":"https://github.com/CogentRedTester/mpv-menu/tree/scroll-list",
@@ -137,8 +146,13 @@
   },
   {
     "git":"https://github.com/CogentRedTester/mpv-file-browser",
-    "whitelist":"ls%.lua$|favourites%.lua$|powershell%.lua$|apache%-browser%.lua$|home%-label%.lua$|m3u%-browser%.lua$|ftp%-browser%.lua$",
+    "whitelist":"favourites%.lua$|powershell%.lua$|apache%-browser%.lua$|home%-label%.lua$|m3u%-browser%.lua$|ftp%-browser%.lua$",
     "dest":"~~/script-modules/file-browser-addons"
+  },
+  {
+    "git":"https://github.com/cyl0/mpv-osc-morden-x",
+    "whitelist":"mordenx%.lua$",
+    "dest":"~~/osc-style"
   },
   {
     "git":"https://github.com/deus0ww/mpv-conf",
