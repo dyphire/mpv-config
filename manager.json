@@ -64,10 +64,17 @@
     "dest":"~~/scripts"
   },
   {
-    "git":"https://github.com/detuur/mpv-scripts",
-    "whitelist":"boss%-key%.lua$",
+    "git":"https://github.com/Eisa01/mpv-scripts",
+    "whitelist":"UndoRedo%.lua$|SmartHistory%.lua$",
     "dest":"~~/scripts"
   },
+  /*
+  {
+    "git":"https://github.com/detuur/mpv-scripts",
+    "whitelist":"boss%-key%.lua$|skiptosilence%.lua$",
+    "dest":"~~/scripts"
+  },
+  */
   {
     "git":"https://github.com/zenyd/mpv-scripts",
     "whitelist":"delete%_file%.lua$",
