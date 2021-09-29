@@ -91,4 +91,4 @@ while($true) {
 }]]}})
 end
 
-mp.add_key_binding('b', 'boss-key', boss_key)
+mp.register_script_message('boss-key', boss_key)
