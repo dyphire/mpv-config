@@ -65,9 +65,16 @@
   },
   {
     "git":"https://github.com/Eisa01/mpv-scripts",
-    "whitelist":"undoredo%.lua$|smarthistory%.lua$|smartcopypaste%-%.lua$",
+    "whitelist":"undoredo%.lua$",
     "dest":"~~/scripts"
   },
+/*
+  {
+    "git":"https://github.com/Eisa01/mpv-scripts",
+    "whitelist":"smarthistory%.lua$|smartcopypaste%-%.lua$",
+    "dest":"~~/scripts"
+  },
+*/
   /*
   {
     "git":"https://github.com/detuur/mpv-scripts",

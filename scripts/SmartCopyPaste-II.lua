@@ -201,7 +201,7 @@ local function copy()
 		end
 		set_clipboard(filePath..' |time='..tostring(time))
 		
-		local copyLog = (os.getenv('APPDATA') or os.getenv('HOME')..'/.config')..'/mpv/mpvClipboard.log'
+		local copyLog = mp.find_config_file(".")..'mpvClipboard.log'
 		local copyLogAdd = io.open(copyLog, 'a+')
 		
 		copyLogAdd:write(('[%s] %s\n'):format(os.date('%d/%b/%y %X'), filePath..' |time='..tostring(time)))
@@ -226,7 +226,7 @@ local function copy_path()
 
 		set_clipboard(filePath)
 		
-		local copyLog = (os.getenv('APPDATA') or os.getenv('HOME')..'/.config')..'/mpv/mpvClipboard.log'
+		local copyLog = mp.find_config_file(".")..'mpvClipboard.log'
 		local copyLogAdd = io.open(copyLog, 'a+')
 		
 		copyLogAdd:write(('[%s] %s\n'):format(os.date('%d/%b/%y %X'), filePath))    
@@ -265,7 +265,7 @@ function paste()
 	local currentVideoExtension = string.lower(get_extension(videoFile))
 	local currentVideoExtensionPath = (get_extentionpath(videoFile))
 	
-	local copyLog = (os.getenv('APPDATA') or os.getenv('HOME')..'/.config')..'/mpv/mpvClipboard.log'
+	local copyLog = mp.find_config_file(".")..'mpvClipboard.log'
 	local copyLogAdd = io.open(copyLog, 'a+')
 	local copyLogOpen = io.open(copyLog, 'r+')
 
@@ -404,7 +404,7 @@ function paste_playlist()
 		videoFile = clip
 	end
 	
-	local copyLog = (os.getenv('APPDATA') or os.getenv('HOME')..'/.config')..'/mpv/mpvClipboard.log'
+	local copyLog = mp.find_config_file(".")..'mpvClipboard.log'
 	local copyLogAdd = io.open(copyLog, 'a+')
 	local copyLogOpen = io.open(copyLog, 'r+')
 	
