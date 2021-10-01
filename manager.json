@@ -21,7 +21,7 @@
   },
   {
     "git":"https://github.com/hooke007/MPV_lazy",
-    "whitelist":"ontop%_playback%.lua$|cycle%_adevice%.lua$|thumbnailer%.lua$|thumbnailer%_worker%.lua$",
+    "whitelist":"autoload%.lua$|ontop%_playback%.lua$|cycle%_adevice%.lua$|thumbnailer%.lua$|thumbnailer%_worker%.lua$",
     "dest":"~~/scripts"
   },
   {
