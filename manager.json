@@ -41,6 +41,13 @@
     "dest":"~~/scripts"
   },
 */
+/*
+  {
+    "git":"https://github.com/yuukidach/mpv-scripts",
+    "whitelist":"history%-bookmark%.lua$",
+    "dest":"~~/scripts"
+  },
+*/
   {
     "git":"https://github.com/po5/trackselect",
     "whitelist":"%.lua$",
