@@ -1,22 +1,26 @@
 -- // Bookmarker Menu v1.3.1 for mpv \\ --
 -- See README.md for instructions
-
--- Maximum number of characters for bookmark name
-local maxChar = 100
--- Number of bookmarks to be displayed per page
-local bookmarksPerPage = 10
--- Whether to close the Bookmarker menu after loading a bookmark
-local closeAfterLoad = true
--- Whether to close the Bookmarker menu after replacing a bookmark
-local closeAfterReplace = true
--- Whether to ask for confirmation to replace a bookmark (Uses the Typer for confirmation)
-local confirmReplace = false
--- Whether to ask for confirmation to delete a bookmark (Uses the Typer for confirmation)
-local confirmDelete = false
--- The rate (in seconds) at which the bookmarker needs to refresh its interface; lower is more frequent
-local rate = 1.5
--- The filename for the bookmarks file
-local bookmarkerName = "bookmarker.json"
+local o = {
+    -- Maximum number of characters for bookmark name
+    maxChar = 100,
+    -- Number of bookmarks to be displayed per page
+    bookmarksPerPage = 10,
+    -- Whether to close the Bookmarker menu after loading a bookmark
+    closeAfterLoad = true,
+    -- Whether to close the Bookmarker menu after replacing a bookmark
+    closeAfterReplace = true,
+    -- Whether to ask for confirmation to replace a bookmark (Uses the Typer for confirmation)
+    confirmReplace = false,
+    -- Whether to ask for confirmation to delete a bookmark (Uses the Typer for confirmation)
+    confirmDelete = false,
+    -- The rate (in seconds) at which the bookmarker needs to refresh its interface; lower is more frequent
+    rate = "1.5",
+    -- The filename for the bookmarks file
+    bookmarkerName = "bookmarker.json",
+    -- Whether to save a bookmark on shutdown
+    bookmarkOnShutdown = false
+}
+(require "mp.options").read_options(o)
 
 -- All the "global" variables and utilities; don't touch these
 local utils = require 'mp.utils'
@@ -153,7 +157,7 @@ function typer(s)
       typerText = typerText:sub(1, typerPos) .. typerText:sub(typerPos + 2)
     end
   else
-    if mode == "filepath" or typerText:len() < maxChar then
+    if mode == "filepath" or typerText:len() < o.maxChar then
       typerText = typerText:sub(1, typerPos) .. s .. typerText:sub(typerPos + 1)
       typerPos = typerPos + s:len()
     end
@@ -174,10 +178,10 @@ function typer(s)
   end
 
   local postMessage = ""
-  local split = typerPos + math.floor(typerPos / maxChar)
-  local messageLines = math.floor((typerText:len() - 1) / maxChar) + 1
+  local split = typerPos + math.floor(typerPos / o.maxChar)
+  local messageLines = math.floor((typerText:len() - 1) / o.maxChar) + 1
   for i = 1, messageLines do
-    postMessage = postMessage .. typerText:sub((i-1) * maxChar + 1, i * maxChar) .. "\n"
+    postMessage = postMessage .. typerText:sub((i-1) * o.maxChar + 1, i * o.maxChar) .. "\n"
   end
   postMessage = postMessage:sub(1,postMessage:len()-1)
 
@@ -262,11 +266,7 @@ end
 
 -- Get the filepath of a file from the mpv config folder
 function getFilepath(filename)
-  if isWindows() then
-  	return mp.find_config_file(".") .. filename
-  else	
-	  return mp.find_config_file(".") .. filename
-  end
+  return mp.find_config_file(".") .. filename
 end
 
 -- Load a table from a JSON file
@@ -314,24 +314,24 @@ end
 
 -- Calculates the current page and the total number of pages
 function calcPages()
-  currentPage = math.floor((currentSlot - 1) / bookmarksPerPage) + 1
+  currentPage = math.floor((currentSlot - 1) / o.bookmarksPerPage) + 1
   if currentPage == 0 then currentPage = 1 end
-  maxPage = math.floor((#bookmarks - 1) / bookmarksPerPage) + 1
+  maxPage = math.floor((#bookmarks - 1) / o.bookmarksPerPage) + 1
   if maxPage == 0 then maxPage = 1 end
 end
 
 -- Get the amount of bookmarks on the specified page
 function getAmountBookmarksOnPage(page)
-  local n = bookmarksPerPage
-  if page == maxPage then n = #bookmarks % bookmarksPerPage end
-  if n == 0 then n = bookmarksPerPage end
+  local n = o.bookmarksPerPage
+  if page == maxPage then n = #bookmarks % o.bookmarksPerPage end
+  if n == 0 then n = o.bookmarksPerPage end
   if #bookmarks == 0 then n = 0 end
   return n
 end
 
 -- Get the index of the first slot on the specified page
 function getFirstSlotOnPage(page)
-  return (page - 1) * bookmarksPerPage + 1
+  return (page - 1) * o.bookmarksPerPage + 1
 end
 
 -- Get the index of the last slot on the specified page
@@ -411,7 +411,7 @@ end
 
 -- Trims a name to the max number of characters
 function trimName(name)
-  if name:len() > maxChar then name = name:sub(1,maxChar) end
+  if name:len() > o.maxChar then name = name:sub(1,o.maxChar) end
   return name
 end
 
@@ -426,7 +426,7 @@ end
 -- Also checks for bookmarks made by "mpv-bookmarker" and converts them
 -- Also removes anything it doesn't recognize as a bookmark
 function loadBookmarks()
-  bookmarks = loadTable(getFilepath(bookmarkerName))
+  bookmarks = loadTable(getFilepath(o.bookmarkerName))
   if bookmarks == nil then bookmarks = {} end
 
   local doSave = false
@@ -476,19 +476,23 @@ end
 
 -- Save the globally loaded bookmarks to the JSON file
 function saveBookmarks()
-  saveTable(bookmarks, getFilepath(bookmarkerName))
+  saveTable(bookmarks, getFilepath(o.bookmarkerName))
 end
 
 -- Make a bookmark of the current media file, position and name
 -- Name can be specified or left blank to automake a name
 -- Returns the bookmark if successful or nil if it can't make a bookmark
 function makeBookmark(bname)
-  if mp.get_property("path") ~= nil then
+  local fpath = mp.get_property('path')
+  if fpath ~= nil then
     if bname == nil then bname = mp.get_property("media-title").." @ %t" end
+    if string.sub(fpath, 1, 4) ~= "http" then
+      fpath = utils.join_path(mp.get_property('working-directory'), fpath)
+    end
     local bookmark = {
       name = parseName(bname),
       pos = mp.get_property_number("time-pos"),
-      path = parsePath(mp.get_property("path")),
+      path = parsePath(fpath),
       version = 2
     }
     return bookmark
@@ -543,7 +547,7 @@ function replaceBookmark(slot)
     end
     bookmarks[slot] = bookmark
     saveBookmarks()
-    if closeAfterReplace then
+    if o.closeAfterReplace then
       abort(styleOn.."{\\c&H00FF00&}{\\b1}Successfully replaced bookmark:{\\r}\n"..displayName(bookmark["name"]))
       return -1
     end
@@ -594,7 +598,7 @@ function jumpToBookmark(slot)
       else
         mp.commandv("loadfile", parsePath(bookmark["path"]), "replace", "start="..bookmark["pos"])
       end
-      if closeAfterLoad then abort(styleOn.."{\\c&H00FF00&}{\\b1}Successfully found file for bookmark:{\\r}\n"..displayName(bookmark["name"])) end
+      if o.closeAfterLoad then abort(styleOn.."{\\c&H00FF00&}{\\b1}Successfully found file for bookmark:{\\r}\n"..displayName(bookmark["name"])) end
     else
       abort(styleOn.."{\\c&H0000FF&}{\\b1}Can't find file for bookmark:\n" .. displayName(bookmark["name"]))
     end
@@ -621,10 +625,10 @@ function displayBookmarks()
     end
     display = display .. "\n" .. selection .. i .. ": " .. btext .. "{\\r}"
   end
-  mp.osd_message(display, rate)
+  mp.osd_message(display, o.rate)
 end
 
-local timer = mp.add_periodic_timer(rate * 0.95, displayBookmarks)
+local timer = mp.add_periodic_timer(o.rate * 0.95, displayBookmarks)
 timer:kill()
 
 -- Commits the message entered with the Typer with custom scripts preceding it
@@ -664,7 +668,7 @@ function typerStart()
     abort(styleOn.."{\\c&H0000FF&}{\\b1}Can't find the bookmark at slot "..currentSlot)
     return -1
   end
-  if (mode == "replace" and not confirmReplace) or (mode == "delete" and not confirmDelete) then
+  if (mode == "replace" and not o.confirmReplace) or (mode == "delete" and not o.confirmDelete) then
     typerText = "y"
     typerCommit()
     return
@@ -703,6 +707,18 @@ function handler()
   end
 end
 
+function saveAndQuit()
+  if not o.bookmarkOnShutdown then
+    quickSave()
+  end
+  utils.commandv("quit")
+end
+
 mp.add_key_binding("N", "bookmarker-menu", handler)
 mp.add_key_binding("ALT+n", "bookmarker-quick-save", quickSave)
 mp.add_key_binding("CTRL+n", "bookmarker-quick-load", quickLoad)
+mp.register_script_message("bookmarker-quit", saveAndQuit)
+
+if o.bookmarkOnShutdown then
+  mp.register_event("shutdown", quickSave)
+end
