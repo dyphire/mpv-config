@@ -263,9 +263,9 @@ end
 -- Get the filepath of a file from the mpv config folder
 function getFilepath(filename)
   if isWindows() then
-  	return os.getenv("APPDATA"):gsub("\\", "/") .. "/mpv/" .. filename
+  	return mp.find_config_file(".") .. filename
   else	
-	return os.getenv("HOME") .. "/.config/mpv/" .. filename
+	  return mp.find_config_file(".") .. filename
   end
 end
 

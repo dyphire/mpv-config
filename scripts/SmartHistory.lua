@@ -41,7 +41,7 @@ end)
 
 mp.add_hook('on_unload', 50, function()
 	empty = false
-	local historyLog = (os.getenv('APPDATA') or os.getenv('HOME')..'/.config')..'/mpv/mpvHistory.log'
+	local historyLog = mp.find_config_file(".")..'mpvHistory.log'
 	local historyLogAdd = io.open(historyLog, 'a+')
 	
 	local seconds = math.floor(mp.get_property_number('time-pos') or 0)
@@ -53,7 +53,7 @@ mp.add_hook('on_unload', 50, function()
 end)
 
 local function resume()
-	local historyLog = (os.getenv('APPDATA') or os.getenv('HOME')..'/.config')..'/mpv/mpvHistory.log'
+	local historyLog = mp.find_config_file(".")..'mpvHistory.log'
 	local historyLogOpen = io.open(historyLog, 'r')
 	local historyLogAdd = io.open(historyLog, 'a+')
 	local filePath = mp.get_property('path')
@@ -106,7 +106,7 @@ local function resume()
 end
 
 function lastPlay()
-	local historyLog = (os.getenv('APPDATA') or os.getenv('HOME')..'/.config')..'/mpv/mpvHistory.log'
+	local historyLog = mp.find_config_file(".")..'mpvHistory.log'
 	local historyLogAdd = io.open(historyLog, 'a+')
 	local historyLogOpen = io.open(historyLog, 'r+')
     local linePosition
