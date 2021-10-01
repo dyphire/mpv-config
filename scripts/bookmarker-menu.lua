@@ -18,7 +18,9 @@ local o = {
     -- The filename for the bookmarks file
     bookmarkerName = "bookmarker.json",
     -- Whether to save a bookmark on shutdown
-    bookmarkOnShutdown = false
+    bookmarkOnShutdown = false,
+    -- Use separate bookmark table for each file
+    separateTable = false
 }
 (require "mp.options").read_options(o)
 
@@ -266,7 +268,7 @@ end
 
 -- Get the filepath of a file from the mpv config folder
 function getFilepath(filename)
-  return mp.find_config_file(".") .. filename
+  return mp.find_config_file(".") .. "/" .. filename
 end
 
 -- Load a table from a JSON file
@@ -426,7 +428,11 @@ end
 -- Also checks for bookmarks made by "mpv-bookmarker" and converts them
 -- Also removes anything it doesn't recognize as a bookmark
 function loadBookmarks()
-  bookmarks = loadTable(getFilepath(o.bookmarkerName))
+  if o.separateTable then
+    bookmarks = loadTable(getFilepath(mp.get_property("filename") .. "-" .. o.bookmarkerName))
+  else
+    bookmarks = loadTable(getFilepath(o.bookmarkerName))
+  end
   if bookmarks == nil then bookmarks = {} end
 
   local doSave = false
@@ -476,7 +482,11 @@ end
 
 -- Save the globally loaded bookmarks to the JSON file
 function saveBookmarks()
-  saveTable(bookmarks, getFilepath(o.bookmarkerName))
+  if o.separateTable then
+    saveTable(bookmarks, getFilepath(mp.get_property("filename") .. "-" .. o.bookmarkerName))
+  else
+    saveTable(bookmarks, getFilepath(o.bookmarkerName))
+  end
 end
 
 -- Make a bookmark of the current media file, position and name
