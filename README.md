@@ -1,8 +1,8 @@
 MPV config
 
-本项目为 windows 下[mpv 播放器](https://github.com/mpv-player/mpv)的配置文件，应放入`mpv.exe`所在目录下的`portable_config`文件夹内，
+本项目为 windows 下[mpv 播放器](https://github.com/mpv-player/mpv)的配置文件，应放入`mpv.exe`所在目录的`portable_config`文件夹内，
 
-或 mpv 配置默认路径`C:/Users/你的用户名/AppData/Roaming/mpv/`下，这种方式全局生效。
+或 mpv 配置默认路径` %APPDATA%/mpv/`下，这种方式全局生效。
 
 使用`portable_config`时会覆盖全局配置方案。
 
