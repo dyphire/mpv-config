@@ -47,7 +47,7 @@ function normalize(path)
         path = string.sub(path, 3, -1)
     end
     if ends_with(path, "/") or ends_with(path, "\\") then
-        path = string.sub(path, 1, -2)
+        path = string.sub(path, 1, -1)
     end
 
     return path
