@@ -95,7 +95,7 @@
     "dest":"~~/scripts"
   },
   {
-    "git":"https://github.com/rossy/mpv-open-file-dialog",
+    "git":"https://github.com/elig0n/mpv-open-file-dialog",
     "whitelist":"%.lua$",
     "dest":"~~/scripts"
   },

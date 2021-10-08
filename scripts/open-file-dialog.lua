@@ -6,7 +6,16 @@
 
 utils = require 'mp.utils'
 
-function open_file_dialog()
+function is_windows()
+  local windir = os.getenv("windir")
+  if windir~=nil then
+    return true
+  else
+    return false
+  end
+end
+
+function open_file_dialog_windows()
 	local was_ontop = mp.get_property_native("ontop")
 	if was_ontop then mp.set_property_native("ontop", false) end
 	local res = utils.subprocess({
@@ -42,4 +51,26 @@ function open_file_dialog()
 	end
 end
 
+function open_file_dialog_linux()
+	local was_ontop = mp.get_property_native("ontop")
+	if was_ontop then mp.set_property_native("ontop", false) end
+    local res = utils.subprocess({ args = {"yad", "--file"}, capture_stdout='yes', capture_stderr='yes', cancellable = false, })
+	if was_ontop then mp.set_property_native("ontop", true) end
+	if (res.status ~= 0) then print("bad return code") return end
+
+	local first_file = true
+	for filename in string.gmatch(res.stdout, '[^\n]+') do
+		mp.commandv('loadfile', filename, first_file and 'replace' or 'append')
+		first_file = false
+	end
+end
+
+function open_file_dialog()
+    if is_windows() then
+        open_file_dialog_windows()
+    else
+        open_file_dialog_linux() 
+    end 
+end 
+ 
 mp.add_key_binding('ctrl+o', 'open-file-dialog', open_file_dialog)
