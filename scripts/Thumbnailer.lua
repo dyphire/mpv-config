@@ -1,4 +1,5 @@
--- deus0ww - 2021-05-07
+-- origin deus0ww  - 2021-10-15 https://github.com/deus0ww/mpv-conf/blob/master/scripts/Thumbnailer.lua
+-- modify zhongfly - 2021-10-15
 
 local ipairs,loadfile,pairs,pcall,tonumber,tostring = ipairs,loadfile,pairs,pcall,tonumber,tostring
 local debug,io,math,os,string,table,utf8 = debug,io,math,os,string,table,utf8
@@ -185,7 +186,7 @@ end
 -- Data Structure --
 --------------------
 local initialized        = false
-local default_cache_dir  = join_paths(OPERATING_SYSTEM == OS_WIN and os.getenv('TEMP') or '/tmp/', script_name .. tostring(os.time()))
+local default_cache_dir  = join_paths(OPERATING_SYSTEM == OS_WIN and os.getenv('TEMP') or '/tmp/', script_name)
 local saved_state, state
 
 local user_opts = {
@@ -411,6 +412,7 @@ end
 local stop_conditions
 
 local worker_script_path
+local cache_dir_array = {}
 
 local function create_workers()
 	local workers_requested = (state and state.max_workers) and state.max_workers or user_opts.max_workers
@@ -427,24 +429,47 @@ local function create_workers()
 end
 
 local function hash_string(filepath, filename)
-	if OPERATING_SYSTEM == OS_WIN then return input end
+	if OPERATING_SYSTEM == OS_WIN then return filename end
 	local command
 	if     exec_exist('shasum', user_opts.exec_path)     then command = {user_opts.exec_path .. 'shasum', '-a', '256', filepath}
 	elseif exec_exist('gsha256sum', user_opts.exec_path) then command = {user_opts.exec_path .. 'gsha256sum', filepath}
 	elseif exec_exist('sha256sum', user_opts.exec_path)  then command = {user_opts.exec_path .. 'sha256sum', filepath} end
 	if not command then return filename end -- checksum command unavailable
 	local res = mp.command_native({name = 'subprocess', args = command, playback_only = false, capture_stdout = true, capture_stderr = true,})
-	return (res and res.stdout) and res.stdout:match('%w+') or filename
+	return (res and res.stdout) and res.stdout or filename
 end
 
 local function create_ouput_dir(filepath, filename, dimension, rotate)
-	local basepath = join_paths(user_opts.cache_dir, filename)
-	if not create_dir(basepath) then
-		basepath = join_paths(user_opts.cache_dir, hash_string(filepath, filename))
-		if not create_dir(basepath) then return {basepath = nil, fullpath = nil} end
+	local name, basepath, success, max_char = '', '', false, 64
+
+	name = filename      -- Try unmodified path
+	msg.debug('Creating Output Dir: Trying', name)
+	basepath = join_paths(user_opts.cache_dir, name:sub(1, max_char))
+	success = create_dir(basepath)
+	
+	if not success then  -- Try path with only alphanumeric
+		name = filename:gsub('[^%w]+', ''):sub(1, max_char)
+		msg.debug('Creating Output Dir: Trying', name)
+		basepath = join_paths(user_opts.cache_dir, name)
+		success = create_dir(basepath)
 	end
+
+	if not success then  -- Try hashed path
+		name = hash_string(filepath, filename):sub(1, max_char)
+		msg.debug('Creating Output Dir: Trying', name)
+		basepath = join_paths(user_opts.cache_dir, name)
+		success = create_dir(basepath)
+	end
+	
+	if not success then  -- Failed
+		msg.error('Creating Output Dir: Failed', name)
+		return {basepath = nil, fullpath = nil}
+	end
+	msg.debug('Creating Output Dir: Using ', name)
+	
 	local fullpath = join_paths(basepath, dimension, rotate)
 	if not create_dir(fullpath) then return { basepath = nil, fullpath = nil } end
+	table.insert(cache_dir_array,basepath)
 	return {basepath = basepath, fullpath = fullpath}
 end
 
@@ -462,7 +487,7 @@ local function calculate_timing(is_remote)
 end
 
 local function calculate_scale()
-	local hidpi_scale = mp.get_property_native("display-hidpi-scale", 1.0)
+	local hidpi_scale = mp.get_property_native('display-hidpi-scale', 1.0)
 	if osc_opts then
 		local scale = (saved_state.fullscreen ~= nil and saved_state.fullscreen) and osc_opts.scalefullscreen or osc_opts.scalewindowed
 		return scale * hidpi_scale
@@ -570,7 +595,7 @@ local function saved_state_init()
 	local rotate = mp.get_property_native('video-params/rotate', 0)
 	saved_state = {
 		input_fullpath = mp.get_property_native('path', ''),
-		input_filename = mp.get_property_native('filename/no-ext', ''):gsub('watch%?v=', ''):gsub('[%p%c%s]',''):sub(1, 64),
+		input_filename = mp.get_property_native('filename/no-ext', ''):gsub('watch%?v=', ''):gsub('[%p%c%s]',''),
 		meta_rotated   = ((rotate % 180) ~= 0),
 		initial_rotate = rotate % 360,
 		delta_factor   = 1.0,
@@ -607,10 +632,11 @@ local auto_delete = nil
 local function delete_cache_dir()
 	if auto_delete == nil then auto_delete = user_opts.auto_delete end
 	if auto_delete > 0 then 
-		local path = user_opts.cache_dir
-		msg.debug('Clearing Cache on Shutdown:', path)
-		if path:len() < 16 then return end
-		delete_dir(path)
+		for index, path in pairs(cache_dir_array) do
+			msg.debug('Clearing Cache on Shutdown:', path)
+			if path:len() < 16 then return end
+			delete_dir(path)
+		end
 	end
 end
 
