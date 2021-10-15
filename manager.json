@@ -24,6 +24,11 @@
     "whitelist":"autoload%.lua$|ontop%_playback%.lua$|cycle%_adevice%.lua$|thumbnailer%_worker%.lua$",
     "dest":"~~/scripts"
   },
+  {
+    "git":"https://github.com/zhongfly/mpv-conf",
+    "whitelist":"thumbnailer%.lua$",
+    "dest":"~~/scripts"
+  },
   /*
   {
     "git":"https://github.com/deus0ww/mpv-conf",
