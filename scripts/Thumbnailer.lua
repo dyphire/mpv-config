@@ -185,7 +185,7 @@ end
 -- Data Structure --
 --------------------
 local initialized        = false
-local default_cache_dir  = join_paths(OPERATING_SYSTEM == OS_WIN and os.getenv('TEMP') or '/tmp/', script_name)
+local default_cache_dir  = join_paths(OPERATING_SYSTEM == OS_WIN and os.getenv('TEMP') or '/tmp/', script_name .. tostring(os.time()))
 local saved_state, state
 
 local user_opts = {

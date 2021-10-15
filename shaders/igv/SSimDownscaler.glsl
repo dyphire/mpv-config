@@ -20,20 +20,19 @@
 //!WIDTH NATIVE_CROPPED.w
 //!WHEN NATIVE_CROPPED.h POSTKERNEL.h >
 //!COMPONENTS 3
-//!DESC SSimDownscaler calc L2 pass 1
+//!DESC SSimDownscaler L2 pass 1
 
 #define axis 1
 
 #define offset      vec2(0,0)
 
 #define MN(B,C,x)   (x < 1.0 ? ((2.-1.5*B-(C))*x + (-3.+2.*B+C))*x*x + (1.-(B)/3.) : (((-(B)/6.-(C))*x + (B+5.*C))*x + (-2.*B-8.*C))*x+((4./3.)*B+4.*C))
-#define Kernel(x)   MN(1.0/3.0, 1.0/3.0, abs(x))
+#define Kernel(x)   MN(.0, .5, abs(x))
 #define taps        2.0
 
 vec4 hook() {
     vec2 base = PREKERNEL_pt * (PREKERNEL_pos * input_size + tex_offset);
 
-    // Calculate bounds
     float low  = ceil((PREKERNEL_pos - taps*POSTKERNEL_pt) * input_size - offset + tex_offset - 0.5)[axis];
     float high = floor((PREKERNEL_pos + taps*POSTKERNEL_pt) * input_size - offset + tex_offset - 0.5)[axis];
 
@@ -60,18 +59,17 @@ vec4 hook() {
 //!SAVE L2
 //!WHEN NATIVE_CROPPED.w POSTKERNEL.w >
 //!COMPONENTS 3
-//!DESC SSimDownscaler calc L2 pass 2
+//!DESC SSimDownscaler L2 pass 2
 
 #define axis 0
 
 #define offset      vec2(0,0)
 
 #define MN(B,C,x)   (x < 1.0 ? ((2.-1.5*B-(C))*x + (-3.+2.*B+C))*x*x + (1.-(B)/3.) : (((-(B)/6.-(C))*x + (B+5.*C))*x + (-2.*B-8.*C))*x+((4./3.)*B+4.*C))
-#define Kernel(x)   MN(1.0/3.0, 1.0/3.0, abs(x))
+#define Kernel(x)   MN(.0, .5, abs(x))
 #define taps        2.0
 
 vec4 hook() {
-    // Calculate bounds
     float low  = ceil((L2_pos - taps*POSTKERNEL_pt) * L2_size - offset - 0.5)[axis];
     float high = floor((L2_pos + taps*POSTKERNEL_pt) * L2_size - offset - 0.5)[axis];
 
@@ -94,93 +92,36 @@ vec4 hook() {
 
 //!HOOK POSTKERNEL
 //!BIND HOOKED
-//!SAVE M
-//!WHEN NATIVE_CROPPED.h POSTKERNEL.h >
-//!COMPONENTS 3
-//!DESC SSimDownscaler calc Mean
-
-#define locality    8.0
-
-#define offset      vec2(0,0)
-
-#define Kernel(x)   pow(1.0 / locality, abs(x))
-#define taps        3.0
-#define maxtaps     taps
-
-vec4 ScaleH(vec2 pos) {
-    // Calculate bounds
-    float low  = floor(-0.5*maxtaps - offset)[0];
-    float high = floor(+0.5*maxtaps - offset)[0];
-
-    float W = 0.0;
-    vec4 avg = vec4(0);
-
-    for (float k = 0.0; k < maxtaps; k++) {
-        pos[0] = POSTKERNEL_pos[0] + POSTKERNEL_pt[0] * (k + low + 1.0);
-        float rel = (k + low + 1.0) + offset[0];
-        float w = Kernel(rel);
-
-        avg += w * clamp(POSTKERNEL_tex(pos), 0.0, 1.0);
-        W += w;
-    }
-    avg /= W;
-
-    return avg;
-}
-
-vec4 hook() {
-    // Calculate bounds
-    float low  = floor(-0.5*maxtaps - offset)[1];
-    float high = floor(+0.5*maxtaps - offset)[1];
-
-    float W = 0.0;
-    vec4 avg = vec4(0);
-    vec2 pos = POSTKERNEL_pos;
-
-    for (float k = 0.0; k < maxtaps; k++) {
-        pos[1] = POSTKERNEL_pos[1] + POSTKERNEL_pt[1] * (k + low + 1.0);
-        float rel = (k + low + 1.0) + offset[1];
-        float w = Kernel(rel);
-
-        avg += w * ScaleH(pos);
-        W += w;
-    }
-    avg /= W;
-
-    return avg;
-}
-
-//!HOOK POSTKERNEL
-//!BIND HOOKED
 //!BIND L2
-//!BIND M
-//!SAVE R
+//!SAVE MR
 //!WHEN NATIVE_CROPPED.h POSTKERNEL.h >
-//!COMPONENTS 3
-//!DESC SSimDownscaler calc R
+//!COMPONENTS 4
+//!DESC SSimDownscaler mean & R
 
-#define locality    8.0
+#define sigma_nsq   49. / (255.*255.)
+#define locality    2.0
 
 #define offset      vec2(0,0)
 
 #define Kernel(x)   pow(1.0 / locality, abs(x))
 #define taps        3.0
-#define maxtaps     taps
 
-mat2x4 ScaleH(vec2 pos) {
-    // Calculate bounds
-    float low  = floor(-0.5*maxtaps - offset)[0];
-    float high = floor(+0.5*maxtaps - offset)[0];
+#define Luma(rgb)   ( dot(rgb, vec3(0.2126, 0.7152, 0.0722)) )
+
+mat3x3 ScaleH(vec2 pos) {
+    float low  = ceil(-0.5*taps - offset)[0];
+    float high = floor(0.5*taps - offset)[0];
 
     float W = 0.0;
-    mat2x4 avg = mat2x4(0);
+    mat3x3 avg = mat3x3(0);
 
-    for (float k = 0.0; k < maxtaps; k++) {
-        pos[0] = L2_pos[0] + L2_pt[0] * (k + low + 1.0);
-        float rel = (k + low + 1.0) + offset[0];
+    for (float k = low; k <= high; k++) {
+        pos[0] = HOOKED_pos[0] + HOOKED_pt[0] * k;
+        float rel = k + offset[0];
         float w = Kernel(rel);
 
-        avg += w * mat2x4(pow(clamp(POSTKERNEL_tex(pos), 0.0, 1.0), vec4(2.0)), L2_tex(pos));
+        vec3 L = clamp(POSTKERNEL_tex(pos).rgb, 0.0, 1.0);
+        avg += w * mat3x3(L, L*L, L2_tex(pos).rgb);
         W += w;
     }
     avg /= W;
@@ -189,17 +130,17 @@ mat2x4 ScaleH(vec2 pos) {
 }
 
 vec4 hook() {
-    // Calculate bounds
-    float low  = floor(-0.5*maxtaps - offset)[1];
-    float high = floor(+0.5*maxtaps - offset)[1];
+    vec2 pos = HOOKED_pos;
+
+    float low  = ceil(-0.5*taps - offset)[1];
+    float high = floor(0.5*taps - offset)[1];
 
     float W = 0.0;
-    mat2x4 avg = mat2x4(0);
-    vec2 pos = L2_pos;
+    mat3x3 avg = mat3x3(0);
 
-    for (float k = 0.0; k < maxtaps; k++) {
-        pos[1] = L2_pos[1] + L2_pt[1] * (k + low + 1.0);
-        float rel = (k + low + 1.0) + offset[1];
+    for (float k = low; k <= high; k++) {
+        pos[1] = HOOKED_pos[1] + HOOKED_pt[1] * k;
+        float rel = k + offset[1];
         float w = Kernel(rel);
 
         avg += w * ScaleH(pos);
@@ -207,45 +148,42 @@ vec4 hook() {
     }
     avg /= W;
 
-    vec3 Sl = abs(avg[0].rgb - pow(M_texOff(0).rgb, vec3(2.0)));
-    vec3 Sh = abs(avg[1].rgb - pow(M_texOff(0).rgb, vec3(2.0)));
-    return vec4(mix(vec3(0.5), 1.0 / (1.0 + sqrt(Sh / Sl)), lessThan(vec3(5e-6), Sl)), 0.0);
+    float Sl = Luma(max(avg[1] - avg[0] * avg[0], 0.)) + sigma_nsq;
+    float Sh = Luma(max(avg[2] - avg[0] * avg[0], 0.)) + sigma_nsq;
+    return vec4(avg[0], sqrt(Sh / Sl));
 }
 
 //!HOOK POSTKERNEL
 //!BIND HOOKED
-//!BIND M
-//!BIND R
+//!BIND MR
 //!WHEN NATIVE_CROPPED.h POSTKERNEL.h >
 //!DESC SSimDownscaler final pass
 
-#define locality    8.0
+#define locality    2.0
 
 #define offset      vec2(0,0)
 
 #define Kernel(x)   pow(1.0 / locality, abs(x))
 #define taps        3.0
-#define maxtaps     taps
 
 #define Gamma(x)    ( pow(x, vec3(1.0/2.0)) )
 #define GammaInv(x) ( pow(clamp(x, 0.0, 1.0), vec3(2.0)) )
 
 mat3x3 ScaleH(vec2 pos) {
-    // Calculate bounds
-    float low  = floor(-0.5*maxtaps - offset)[0];
-    float high = floor(+0.5*maxtaps - offset)[0];
+    float low  = ceil(-0.5*taps - offset)[0];
+    float high = floor(0.5*taps - offset)[0];
 
     float W = 0.0;
     mat3x3 avg = mat3x3(0);
 
-    for (float k = 0.0; k < maxtaps; k++) {
-        pos[0] = POSTKERNEL_pos[0] + POSTKERNEL_pt[0] * (k + low + 1.0);
-        float rel = (k + low + 1.0) + offset[0];
+    for (float k = low; k <= high; k++) {
+        pos[0] = HOOKED_pos[0] + HOOKED_pt[0] * k;
+        float rel = k + offset[0];
         float w = Kernel(rel);
-        vec3 M = Gamma(M_tex(pos).rgb);
-        vec3 R = R_tex(pos).rgb;
-        R = 1.0 / R - 1.0;
-        avg += w * mat3x3(R*M, M, R);
+
+        vec4 MR = MR_tex(pos);
+        vec3 M = Gamma(MR.rgb);
+        avg += w * mat3x3(MR.a*M, M, MR.aaa);
         W += w;
     }
     avg /= W;
@@ -254,17 +192,17 @@ mat3x3 ScaleH(vec2 pos) {
 }
 
 vec4 hook() {
-    // Calculate bounds
-    float low  = floor(-0.5*maxtaps - offset)[1];
-    float high = floor(+0.5*maxtaps - offset)[1];
+    vec2 pos = HOOKED_pos;
+
+    float low  = ceil(-0.5*taps - offset)[1];
+    float high = floor(0.5*taps - offset)[1];
 
     float W = 0.0;
     mat3x3 avg = mat3x3(0);
-    vec2 pos = POSTKERNEL_pos;
 
-    for (float k = 0.0; k < maxtaps; k++) {
-        pos[1] = POSTKERNEL_pos[1] + POSTKERNEL_pt[1] * (k + low + 1.0);
-        float rel = (k + low + 1.0) + offset[1];
+    for (float k = low; k <= high; k++) {
+        pos[1] = HOOKED_pos[1] + HOOKED_pt[1] * k;
+        float rel = k + offset[1];
         float w = Kernel(rel);
 
         avg += w * ScaleH(pos);
@@ -272,5 +210,5 @@ vec4 hook() {
     }
     avg /= W;
     vec4 L = clamp(POSTKERNEL_texOff(0), 0.0, 1.0);
-    return vec4(GammaInv(avg[1] + avg[2] * Gamma(L.rgb) - avg[0]), L.w);
+    return vec4(GammaInv(avg[1] + avg[2] * Gamma(L.rgb) - avg[0]), L.a);
 }
