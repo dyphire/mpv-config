@@ -442,18 +442,14 @@ end
 local function create_ouput_dir(filepath, filename, dimension, rotate)
 	local name, basepath, success, max_char = '', '', false, 64
 
-	name = filename      -- Try unmodified path
+	-- Try path without two-bytes UTF-8 char and only alphanumerics
+	name = filename:gsub('[\192-\255][\128-\191]*', ''):gsub('[^%w]+', ''):sub(1, max_char)
 	msg.debug('Creating Output Dir: Trying', name)
-	basepath = join_paths(user_opts.cache_dir, name:sub(1, max_char))
-	success = create_dir(basepath)
-	
-	if not success then  -- Try path with only alphanumeric
-		name = filename:gsub('[^%w]+', ''):sub(1, max_char)
-		msg.debug('Creating Output Dir: Trying', name)
+	if not is_empty(name) then
 		basepath = join_paths(user_opts.cache_dir, name)
 		success = create_dir(basepath)
 	end
-
+	
 	if not success then  -- Try hashed path
 		name = hash_string(filepath, filename):sub(1, max_char)
 		msg.debug('Creating Output Dir: Trying', name)
@@ -595,7 +591,7 @@ local function saved_state_init()
 	local rotate = mp.get_property_native('video-params/rotate', 0)
 	saved_state = {
 		input_fullpath = mp.get_property_native('path', ''),
-		input_filename = mp.get_property_native('filename/no-ext', ''):gsub('watch%?v=', ''):gsub('[%p%c%s]',''),
+		input_filename = mp.get_property_native('filename/no-ext', ''):gsub('watch%?v=', ''),
 		meta_rotated   = ((rotate % 180) ~= 0),
 		initial_rotate = rotate % 360,
 		delta_factor   = 1.0,
