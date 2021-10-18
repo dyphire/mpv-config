@@ -17,7 +17,6 @@
 | cycle_adevice.lua | 快捷键切换音频输出设备 |
 | delete_file.lua | 退出时删除标记文件 |
 | dynamic-crop.lua | 自动检测黑边并裁切（[autocrop.lua](https://github.com/mpv-player/mpv/blob/master/TOOLS/lua/autocrop.lua) 改进版；配置文件 [dynamic_crop.conf](../script-opts/dynamic_crop.conf)） |
-| exit-fullscreen.lua | 播放列表结束后退出全屏 |
 | file-browser.lua | 内置文件浏览器（依赖 [user-input.lua](../scripts/user-input.lua);[user-input-module.lua](../script-modules/user-input-module.lua) ；配置文件 [file_browser.conf](../script-opts/file_browser.conf)） |
 | fuzzydir.lua | 外挂音轨/字幕路径检测增强 |
 | history-bookmark.lua | 记录并恢复视频目录播放记录（可确认是否恢复该目录上次播放进度） |
@@ -29,7 +28,6 @@
 | ontop_playback.lua            | 仅在播放时启用置顶                                           |
 | open-file-dialog.lua | 快捷键载入文件                                               |
 | ordered-chapters-playlist.lua | 有序章节播放列表 |
-| pause-when-minimize.lua | 最小化时暂停播放 |
 | playlistmanager.lua | 高级播放列表（配置文件 [playlistmanager.conf](../script-opts/playlistmanager.conf)） |
 | recent.lua | 播放记录菜单（配置文件 [recent.conf](../script-opts/recent.conf)） |
 | segment-linking.lua | 实现对 matroska [硬段链接](https://www.ietf.org/archive/id/draft-ietf-cellar-matroska-06.html#name-hard-linking) 的支持 |
@@ -42,7 +40,6 @@
 | Thumbnailer_OSC.lua           | 缩略图引擎搭配的 OSC 界面（配置文件 [Thumbnailer_OSC.conf](../script-opts/Thumbnailer_OSC.conf)） |
 | trackselect.lua               | 指定音频轨道优先级/黑白名单（配置文件 [trackselect.conf](../script-opts/trackselect.conf)） |
 | UndoRedo.lua                  | 智能跳跃记录操作                                             |
-| user-input.lua                | [功能扩展插件](https://github.com/CogentRedTester/mpv-user-input) |
 
 1. 部分脚本为**个人修改版本**，主要改进功能实现或键位绑定方式。如：bookmarker-menu.lua; boss-key.lua; chapter_list.lua; chapterskip.lua; copy_subortime.lua; fuzzydir.lua; local-language.lua; menu.lua; skiptosilence.lua; SmartHistory.lua; SmartCopyPaste-II.lua
 2. 所有脚本预绑定的静态键位已被 [mpv.conf](../mpv.conf) 中的`input-default-bindings=no`参数屏蔽，可查看 [input.conf](../input.conf)  的"LUA 脚本"部分示例参考绑定所需键位  
