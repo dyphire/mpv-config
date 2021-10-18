@@ -9,11 +9,13 @@
     "whitelist":"%.lua$",
     "dest":"~~/scripts"
   },
+/*
   {
     "git":"https://github.com/mpv-player/mpv",
     "whitelist":"autodeint%.lua$|pause%-when%-minimize%.lua$",
     "dest":"~~/scripts"
   },
+*/
   {
     "git":"https://github.com/Ashyni/mpv-scripts",
     "whitelist":"dynamic%-crop%.lua$",
@@ -21,7 +23,7 @@
   },
   {
     "git":"https://github.com/hooke007/MPV_lazy",
-    "whitelist":"autoload%.lua$|ontop%_playback%.lua$|cycle%_adevice%.lua$|thumbnailer%_worker%.lua$",
+    "whitelist":"autoload%.lua$|cycle%_adevice%.lua$|thumbnailer%_worker%.lua$",
     "dest":"~~/scripts"
   },
   {
@@ -29,7 +31,7 @@
     "whitelist":"thumbnailer%.lua$",
     "dest":"~~/scripts"
   },
-  /*
+/*
   {
     "git":"https://github.com/deus0ww/mpv-conf",
     "whitelist":"thumbnailer%.lua$|thumbnailer%_worker%.lua$|thumbnailer%_osc%.lua$",
@@ -94,23 +96,25 @@
     "dest":"~~/scripts"
   },
 */
-  /*
+/*
   {
     "git":"https://github.com/detuur/mpv-scripts",
     "whitelist":"boss%-key%.lua$|skiptosilence%.lua$",
     "dest":"~~/scripts"
   },
-  */
+*/
   {
     "git":"https://github.com/zenyd/mpv-scripts",
     "whitelist":"delete%_file%.lua$",
     "dest":"~~/scripts"
   },
+/*
   {
     "git":"https://github.com/zc62/mpv-scripts",
     "whitelist":"exit%-fullscreen%.lua$",
     "dest":"~~/scripts"
   },
+*/
   {
     "git":"https://github.com/CogentRedTester/mpv-changerefresh",
     "whitelist":"%.lua$",

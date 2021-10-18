@@ -22,3 +22,11 @@ mp.observe_property("pause", "bool", function(name, value)
         was_ontop = false
     end
 end)
+
+mp.observe_property("ontop", "bool", function(name, value)
+    local pause = mp.get_property_bool("pause")
+    if value and pause then
+                mp.set_property_native("ontop", false)
+                was_ontop = true
+    end
+end)
