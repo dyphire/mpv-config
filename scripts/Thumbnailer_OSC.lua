@@ -575,7 +575,7 @@ local osc_styles = {
     vidtitleBar = ("{\\blur0\\bord0\\1c&HFFFFFF\\3c&HFFFFFF\\fs18\\b%d\\q2\\fn%s}"):format(user_opts.font_bold, user_opts.font),
 
     wcButtons = "{\\1c&HFFFFFF\\fs24\\fnmpv-osd-symbols}",
-    wcTitle = "{\\1c&HFFFFFF\\fs24\\q2}",
+    wcTitle = "{\\1c&HFFFFFF\\fs20\\q2}",
     wcBar = "{\\1c&H000000}",
 
     -- bottombox样式
