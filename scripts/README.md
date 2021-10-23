@@ -26,7 +26,7 @@
 | mpv-webp.lua | 剪切指定片段为 webp 动图（依赖 ffmpeg；配置文件 [webp.conf](../script-opts/webp.conf)） |
 | onedrive-hook.lua | 转换 onedrive 共享链接为播放链接 |
 | ontop_playback.lua            | 仅在播放时启用置顶                                           |
-| open_dialog.lua | 快捷键载入文件                                               |
+| open_dialog.lua | 快捷键载入文件或网址                                           |
 | ordered-chapters-playlist.lua | 有序章节播放列表 |
 | playlistmanager.lua | 高级播放列表（配置文件 [playlistmanager.conf](../script-opts/playlistmanager.conf)） |
 | recent.lua | 播放记录菜单（配置文件 [recent.conf](../script-opts/recent.conf)） |
@@ -41,7 +41,7 @@
 | trackselect.lua               | 指定音频轨道优先级/黑白名单（配置文件 [trackselect.conf](../script-opts/trackselect.conf)） |
 | UndoRedo.lua                  | 智能跳跃记录操作                                             |
 
-1. 部分脚本为**个人修改版本**，主要改进功能实现或键位绑定方式。如：bookmarker-menu.lua; boss-key.lua; chapter_list.lua; chapterskip.lua; copy_subortime.lua; fuzzydir.lua; local-language.lua; menu.lua; skiptosilence.lua; SmartHistory.lua; SmartCopyPaste-II.lua
+1. 部分脚本为**个人修改版本**，主要改进功能实现或键位绑定方式。如：bookmarker-menu.lua; boss-key.lua; chapter_list.lua; chapterskip.lua; copy_subortime.lua; fuzzydir.lua; local-language.lua; menu.lua; recent.lua; skiptosilence.lua; SmartHistory.lua; SmartCopyPaste-II.lua
 2. 所有脚本预绑定的静态键位已被 [mpv.conf](../mpv.conf) 中的`input-default-bindings=no`参数屏蔽，可查看 [input.conf](../input.conf)  的"LUA 脚本"部分示例参考绑定所需键位  
    - 本配置绑定的快捷键及功能请参考 [快捷键.md](../快捷键.md) 文件
 3. 部分脚本存在动态绑定键位，可查看对应脚本及配置文件相关部分（或[快捷键.md](../快捷键.md)中相关说明）
