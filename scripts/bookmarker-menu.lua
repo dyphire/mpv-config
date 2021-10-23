@@ -456,7 +456,7 @@ function loadBookmarks()
     else
       if bookmark.filename ~= nil and bookmark.pos ~= nil and bookmark.filepath ~= nil then
         local newmark = {
-          name = trimName(""..bookmark.filename.." @ "..parseTime(bookmark.pos)),
+          name = trimName(""..bookmark.filename.." 🕒 "..parseTime(bookmark.pos)),
           pos = bookmark.pos,
           path = parsePath(bookmark.filepath),
           version = 2
@@ -495,7 +495,7 @@ end
 function makeBookmark(bname)
   local fpath = mp.get_property('path')
   if fpath ~= nil then
-    if bname == nil then bname = mp.get_property("media-title").." @ %t" end
+    if bname == nil then bname = mp.get_property("media-title").." 🕒 %t" end
     if string.sub(fpath, 1, 4) ~= "http" then
       fpath = utils.join_path(mp.get_property('working-directory'), fpath)
     end
@@ -624,7 +624,7 @@ function displayBookmarks()
   local endSlot = getLastSlotOnPage(currentPage)
 
   -- Prepare the text to display and display it
-  local display = styleOn .. "{\\b1}Bookmarks page " .. currentPage .. "/" .. maxPage .. ":{\\b0}"
+  local display = styleOn .. "{\\b1}🔖 Bookmarks" .. currentPage .. "/" .. maxPage .. ":{\\b0}"
   for i = startSlot, endSlot do
     local btext = displayName(bookmarks[i]["name"])
     local selection = ""
