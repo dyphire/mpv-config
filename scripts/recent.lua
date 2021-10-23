@@ -142,7 +142,7 @@ function draw_list(list, start, choice)
             if o.split_paths and not list[size-start-i+1].path:find("^http.?://") then
                 _, p = utils.split_path(list[size-start-i+1].path)
             else
-                p = list[size-start-i+1].path or ""
+                p = list[size-start-i+1].title or ""
             end
         else
             p = list[size-start-i+1].title or list[size-start-i+1].path or ""
