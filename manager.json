@@ -110,11 +110,13 @@
     "dest":"~~/scripts"
   },
 */
+/*
   {
     "git":"https://github.com/hacel/mpv-scripts",
     "whitelist":"recent%.lua$",
     "dest":"~~/scripts"
   },
+*/
   {
     "git":"https://github.com/CogentRedTester/mpv-changerefresh",
     "whitelist":"%.lua$",
