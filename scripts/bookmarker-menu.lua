@@ -42,8 +42,11 @@ local oldSlot = 0
 -- List of custom controls and their function
 local bookmarkerControls = {
   ESC = function() abort("") end,
+  MBTN_RIGHT = function() abort("") end,
   DOWN = function() jumpSlot(1) end,
+  WHEEL_DOWN = function() jumpSlot(1) end,
   UP = function() jumpSlot(-1) end,
+  WHEEL_UP = function() jumpSlot(-1) end,
   RIGHT = function() jumpPage(1) end,
   LEFT = function() jumpPage(-1) end,
   s = function() addBookmark() end,
@@ -54,6 +57,7 @@ local bookmarkerControls = {
   m = function() mode="move" moverStart() end,
   DEL = function() mode="delete" typerStart() end,
   ENTER = function() jumpToBookmark(currentSlot) end,
+  MBTN_MID = function() jumpToBookmark(currentSlot) end,
   KP_ENTER = function() jumpToBookmark(currentSlot) end
 }
 
@@ -456,7 +460,7 @@ function loadBookmarks()
     else
       if bookmark.filename ~= nil and bookmark.pos ~= nil and bookmark.filepath ~= nil then
         local newmark = {
-          name = trimName(""..bookmark.filename.." @ "..parseTime(bookmark.pos)),
+          name = trimName(""..bookmark.filename.." 🕒 "..parseTime(bookmark.pos)),
           pos = bookmark.pos,
           path = parsePath(bookmark.filepath),
           version = 2
@@ -495,9 +499,11 @@ end
 function makeBookmark(bname)
   local fpath = mp.get_property('path')
   if fpath ~= nil then
-    if bname == nil then bname = mp.get_property("media-title").." @ %t" end
     if string.sub(fpath, 1, 4) ~= "http" then
+      if bname == nil then bname = mp.get_property("filename").." 🕒 %t" end
       fpath = utils.join_path(mp.get_property('working-directory'), fpath)
+    else
+      if bname == nil then bname = mp.get_property("media-title").." 🕒 %t" end
     end
     local bookmark = {
       name = parseName(bname),
@@ -624,7 +630,7 @@ function displayBookmarks()
   local endSlot = getLastSlotOnPage(currentPage)
 
   -- Prepare the text to display and display it
-  local display = styleOn .. "{\\b1}Bookmarks page " .. currentPage .. "/" .. maxPage .. ":{\\b0}"
+  local display = styleOn .. "{\\b1}🔖 Bookmarks page " .. currentPage .. "/" .. maxPage .. ":{\\b0}"
   for i = startSlot, endSlot do
     local btext = displayName(bookmarks[i]["name"])
     local selection = ""
