@@ -92,7 +92,7 @@
 /*
   {
     "git":"https://github.com/Eisa01/mpv-scripts",
-    "whitelist":"smarthistory%.lua$|smartcopypaste%-%.lua$",
+    "whitelist":"simplebookmark%.lua$|smarthistory%.lua$|smartcopypaste%-%.lua$",
     "dest":"~~/scripts"
   },
 */
