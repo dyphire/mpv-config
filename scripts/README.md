@@ -26,7 +26,7 @@
 | mpv-webp.lua | 剪切指定片段为 webp 动图（依赖 ffmpeg；配置文件 [webp.conf](../script-opts/webp.conf)） |
 | onedrive-hook.lua | 转换 onedrive 共享链接为播放链接 |
 | ontop_playback.lua            | 仅在播放时启用置顶                                           |
-| open-file-dialog.lua | 快捷键载入文件                                               |
+| open_dialog.lua | 快捷键载入文件                                               |
 | ordered-chapters-playlist.lua | 有序章节播放列表 |
 | playlistmanager.lua | 高级播放列表（配置文件 [playlistmanager.conf](../script-opts/playlistmanager.conf)） |
 | recent.lua | 播放记录菜单（配置文件 [recent.conf](../script-opts/recent.conf)） |
