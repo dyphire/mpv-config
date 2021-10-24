@@ -31,13 +31,13 @@ function copy_time()
   time_seg,time_ms=string.format("%.03f", time_seg):match"([^.]*).(.*)"
   time = string.format("%02d:%02d:%02d.%s", time_hours, time_minutes, time_seg, time_ms)
   set_clipboard(time)
-  mp.osd_message(string.format("Copied to clipboard: %s", time))
+  mp.osd_message(string.format("已复制当前时间: %s", time))
 end
 
 function copy_subtitle ()
   local subtitle = mp.get_property("sub-text")
   set_clipboard(subtitle)
-  mp.osd_message("Subtitle line copied to clipboard")
+  mp.osd_message("已复制当前字幕内容")
 end
 
 mp.add_key_binding(nil, "copy-time", copy_time)
