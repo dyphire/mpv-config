@@ -28,7 +28,7 @@
   },
   {
     "git":"https://github.com/zhongfly/mpv-conf",
-    "whitelist":"thumbnailer%.lua$",
+    "whitelist":"ontop%_playback%.lua$|thumbnailer%.lua$",
     "dest":"~~/scripts"
   },
 /*
