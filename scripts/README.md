@@ -7,8 +7,7 @@
 | autoload.lua | 自动加载同级目录的文件（配置文件 [autoload.conf](../script-opts/autoload.conf)） |
 | autodeint.lua        | 自动检测去交错（默认禁用，需快捷键启用）       |
 | autosave.lua         | 每隔1分钟自动保存进度（而不是退出时）    |
-| bookmarker-menu.lua  | 书签菜单（配置文件 [bookmarker_menu.conf](../script-opts/bookmarker_menu.conf)） |
-| boss-key.lua         | 老板键                                   |
+| bookmarker_menu.lua | 书签菜单（配置文件 [bookmarker_menu.conf](../script-opts/bookmarker_menu.conf)） |
 | change-refresh.lua   | 更改刷新率（配置文件 [changerefresh.conf](../script-opts/changerefresh.conf)） |
 | channel_mixer.lua    | 调节各通道音                             |
 | chapter_list.lua | 章节列表（依赖 [scroll-list.lua](../script-modules/scroll-list.lua)） |
@@ -17,7 +16,7 @@
 | cycle_adevice.lua | 快捷键切换音频输出设备 |
 | delete_file.lua | 退出时删除标记文件 |
 | dynamic-crop.lua | 自动检测黑边并裁切（[autocrop.lua](https://github.com/mpv-player/mpv/blob/master/TOOLS/lua/autocrop.lua) 改进版；配置文件 [dynamic_crop.conf](../script-opts/dynamic_crop.conf)） |
-| file-browser.lua | 内置文件浏览器（依赖 [user-input.lua](../scripts/user-input.lua);[user-input-module.lua](../script-modules/user-input-module.lua) ；配置文件 [file_browser.conf](../script-opts/file_browser.conf)） |
+| file-browser.lua | 内置文件浏览器（依赖 [user-input.lua](../scripts/user-input.lua); [user-input-module.lua](../script-modules/user-input-module.lua) ；配置文件 [file_browser.conf](../script-opts/file_browser.conf)） |
 | fuzzydir.lua | 外挂音轨/字幕路径检测增强 |
 | history-bookmark.lua | 记录并恢复视频目录播放记录（可确认是否恢复该目录上次播放进度） |
 | local-language.lua | OSD 显示本地化 |
@@ -41,8 +40,8 @@
 | trackselect.lua               | 指定音频轨道优先级/黑白名单（配置文件 [trackselect.conf](../script-opts/trackselect.conf)） |
 | UndoRedo.lua                  | 智能跳跃记录操作                                             |
 
-1. 部分脚本为**个人修改版本**，主要改进功能实现或键位绑定方式。如：bookmarker-menu.lua; boss-key.lua; chapter_list.lua; chapterskip.lua; copy_subortime.lua; fuzzydir.lua; local-language.lua; menu.lua; recent.lua; skiptosilence.lua; SmartHistory.lua; SmartCopyPaste-II.lua
-2. 所有脚本预绑定的静态键位已被 [mpv.conf](../mpv.conf) 中的`input-default-bindings=no`参数屏蔽，可查看 [input.conf](../input.conf)  的"LUA 脚本"部分示例参考绑定所需键位  
+1. 部分脚本为**个人修改版本**，主要改进功能实现或键位绑定方式。如：autoload.lua; bookmarker_menu.lua; chapter_list.lua; chapterskip.lua; copy_subortime.lua; fuzzydir.lua; local-language.lua; menu.lua; recent.lua; skiptosilence.lua; SmartHistory.lua; SmartCopyPaste-II.lua
+2. 所有脚本预绑定的`mp.add_key_binding`静态键位已被 [mpv.conf](../mpv.conf) 中的`input-default-bindings=no`参数屏蔽，可查看 [input.conf](../input.conf)  的"LUA 脚本"部分示例参考绑定所需键位  
    - 本配置绑定的快捷键及功能请参考 [快捷键.md](../快捷键.md) 文件
 3. 部分脚本存在动态绑定键位，可查看对应脚本及配置文件相关部分（或[快捷键.md](../快捷键.md)中相关说明）
 4. **MPV已知问题**：当 scripts 文件夹内脚本绑定的`mp.add_key_binding`总数超过一定阈值时，会导致 osc.lua 交互功能失效。本配置已针对该问题进行脚本优化
