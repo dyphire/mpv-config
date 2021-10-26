@@ -217,6 +217,16 @@
     {
         "alang": "*",
         "slang": ["chs?","sc?","cht?","tc?","chi?","zh?","eng?", "und", "no"],
+        "whitelist": ["双语?"]  
+    },
+    {
+        "alang": "*",
+        "slang": ["chs?","sc?","cht?","tc?","chi?","zh?","eng?", "und", "no"],
+        "whitelist": ["特效?"]  
+    },
+    {
+        "alang": "*",
+        "slang": ["chs?","sc?","cht?","tc?","chi?","zh?","eng?", "und", "no"],
         "whitelist": ["简?"]  
     },
     {
