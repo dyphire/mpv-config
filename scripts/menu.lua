@@ -1,8 +1,4 @@
 local settings = {
-  display_timeout = 5,
-
-  loop_cursor = true,
-
   key_moveup = "UP WHEEL_UP",
   key_movedown = "DOWN WHEEL_DOWN",
   key_execute = "ENTER MBTN_LEFT",

@@ -29,7 +29,7 @@
 | ordered-chapters-playlist.lua | 有序章节播放列表 |
 | playlistmanager.lua | 高级播放列表（配置文件 [playlistmanager.conf](../script-opts/playlistmanager.conf)） |
 | recent.lua | 播放记录菜单（配置文件 [recent.conf](../script-opts/recent.conf)） |
-| segment-linking.lua | 实现对 matroska [硬段链接](https://www.ietf.org/archive/id/draft-ietf-cellar-matroska-06.html#name-hard-linking) 的支持 |
+| segment-linking.lua | 实现对 matroska [硬段链接](https://www.ietf.org/archive/id/draft-ietf-cellar-matroska-06.html#name-hard-linking) 的支持（依赖  [read-file.lua](../script-modules/read-file.lua)；配置文件 [segment_linking.conf](../script-opts/segment_linking.conf)） |
 | skiptosilence.lua | 跳至播放文件的下一个静音位置（另类地实现跳 op 的方法；配置文件 [skiptosilence.conf](../script-opts/skiptosilence.conf)） |
 | slicing_copy.lua | 剪切视频片段（依赖 ffmpeg；配置文件 [slicing_copy.conf](../script-opts/slicing_copy.conf)） |
 | SmartHistory.lua              | 恢复最后的播放记录并播放                                       |

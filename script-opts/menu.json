@@ -13,12 +13,16 @@
       "command": ["script-message","change-refresh","3840","2160","60"]
     },
     {
-      "label": "切换Deband+配置",
-      "command": [["apply-profile", "Deband+"], ["show-text", "Deband+"]],
+      "label": "切换Tscale-box配置",
+      "command": [["apply-profile", "Tscale-box"], ["show-text", "Tscale-box"]],
+    }, 
+    {
+      "label": "切换DeBand-high配置",
+      "command": [["apply-profile", "DeBand-high"], ["show-text", "DeBand-high"]],
     },
     {
-      "label": "切换着色器配置",
-      "command": [["apply-profile", "Anime+"], ["show-text", "Anime+"]],
+      "label": "切换Anime-ravu-3x配置",
+      "command": [["apply-profile", "Anime-ravu-3x"], ["show-text", "Anime-ravu-3x"]],
     },
     {
       "label": "重置所有更改设置",
