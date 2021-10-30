@@ -9,13 +9,6 @@
     "whitelist":"%.lua$",
     "dest":"~~/scripts"
   },
-/*
-  {
-    "git":"https://github.com/mpv-player/mpv",
-    "whitelist":"autodeint%.lua$|pause%-when%-minimize%.lua$",
-    "dest":"~~/scripts"
-  },
-*/
   {
     "git":"https://github.com/Ashyni/mpv-scripts",
     "whitelist":"dynamic%-crop%.lua$",
@@ -31,13 +24,6 @@
     "whitelist":"ontop%_playback%.lua$|thumbnailer%.lua$",
     "dest":"~~/scripts"
   },
-/*
-  {
-    "git":"https://github.com/deus0ww/mpv-conf",
-    "whitelist":"thumbnailer%.lua$|thumbnailer%_worker%.lua$|thumbnailer%_osc%.lua$",
-    "dest":"~~/scripts"
-  },
-*/
   {
     "git":"https://github.com/snylonue/mpv_slicing_copy",
     "whitelist":"%.lua$",
@@ -48,20 +34,6 @@
     "whitelist":"mpv%-webp%.lua$",
     "dest":"~~/scripts"
   },
-/*
-  {
-    "git":"https://github.com/po5/chapterskip",
-    "whitelist":"%.lua$",
-    "dest":"~~/scripts"
-  },
-*/
-/*
-  {
-    "git":"https://github.com/yuukidach/mpv-scripts",
-    "whitelist":"history%-bookmark%.lua$",
-    "dest":"~~/scripts"
-  },
-*/
   {
     "git":"https://github.com/po5/trackselect",
     "whitelist":"%.lua$",
@@ -72,13 +44,6 @@
     "whitelist":"sub%-select%.lua$",
     "dest":"~~/scripts"
   },
-/*
-  {
-    "git":"https://github.com/NurioHin/mpv-bookmarker",
-    "whitelist":"%.lua$",
-    "dest":"~~/scripts"
-  },
-*/
   {
     "git":"https://github.com/jonniek/mpv-playlistmanager",
     "whitelist":"%.lua$",
@@ -89,32 +54,11 @@
     "whitelist":"undoredo%.lua$",
     "dest":"~~/scripts"
   },
-/*
-  {
-    "git":"https://github.com/Eisa01/mpv-scripts",
-    "whitelist":"simplebookmark%.lua$|smarthistory%.lua$|smartcopypaste%-%.lua$",
-    "dest":"~~/scripts"
-  },
-*/
-/*
-  {
-    "git":"https://github.com/detuur/mpv-scripts",
-    "whitelist":"boss%-key%.lua$|skiptosilence%.lua$",
-    "dest":"~~/scripts"
-  },
-*/
   {
     "git":"https://github.com/zenyd/mpv-scripts",
     "whitelist":"delete%_file%.lua$",
     "dest":"~~/scripts"
   },
-/*
-  {
-    "git":"https://github.com/zc62/mpv-scripts",
-    "whitelist":"exit%-fullscreen%.lua$",
-    "dest":"~~/scripts"
-  },
-*/
   {
     "git":"https://github.com/CogentRedTester/mpv-changerefresh",
     "whitelist":"%.lua$",
@@ -167,7 +111,7 @@
   },
   {
     "git":"https://github.com/TianZerL/ACNetGLSL",
-    "whitelist":"ACNet%.glsl$|ACNet%_HDN%_L1%.glsl$|ACNet%_HDN%_L2%.glsl$|ACNet%_HDN%_L3%.glsl$",
+    "whitelist":"acnet%.glsl$|acnet%_hdn%_l1%.glsl$|acnet%_hdn%_l2%.glsl$|acnet%_hdn%_l3%.glsl$",
     "dest":"~~/shaders/ACNet"
   },
   {
