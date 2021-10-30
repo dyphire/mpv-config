@@ -209,16 +209,18 @@ local function get_protocol(filename)
 end
 
 --formats strings for ass handling
---this function is taken from https://github.com/mpv-player/mpv/blob/master/player/lua/console.lua#L110
+--this function is based on a similar function from https://github.com/mpv-player/mpv/blob/master/player/lua/console.lua#L110
 local function ass_escape(str)
-    str = str:gsub('\\', '\\\239\187\191')
-    str = str:gsub('{', '\\{')
-    str = str:gsub('}', '\\}')
-    -- Precede newlines with a ZWNBSP to prevent ASS's weird collapsing of
-    -- consecutive newlines
-    str = str:gsub('\n', '\239\187\191\\N')
-    -- Turn leading spaces into hard spaces to prevent ASS from stripping them
-    str = str:gsub('\\N ', '\\N\\h')
+    str = str:gsub('[\\{}\n] ?', {
+        ['\\'] = '\\\239\187\191',
+        ['{'] = '\\{',
+        ['}'] = '\\}',
+        -- Precede newlines with a ZWNBSP to prevent ASS's weird collapsing of
+        -- consecutive newlines
+        ['\n'] = '\239\187\191\\N',
+        -- Turn leading spaces into hard spaces to prevent ASS from stripping them
+        ['\\N '] = '\\N\\h'
+    })
     str = str:gsub('^ ', '\\h')
     return str
 end
@@ -327,7 +329,13 @@ end
 --setting up functions to provide to addons
 local parser_index = {}
 local parser_ids = {}
+
+--setting up the modules and metatables
+local API_mt = {}
 local parser_mt = {}
+package.loaded["file-browser"] = API_mt
+setmetatable(parser_mt, {__index = API_mt})
+parser_mt.__index = parser_mt
 
 --create a unique id for the given parser
 local existing_ids = {}
@@ -344,61 +352,76 @@ local function set_parser_id(parser)
     parser_ids[parser] = parser.name..n
 end
 
-parser_mt.__index = parser_mt
-parser_mt.valid_file = valid_file
-parser_mt.valid_dir = valid_dir
-parser_mt.filter = filter
-parser_mt.sort = sort
-parser_mt.ass_escape = ass_escape
-parser_mt.fix_path = fix_path
-parser_mt.get_extension = get_extension
-parser_mt.get_protocol = get_protocol
-parser_mt.join_path = join_path
+API_mt.valid_file = valid_file
+API_mt.valid_dir = valid_dir
+API_mt.filter = filter
+API_mt.sort = sort
+API_mt.ass_escape = ass_escape
+API_mt.fix_path = fix_path
+API_mt.get_full_path = get_full_path
+API_mt.get_extension = get_extension
+API_mt.get_protocol = get_protocol
+API_mt.join_path = join_path
+
+function API_mt.clear_cache() cache:clear() end
+
+--we will set these functions once they are declared later in the script
+API_mt.update_ass = nil
+API_mt.scan_directory = nil
+API_mt.rescan_directory = nil
 
 --providing getter and setter functions so that addons can't modify things directly
-function parser_mt.get_script_opts() return copy_table(o) end
-function parser_mt.get_extensions() return copy_table(extensions) end
-function parser_mt.get_sub_extensions() return copy_table(sub_extensions) end
-function parser_mt.get_parseable_extensions() return copy_table(parseable_extensions) end
-function parser_mt.get_state() return copy_table(state) end
-function parser_mt.get_dvd_device() return dvd_device end
-function parser_mt.get_parsers() return copy_table(parsers) end
-function parser_mt.get_root() return copy_table(root) end
-function parser_mt.get_directory() return state.directory end
-function parser_mt.get_current_file() return copy_table(current_file) end
-function parser_mt.get_current_parser() return state.parser:get_id() end
-function parser_mt.get_current_parser_keyname() return state.parser.keybind_name or state.parser.name end
-function parser_mt.get_selected_index() return state.selected end
-function parser_mt.get_selected_item() return copy_table(state.list[state.selected]) end
-function parser_mt.get_open_status() return not state.hidden end
+function API_mt.get_script_opts() return copy_table(o) end
+function API_mt.get_extensions() return copy_table(extensions) end
+function API_mt.get_sub_extensions() return copy_table(sub_extensions) end
+function API_mt.get_parseable_extensions() return copy_table(parseable_extensions) end
+function API_mt.get_state() return copy_table(state) end
+function API_mt.get_dvd_device() return dvd_device end
+function API_mt.get_parsers() return copy_table(parsers) end
+function API_mt.get_root() return copy_table(root) end
+function API_mt.get_directory() return state.directory end
+function API_mt.get_current_file() return copy_table(current_file) end
+function API_mt.get_current_parser() return state.parser:get_id() end
+function API_mt.get_current_parser_keyname() return state.parser.keybind_name or state.parser.name end
+function API_mt.get_selected_index() return state.selected end
+function API_mt.get_selected_item() return copy_table(state.list[state.selected]) end
+function API_mt.get_open_status() return not state.hidden end
+
+function API_mt.set_selected_index(index)
+    if type(index) ~= "number" then return false end
+    if index < 1 then index = 1 end
+    if index > #state.list then index = #state.list end
+    state.selected = index
+    return index
+end
 
 function parser_mt:get_index() return parser_index[self] end
 function parser_mt:get_id() return parser_ids[self] end
 
 --register file extensions which can be opened by the browser
-function parser_mt.register_parseable_extension(ext) parseable_extensions[ext] = true end
-function parser_mt.remove_parseable_extension(ext) parseable_extensions[ext] = nil end
+function API_mt.register_parseable_extension(ext) parseable_extensions[ext] = true end
+function API_mt.remove_parseable_extension(ext) parseable_extensions[ext] = nil end
 
 --add a compatible extension to show through the filter, only applies if run during the setup() method
-function parser_mt.add_default_extension(ext) table.insert(compatible_file_extensions, ext) end
+function API_mt.add_default_extension(ext) table.insert(compatible_file_extensions, ext) end
 
 --add item to root at position pos
-function parser_mt:insert_root_item(item, pos)
-    msg.verbose(self.name..":", "adding item to root")
+function API_mt.insert_root_item(item, pos)
+    msg.verbose("adding item to root", item.label or item.name)
     item.ass = item.ass or ass_escape(item.label or item.name)
     item.type = "dir"
     table.insert(root, pos or (#root + 1), item)
 end
 
 --parses the given directory or defers to the next parser if nil is returned
-local function choose_and_parse(directory, index)
+local function choose_and_parse(directory, index, state)
     msg.debug("finding parser for", directory)
     local parser, list, opts
     while list == nil and not ( opts and opts.already_deferred ) and index <= #parsers do
         parser = parsers[index]
         if parser:can_parse(directory) then
-            msg.trace("attempting parser:", parser:get_id())
-            list, opts = parser:parse(directory)
+            msg.debug("attempting parser:", parser:get_id())
+            list, opts = parser:parse(directory, state)
         end
         index = index + 1
     end
@@ -411,11 +434,48 @@ local function choose_and_parse(directory, index)
 end
 
 --runs choose_and_parse starting from the next parser
-function parser_mt:defer(directory)
+function parser_mt:defer(directory, state)
     msg.trace("deferring to other parsers...")
-    local list, opts = choose_and_parse(directory, self:get_index() + 1)
+    local list, opts = choose_and_parse(directory, self:get_index() + 1, state)
     opts.already_deferred = true
     return list, opts
+end
+
+--load an external addon
+local function setup_addon(file, path)
+    if file:sub(-4) ~= ".lua" then return msg.verbose(path, "is not a lua file - aborting addon setup") end
+
+    local addon_parsers = dofile(path)
+    if not addon_parsers then return msg.error("addon", path, "did not return a table") end
+
+    --if the table contains a priority key then we assume it isn't an array of parsers
+    if addon_parsers.priority then addon_parsers = {addon_parsers} end
+
+    for _, parser in ipairs(addon_parsers) do
+        parser = setmetatable(parser, parser_mt)
+        parser.name = parser.name or file:gsub("%-browser%.lua$", ""):gsub("%.lua$", "")
+        set_parser_id(parser)
+
+        msg.verbose("imported parser", parser:get_id(), "from", file)
+        if type(parser.priority) ~= "number" then return msg.error("parser", parser:get_id(), "needs a numeric priority") end
+
+        table.insert(parsers, parser)
+    end
+end
+
+--loading external addons
+local function setup_addons()
+    local addon_dir = mp.command_native({"expand-path", o.addon_directory..'/'})
+    local files = utils.readdir(addon_dir)
+    if not files then error("could not read addon directory") end
+
+    for _, file in ipairs(files) do
+        setup_addon(file, addon_dir..file)
+    end
+    table.sort(parsers, function(a, b) return a.priority < b.priority end)
+
+    --we want to store the indexes of the parsers
+    for i = #parsers, 1, -1 do parser_index[ parsers[i] ] = i end
 end
 
 --parser object for the root
@@ -483,37 +543,6 @@ parsers[1] = setmetatable(file_parser, parser_mt)
 setmetatable(root_parser, parser_mt)
 set_parser_id(file_parser)
 set_parser_id(root_parser)
-
---loading external addons
-if o.addons then
-    local addon_dir = mp.command_native({"expand-path", o.addon_directory..'/'})
-    local files = utils.readdir(addon_dir)
-    if not files then error("could not read addon directory") end
-
-    for _, file in ipairs(files) do
-        if file:sub(-4) == ".lua" then
-            local addon_parsers = dofile(addon_dir..file)
-
-            --if the table contains a priority key then we assume it isn't an array of parsers
-            if addon_parsers.priority then addon_parsers = {addon_parsers} end
-
-            for _, parser in ipairs(addon_parsers) do
-                parser = setmetatable(parser, copy_table(parser_mt))
-                parser.name = parser.name or file:gsub("%-browser%.lua$", ""):gsub("%.lua$", "")
-                set_parser_id(parser)
-
-                msg.verbose("imported parser", parser:get_id(), "from", file)
-                if type(parser.priority) ~= "number" then error("addon "..file.." needs a numeric priority") end
-
-                table.insert(parsers, parser)
-            end
-        end
-    end
-    table.sort(parsers, function(a, b) return a.priority < b.priority end)
-
-    --we want to store the indexes of the parsers
-    for i = #parsers, 1, -1 do parser_index[ parsers[i] ] = i end
-end
 
 
 
@@ -636,6 +665,7 @@ local function update_ass()
     if overflow then append('\\N'..o.ass_footerheader..#state.list-finish..' item(s) remaining') end
     ass:update()
 end
+API_mt.update_ass = update_ass
 
 
 
@@ -758,17 +788,27 @@ local function select_prev_directory()
 end
 
 --moves through valid parsers until a one returns a list
-local function scan_directory(directory)
+local function scan_directory(directory, state)
     if directory == "" then return root_parser:parse() end
 
     msg.verbose("scanning files in", directory)
-    local list, opts = choose_and_parse(directory, 1)
+    state.co = coroutine.running()
+    if not state.co then msg.warn("scan_directory should be executed from within a coroutine") ; return end
+
+    local list, opts = choose_and_parse(directory, 1, state)
 
     if list == nil then msg.debug("no successful parsers found"); return nil end
     opts.parser = parsers[opts.index]
     if not opts.filtered then filter(list) end
     if not opts.sorted then sort(list) end
     return list, opts
+end
+
+--a wrapper around scan_directory for addon API
+function API_mt.scan_directory(directory, state)
+    if not state then state = { source = "addon" }
+    elseif not state.source then state.source = "addon" end
+    return scan_directory(directory, state)
 end
 
 --sends update requests to the different parsers
@@ -788,7 +828,7 @@ local function update_list()
         return
     end
 
-    local list, opts = scan_directory(state.directory)
+    local list, opts = scan_directory(state.directory, { source = "browser" })
 
     --apply fallbacks if the scan failed
     if not list and cache[1] then
@@ -843,9 +883,18 @@ local function update(moving_adjacent)
     disable_select_mode()
     update_ass()
     state.empty_text = "empty directory"
-    update_list()
-    update_ass()
+
+    --if opening a new directory we want to clear the previous coroutine if it is still running
+    --it is up to addon authors to be able to handle this forced resumption
+    while (state.co and coroutine.status(state.co) ~= "dead") do
+        local success, err = coroutine.resume(state.co)
+        if not success then msg.error(err) end
+    end
+    state.co = coroutine.create(function() update_list(); update_ass() end)
+    local success, err = coroutine.resume(state.co)
+    if not success then msg.error(err) end
 end
+API_mt.rescan_directory = update
 
 --loads the root list
 local function goto_root()
@@ -951,6 +1000,21 @@ local function escape()
     close()
 end
 
+--opens a specific directory
+local function browse_directory(directory)
+    if not directory then return end
+    directory = mp.command_native({"expand-path", directory}, "")
+    if directory ~= "" then directory = fix_path(directory, true) end
+    msg.verbose('recieved directory from script message: '..directory)
+
+    if directory == "dvd://" then directory = dvd_device end
+    state.directory = directory
+    cache:clear()
+    open()
+    update()
+end
+API_mt.browse_directory = browse_directory
+
 
 
 ------------------------------------------------------------------------------------------
@@ -960,7 +1024,7 @@ end
 
 --recursive function to load directories using the script custom parsers
 local function custom_loadlist_recursive(directory, flag)
-    local list, opts = scan_directory(directory)
+    local list, opts = scan_directory(directory, { source = "loadlist" })
     if list == root then return end
 
     --if we can't parse the directory then append it and hope mpv fares better
@@ -981,7 +1045,7 @@ local function custom_loadlist_recursive(directory, flag)
             else
                 local path = get_full_path(item, directory)
 
-                msg.warn("Appending", path, "to the playlist")
+                msg.verbose("Appending", path, "to the playlist")
                 mp.commandv("loadfile", path, flag)
                 flag = "append"
             end
@@ -1025,8 +1089,8 @@ local function autoload_dir(path)
 end
 
 --runs the loadfile or loadlist command
-local function loadfile(item, flag, autoload)
-    local path = get_full_path(item)
+local function loadfile(item, flag, autoload, directory)
+    local path = get_full_path(item, directory)
     if item.type == "dir" or parseable_extensions[ get_extension(item.name) ] then return loadlist(path, flag) end
 
     if sub_extensions[ get_extension(item.name) ] then
@@ -1038,32 +1102,45 @@ local function loadfile(item, flag, autoload)
     end
 end
 
---opens the selelected file(s)
-local function open_file(flag, autoload)
+--handles the open options as a coroutine
+--once loadfile has been run we can no-longer guarantee synchronous execution - the state values may change
+--therefore, we must ensure that any state values that could be used after a loadfile call are saved beforehand
+local function open_file_coroutine(flag, autoload)
     if not state.list[state.selected] then return end
     if flag == 'replace' then close() end
+    local directory = state.directory
 
     --handles multi-selection behaviour
     if next(state.selection) then
         local selection = sort_keys(state.selection)
+        --reset the selection after
+        state.selection = {}
 
         --the currently selected file will be loaded according to the flag
         --the flag variable will be switched to append once a file is loaded
         for i=1, #selection do
-            if loadfile(selection[i], flag) then flag = "append" end
+            if loadfile(selection[i], flag, autoload, directory) then flag = "append" end
         end
 
-        --reset the selection after
-        state.selection = {}
         disable_select_mode()
         update_ass()
 
     elseif flag == 'replace' then
-        loadfile(state.list[state.selected], flag, autoload ~= o.autoload)
+        loadfile(state.list[state.selected], flag, autoload ~= o.autoload, directory)
         down_dir()
         close()
     else
-        loadfile(state.list[state.selected], flag)
+        loadfile(state.list[state.selected], flag, directory)
+    end
+end
+
+--opens the selelected file(s)
+local function open_file(flag, autoload_dir)
+    local co = coroutine.create(open_file_coroutine)
+
+    local success, err = coroutine.resume(co, flag, autoload_dir)
+    if not success then
+        msg.error(err)
     end
 end
 
@@ -1074,97 +1151,6 @@ end
 ------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
---format the item string for either single or multiple items
-local function create_item_string(cmd, items, funct)
-    if not items[1] then return end
-
-    local str = funct(items[1])
-    for i = 2, #items do
-        str = str .. ( cmd["concat-string"] or " " ) .. funct(items[i])
-    end
-    return str
-end
-
---iterates through the command table and substitutes special
---character codes for the correct strings used for custom functions
-local function format_command_table(t, cmd, items)
-    local copy = {}
-    for i = 1, #t do
-        copy[i] = t[i]:gsub("%%.", {
-            ["%%"] = "%",
-            ["%f"] = create_item_string(cmd, items, function(item) return item and get_full_path(item, cmd.directory) or "" end),
-            ["%F"] = create_item_string(cmd, items, function(item) return string.format("%q", item and get_full_path(item, cmd.directory) or "") end),
-            ["%n"] = create_item_string(cmd, items, function(item) return item and (item.label or item.name) or "" end),
-            ["%N"] = create_item_string(cmd, items, function(item) return string.format("%q", item and (item.label or item.name) or "") end),
-            ["%p"] = cmd.directory or "",
-            ["%P"] = string.format("%q", cmd.directory or ""),
-            ["%d"] = (cmd.directory_label or cmd.directory):match("([^/]+)/?$") or "",
-            ["%D"] = string.format("%q", (cmd.directory_label or cmd.directory):match("([^/]+)/$") or ""),
-            ["%r"] = state.parser.keybind_name or state.parser.name or "",
-            ["%R"] = string.format("%q", state.parser.keybind_name or state.parser.name or "")
-        })
-    end
-    return copy
-end
-
---runs all of the commands in the command table
---recurses to handle nested tables of commands
---items must be an array of multiple items (when multi-type ~= concat the array will be 1 long)
-local function run_custom_command(t, cmd, items)
-    if type(t[1]) == "table" then
-        for i = 1, #t do
-            run_custom_command(t[i], cmd, items)
-        end
-    else
-        local custom_cmd = cmd.contains_codes and format_command_table(t, cmd, items) or cmd.command
-        msg.debug("running command: " .. utils.to_string(custom_cmd))
-        mp.command_native(custom_cmd)
-    end
-end
-
---runs commands for multiple selected items
---this is if the repeat muti-type is used
-local function recursive_multi_command(cmd, i, length)
-    if i > length then return end
-
-    --filtering commands
-    if cmd.filter and cmd.selection[i].type ~= cmd.filter then
-        msg.verbose("skipping command for selection ")
-    else
-        run_custom_command(cmd.command, cmd, { cmd.selection[i] })
-    end
-
-    --delay running the next command if the delay option is set
-    if not cmd.delay then return recursive_multi_command(cmd, i+1, length)
-    else mp.add_timeout(cmd.delay, function() recursive_multi_command(cmd, i+1, length) end) end
-end
-
---runs one of the custom commands
-local function custom_command(cmd)
-    if cmd.parser and cmd.parser ~= (state.parser.keybind_name or state.parser.name) then return false end
-
-    --saving these values in-case the directory is changes while commands are being passed
-    cmd.directory = state.directory
-    cmd.directory_label = state.directory_label
-
-    --runs the command on all multi-selected items
-    if cmd.multiselect and next(state.selection) then
-        cmd.selection = sort_keys(state.selection, function(item) return not cmd.filter or item.type == cmd.filter end)
-        if not next(cmd.selection) then return false end
-
-        if not cmd["multi-type"] or cmd["multi-type"] == "repeat" then
-            recursive_multi_command(cmd, 1, #cmd.selection)
-        elseif cmd["multi-type"] == "concat" then
-            run_custom_command(cmd.command, cmd, cmd.selection)
-        end
-    else
-        --filtering commands
-        if cmd.filter and state.list[state.selected] and state.list[state.selected].type ~= cmd.filter then return false end
-        run_custom_command(cmd.command, cmd, { state.list[state.selected] })
-    end
-end
-
---dynamic keybinds to set while the browser is open
 state.keybinds = {
     {'ENTER', 'play', function() open_file('replace', false) end, {}},
     {'Shift+ENTER', 'play_append', function() open_file('append-play', false) end, {}},
@@ -1182,54 +1168,218 @@ state.keybinds = {
     {'Ctrl+a', 'select_all', select_all, {}}
 }
 
+--characters used for custom keybind codes
+local CUSTOM_KEYBIND_CODES = "%fFnNpPdDrR"
+
+--a map of key-keybinds - only saves the latest keybind if multiple have the same key code
+local top_level_keys = {}
+
+--format the item string for either single or multiple items
+local function create_item_string(cmd, items, funct)
+    if not items[1] then return end
+
+    local str = funct(items[1])
+    for i = 2, #items do
+        str = str .. ( cmd["concat-string"] or " " ) .. funct(items[i])
+    end
+    return str
+end
+
+--iterates through the command table and substitutes special
+--character codes for the correct strings used for custom functions
+local function format_command_table(cmd, items, state)
+    local copy = {}
+    for i = 1, #cmd.command do
+        copy[i] = {}
+
+        for j = 1, #cmd.command[i] do
+            copy[i][j] = cmd.command[i][j]:gsub("%%["..CUSTOM_KEYBIND_CODES.."]", {
+                ["%%"] = "%",
+                ["%f"] = create_item_string(cmd, items, function(item) return item and get_full_path(item, state.directory) or "" end),
+                ["%F"] = create_item_string(cmd, items, function(item) return string.format("%q", item and get_full_path(item, state.directory) or "") end),
+                ["%n"] = create_item_string(cmd, items, function(item) return item and (item.label or item.name) or "" end),
+                ["%N"] = create_item_string(cmd, items, function(item) return string.format("%q", item and (item.label or item.name) or "") end),
+                ["%p"] = state.directory or "",
+                ["%P"] = string.format("%q", state.directory or ""),
+                ["%d"] = (state.directory_label or state.directory):match("([^/]+)/?$") or "",
+                ["%D"] = string.format("%q", (state.directory_label or state.directory):match("([^/]+)/$") or ""),
+                ["%r"] = state.parser.keybind_name or state.parser.name or "",
+                ["%R"] = string.format("%q", state.parser.keybind_name or state.parser.name or "")
+            })
+        end
+    end
+    return copy
+end
+
+--runs all of the commands in the command table
+--key.command must be an array of command tables compatible with mp.command_native
+--items must be an array of multiple items (when multi-type ~= concat the array will be 1 long)
+local function run_custom_command(cmd, items, state)
+    local custom_cmds = cmd.contains_codes and format_command_table(cmd, items, state) or cmd.command
+
+    for _, cmd in ipairs(custom_cmds) do
+        msg.debug("running command:", utils.to_string(cmd))
+        mp.command_native(cmd)
+    end
+end
+
+--runs one of the custom commands
+local function custom_command(cmd, state, co)
+    if cmd.parser and cmd.parser ~= (state.parser.keybind_name or state.parser.name) then return false end
+
+    --the function terminates here if we are running the command on a single item
+    if not (cmd.multiselect and next(state.selection)) then
+        if cmd.filter then
+            if not state.list[state.selected] then return false end
+            if state.list[state.selected].type ~= cmd.filter then return false end
+        end
+        if cmd.contains_codes and not state.list[state.selected] then return false end
+
+        run_custom_command(cmd, { state.list[state.selected] }, state)
+        return true
+    end
+
+
+    --runs the command on all multi-selected items
+    local selection = sort_keys(state.selection, function(item) return not cmd.filter or item.type == cmd.filter end)
+    if not next(selection) then return false end
+
+    if cmd["multi-type"] == "concat" then
+        run_custom_command(cmd, selection, state)
+
+    elseif cmd["multi-type"] == "repeat" then
+        for i,_ in ipairs(selection) do
+            run_custom_command(cmd, {selection[i]}, state)
+
+            if cmd.delay then
+                mp.add_timeout(cmd.delay, function() coroutine.resume(co) end)
+                coroutine.yield()
+            end
+        end
+    end
+
+    --we passthrough by default if the command is not run on every selected item
+    if cmd.passthrough ~= nil then return end
+
+    local num_selection = 0
+    for _ in pairs(state.selection) do num_selection = num_selection+1 end
+    return #selection == num_selection
+end
+
+--recursively runs the keybind functions, passing down through the chain
+--of keybinds with the same key value
+local function run_keybind_recursive(keybind, state, co)
+    --these are for the default keybinds, or from addons which use direct functions
+    local addon_fn = type(keybind.command) == "function"
+    local fn = addon_fn and keybind.command or custom_command
+
+    if keybind.passthrough ~= nil then
+        fn(keybind, addon_fn and copy_table(state) or state, co)
+        if keybind.passthrough == true and keybind.prev_key then
+            run_keybind_recursive(keybind.prev_key, state, co)
+        end
+    else
+        if fn(keybind, state, co) == false and keybind.prev_key then
+            run_keybind_recursive(keybind.prev_key, state, co)
+        end
+    end
+end
+
+--a wrapper to run a custom keybind as a lua coroutine
+local function run_keybind_coroutine(key)
+    msg.trace("Received custom command:", utils.to_string(key))
+    local co = coroutine.create(run_keybind_recursive)
+
+    local state_copy = {
+        directory = state.directory,
+        directory_label = state.directory_label,
+        list = state.list,                      --the list should remain unchanged once it has been saved to the global state, new directories get new tables
+        selected = state.selected,
+        selection = copy_table(state.selection),
+        parser = state.parser,
+    }
+    local success, err = coroutine.resume(co, key, state_copy, co)
+    if not success then
+        msg.error("error running keybind:", utils.to_string(key))
+        msg.error(err)
+    end
+end
+
+--scans the given command table to identify if they contain any custom keybind codes
+local function contains_codes(command_table)
+    if type(command_table) ~= "table" then return end
+    for _, value in pairs(command_table) do
+        local type = type(value)
+        if type == "table" then
+            if contains_codes(value) then return true end
+        elseif type == "string" then
+            if value:find("%%["..CUSTOM_KEYBIND_CODES.."]") then return true end
+        end
+    end
+    return false
+end
+
+--inserting the custom keybind into the keybind array for declaration when file-browser is opened
+--custom keybinds with matching names will overwrite eachother
+local function insert_custom_keybind(keybind)
+    --we'll always save the keybinds as either an array of command arrays or a function
+    if type(keybind.command) == "table" and type(keybind.command[1]) ~= "table" then
+        keybind.command = {keybind.command}
+    end
+
+    keybind.contains_codes = contains_codes(keybind.command)
+    keybind.prev_key = top_level_keys[keybind.key]
+
+    table.insert(state.keybinds, {keybind.key, keybind.name, function() run_keybind_coroutine(keybind) end, keybind.flags or {}})
+    top_level_keys[keybind.key] = keybind
+end
+
 --loading the custom keybinds
-if o.custom_keybinds then
-    local path = mp.command_native({"expand-path", "~~/script-opts"}).."/file-browser-keybinds.json"
-    local custom_keybinds, err = assert(io.open( path ))
-    if custom_keybinds then
+--can either load keybinds from the config file, from addons, or from both
+local function setup_keybinds()
+    if not o.custom_keybinds and not o.addons then return end
+
+    --this is to make the default keybinds compatible with passthrough from custom keybinds
+    for _, keybind in ipairs(state.keybinds) do
+        top_level_keys[keybind[1]] = { key = keybind[1], name = keybind[2], command = keybind[3], flags = keybind[4] }
+    end
+
+    --this loads keybinds from addons
+    if o.addons then
+        for i = #parsers, 1, -1 do
+            local parser = parsers[i]
+            if parser.keybinds then
+                for i, keybind in ipairs(parser.keybinds) do
+                    --if addons use the native array command format, then we need to convert them over to the custom command format
+                    if not keybind.key then keybind = { key = keybind[1], name = keybind[2], command = keybind[3], flags = keybind[4] }
+                    else keybind = copy_table(keybind) end
+
+                    keybind.name = parser_ids[parser].."/"..(keybind.name or tostring(i))
+                    insert_custom_keybind(keybind)
+                end
+            end
+        end
+    end
+
+    --loads custom keybinds from file-browser-keybinds.json
+    if o.custom_keybinds then
+        local path = mp.command_native({"expand-path", "~~/script-opts"}).."/file-browser-keybinds.json"
+        local custom_keybinds, err = io.open( path )
+        if not custom_keybinds then return error(err) end
+
         local json = custom_keybinds:read("*a")
         custom_keybinds:close()
 
         json = utils.parse_json(json)
-        if not json then error("invalid json syntax for "..path) end
-
-        local function contains_codes(command_table)
-            for _, value in pairs(command_table) do
-                local type = type(value)
-                if type == "table" then
-                    if contains_codes(value) then return true end
-                elseif type == "string" then
-                    if value:find("%%[fFnNpPdDrR]") then return true end
-                end
-            end
-        end
-
-        local latest_key = {}
-        for _, keybind in ipairs(state.keybinds) do latest_key[keybind[1]] = keybind[3] end
+        if not json then return error("invalid json syntax for "..path) end
 
         for i, keybind in ipairs(json) do
-            keybind.contains_codes = contains_codes(keybind.command)
-
-            --this creates a linked list of functions that call the previous if the various filters weren't met
-            --multiselect commands with the same key are all run, it's up to the user to choose filters that don't overlap
-            local prev_key = latest_key[keybind.key]
-            local fn = function()
-                if keybind.passthrough == false then
-                    custom_command(keybind)
-                elseif keybind.passthrough == true then
-                    custom_command(keybind)
-                    if prev_key then prev_key() end
-                elseif keybind.passthrough == nil then
-                    if custom_command(keybind) == false and prev_key then prev_key() end
-                else
-                    custom_command(keybind)
-                end
-            end
-            table.insert(state.keybinds, { keybind.key, "custom/"..(keybind.name or tostring(i)), fn, {} })
-            latest_key[keybind.key] = fn
+            keybind.name = "custom/"..(keybind.name or tostring(i))
+            insert_custom_keybind(keybind)
         end
     end
 end
+
 
 
 --------------------------------------------------------------------------------------------------------
@@ -1277,13 +1427,65 @@ local function setup_root()
 end
 
 setup_root()
+if o.addons then
+    --all of the API functions need to be defined before this point for the addons to be able to access them safely
+    setup_addons()
 
---we want to store the index of each parser and run the setup functions
-for i = #parsers, 1, -1 do
-    if parsers[i].setup then parsers[i]:setup() end
+    --we want to store the index of each parser and run the setup functions
+    for i = #parsers, 1, -1 do
+        if parsers[i].setup then parsers[i]:setup() end
+    end
 end
 
+--these need to be below the addon setup in case any parsers add custom entries
 setup_extensions_list()
+setup_keybinds()
+
+
+
+------------------------------------------------------------------------------------------
+------------------------------Other Script Compatability----------------------------------
+------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+
+function scan_directory_json(directory, response_str)
+    if not directory then msg.error("did not receive a directory string"); return end
+    if not response_str then msg.error("did not receive a response string"); return end
+
+    directory = mp.command_native({"expand-path", directory}, "")
+    if directory ~= "" then directory = fix_path(directory, true) end
+    msg.verbose(("recieved %q from 'get-directory-contents' script message - returning result to %q"):format(directory, response_str))
+
+    local list, opts = scan_directory(directory, { source = "script-message" } )
+
+    --removes invalid json types from the parser object
+    if opts.parser then
+        opts.parser = copy_table(opts.parser)
+        for key, value in pairs(opts.parser) do
+            if type(value) == "function" then
+                opts.parser[key] = nil
+            end
+        end
+    end
+
+    local err, err2
+    list, err = utils.format_json(list)
+    if not list then msg.error(err) end
+
+    opts, err2 = utils.format_json(opts)
+    if not opts then msg.error(err2) end
+
+    mp.commandv("script-message", response_str, list or "", opts or "")
+end
+
+local input = nil
+
+if pcall(function() input = require "user-input-module" end) then
+    mp.add_key_binding("Alt+o", "browse-directory/get-user-input", function()
+        input.get_user_input(browse_directory, {request_text = "open directory:"})
+    end)
+end
+
 
 
 
@@ -1311,35 +1513,14 @@ end)
 
 --declares the keybind to open the browser
 mp.add_key_binding('MENU','browse-files', toggle)
-
---opens a specific directory
-local function browse_directory(directory)
-    if not directory then return end
-    directory = mp.command_native({"expand-path", directory}, "")
-    if directory ~= "" then directory = fix_path(directory, true) end
-    msg.verbose('recieved directory from script message: '..directory)
-
-    if directory == "dvd://" then directory = dvd_device end
-    state.directory = directory
-    cache:clear()
-    open()
-    update()
-end
+mp.add_key_binding('Ctrl+o','open-browser', open)
 
 --allows keybinds/other scripts to auto-open specific directories
 mp.register_script_message('browse-directory', browse_directory)
 
-
-
-------------------------------------------------------------------------------------------
-----------------------------mpv-user-input Compatability----------------------------------
-------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------
-
-local input = nil
-
-if pcall(function() input = require "user-input-module" end) then
-    mp.add_key_binding("Alt+o", "browse-directory/get-user-input", function()
-        input.get_user_input(browse_directory, {request_text = "open directory:"})
-    end)
-end
+--allows other scripts to request directory contents from file-browser
+mp.register_script_message("get-directory-contents", function(directory, response_str)
+    local co = coroutine.create(scan_directory_json)
+    local success, err = coroutine.resume(co, directory, response_str)
+    if not success then return err end
+end)
