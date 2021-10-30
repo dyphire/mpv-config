@@ -3,7 +3,12 @@
 
     If the first entry of a playlist isn't working it is because some playlists are created with random invisible unicode in the first line
     Vim makes it easy to detect these
+
+    This addon requires that my API mpv-read-file be available in ~~/script-modules/
+    https://github.com/CogentRedTester/mpv-read-file
 ]]--
+
+local rf = require "read-file"
 
 local m3u = {
     priority = 100,
@@ -18,7 +23,7 @@ function m3u:setup()
 end
 
 function m3u:can_parse(directory)
-    return directory:find("m3u8?/?$") and not self.get_protocol(directory)
+    return directory:find("m3u8?/?$")
 end
 
 function m3u:parse(directory)
@@ -26,7 +31,7 @@ function m3u:parse(directory)
     local list = {}
 
     local path = full_paths[ directory ] or directory
-    local playlist = io.open( path )
+    local playlist = rf.get_file_handler( path )
 
     --if we can't read the path then stop here
     if not playlist then return {}, {sorted = true, filtered = true, empty_text = "Could not read filepath"} end
