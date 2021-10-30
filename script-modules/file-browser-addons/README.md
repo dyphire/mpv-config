@@ -16,7 +16,13 @@ Any improvements on these addons are welcome.
 
 ## Addon List
 
-The following is a list of addons I have written:
+The following is a list of addons I have written.
+
+*Warning: many of these addons exist as a proof-of-concept, they are not as stable or well supported as the default file-browser script.*
+
+**ls**  
+Implements standard directory parsing using the linux `ls` utility.
+This is an example addon, I don't know of any actual uses.
 
 **apache-browser**  
 Implements support for http/https directory indexes that apache servers dynamically generate.
@@ -29,8 +35,14 @@ Implements support for ftp file servers. Requires `curl` in the system path.
 **home-label**  
 Replaces the user's home directory in the directory header with `~/`.
 
+**url-decode**  
+Decodes URL directories to make them more readable. Does not decode the names of items in the list.
+
 **m3u-browser**  
-Treats m3u playlists as folders which can be opened and browsed.
+Adds limitted support for m3u playlists. Requires that [mpv-read-file](https://github.com/CogentRedTester/mpv-read-file) be installed.
+
+**archive-browser**  
+Adds support for archive formats like `zip` and `7z`
 
 **favourites**  
 Implements a virtual directory of favourited files and folders.
@@ -42,4 +54,3 @@ Read the contents of select drives using powershell instead of the inbuilt mpv A
 This script implements support for DVD titles using the `lsdvd` commandline utility.
 When playing a dvd, or when moving into the `--dvd-device` directory, the add-on loads up the DVD titles.
 Note that `lsdvd` is only available on linux, but the script has special support for WSL on windows 10.
-
