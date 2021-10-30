@@ -40,11 +40,6 @@
     "dest":"~~/scripts"
   },
   {
-    "git":"https://github.com/CogentRedTester/mpv-sub-select",
-    "whitelist":"sub%-select%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
     "git":"https://github.com/jonniek/mpv-playlistmanager",
     "whitelist":"%.lua$",
     "dest":"~~/scripts"
@@ -73,6 +68,41 @@
     "git":"https://github.com/CogentRedTester/mpv-scripts",
     "whitelist":"onedrive%-hook%.lua$|ordered%-chapters%-playlist%.lua$",
     "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/CogentRedTester/mpv-sub-select",
+    "whitelist":"sub%-select%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/CogentRedTester/mpv-user-input",
+    "whitelist":"user%-input%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/CogentRedTester/mpv-file-browser",
+    "whitelist":"file%-browser%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/CogentRedTester/mpv-scroll-list",
+    "whitelist":"scroll%-list%.lua$",
+    "dest":"~~/script-modules"
+  },
+  {
+    "git":"https://github.com/CogentRedTester/mpv-user-input",
+    "whitelist":"user%-input%-module%.lua$",
+    "dest":"~~/script-modules"
+  },
+  {
+    "git":"https://github.com/CogentRedTester/mpv-read-file",
+    "whitelist":"read%-file%.lua$",
+    "dest":"~~/script-modules"
+  },
+  {
+    "git":"https://github.com/CogentRedTester/mpv-file-browser",
+    "whitelist":"favourites%.lua$|powershell%.lua$|apache%-browser%.lua$|home%-label%.lua$|m3u%-browser%.lua$|ftp%-browser%.lua$",
+    "dest":"~~/script-modules/file-browser-addons"
   },
   {
     "git":"https://github.com/cyl0/mpv-osc-morden-x",
