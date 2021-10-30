@@ -95,6 +95,11 @@
     "dest":"~~/script-modules"
   },
   {
+    "git":"https://github.com/CogentRedTester/mpv-read-file",
+    "whitelist":"read%-file%.lua$",
+    "dest":"~~/script-modules"
+  },
+  {
     "git":"https://github.com/CogentRedTester/mpv-file-browser",
     "whitelist":"favourites%.lua$|powershell%.lua$|apache%-browser%.lua$|home%-label%.lua$|m3u%-browser%.lua$|ftp%-browser%.lua$",
     "dest":"~~/script-modules/file-browser-addons"

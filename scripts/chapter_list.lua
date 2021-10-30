@@ -1,8 +1,4 @@
-local settings = {
-    display_timeout = 5,
-  
-    loop_cursor = true,
-  
+local settings = { 
     key_scroll_down = "DOWN WHEEL_DOWN",
     key_scroll_up = "UP WHEEL_UP",
     key_open_chapter = "ENTER MBTN_LEFT",
