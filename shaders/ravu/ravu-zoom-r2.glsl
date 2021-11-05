@@ -21,6 +21,9 @@
 //!OFFSET ALIGN
 //!WHEN HOOKED.w OUTPUT.w < HOOKED.h OUTPUT.h < *
 //!COMPUTE 32 8
+
+#define LUT_POS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
+
 shared float samples[432];
 void hook() {
 ivec2 group_begin = ivec2(gl_WorkGroupID) * ivec2(gl_WorkGroupSize);
