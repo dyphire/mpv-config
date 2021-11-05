@@ -21,6 +21,9 @@
 //!OFFSET ALIGN
 //!WHEN HOOKED.w OUTPUT.w < HOOKED.h OUTPUT.h < *
 //!COMPUTE 32 8
+
+#define LUT_POS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
+
 const vec3 color_primary = vec3(0.2126, 0.7152, 0.0722);
 shared vec3 samples[432];
 void hook() {
