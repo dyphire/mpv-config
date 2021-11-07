@@ -57,7 +57,7 @@ function SetUnion (a,b)
 end
 
 EXTENSIONS_VIDEO = Set {
-    '3gp', 'avi', 'f4v', 'flv', 'm4v', 'mkv', 'mov', 'mp4', 'mpeg', 'mpg', 'ogv', 'rm', 'rmvb', 'webm', 'wmv', 'ts'
+    '3gp', 'avi', 'f4v', 'flv', 'm4v', 'mkv', 'mov', 'mp4', 'mpeg', 'mpg', 'ogv', 'rm', 'rmvb', 'webm', 'wmv', 'ts', 'm2ts'
 }
 
 EXTENSIONS_AUDIO = Set {
