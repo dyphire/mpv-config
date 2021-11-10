@@ -22,9 +22,7 @@
 //!OFFSET ALIGN
 //!WHEN HOOKED.w LUMA.w < HOOKED.h LUMA.h < *
 //!COMPUTE 32 8
-
-#define LUT_POS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
-
+#define LUTPOS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
 shared vec3 samples[432];
 void hook() {
 ivec2 group_begin = ivec2(gl_WorkGroupID) * ivec2(gl_WorkGroupSize);
@@ -41,7 +39,7 @@ barrier();
 vec2 pos = HOOKED_size * HOOKED_map(ivec2(gl_GlobalInvocationID));
 vec2 subpix = fract(pos - 0.5);
 pos -= subpix;
-subpix = LUT_POS(subpix, vec2(9.0));
+subpix = LUTPOS(subpix, vec2(9.0));
 vec2 subpix_inv = 1.0 - subpix;
 subpix /= vec2(2.0, 288.0);
 subpix_inv /= vec2(2.0, 288.0);

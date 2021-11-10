@@ -21,9 +21,7 @@
 //!OFFSET ALIGN
 //!WHEN LUMA.w 0 > HOOKED.w OUTPUT.w < * HOOKED.h OUTPUT.h < *
 //!COMPUTE 32 8
-
-#define LUT_POS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
-
+#define LUTPOS(x, lut_size) mix(0.5 / (lut_size), 1.0 - 0.5 / (lut_size), (x))
 shared vec3 samples[532];
 void hook() {
 ivec2 group_begin = ivec2(gl_WorkGroupID) * ivec2(gl_WorkGroupSize);
@@ -40,7 +38,7 @@ barrier();
 vec2 pos = HOOKED_size * HOOKED_map(ivec2(gl_GlobalInvocationID));
 vec2 subpix = fract(pos - 0.5);
 pos -= subpix;
-subpix = LUT_POS(subpix, vec2(9.0));
+subpix = LUTPOS(subpix, vec2(9.0));
 vec2 subpix_inv = 1.0 - subpix;
 subpix /= vec2(5.0, 288.0);
 subpix_inv /= vec2(5.0, 288.0);
@@ -193,7 +191,7 @@ w = texture(ravu_zoom_lut3, vec2(0.8, coord_y) + subpix_inv);
 res += sample19 * w[0];
 res += sample18 * w[1];
 res = clamp(res, 0.0, 1.0);
-imageStore(out_image, ivec2(gl_GlobalInvocationID), vec4(res, 0.0));
+imageStore(out_image, ivec2(gl_GlobalInvocationID), vec4(res, 1.0));
 }
 //!TEXTURE ravu_zoom_lut3
 //!SIZE 45 2592
