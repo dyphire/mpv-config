@@ -258,7 +258,7 @@ res += (inp0[local_pos + 50] + inp0[local_pos + 62]) * w[1];
 res += (inp0[local_pos + 51] + inp0[local_pos + 61]) * w[2];
 res += (inp0[local_pos + 52] + inp0[local_pos + 60]) * w[3];
 res = clamp(res, 0.0, 1.0);
-imageStore(out_image, ivec2(gl_GlobalInvocationID), vec4(res, 0.0));
+imageStore(out_image, ivec2(gl_GlobalInvocationID), vec4(res, 1.0));
 }
 }
 //!DESC RAVU (step2, rgb, r4, compute)
@@ -517,7 +517,7 @@ res += (inp0[local_pos + 65] + inp0[local_pos + 48]) * w[1];
 res += (inp1[local_pos + 65] + inp1[local_pos + 32]) * w[2];
 res += (inp0[local_pos + 81] + inp0[local_pos + 32]) * w[3];
 res = clamp(res, 0.0, 1.0);
-imageStore(out_image, ivec2(gl_GlobalInvocationID) * 2 + ivec2(0, 1), vec4(res, 0.0));
+imageStore(out_image, ivec2(gl_GlobalInvocationID) * 2 + ivec2(0, 1), vec4(res, 1.0));
 }
 {
 float luma62 = inp_luma0[local_pos + 108];
@@ -745,13 +745,13 @@ res += (inp1[local_pos + 64] + inp1[local_pos + 47]) * w[1];
 res += (inp0[local_pos + 80] + inp0[local_pos + 47]) * w[2];
 res += (inp1[local_pos + 80] + inp1[local_pos + 31]) * w[3];
 res = clamp(res, 0.0, 1.0);
-imageStore(out_image, ivec2(gl_GlobalInvocationID) * 2 + ivec2(1, 0), vec4(res, 0.0));
+imageStore(out_image, ivec2(gl_GlobalInvocationID) * 2 + ivec2(1, 0), vec4(res, 1.0));
 }
 vec3 res;
 res = inp0[local_pos + 64];
-imageStore(out_image, ivec2(gl_GlobalInvocationID) * 2 + ivec2(1, 1), vec4(res, 0.0));
+imageStore(out_image, ivec2(gl_GlobalInvocationID) * 2 + ivec2(1, 1), vec4(res, 1.0));
 res = inp1[local_pos + 48];
-imageStore(out_image, ivec2(gl_GlobalInvocationID) * 2 + ivec2(0, 0), vec4(res, 0.0));
+imageStore(out_image, ivec2(gl_GlobalInvocationID) * 2 + ivec2(0, 0), vec4(res, 1.0));
 }
 //!TEXTURE ravu_lut4
 //!SIZE 8 648
