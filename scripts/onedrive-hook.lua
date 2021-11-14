@@ -47,7 +47,7 @@ function fix_onedrive_link()
     mp.set_property('stream-open-filename', path)
 end
 
-mp.add_hook('on_load', 50, fix_onedrive_link)
+mp.add_hook('on_load_fail', 50, fix_onedrive_link)
 
 mp.register_script_message('onedrive/video-add', function(url, flag)
     mp.command_native({'video-add', get_link(url), flag})

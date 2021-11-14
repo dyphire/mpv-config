@@ -198,17 +198,16 @@ local function main()
     if not file_extensions[file_ext] then return end
 
     local uid, prev, next
+    local status, fallback
 
     if o.metafile ~= "" then
         uid, prev, next = get_uids_from_table(path, create_table_segment_file(o.metafile))
-        if not uid then msg.error("Could not find matching segment UIDs for current file in '"..o.metafile.."'") end
-        return
+        if not uid then msg.error("Could not find matching segment UIDs for current file in '"..o.metafile.."'") ; return end
+    else
+        --read the uid info for the current file
+        --if the file cannot be read, or if it does not contain next or prev uids, then return
+        uid, prev, next, status = get_uids(path, true)
     end
-
-    --read the uid info for the current file
-    --if the file cannot be read, or if it does not contain next or prev uids, then return
-    local status, fallback
-    uid, prev, next, status = get_uids(path, true)
 
     --a status of 2 is an open file error
     if o.fallback_to_metafile and (status == -1 or status == 2) then
