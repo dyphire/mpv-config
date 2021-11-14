@@ -20,11 +20,6 @@
     "dest":"~~/scripts"
   },
   {
-    "git":"https://github.com/zhongfly/mpv-conf",
-    "whitelist":"ontop%_playback%.lua$|thumbnailer%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
     "git":"https://github.com/snylonue/mpv_slicing_copy",
     "whitelist":"%.lua$",
     "dest":"~~/scripts"
