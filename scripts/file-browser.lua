@@ -380,6 +380,7 @@ function API_mt.get_dvd_device() return dvd_device end
 function API_mt.get_parsers() return copy_table(parsers) end
 function API_mt.get_root() return copy_table(root) end
 function API_mt.get_directory() return state.directory end
+function API_mt.get_list() return copy_table(state.list) end
 function API_mt.get_current_file() return copy_table(current_file) end
 function API_mt.get_current_parser() return state.parser:get_id() end
 function API_mt.get_current_parser_keyname() return state.parser.keybind_name or state.parser.name end
@@ -392,6 +393,7 @@ function API_mt.set_selected_index(index)
     if index < 1 then index = 1 end
     if index > #state.list then index = #state.list end
     state.selected = index
+    API_mt.update_ass()
     return index
 end
 
@@ -449,7 +451,7 @@ local function setup_addon(file, path)
     if not addon_parsers then return msg.error("addon", path, "did not return a table") end
 
     --if the table contains a priority key then we assume it isn't an array of parsers
-    if addon_parsers.priority then addon_parsers = {addon_parsers} end
+    if not addon_parsers[1] then addon_parsers = {addon_parsers} end
 
     for _, parser in ipairs(addon_parsers) do
         parser = setmetatable(parser, parser_mt)
@@ -457,6 +459,14 @@ local function setup_addon(file, path)
         set_parser_id(parser)
 
         msg.verbose("imported parser", parser:get_id(), "from", file)
+
+        --sets missing functions
+        if not parser.can_parse then
+            if parser.parse then parser.can_parse = function() return true end
+            else parser.can_parse = function() return false end end
+        end
+
+        if parser.priority == nil then parser.priority = 0 end
         if type(parser.priority) ~= "number" then return msg.error("parser", parser:get_id(), "needs a numeric priority") end
 
         table.insert(parsers, parser)
@@ -1130,7 +1140,7 @@ local function open_file_coroutine(flag, autoload)
         down_dir()
         close()
     else
-        loadfile(state.list[state.selected], flag, directory)
+        loadfile(state.list[state.selected], flag, false, directory)
     end
 end
 

@@ -26,11 +26,11 @@
     },
     {
       "label": "重置所有更改设置",
-      "command": ["cycle_values", "reset-on-next-file", "all"],
+      "command": [["cycle_values", "reset-on-next-file", "all"], ["show-text", "重置所有更改设置"]],
       "keep_open": false
     },
     {
-      "label": "更新所有脚本",
-      "command": ["script-binding", "manager-update-all"]
+      "label": "更新脚本着色器",
+      "command": [["script-binding", "manager-update-all"], ["show-text", "更新脚本着色器"]]
     }
   ]
