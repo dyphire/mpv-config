@@ -1,6 +1,7 @@
+
+//!DESC Reduce static noise (chroma)
 //!HOOK CHROMA
 //!BIND HOOKED
-//!DESC Reduce static noise (chroma)
 
 // Change this to tune the strength of the noise
 // Apparently this has to be float on some setups
@@ -19,3 +20,4 @@ vec4 hook()  {
     noise.y = rand(h);
     return HOOKED_tex(HOOKED_pos) + vec4(STRENGTH/8192.0) * (noise - 0.5);
 }
+

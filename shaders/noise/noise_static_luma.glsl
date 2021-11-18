@@ -1,7 +1,7 @@
-//!HOOK LUMA
-//!HOOK RGB
-//!BIND HOOKED
+
 //!DESC Reduce static noise (luma)
+//!HOOK LUMA
+//!BIND HOOKED
 
 // Change this to tune the strength of the noise
 // Apparently this has to be float on some setups
@@ -19,3 +19,4 @@ vec4 hook()  {
     noise.x = rand(h);
     return HOOKED_tex(HOOKED_pos) + vec4(STRENGTH/8192.0) * (noise - 0.5);
 }
+
