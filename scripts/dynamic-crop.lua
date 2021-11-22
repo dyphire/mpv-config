@@ -571,4 +571,4 @@ end
 
 mp.add_key_binding("C", "toggle_crop", on_toggle)
 mp.register_event("end-file", cleanup)
-mp.register_event("file-loaded", on_start)
+mp.register_event("file-loaded", on_start)
