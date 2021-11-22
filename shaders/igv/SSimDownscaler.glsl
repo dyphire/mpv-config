@@ -45,7 +45,7 @@ vec4 hook() {
         float rel = (pos[axis] - base[axis])*POSTKERNEL_size[axis];
         float w = Kernel(rel);
 
-        avg += w * pow(clamp(textureLod(PREKERNEL_raw, pos, 0.0) * PREKERNEL_mul, 0.0, 1.0), vec4(2.0));
+        avg += w * pow(textureLod(PREKERNEL_raw, pos, 0.0) * PREKERNEL_mul, vec4(2.0));
         W += w;
     }
     avg /= W;
@@ -120,7 +120,7 @@ mat3x3 ScaleH(vec2 pos) {
         float rel = k + offset[0];
         float w = Kernel(rel);
 
-        vec3 L = clamp(POSTKERNEL_tex(pos).rgb, 0.0, 1.0);
+        vec3 L = POSTKERNEL_tex(pos).rgb;
         avg += w * mat3x3(L, L*L, L2_tex(pos).rgb);
         W += w;
     }
@@ -182,8 +182,7 @@ mat3x3 ScaleH(vec2 pos) {
         float w = Kernel(rel);
 
         vec4 MR = MR_tex(pos);
-        vec3 M = Gamma(MR.rgb);
-        avg += w * mat3x3(MR.a*M, M, MR.aaa);
+        avg += w * mat3x3(MR.a*MR.rgb, MR.rgb, MR.aaa);
         W += w;
     }
     avg /= W;
@@ -209,6 +208,6 @@ vec4 hook() {
         W += w;
     }
     avg /= W;
-    vec4 L = clamp(POSTKERNEL_texOff(0), 0.0, 1.0);
-    return vec4(GammaInv(avg[1] + avg[2] * Gamma(L.rgb) - avg[0]), L.a);
+    vec4 L = POSTKERNEL_texOff(0);
+    return vec4(avg[1] + avg[2] * L.rgb - avg[0], L.a);
 }
