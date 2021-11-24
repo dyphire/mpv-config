@@ -350,7 +350,7 @@ local function create_ffmpeg_command(time, output, force_accurate_seek)
 		args[worker_extra.index_skip_idct]  = accurate_seek and 'noref' or 'nokey'
 		args[worker_extra.index_skip_frame] = accurate_seek and 'noref' or 'nokey'
 		args[worker_extra.index_time]       = tostring(is_last_thumbnail and floor(time) or time)
-		args[worker_extra.index_output]     = output
+		args[worker_extra.index_output]     = output		
 	else
 		local width, height = state.width, state.height
 		if state.meta_rotated then width, height = height, width end
@@ -368,13 +368,17 @@ local function create_ffmpeg_command(time, output, force_accurate_seek)
 		add_args(args, '-hide_banner')
 		add_args(args, '-nostats')
 		add_args(args, '-loglevel', 'warning')
+		if not (worker_options.ffmpeg_hwaccel == 'none') then
+			add_args(args, '-hwaccel', worker_options.ffmpeg_hwaccel)
+			add_args(args, '-hwaccel_device', worker_options.ffmpeg_hwaccel_device)
+		end
 		-- Input
 		add_args(args, '-threads', worker_options.ffmpeg_threads)
 		add_args(args, '-fflags', 'fastseek')
 		add_args(args, '-flags2', 'fast')
 		if OPERATING_SYSTEM ~= OS_WIN and worker_options.worker_timeout > 0 then add_args(args, '-timelimit', ceil(worker_options.worker_timeout)) end
-		add_args(args, '-analyzeduration', '500000')  -- Default: 5000000
-		add_args(args, '-probesize', '500000')        -- Default: 5000000
+		add_args(args, '-analyzeduration', '5000000')  -- Default: 5000000
+		add_args(args, '-probesize', '5000000')        -- Default: 5000000
 		worker_extra.index_fastseek   = add_args(args, '-fflags',           accurate_seek and '+discardcorrupt+nobuffer' or '+fastseek+discardcorrupt+nobuffer')
 		worker_extra.index_accurate   = add_args(args,                      accurate_seek and '-accurate_seek' or '-noaccurate_seek')
 		worker_extra.index_skip_loop  = add_args(args, '-skip_loop_filter', accurate_seek and 'noref' or 'nokey')

@@ -228,6 +228,8 @@ local user_opts = {
 	prefer_ffmpeg         = false,              -- Use FFMPEG when available
 	ffmpeg_threads        = 8,                  -- Limit FFMPEG/MPV LAVC threads per worker. Also limits filter and output threads for FFMPEG.
 	ffmpeg_scaler         = 'bicubic',          -- Applies to both MPV and FFMPEG. See: https://ffmpeg.org/ffmpeg-scaler.html
+	ffmpeg_hwaccel        = 'none',
+	ffmpeg_hwaccel_device = '0',
 }
 
 local thumbnails, thumbnails_new,thumbnails_new_count
@@ -266,6 +268,8 @@ local function worker_set_options()
 		use_ffmpeg     = user_opts.use_ffmpeg,
 		ffmpeg_threads = user_opts.ffmpeg_threads,
 		ffmpeg_scaler  = user_opts.ffmpeg_scaler,
+		ffmpeg_hwaccel = user_opts.ffmpeg_hwaccel,
+		ffmpeg_hwaccel_device = user_opts.ffmpeg_hwaccel_device,
 	}
 end
 
@@ -537,7 +541,7 @@ local function state_init()
 	local input_fullpath  = saved_state.input_fullpath
 	local input_filename  = saved_state.input_filename
 	local cache_format    = '%.5d'
-	local cache_extension = '.bgra'
+	local cache_extension = '.thb'
     local is_remote       = (input_fullpath:find('://') ~= nil) and mp.get_property_native('demuxer-via-network', false)
 	local timing          = calculate_timing(is_remote)
 	local scale           = calculate_scale()
