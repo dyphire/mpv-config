@@ -1,5 +1,5 @@
 -- origin deus0ww  - 2021-10-15 https://github.com/deus0ww/mpv-conf/blob/master/scripts/Thumbnailer.lua
--- modify zhongfly - 2021-10-15
+-- modify zhongfly - 2021-11-26
 
 local ipairs,loadfile,pairs,pcall,tonumber,tostring = ipairs,loadfile,pairs,pcall,tonumber,tostring
 local debug,io,math,os,string,table,utf8 = debug,io,math,os,string,table,utf8
@@ -181,6 +181,30 @@ local function delete_dir(path)
 	return run_subprocess( OPERATING_SYSTEM == OS_WIN and {'cmd', '/e:on', '/c', 'rd', '/s', '/q', path} or {'rm', '-r', path} )
 end
 
+local function delete_file(path)
+	if not file_exists(path) then return end
+	msg.warn('Deleting File:', path)
+	return os.remove(path)
+end
+
+local function add_lock(path)
+	msg.debug('Add file lock to:', path)
+	local file = io.open(join_paths(path, tostring(utils.getpid())), 'w')
+	if file then 
+		file:close()
+		return true
+	end
+	return false
+end
+
+local function remove_lock(path)
+	msg.debug('Remove file lock from:', path)
+	return delete_file(join_paths(path, tostring(utils.getpid())))
+end
+
+local function is_locked(path)
+	return #utils.readdir(path,'files') ~= 0
+end
 
 --------------------
 -- Data Structure --
@@ -420,6 +444,7 @@ end
 local stop_conditions
 
 local worker_script_path
+local auto_delete = nil
 local cache_dir_array = {}
 
 local function create_workers()
@@ -457,7 +482,7 @@ local function create_ouput_dir(filepath, filename, dimension, rotate)
 		basepath = join_paths(user_opts.cache_dir, name)
 		success = create_dir(basepath)
 	end
-	
+
 	if not success then  -- Try hashed path
 		name = hash_string(filepath, filename):sub(1, max_char)
 		msg.debug('Creating Output Dir: Trying', name)
@@ -470,7 +495,13 @@ local function create_ouput_dir(filepath, filename, dimension, rotate)
 		return {basepath = nil, fullpath = nil}
 	end
 	msg.debug('Creating Output Dir: Using ', name)
-	
+
+	if auto_delete == nil then auto_delete = user_opts.auto_delete end
+	if auto_delete > 0 then 
+		add_lock(basepath)
+		table.insert(cache_dir_array,basepath)
+	end
+
 	local fullpath = join_paths(basepath, dimension, rotate)
 	if not create_dir(fullpath) then return { basepath = nil, fullpath = nil } end
 	table.insert(cache_dir_array,basepath)
@@ -636,10 +667,15 @@ local auto_delete = nil
 local function delete_cache_dir()
 	if auto_delete == nil then auto_delete = user_opts.auto_delete end
 	if auto_delete > 0 then 
-		for index, path in pairs(cache_dir_array) do
-			msg.debug('Clearing Cache on Shutdown:', path)
-			if path:len() < 16 then return end
-			delete_dir(path)
+		for _, path in pairs(cache_dir_array) do
+			remove_lock(path)
+			if not is_locked(path) then 
+				msg.debug('Clearing Cache on Shutdown:', path)
+				if path:len() < 16 then return end
+				delete_dir(path)
+			else
+				msg.debug('Clearing Cache on Shutdown:ignore ', path, '- Locked')
+			end
 		end
 	end
 end
@@ -649,9 +685,14 @@ local function delete_cache_subdir()
 	if auto_delete == nil then auto_delete = user_opts.auto_delete end
 	if auto_delete == 1 then
 		local path = state.cache_dir_base
-		msg.debug('Clearing Cache for File:', path)
-		if path:len() < 16 then return end
-		delete_dir(path)
+		remove_lock(path)
+		if not is_locked(path) then 
+			msg.debug('Clearing Cache for File:', path)
+			if path:len() < 16 then return end
+			if delete_dir(path) then table.remove(cache_dir_array) end
+		else
+			msg.debug('Clearing Cache for File:ignore ', path, '- Locked')
+		end
 	end
 end
 
