@@ -10,7 +10,7 @@ PS：自行编辑配置文件时，注意编码格式应为 UTF-8，换行符为
 
 - 目前 mpv 没有官方发布的客户端，官网上有放一些推荐的第三方编译版：[https://mpv.io/installation](https://mpv.io/installation)
   - windows 上推荐使用 shinchiro 版： [shinchiro_mpv](https://sourceforge.net/projects/mpv-player-windows/files/64bit/)
-  - 使用 Github Action 编译版：[zhongfly_mpv](https://github.com/zhongfly/mpv-build) [![releases](https://img.shields.io/github/v/release/zhongfly/mpv-build)](https://github.com/zhongfly/mpv-build/releases); [eko5624_mpv](https://github.com/eko5624/mpv-win64) [![releases](https://img.shields.io/github/v/release/eko5624/mpv-win64)](https://github.com/eko5624/mpv-win64/releases)
+  - 使用 Github Action 编译版：[zhongfly_mpv](https://github.com/zhongfly/mpv-winbuild) [![releases](https://img.shields.io/github/v/release/zhongfly/mpv-winbuild)](https://github.com/zhongfly/mpv-winbuild/releases); [eko5624_mpv](https://github.com/eko5624/mpv-win64) [![releases](https://img.shields.io/github/v/release/eko5624/mpv-win64)](https://github.com/eko5624/mpv-win64/releases)
   - 基于个人修改的 [libass](https://github.com/dyphire/libass/tree/dev) 编译版：[dyphire_mpv](https://github.com/dyphire/mpv-winbuild) [![releases](https://img.shields.io/github/v/release/dyphire/mpv-winbuild)](https://github.com/dyphire/mpv-winbuild/releases)
     -  修复 libass 在 ass 字幕脚本比例和视频比例不匹配时导致的 PlayResX 缩放错误的问题
     -  仍有其他标签缩放比例问题待解决
