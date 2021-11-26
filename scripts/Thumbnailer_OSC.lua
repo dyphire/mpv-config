@@ -35,53 +35,55 @@ local utils   = require 'mp.utils'
 -- default user option values
 -- do not touch, change them in osc.conf
 local user_opts = {
-    showwindowed = true,        -- show OSC when windowed?
-    showfullscreen = true,      -- show OSC when fullscreen?
-    scalewindowed = 1,          -- scaling of the controller when windowed
-    scalefullscreen = 1,        -- scaling of the controller when fullscreen
-    scaleforcedwindow = 2,      -- scaling when rendered on a forced window
-    vidscale = true,            -- scale the controller with the video?
-    valign = 0.8,               -- vertical alignment, -1 (top) to 1 (bottom)
-    halign = 0,                 -- horizontal alignment, -1 (left) to 1 (right)
-    barmargin = 0,              -- vertical margin of top/bottombar
-    boxalpha = 80,              -- alpha of the background box,
-                                -- 0 (opaque) to 255 (fully transparent)
-    hidetimeout = 500,          -- duration in ms until the OSC hides if no
-                                -- mouse movement. enforced non-negative for the
-                                -- user, but internally negative is "always-on".
-    fadeduration = 200,         -- duration of fade out in ms, 0 = no fade
-    deadzonesize = 0.5,         -- size of deadzone
-    minmousemove = 0,           -- minimum amount of pixels the mouse has to
-                                -- move between ticks to make the OSC show up
-    iamaprogrammer = false,     -- use native mpv values and disable OSC
-                                -- internal track list management (and some
-                                -- functions that depend on it)
-    layout = "bottombar",       -- 原可选为 "bottombar" "topbar" "box" "slimbox" ；在Thumbnailer_OSC中新增 "bottombox"
-    seekbarstyle = "bar",       -- bar, diamond or knob
-    seekbarhandlesize = 0.6,    -- size ratio of the diamond and knob handle
-    seekrangestyle = "inverted",-- bar, line, slider, inverted or none
-    seekrangeseparate = true,   -- wether the seekranges overlay on the bar-style seekbar
-    seekrangealpha = 200,       -- transparency of seekranges
-    seekbarkeyframes = true,    -- use keyframes when dragging the seekbar
-    title = "${media-title}",   -- string compatible with property-expansion
-                                -- to be shown as OSC title
-    tooltipborder = 1,          -- border of tooltip in bottom/topbar
-    timetotal = true,           -- display total time instead of remaining time?   -- 原为false
-    timems = false,             -- display timecodes with milliseconds?
-    visibility = "auto",        -- only used at init to set visibility_mode(...)
-    boxmaxchars = 150,          -- title crop threshold for box layout             -- 原为80
-    boxvideo = false,           -- apply osc_param.video_margins to video
-    windowcontrols = "auto",    -- whether to show window controls
+    showwindowed = true,                -- show OSC when windowed?
+    showfullscreen = true,              -- show OSC when fullscreen?
+    scalewindowed = 1,                  -- scaling of the controller when windowed
+    scalefullscreen = 1,                -- scaling of the controller when fullscreen
+    scaleforcedwindow = 2,              -- scaling when rendered on a forced window
+    vidscale = true,                    -- scale the controller with the video?
+    valign = 0.8,                       -- vertical alignment, -1 (top) to 1 (bottom)
+    halign = 0,                         -- horizontal alignment, -1 (left) to 1 (right)
+    barmargin = 0,                      -- vertical margin of top/bottombar
+    boxalpha = 80,                      -- alpha of the background box,
+                                        -- 0 (opaque) to 255 (fully transparent)
+    hidetimeout = 500,                  -- duration in ms until the OSC hides if no
+                                        -- mouse movement. enforced non-negative for the
+                                        -- user, but internally negative is "always-on".
+    fadeduration = 200,                 -- duration of fade out in ms, 0 = no fade
+    deadzonesize = 0.5,                 -- size of deadzone
+    minmousemove = 0,                   -- minimum amount of pixels the mouse has to
+                                        -- move between ticks to make the OSC show up
+    iamaprogrammer = false,             -- use native mpv values and disable OSC
+                                        -- internal track list management (and some
+                                        -- functions that depend on it)
+    layout = "bottombar",               -- 原可选为 "bottombar" "topbar" "box" "slimbox" ；在Thumbnailer_OSC中新增 "bottombox"
+    seekbarstyle = "bar",               -- bar, diamond or knob
+    seekbarhandlesize = 0.6,            -- size ratio of the diamond and knob handle
+    seekrangestyle = "inverted",        -- bar, line, slider, inverted or none
+    seekrangeseparate = true,           -- wether the seekranges overlay on the bar-style seekbar
+    seekrangealpha = 200,               -- transparency of seekranges
+    seekbarkeyframes = true,            -- use keyframes when dragging the seekbar
+    title = "${media-title}",           -- string compatible with property-expansion
+                                        -- to be shown as OSC title
+    tooltipborder = 1,                  -- border of tooltip in bottom/topbar
+    timetotal = true,                   -- display total time instead of remaining time?   -- 原为false
+    timems = false,                     -- display timecodes with milliseconds?
+    visibility = "auto",                -- only used at init to set visibility_mode(...)
+    boxmaxchars = 150,                  -- title crop threshold for box layout             -- 原为80
+    boxvideo = false,                   -- apply osc_param.video_margins to video
+    windowcontrols = "auto",            -- whether to show window controls
     windowcontrols_alignment = "right", -- which side to show window controls on
-    greenandgrumpy = false,     -- disable santa hat
-    livemarkers = true,         -- update seekbar chapter markers on duration change
-
+    greenandgrumpy = false,             -- disable santa hat
+    livemarkers = true,                 -- update seekbar chapter markers on duration change
+    chapters_osd = true,                -- whether to show chapters OSD on next/prev
+    playlist_osd = true,                -- whether to show playlist OSD on next/prev
+    chapter_fmt = "章节：%s",           -- chapter print format for seekbar-hover. "no" to disable
     -- 以下为Thumbnailer_OSC的独占选项
 
-    wctitle = "${media-title}", -- 无边框的上方标题
-    sub_title = " ",            -- bottombox布局的右侧子标题
+    wctitle = "${media-title}",         -- 无边框的上方标题
+    sub_title = " ",                    -- bottombox布局的右侧子标题
     sub_title2 = "对比[${contrast}]  亮度[${brightness}]  伽马[${gamma}]  饱和[${saturation}]  色相[${hue}]", -- bottombox布局的临时右侧子标题
-    font = "sans",              -- OSC的全局字体显示
+    font = "sans",                      -- OSC的全局字体显示
     font_mono = "sans",
     font_bold = 500,
 }
@@ -1128,13 +1130,13 @@ function render_elements(master_ass)
     -- render iterations because the title may be rendered before the slider.
     state.forced_title = nil
     local se, ae = state.slider_element, elements[state.active_element]
-    if se and (ae == se or (not ae and mouse_hit(se))) then
+    if user_opts.chapter_fmt ~= "no" and se and (ae == se or (not ae and mouse_hit(se))) then
         local dur = mp.get_property_number("duration", 0)
         if dur > 0 then
             local possec = get_slider_value(se) * dur / 100 -- of mouse pos
             local ch = get_chapter(possec)
             if ch and ch.title and ch.title ~= "" then
-                state.forced_title = "章节：" .. ch.title
+                state.forced_title = string.format(user_opts.chapter_fmt, ch.title)
             end
         end
     end
@@ -2522,7 +2524,9 @@ function osc_init()
     ne.eventresponder["mbtn_left_up"] =
         function ()
             mp.commandv("playlist-prev", "weak")
-            show_message(get_playlist(), 3)
+            if user_opts.playlist_osd then
+                show_message(get_playlist(), 3)
+            end
         end
     ne.eventresponder["shift+mbtn_left_up"] =
         function () show_message(get_playlist(), 3) end
@@ -2537,7 +2541,9 @@ function osc_init()
     ne.eventresponder["mbtn_left_up"] =
         function ()
             mp.commandv("playlist-next", "weak")
-            show_message(get_playlist(), 3)
+            if user_opts.playlist_osd then
+                show_message(get_playlist(), 3)
+            end
         end
     ne.eventresponder["shift+mbtn_left_up"] =
         function () show_message(get_playlist(), 3) end
@@ -2592,7 +2598,9 @@ function osc_init()
     ne.eventresponder["mbtn_left_up"] =
         function ()
             mp.commandv("add", "chapter", -1)
-            show_message(get_chapterlist(), 3)
+            if user_opts.chapters_osd then
+                show_message(get_chapterlist(), 3)
+            end
         end
     ne.eventresponder["shift+mbtn_left_up"] =
         function () show_message(get_chapterlist(), 3) end
@@ -2607,7 +2615,9 @@ function osc_init()
     ne.eventresponder["mbtn_left_up"] =
         function ()
             mp.commandv("add", "chapter", 1)
-            show_message(get_chapterlist(), 3)
+            if user_opts.chapters_osd then
+                show_message(get_chapterlist(), 3)
+            end
         end
     ne.eventresponder["shift+mbtn_left_up"] =
         function () show_message(get_chapterlist(), 3) end
