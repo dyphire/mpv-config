@@ -1,7 +1,7 @@
 --[[
 SOURCE_ https://github.com/deus0ww/mpv-conf/blob/master/scripts/Thumbnailer.lua
 COMMIT_ 20211005 62fa158
-hwacel from https://github.com/hooke007/MPV_lazy/blob/main/portable_config/scripts/thumbnailer.lua
+hwaccel from https://github.com/hooke007/MPV_lazy/blob/main/portable_config/scripts/thumbnailer.lua
 modify by zhongfly - 2021-11-29 https://github.com/zhongfly/mpv-conf/blob/main/scripts/Thumbnailer.lua
 ]]--
 
@@ -501,9 +501,8 @@ local function create_ouput_dir(filepath, filename, dimension, rotate)
 	msg.debug('Creating Output Dir: Using ', name)
 	
 	if auto_delete == nil then auto_delete = user_opts.auto_delete end
-	if auto_delete == 2 then 
+	if auto_delete > 0 then 
 		add_lock(user_opts.cache_dir)
-	elseif auto_delete == 1 then
 		add_lock(basepath)
 	end
 	
@@ -666,8 +665,6 @@ local function is_thumbnailable()
 	return true
 end
 
-local auto_delete = nil
-
 local function delete_cache_dir()
 	if auto_delete == nil then auto_delete = user_opts.auto_delete end
 	if auto_delete > 0 then 
@@ -696,6 +693,8 @@ local function delete_cache_subdir()
 		else
 			msg.debug('Clearing Cache for File:ignore ', path, '- Locked')
 		end
+	elseif  auto_delete == 2 then
+		remove_lock(state.cache_dir_base)
 	end
 end
 
