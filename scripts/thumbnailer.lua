@@ -1,4 +1,9 @@
--- origin deus0ww  - 2021-10-15 https://github.com/deus0ww/mpv-conf/blob/master/scripts/Thumbnailer.lua
+--[[
+SOURCE_ https://github.com/deus0ww/mpv-conf/blob/master/scripts/Thumbnailer.lua
+COMMIT_ 20211005 62fa158
+hwacel from https://github.com/hooke007/MPV_lazy/blob/main/portable_config/scripts/thumbnailer.lua
+modify by zhongfly - 2021-11-29 https://github.com/zhongfly/mpv-conf/blob/main/scripts/Thumbnailer.lua
+]]--
 
 local ipairs,loadfile,pairs,pcall,tonumber,tostring = ipairs,loadfile,pairs,pcall,tonumber,tostring
 local debug,io,math,os,string,table,utf8 = debug,io,math,os,string,table,utf8
@@ -180,6 +185,32 @@ local function delete_dir(path)
 	return run_subprocess( OPERATING_SYSTEM == OS_WIN and {'cmd', '/e:on', '/c', 'rd', '/s', '/q', path} or {'rm', '-r', path} )
 end
 
+local function delete_file(path)
+	if not file_exists(path) then return end
+	msg.warn('Deleting File:', path)
+	return os.remove(path)
+end
+
+local function add_lock(path)
+	msg.debug('Add file lock to:', path)
+	local file = io.open(join_paths(path, tostring(utils.getpid())), 'w')
+	if file then 
+		file:close()
+		return true
+	end
+	return false
+end
+
+local function remove_lock(path)
+	msg.debug('Remove file lock from:', path)
+	return delete_file(join_paths(path, tostring(utils.getpid())))
+end
+
+local function is_locked(path)
+	return #utils.readdir(path,'files') ~= 0
+end
+
+
 --------------------
 -- Data Structure --
 --------------------
@@ -197,7 +228,7 @@ local user_opts = {
 	-- Paths
 	cache_dir             = default_cache_dir,  -- Note: Files are not cleaned afterward, by default
 	worker_script_path    = '',                 -- Only needed if the script can't auto-locate the file to load more workers
-	exec_path            = '',                 -- This is appended to PATH to search for mpv, ffmpeg, and other executables.
+	exec_path             = '',                 -- This is appended to PATH to search for mpv, ffmpeg, and other executables.
 
 	-- Thumbnail
 	dimension             = 320,                -- Max width and height before scaling
@@ -418,6 +449,7 @@ end
 local stop_conditions
 
 local worker_script_path
+local auto_delete = nil
 
 local function create_workers()
 	local workers_requested = (state and state.max_workers) and state.max_workers or user_opts.max_workers
@@ -454,7 +486,7 @@ local function create_ouput_dir(filepath, filename, dimension, rotate)
 		basepath = join_paths(user_opts.cache_dir, name)
 		success = create_dir(basepath)
 	end
-
+	
 	if not success then  -- Try hashed path
 		name = hash_string(filepath, filename):sub(1, max_char)
 		msg.debug('Creating Output Dir: Trying', name)
@@ -467,7 +499,14 @@ local function create_ouput_dir(filepath, filename, dimension, rotate)
 		return {basepath = nil, fullpath = nil}
 	end
 	msg.debug('Creating Output Dir: Using ', name)
-
+	
+	if auto_delete == nil then auto_delete = user_opts.auto_delete end
+	if auto_delete == 2 then 
+		add_lock(user_opts.cache_dir)
+	elseif auto_delete == 1 then
+		add_lock(basepath)
+	end
+	
 	local fullpath = join_paths(basepath, dimension, rotate)
 	if not create_dir(fullpath) then return { basepath = nil, fullpath = nil } end
 	return {basepath = basepath, fullpath = fullpath}
@@ -541,7 +580,7 @@ local function state_init()
 	local input_fullpath  = saved_state.input_fullpath
 	local input_filename  = saved_state.input_filename
 	local cache_format    = '%.5d'
-	local cache_extension = '.thb'
+	local cache_extension = '.bgra'
     local is_remote       = (input_fullpath:find('://') ~= nil) and mp.get_property_native('demuxer-via-network', false)
 	local timing          = calculate_timing(is_remote)
 	local scale           = calculate_scale()
@@ -633,9 +672,14 @@ local function delete_cache_dir()
 	if auto_delete == nil then auto_delete = user_opts.auto_delete end
 	if auto_delete > 0 then 
 		local path = user_opts.cache_dir
-		msg.debug('Clearing Cache on Shutdown:', path)
-		if path:len() < 16 then return end
-		delete_dir(path)
+		remove_lock(path)
+		if not is_locked(path) then 
+			msg.debug('Clearing Cache on Shutdown:', path)
+			if path:len() < 16 then return end
+			delete_dir(path)
+		else
+			msg.debug('Clearing Cache on Shutdown:ignore ', path, '- Locked')
+		end
 	end
 end
 
@@ -644,9 +688,14 @@ local function delete_cache_subdir()
 	if auto_delete == nil then auto_delete = user_opts.auto_delete end
 	if auto_delete == 1 then
 		local path = state.cache_dir_base
-		msg.debug('Clearing Cache for File:', path)
-		if path:len() < 16 then return end
-		delete_dir(path)
+		remove_lock(path)
+		if not is_locked(path) then 
+			msg.debug('Clearing Cache for File:', path)
+			if path:len() < 16 then return end
+			delete_dir(path)
+		else
+			msg.debug('Clearing Cache for File:ignore ', path, '- Locked')
+		end
 	end
 end
 
