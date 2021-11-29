@@ -38,7 +38,7 @@
 | thumbnailer*.lua          | 缩略图引擎(依赖 [thumbnailer_osc.lua](../scripts/thumbnailer_osc.lua)；配置文件 [thumbnailer.conf](../script-opts/thumbnailer.conf)) |
 | thumbnailer_osc.lua         | 缩略图引擎搭配的 OSC 界面（配置文件 [thumbnailer_osc.conf](../script-opts/thumbnailer_osc.conf)） |
 | trackselect.lua               | 指定音频轨道优先级/黑白名单（配置文件 [trackselect.conf](../script-opts/trackselect.conf)） |
-| UndoRedo.lua                  | 智能跳跃记录操作                                             |
+| undoredo.lua                  | 智能跳跃记录操作                                             |
 
 1. 部分脚本为**个人修改版本**，主要改进功能实现或键位绑定方式。如：autoload.lua; bookmarker_menu.lua; chapter_list.lua; chapterskip.lua; copy_subortime.lua; fuzzydir.lua; local-language.lua; menu.lua; recent.lua; skiptosilence.lua; smarthistory.lua; smartcopypaste-II.lua
 2. 所有脚本预绑定的`mp.add_key_binding`静态键位已被 [mpv.conf](../mpv.conf) 中的`input-default-bindings=no`参数屏蔽，可查看 [input.conf](../input.conf)  的"LUA 脚本"部分示例参考绑定所需键位  
