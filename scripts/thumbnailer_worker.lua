@@ -1,4 +1,7 @@
--- deus0ww - 2021-05-07
+--[[
+SOURCE_ https://github.com/deus0ww/mpv-conf/blob/master/scripts/Thumbnailer_Worker.lua
+COMMIT_ 20210716 91ae987
+]]--
 
 local ipairs,loadfile,pairs,pcall,tonumber,tostring = ipairs,loadfile,pairs,pcall,tonumber,tostring
 local debug,io,math,os,string,table,utf8 = debug,io,math,os,string,table,utf8
@@ -377,8 +380,8 @@ local function create_ffmpeg_command(time, output, force_accurate_seek)
 		add_args(args, '-fflags', 'fastseek')
 		add_args(args, '-flags2', 'fast')
 		if OPERATING_SYSTEM ~= OS_WIN and worker_options.worker_timeout > 0 then add_args(args, '-timelimit', ceil(worker_options.worker_timeout)) end
-		add_args(args, '-analyzeduration', '5000000')  -- Default: 5000000
-		add_args(args, '-probesize', '5000000')        -- Default: 5000000
+		add_args(args, '-analyzeduration', '500000')  -- Default: 5000000
+		add_args(args, '-probesize', '500000')        -- Default: 5000000
 		worker_extra.index_fastseek   = add_args(args, '-fflags',           accurate_seek and '+discardcorrupt+nobuffer' or '+fastseek+discardcorrupt+nobuffer')
 		worker_extra.index_accurate   = add_args(args,                      accurate_seek and '-accurate_seek' or '-noaccurate_seek')
 		worker_extra.index_skip_loop  = add_args(args, '-skip_loop_filter', accurate_seek and 'noref' or 'nokey')
