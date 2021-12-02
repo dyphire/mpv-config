@@ -17,7 +17,8 @@
   {
     "git":"https://github.com/hooke007/MPV_lazy",
     "whitelist":"cycle%_adevice%.lua$|thumbnailer%_worker%.lua$",
-    "dest":"~~/scripts"
+    "dest":"~~/scripts",
+    "branch":"main"
   },
   {
     "git":"https://github.com/snylonue/mpv_slicing_copy",
@@ -27,7 +28,8 @@
   {
     "git":"https://github.com/DonCanjas/mpv-webp-generator",
     "whitelist":"mpv%-webp%.lua$",
-    "dest":"~~/scripts"
+    "dest":"~~/scripts",
+    "branch":"main"
   },
   {
     "git":"https://github.com/po5/trackselect",
@@ -102,7 +104,8 @@
   {
     "git":"https://github.com/cyl0/mpv-osc-morden-x",
     "whitelist":"mordenx%.lua$",
-    "dest":"~~/osc-style"
+    "dest":"~~/osc-style",
+    "branch":"main"
   },
   {
     "git":"https://github.com/deus0ww/mpv-conf",
