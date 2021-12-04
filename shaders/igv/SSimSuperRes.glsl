@@ -46,7 +46,7 @@ vec4 hook() {
         float rel = (pos[axis] - HOOKED_pos[axis])*input_size[axis];
         float w = Kernel(rel);
 
-        tex.rgb = textureLod(HOOKED_raw, pos, 0.0).rgb * HOOKED_mul;
+        tex.rgb = clamp(textureLod(HOOKED_raw, pos, 0.0).rgb * HOOKED_mul, 0., 1.);
         tex.a = Luma(tex.rgb);
         avg += w * tex;
         W += w;
@@ -157,15 +157,19 @@ vec4 hook() {
 
 #define Kernel(x)   ( cos(acos(-1.0)*(x)/taps) ) // Hann kernel
 
+#define sat(x)      clamp(x, 0., 1.)
+
 // -- Input processing --
 #define var(x,y)    ( var_tex(var_pt * (pos + vec2(x,y) + 0.5)).rg )
-#define GetL(x,y)   ( PREKERNEL_tex(PREKERNEL_pt * (pos + tex_offset + vec2(x,y) + 0.5)).rgb )
+#define GetL(x,y)   ( sat(PREKERNEL_tex(PREKERNEL_pt * (pos + tex_offset + vec2(x,y) + 0.5)).rgb) )
 #define GetH(x,y)   ( LOWRES_tex(LOWRES_pt * (pos + vec2(x,y) + 0.5)) )
 
+#define Gamma(x)    ( pow(sat(x), vec3(1.0/2.0)) )
+#define GammaInv(x) ( pow(sat(x), vec3(2.0)) )
 #define Luma(rgb)   ( dot(rgb*rgb, vec3(0.2126, 0.7152, 0.0722)) )
 
 vec4 hook() {
-    vec4 c0 = HOOKED_texOff(0);
+    vec4 c0 = sat(HOOKED_texOff(0));
 
     // Calculate position
     vec2 pos = HOOKED_pos * LOWRES_size - vec2(0.5);
@@ -175,7 +179,7 @@ vec4 hook() {
     vec2 mVar = vec2(0.0);
     for (int X=-1; X<=1; X++)
     for (int Y=-1; Y<=1; Y++) {
-        vec2 w = clamp(1.5 - abs(vec2(X,Y) - offset), 0., 1.);
+        vec2 w = sat(1.5 - abs(vec2(X,Y) - offset));
         mVar += w.r * w.g * vec2(GetH(X,Y).a, 1.0);
     }
     mVar.r /= mVar.g;
