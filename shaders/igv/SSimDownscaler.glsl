@@ -150,7 +150,7 @@ vec4 hook() {
 
     float Sl = Luma(max(avg[1] - avg[0] * avg[0], 0.)) + sigma_nsq;
     float Sh = Luma(max(avg[2] - avg[0] * avg[0], 0.)) + sigma_nsq;
-    return vec4(avg[0], sqrt(Sh / Sl));
+    return vec4(avg[0], 1.0 / (1.0 + sqrt(Sh / Sl)));
 }
 
 //!HOOK POSTKERNEL
@@ -182,7 +182,8 @@ mat3x3 ScaleH(vec2 pos) {
         float w = Kernel(rel);
 
         vec4 MR = MR_tex(pos);
-        avg += w * mat3x3(MR.a*MR.rgb, MR.rgb, MR.aaa);
+        vec3 R = vec3(1.0 / MR.a - 1.0);
+        avg += w * mat3x3(R*MR.rgb, MR.rgb, R);
         W += w;
     }
     avg /= W;
