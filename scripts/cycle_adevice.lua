@@ -2,14 +2,22 @@
 SOURCE_ https://gist.github.com/bitingsock/ad58ee5da560ecb922fa4a867ac0ecfd
 COMMIT_20200802
 
-此脚本优于在 input.conf 中使用 cycle-values audio-device 参数的方案
 自定义快捷键 快速切换音频输出设备
+此脚本优于在 input.conf 中使用 cycle-values audio-device 参数的方案
 示例在 input.conf 中写入两行：
 CTRL+a  script-binding  cycle_adevice/back
 ALT+a  script-binding  cycle_adevice/next
 ]]--
 
-local api = "wasapi"
+local opt = require 'mp.options'
+
+local user_opts = {
+    api = "wasapi"   -- <wasapi/openal/sdl> 限制音频接口
+}
+
+opt.read_options(user_opts)
+
+local api = user_opts.api
 local deviceList = {}
 local function cycle_adevice(s, e, d)
 	while s ~= e + d do -- until the loop would cycle back to the number we started on
