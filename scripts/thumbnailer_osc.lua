@@ -78,7 +78,7 @@ local user_opts = {
     chapters_osd = true,                -- whether to show chapters OSD on next/prev
     playlist_osd = true,                -- whether to show playlist OSD on next/prev
     chapter_fmt = "章节：%s",           -- chapter print format for seekbar-hover. "no" to disable
-    -- 以下为Thumbnailer_OSC的独占选项
+    -- 以下为thumbnailer_osc的独占选项
 
     wctitle = "${media-title}",         -- 无边框的上方标题
     sub_title = " ",                    -- bottombox布局的右侧子标题
@@ -89,7 +89,7 @@ local user_opts = {
 }
 
 -- read options from config and command-line
-opt.read_options(user_opts, "Thumbnailer_OSC", function(list) update_options(list) end)
+opt.read_options(user_opts, "thumbnailer_osc", function(list) update_options(list) end)
 
 
 
