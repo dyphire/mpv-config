@@ -3,7 +3,7 @@
 
 -- Creator: Eisa AlAwadhi
 -- Project: SmartCopyPaste-II
--- Version: 2.5
+-- Version: 2.6
 
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
@@ -28,13 +28,17 @@ local windows_paste = 'powershell' --'powershell' is for using windows powershel
 
 local offset = -0.65 --change to 0 so that pasting resumes from the exact position, or decrease the value so that it gives you a little preview before reaching the exact pasted position
 
+local copyLogPath = mp.find_config_file("."):match("@?(.*/)") --change to debug.getinfo(1).source:match("@?(.*/)") for placing it in the same directory of script, OR change to mp.find_config_file("."):match("@?(.*/)") for mpv portable_config directory OR specify the desired path in quotes, e.g.: 'C:\Users\Eisa01\Desktop\'
+local copyLogFile = 'mpvClipboard.log' --name+extension of the file that will be used to store the log data
+
+
 local osd_messages = true --true is for displaying osd messages when actions occur, Change to false will disable all osd messages generated from this script
 
 local paste_anything = false --false is for specific paste based on the specified extensions and protocols. OR change to true so paste accepts anything (not recommended to change this).
 
 if not paste_anything then
 	protocols = { --add below (after a comma) any protocol you want SmartCopyPaste to work with; e.g: ,'ftp://'
-		'https?://' ,'magnet:'
+		'https?://' ,'magnet:', 'rtmp:'
 	}
 	extensions = { --add below (after a comma) any extension you want SmartCopyPaste to work with; e.g: ,'pdf'
 		--video & audio
@@ -201,7 +205,7 @@ local function copy()
 		end
 		set_clipboard(filePath..' |time='..tostring(time))
 		
-		local copyLog = mp.find_config_file(".") .. "/" .. 'mpvClipboard.log'
+		local copyLog = copyLogPath .. copyLogFile
 		local copyLogAdd = io.open(copyLog, 'a+')
 		
 		copyLogAdd:write(('[%s] %s\n'):format(os.date('%d/%b/%y %X'), filePath..' |time='..tostring(time)))
@@ -226,7 +230,7 @@ local function copy_path()
 
 		set_clipboard(filePath)
 		
-		local copyLog = mp.find_config_file(".") .. "/" .. 'mpvClipboard.log'
+		local copyLog = copyLogPath .. copyLogFile
 		local copyLogAdd = io.open(copyLog, 'a+')
 		
 		copyLogAdd:write(('[%s] %s\n'):format(os.date('%d/%b/%y %X'), filePath))    
@@ -265,17 +269,12 @@ function paste()
 	local currentVideoExtension = string.lower(get_extension(videoFile))
 	local currentVideoExtensionPath = (get_extentionpath(videoFile))
 	
-	local copyLog = mp.find_config_file(".") .. "/" .. 'mpvClipboard.log'
+	local copyLog = copyLogPath .. copyLogFile
 	local copyLogAdd = io.open(copyLog, 'a+')
 	local copyLogOpen = io.open(copyLog, 'r+')
 
-	local linePosition
 	local videoFound = ''
-	local logVideo
-	local logVideoTime
-	
-	local seekTime
-	local seekLogVideoTime
+	local linePosition, logVideo, logVideoTime, seekTime, seekLogVideoTime
 	
 	for line in copyLogOpen:lines() do
 	
@@ -404,7 +403,7 @@ function paste_playlist()
 		videoFile = clip
 	end
 	
-	local copyLog = mp.find_config_file(".") .. "/" .. 'mpvClipboard.log'
+	local copyLog = copyLogPath .. copyLogFile
 	local copyLogAdd = io.open(copyLog, 'a+')
 	local copyLogOpen = io.open(copyLog, 'r+')
 	
