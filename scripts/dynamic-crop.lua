@@ -1,14 +1,16 @@
 --[[
 This script uses the lavfi cropdetect filter to automatically insert a crop filter with appropriate parameters for the
-currently playing video, the script run continuously by default, base on the mode choosed.
-It will automatically crop the video, when playback starts.
-
-Also It registers the key-binding "C" (shift+c). You can manually crop the video by pressing the "C" (shift+c) key.
-If the "C" key is pressed again, the crop filter is removed restoring playback to its original state.
+currently playing video, the script run continuously by default (mode 4).
 
 The workflow is as follows: We observe two main events, vf-metadata and time-pos changes.
     vf-metadata are stored sequentially in buffer with time-pos being updated at every frame,
-    then process to check and store trusted values to speed up future change for the current video only.
+    then process to check and store trusted values to speed up future change for the current video.
+    It will automatically crop the video as soon as a meta change is validated.
+
+Also It registers the key-binding "C" (shift+c) to control the script.
+The first press maintains the cropping and disables the script, a second pressure eliminates the cropping and a third pressure is necessary to restart the script.
+- Mode = 1-2, single cropping on demand, stays active until a valid cropping is apply.
+- Mode = 3-4, enable / disable continuous cropping.
 
 The default options can be overridden by adding script-opts-append=<script_name>-<parameter>=<value> into mpv.conf
     script-opts-append=dynamic_crop-mode=0
@@ -247,11 +249,10 @@ local function check_stability(current_)
     local found
     if not current_.is_source and stats.trusted[current_.whxy] then
         for _, table_ in pairs(stats.trusted) do
-            if current_ ~= table_ then
-                if (not found and table_.time.overall > current_.time.overall or found and table_.time.overall >
+            if current_ ~= table_ and
+                (not found and table_.time.overall > current_.time.overall or found and table_.time.overall >
                     found.time.overall) and math.abs(current_.w - table_.w) <= 4 and math.abs(current_.h - table_.h) <=
-                    4 then found = table_ end
-            end
+                4 then found = table_ end
         end
     end
     return found
@@ -352,12 +353,11 @@ local function process_metadata(event, time_pos_)
     local detect_source = current.is_source and
                               (not corrected and last_collected == collected and limit.change == 1 or
                                   current.time.last_seen >= fast_change_timer)
-    local trusted_offset_y = is_trusted_offset(current.offset.y, "y")
-    local trusted_offset_x = is_trusted_offset(current.offset.x, "x")
     local confirmation = not current.is_source and
                              (stats.trusted[current.whxy] and current.time.last_seen >= fast_change_timer or new_ready)
-    local crop_filter = not collected.is_invalid and applied.whxy ~= current.whxy and trusted_offset_x and
-                            trusted_offset_y and (confirmation or detect_source)
+    local crop_filter = not collected.is_invalid and applied.whxy ~= current.whxy and
+                            is_trusted_offset(current.offset.x, "x") and is_trusted_offset(current.offset.y, "y") and
+                            (confirmation or detect_source)
     -- apply crop
     if crop_filter then
         local already_stable
@@ -571,4 +571,4 @@ end
 
 mp.add_key_binding("C", "toggle_crop", on_toggle)
 mp.register_event("end-file", cleanup)
-mp.register_event("file-loaded", on_start)
+mp.register_event("file-loaded", on_start)

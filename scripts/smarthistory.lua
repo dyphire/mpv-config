@@ -3,7 +3,7 @@
 
 -- Creator: Eisa AlAwadhi
 -- Project: SmartHistory
--- Version: 1.9
+-- Version: 2.0
 
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
@@ -14,8 +14,10 @@ local lastVideoTime
 --These settings are for users to manually change some options in the script.
 --Keybinds can be defined in the bottom of the script.
 
-local offset = -0.65 --change to 0 so that pasting resumes from the exact position, or decrease the value so that it gives you a little preview before reaching the exact pasted position
+local historyLogPath = mp.find_config_file("."):match("@?(.*/)") --change to debug.getinfo(1).source:match("@?(.*/)") for placing it in the same directory of script, OR change to mp.find_config_file("."):match("@?(.*/)") for mpv portable_config directory OR specify the desired path in quotes, e.g.: 'C:\Users\Eisa01\Desktop\'
+local historyLogFile = 'mpvHistory.log' --name+extension of the file that will be used to store the log data
 
+local offset = -0.65 --change to 0 so that pasting resumes from the exact position, or decrease the value so that it gives you a little preview before reaching the exact pasted position
 local osd_messages = true --true is for displaying osd messages when actions occur, Change to false will disable all osd messages generated from this script
 ---------------------------END OF USER CUSTOMIZATION SETTINGS------------------------
 
@@ -41,7 +43,7 @@ end)
 
 mp.add_hook('on_unload', 50, function()
 	empty = false
-	local historyLog = mp.find_config_file(".") .. "/" .. 'mpvHistory.log'
+	local historyLog = historyLogPath .. historyLogFile
 	local historyLogAdd = io.open(historyLog, 'a+')
 	
 	local seconds = math.floor(mp.get_property_number('time-pos') or 0)
@@ -53,15 +55,11 @@ mp.add_hook('on_unload', 50, function()
 end)
 
 local function resume()
-	local historyLog = mp.find_config_file(".") .. "/" .. 'mpvHistory.log'
-	local historyLogOpen = io.open(historyLog, 'r')
+	local historyLog = historyLogPath .. historyLogFile
 	local historyLogAdd = io.open(historyLog, 'a+')
+	local historyLogOpen = io.open(historyLog, 'r')
 	local filePath = mp.get_property('path')
-	local linePosition
-	local videoFound
-	local currentVideo
-	local currentVideoTime
-	local seekTime
+	local linePosition, videoFound, currentVideo, currentVideoTime, seekTime
 	
 	if (filePath ~= nil) then
 		for line in historyLogOpen:lines() do
@@ -75,28 +73,28 @@ local function resume()
 		   
 		end
 		
-	if (videoFound ~= nil) then
-		currentVideo = string.match(videoFound, '(.*) |time=')
-		currentVideoTime = string.match(videoFound, ' |time=(.*)')
+		if (videoFound ~= nil) then
+			currentVideo = string.match(videoFound, '(.*) |time=')
+			currentVideoTime = string.match(videoFound, ' |time=(.*)')
 
-		if (filePath == currentVideo) and (currentVideoTime ~= nil) then
+			if (filePath == currentVideo) and (currentVideoTime ~= nil) then
+				if (osd_messages == true) then
+					mp.osd_message('Resumed To Last Logged Position')
+				end
+				seekTime = currentVideoTime + offset
+				if (seekTime < 0) then
+					seekTime = 0
+				end
+			
+				mp.commandv('seek', seekTime, 'absolute', 'exact')
+				msg.info('Resumed to the last logged position for this video')
+			end
+		else
 			if (osd_messages == true) then
-				mp.osd_message('Resumed To Last Logged Position')
+				mp.osd_message('No Resume Position Found For This Video')
 			end
-			seekTime = currentVideoTime + offset
-			if (seekTime < 0) then
-				seekTime = 0
-			end
-		
-			mp.commandv('seek', seekTime, 'absolute', 'exact')
-			msg.info('Resumed to the last logged position for this video')
+			msg.info('No resume position logged found for this video')
 		end
-	else
-		if (osd_messages == true) then
-			mp.osd_message('No Resume Position Found For This Video')
-		end
-		msg.info('No resume position logged found for this video')
-	end
 	else
 		empty = true
 		lastPlay()
@@ -106,12 +104,10 @@ local function resume()
 end
 
 function lastPlay()
-	local historyLog = mp.find_config_file(".") .. "/" .. 'mpvHistory.log'
+	local historyLog = historyLogPath .. historyLogFile
 	local historyLogAdd = io.open(historyLog, 'a+')
 	local historyLogOpen = io.open(historyLog, 'r+')
-    local linePosition
-	local videoFile
-	local lastVideoFound
+    local linePosition, videoFile, lastVideoFound
 
 	for line in historyLogOpen:lines() do
 		lastVideoFound = line
