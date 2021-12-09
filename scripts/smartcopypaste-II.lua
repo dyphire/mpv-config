@@ -28,7 +28,7 @@ local windows_paste = 'powershell' --'powershell' is for using windows powershel
 
 local offset = -0.65 --change to 0 so that pasting resumes from the exact position, or decrease the value so that it gives you a little preview before reaching the exact pasted position
 
-local copyLogPath = mp.find_config_file("."):match("@?(.*/)") --change to debug.getinfo(1).source:match("@?(.*/)") for placing it in the same directory of script, OR change to mp.find_config_file("."):match("@?(.*/)") for mpv portable_config directory OR specify the desired path in quotes, e.g.: 'C:\Users\Eisa01\Desktop\'
+local copyLogPath = mp.find_config_file(".") --change to debug.getinfo(1).source:match("@?(.*/)") for placing it in the same directory of script, OR change to mp.find_config_file("."):match("@?(.*/)") for mpv portable_config directory OR specify the desired path in quotes, e.g.: 'C:\Users\Eisa01\Desktop\'
 local copyLogFile = 'mpvClipboard.log' --name+extension of the file that will be used to store the log data
 
 
@@ -205,7 +205,7 @@ local function copy()
 		end
 		set_clipboard(filePath..' |time='..tostring(time))
 		
-		local copyLog = copyLogPath .. copyLogFile
+		local copyLog = copyLogPath ..'/'.. copyLogFile
 		local copyLogAdd = io.open(copyLog, 'a+')
 		
 		copyLogAdd:write(('[%s] %s\n'):format(os.date('%d/%b/%y %X'), filePath..' |time='..tostring(time)))
