@@ -20,7 +20,7 @@ PS：自行编辑配置文件时，注意编码格式应为 UTF-8，换行符为
 		- 实现自动 fork 上游更新并自动编译 mpvnet.exe 等组件
 		- main 分支为汉化版
 		- 下载更新见 [Actions](https://github.com/dyphire/mpv.net/actions/workflows/mpvnet-build.yml) ，自行替换相应文件即可
-	- 个人 mpv.net 配置文件参考：https://github.com/dyphire/MPV-own/tree/mpvnet 
+	- 个人 mpv.net 配置文件参考：https://github.com/dyphire/mpv-config/tree/mpvnet 
 -   浏览器调用 mpv 播放的方法推荐：[mpv-handler](https://github.com/akiirui/mpv-handler) 配合脚本 [play-with-mpv](https://greasyfork.org/zh-CN/scripts/416271-play-with-mpv)
 
 
