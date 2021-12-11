@@ -489,7 +489,7 @@ menuList = {
     open_menu = {
         {COMMAND, "【外置脚本】文件", "CTRL+o", "script-binding open_dialog/import_files", "", false},
         {COMMAND, "【外置脚本】地址", "CTRL+O", "script-binding open_dialog/import_url", "", false},
-        {COMMAND, "【外置脚本】内置文件管理器", "Tab", "script-message browse-files", "", false},
+        {COMMAND, "【外置脚本】内置文件浏览器", "Tab", "script-message browse-files", "", false},
     },
 
 -- 二级菜单 —— 画面
@@ -497,6 +497,8 @@ menuList = {
         {CHECK, "窗口置顶", "ALT+t", "cycle ontop", function() return propNative("ontop") end, false},
         {CHECK, "窗口边框", "ALT+B", "cycle border", function() return propNative("border") end, false},
         {CHECK, "全屏", "ENTER", "cycle fullscreen", function() return propNative("fullscreen") end, false},
+        {SEP},
+        {COMMAND, "【外置脚本】开/关 进度条预览", "CTRL+t", "cycle-values script-opts thumbnailer-auto_gen=no,thumbnailer-auto_show=no thumbnailer-auto_gen=yes,thumbnailer-auto_show=yes", "", false},
     },
 
 -- 二级菜单 —— 其它
@@ -555,7 +557,7 @@ mp.register_event("file-loaded", function()
         open_menu = {
             {COMMAND, "【外置脚本】文件", "CTRL+o", "script-binding open_dialog/import_files", "", false},
             {COMMAND, "【外置脚本】地址", "CTRL+O", "script-binding open_dialog/import_url", "", false},
-            {COMMAND, "【外置脚本】内置文件管理器", "Tab", "script-message browse-files", "", false},
+            {COMMAND, "【外置脚本】内置文件浏览器", "Tab", "script-message browse-files", "", false},
             {SEP},
             {COMMAND, "播放列表乱序重排", "", "playlist-shuffle", "", false},
             {CHECK, "列表循环", "", "cycle-values loop-playlist inf no", function() return statePlayLoop() end, false},
@@ -646,6 +648,8 @@ mp.register_event("file-loaded", function()
             {COMMAND, "切换 gamma环境系数", "G", "cycle-values gamma-factor 1.1 1.2 1.0", "", false},
             {COMMAND, "切换 hdr映射曲线 ", "h", "cycle-values tone-mapping mobius reinhard hable bt.2390 gamma", "", false},
             {COMMAND, "切换 hdr动态映射", "ALT+h", "cycle-values hdr-compute-peak yes no", "", false},
+            {SEP},
+            {COMMAND, "【外置脚本】开/关 进度条预览", "CTRL+t", "cycle-values script-opts thumbnailer-auto_gen=no,thumbnailer-auto_show=no thumbnailer-auto_gen=yes,thumbnailer-auto_show=yes", "", false},
         },
 
 -- 三级菜单 —— 长宽比
