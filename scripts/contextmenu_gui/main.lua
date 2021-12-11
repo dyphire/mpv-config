@@ -495,7 +495,7 @@ menuList = {
 -- 二级菜单 —— 画面
     output_menu = {
         {CHECK, "窗口置顶", "ALT+t", "cycle ontop", function() return propNative("ontop") end, false},
-        {CHECK, "窗口边框", "ALT+B", "cycle border", function() return not propNative("border") end, false},
+        {CHECK, "窗口边框", "ALT+B", "cycle border", function() return propNative("border") end, false},
         {CHECK, "全屏", "ENTER", "cycle fullscreen", function() return propNative("fullscreen") end, false},
     },
 
@@ -627,7 +627,7 @@ mp.register_event("file-loaded", function()
 --            {COMMAND, "窗口置顶", "", "cycle ontop", "", false},
 --            {RADIO, "关", "", "set ontop yes", function() return stateOnTop(false) end, false},
 --            {RADIO, "开", "", "set ontop no", function() return stateOnTop(true) end, false},
-            {CHECK, "窗口边框", "ALT+B", "cycle border", function() return not propNative("border") end, false},
+            {CHECK, "窗口边框", "ALT+B", "cycle border", function() return propNative("border") end, false},
             {CHECK, "最大化", "ALT+b", "cycle window-maximized", function() return propNative("window-maximized") end, false},
             {CHECK, "全屏", "ENTER", "cycle fullscreen", function() return propNative("fullscreen") end, false},
             {CASCADE, "长宽比", "aspect_menu", "", "", false},
