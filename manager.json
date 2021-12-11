@@ -49,7 +49,7 @@
   },
   {
     "git":"https://github.com/Eisa01/mpv-scripts",
-    "whitelist":"undoredo%.lua$",
+    "whitelist":"undoredo%.lua$|simplehistory%.lua$",
     "dest":"~~/scripts"
   },
   {
