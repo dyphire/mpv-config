@@ -132,8 +132,7 @@ local function compute_meta(meta)
     meta.whxy = string.format("w=%s:h=%s:x=%s:y=%s", meta.w, meta.h, meta.x, meta.y)
     meta.offset = {x = meta.x - (source.w - meta.w) / 2, y = meta.y - (source.h - meta.h) / 2}
     meta.mt, meta.mb, meta.ml, meta.mr = meta.y, source.h - meta.h - meta.y, meta.x, source.w - meta.w - meta.x
-    meta.is_source = meta.whxy == source.whxy or meta.w == source.rw and meta.h == source.rh and meta.offset.x == 0 and
-                         meta.offset.y == 0
+    meta.is_source = meta.whxy == source.whxy
     meta.is_invalid = meta.h < 0 or meta.w < 0
     meta.is_trusted_offsets = is_trusted_offset(meta.offset.x, "x") and is_trusted_offset(meta.offset.y, "y")
     meta.time = {buffer = 0, overall = 0}
@@ -250,9 +249,9 @@ local function check_stability(current_)
     if not current_.is_source and stats.trusted[current_.whxy] then
         for _, table_ in pairs(stats.trusted) do
             if current_ ~= table_ and
-                (not found and table_.time.overall > current_.time.overall or found and table_.time.overall >
-                    found.time.overall) and math.abs(current_.w - table_.w) <= 4 and math.abs(current_.h - table_.h) <=
-                4 then found = table_ end
+                (not found and table_.time.overall > current_.time.overall * 1.1 or found and table_.time.overall >
+                    found.time.overall * 1.1) and math.abs(current_.w - table_.w) <= 4 and
+                math.abs(current_.h - table_.h) <= 4 then found = table_ end
         end
     end
     return found
@@ -551,13 +550,14 @@ local function on_start()
     local w, h = mp.get_property_number("width"), mp.get_property_number("height")
     buffer = {ordered = {}, time_total = 0, time_known = 0, index_total = 0, index_known_ratio = 0, unique_meta = 0}
     limit = {current = options.detect_limit, step = 1, up = 2}
-    collected, stats = {}, {trusted = {}, buffer = {}, trusted_offset = {x = {0}, y = {0}}}
+    collected, stats = {}, {trusted = {}, buffer = {}, trusted_offset = {x = {}, y = {}}}
     source = {
         w = math.floor(w / options.detect_round) * options.detect_round,
         h = math.floor(h / options.detect_round) * options.detect_round
     }
     source.x, source.y = (w - source.w) / 2, (h - source.h) / 2
     source = compute_meta(source)
+    stats.trusted_offset = {x = {source.offset.x}, y = {source.offset.y}}
     source.applied, source.time.last_seen = 1, 0
     applied, stats.trusted[source.whxy] = source, source
     time_pos.current = mp.get_property_number("time-pos")
