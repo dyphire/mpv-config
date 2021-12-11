@@ -786,6 +786,7 @@ mp.register_event("file-loaded", function()
             {COMMAND, "字幕纵向位置", "", "cycle-values sub-align-y top bottom", "", false},
             {RADIO, "顶部", "", "set sub-align-y top", function() return stateSubAlign("top") end, false},
             {RADIO, "底部", "", "set sub-align-y bottom", function() return stateSubAlign("bottom") end, false},
+            {SEP},
             {CASCADE, "字幕兼容性", "sub_menu", "", "", false},
         },
 
