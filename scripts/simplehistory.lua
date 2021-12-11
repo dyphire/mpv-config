@@ -10,7 +10,7 @@ local o = {
 --Changes are recommended to be made in the script-opts directory.
 	
 	-----Script Settings----
-	auto_run_list_idle = 'recents', --Auto run the list when opening mpv and there is no video / file loaded. 'none' for disabled. Or choose between: 'all', 'recents', 'protocols', 'fileonly', 'titleonly', 'timeonly', 'keywords'.
+	auto_run_list_idle = 'distinct', --Auto run the list when opening mpv and there is no video / file loaded. 'none' for disabled. Or choose between: 'all', 'recents', 'distinct', 'protocols', 'fileonly', 'titleonly', 'timeonly', 'keywords'.
 	resume_offset = -0.65, --change to 0 so that selected item resumes from the exact position, or decrease the value so that it gives you a little preview before loading the resume point
 	osd_messages = true, --true is for displaying osd messages when actions occur. Change to false will disable all osd messages generated from this script
 	mark_history_as_chapter = false, --true is for marking the time as a chapter. false disables mark as chapter behavior.
@@ -28,11 +28,11 @@ local o = {
 	quickselect_0to9_keybind = true, --Keybind entries from 0 to 9 for quick selection when list is open (list_show_amount = 10 is maximum for this feature to work)
 	
 	-----Filter Settings------
-	--available filters: 'all' to display all the items. Or 'recents' to display recently added items to history without duplicate. Or 'fileonly' to display files saved without time. Or 'timeonly' to display files that have time only. Or 'keywords' to display files with matching keywords specified in the configuration. Or 'playing' to show list of current playing file.
+	--available filters: "all" to display all the items. Or "recents" to display recently added items to history without duplicate. Or "distinct" to show recent saved entries for files in different paths. Or "fileonly" to display files saved without time. Or "timeonly" to display files that have time only. Or "keywords" to display files with matching keywords specified in the configuration. Or "playing" to show list of current playing file.
 	--available sort: 'added-asc' is for the newest added item to show first. Or 'added-desc' for the newest added to show last. Or 'alphanum-asc' is for A to Z approach with filename and episode number lower first. Or 'alphanum-desc' is for its Z to A approach. Or 'time-asc', 'time-desc' to sort the list based on time.
 
 	filters_and_sequence=[[
-	["all", "recents", "playing", "protocols", "fileonly", "titleonly", "keywords"]
+	["all", "recents", "distinct", "playing", "protocols", "fileonly", "titleonly", "keywords"]
 	]],--Jump to the following filters and in the shown sequence when navigating via left and right keys. You can change the sequence and delete filters that are not needed.
 	keywords_filter_list=[[
 	["youtube.com", "mp4", "naruto", "c:\\users\\eisa01\\desktop"]
@@ -42,13 +42,14 @@ local o = {
 	-----Sort Settings------
 	list_default_sort = 'none', --the default sorting method for the list. select between 'none', 'added-asc', 'added-desc', 'alphanum-asc', 'alphanum-desc'. description: 'none' defaults to added-asc without requiring to sort
 	sort_recents_filter = 'none',
+	sort_distinct_filter = 'none',	
 	sort_fileonly_filter = 'none', --Sorts the filter. Select between 'none', 'added-asc', 'added-desc', 'alphanum-asc', 'alphanum-desc', 'time-asc', 'time-desc'. description: 'none' is for default ordering
 	sort_protocols_filter = 'none',
 	sort_titleonly_filter = 'none',
 	sort_timeonly_filter = 'none',
 	sort_keywords_filter = 'none',
 	sort_playing_filter = 'none',
-	sort_search_filter = 'alphanum-asc',
+	sort_search_filter = 'none',
 	
 	-----Logging Settings-----
 	log_path = '/:dir%mpvconf', --Change to '/:dir%script' for placing it in the same directory of script, OR change to '/:dir%mpvconf' for mpv portable_config directory. OR specify the desired path, e.g.: 'C:\Users\Eisa01\Desktop\'
@@ -144,6 +145,9 @@ local o = {
 	recents_filter_inside_list_keybind=[[
 	["r", "R"]
 	]],
+	distinct_filter_inside_list_keybind=[[
+	["d", "D"]
+	]],
 	fileonly_filter_inside_list_keybind=[[
 	["f", "F"]
 	]],
@@ -165,7 +169,10 @@ local o = {
 	--Keybind to jump to the specific filter when list is closed
 	recents_filter_outside_list_keybind=[[
 	["r", "R"]
-	]],	
+	]],
+	distinct_filter_outside_list_keybind=[[
+	[""]
+	]],
 	fileonly_filter_outside_list_keybind=[[
 	[""]
 	]],
@@ -213,7 +220,9 @@ o.list_search_not_typing_mode_keybind = utils.parse_json(o.list_search_not_typin
 o.next_filter_sequence_keybind = utils.parse_json(o.next_filter_sequence_keybind)
 o.previous_filter_sequence_keybind = utils.parse_json(o.previous_filter_sequence_keybind)
 o.recents_filter_inside_list_keybind = utils.parse_json(o.recents_filter_inside_list_keybind)
+o.distinct_filter_inside_list_keybind = utils.parse_json(o.distinct_filter_inside_list_keybind)
 o.recents_filter_outside_list_keybind = utils.parse_json(o.recents_filter_outside_list_keybind)
+o.distinct_filter_outside_list_keybind = utils.parse_json(o.distinct_filter_outside_list_keybind)
 o.fileonly_filter_inside_list_keybind = utils.parse_json(o.fileonly_filter_inside_list_keybind)
 o.fileonly_filter_outside_list_keybind = utils.parse_json(o.fileonly_filter_outside_list_keybind)
 o.timeonly_filter_inside_list_keybind = utils.parse_json(o.timeonly_filter_inside_list_keybind)
@@ -228,11 +237,11 @@ o.playing_filter_inside_list_keybind = utils.parse_json(o.playing_filter_inside_
 o.playing_filter_outside_list_keybind = utils.parse_json(o.playing_filter_outside_list_keybind)
 
 if o.log_path == '/:dir%mpvconf' then
-	o.log_path = mp.find_config_file('.')
+	o.log_path = mp.find_config_file('.') --1.23#Add support for mpv.net
 elseif o.log_path == '/:dir%script' then
-	o.log_path = debug.getinfo(1).source
+	o.log_path = debug.getinfo(1).source:match('@?(.*/)')
 end
-local history_log = o.log_path ..'/'.. o.log_file
+local history_log = o.log_path .. '/' .. o.log_file --1.23#Add support for mpv.net
 
 local protocols = {'https?://', 'magnet:', 'rtmp:'}
 local search_string = ''
@@ -362,7 +371,7 @@ function read_log_table()
 		t = line:match(' | ' .. esc_string(o.log_time_text) .. '(%d*%.?%d*)(.*)$')
 		l = line
 		line_pos = line_pos + 1
-		return {found_path = p, found_time = t, found_name = n, found_title = tt, found_line = l, found_sequence = line_pos}
+		return {found_path = p, found_time = t, found_name = n, found_title = tt, found_line = l, found_sequence = line_pos, found_directory = d}
 	end)
 end
 
@@ -461,17 +470,16 @@ function get_list_contents(filter, sort)
 	if filter == 'recents' then
 		table.sort(list_contents, function(a, b) return a['found_sequence'] < b['found_sequence'] end) --sort by added-asc this way the loop below will insert latest items even if the sorting was not added-asc for list_contents
 		local unique_values = {}
+		local list_total = #list_contents
+		
+		if filePath ~= nil then --If there is a video playing, then it will not add the video to the recents filter by reducing the loop to not reach the last item (which is playing). If no video is playing then it will add everything
+			list_total = list_total -1
+		end
 	
-		for i = #list_contents, 1, -1 do 
-			if not has_value(unique_values, list_contents[i].found_path) and tonumber(list_contents[i].found_time) > 0 then --If the path doesn't exist in the unique_table then add it to our unique and filtered_table (only if time is more than 0)
+		for i = list_total, 1, -1 do --Made it list_total since this will not add the playing video into recents
+			if not has_value(unique_values, list_contents[i].found_path) then --If the path doesn't exist in the unique_table then add it to our unique and filtered_table (no need to check for time anymore and now it uses list_total to not add playing into recents)
 				table.insert(unique_values, list_contents[i].found_path) --Update the unique values for the check needed in the loop
 				table.insert(filtered_table, list_contents[i]) --Insert whenever the check passes
-			end
-		end
-		for i = #list_contents, 1, -1 do --Only add time == 0 if the above did not update the unique table
-			if not has_value(unique_values, list_contents[i].found_path) then
-				table.insert(unique_values, list_contents[i].found_path)
-				table.insert(filtered_table, list_contents[i])
 			end
 		end
 		table.sort(filtered_table, function(a, b) return a['found_sequence'] < b['found_sequence'] end) --make the default sort by added-asc
@@ -484,6 +492,32 @@ function get_list_contents(filter, sort)
 		list_contents = filtered_table
 	
 	end
+	
+	if filter == 'distinct' then
+		table.sort(list_contents, function(a, b) return a['found_sequence'] < b['found_sequence'] end) --sort by added-asc this way the loop below will insert latest items even if the sorting was not added-asc for list_contents
+		local unique_values = {}
+		local list_total = #list_contents
+		
+		if filePath ~= nil then --If there is a video playing, then it will not add the video to the recents filter by reducing the loop to not reach the last item (which is playing). If no video is playing then it will add everything
+			list_total = list_total -1
+		end
+	
+		for i = list_total, 1, -1 do --Made it list_total since this will not add the playing video into recents
+			if not has_value(unique_values, list_contents[i].found_directory) then --If the directory doesn't exist in the unique_table then add it to our unique and filtered_table (no need to check for time anymore and now it uses list_total to not add playing into recents)
+				table.insert(unique_values, list_contents[i].found_directory) --Update the unique values for the check needed in the loop
+				table.insert(filtered_table, list_contents[i]) --Insert whenever the check passes
+			end
+		end
+		table.sort(filtered_table, function(a, b) return a['found_sequence'] < b['found_sequence'] end) --make the default sort by added-asc
+		
+		if not sort then active_sort = o.sort_recents_filter end
+		if active_sort ~= 'none' or active_sort ~= '' then
+			list_sort(filtered_table, active_sort)
+		end
+		
+		list_contents = filtered_table
+	end
+
 	
 	if filter == 'fileonly' then
 		for i = 1, #list_contents do
@@ -865,19 +899,44 @@ function list_add_playlist()
 	load(list_cursor, true)
 end
 
-function delete_log_entry()
-	local content = read_log(function(line)
-		if line:find(esc_string(filePath) .. '(.*)' .. esc_string(o.log_time_text) .. seekTime) then
-			return nil
-		else
-			return line
+function delete_log_entry(multiple, round, target_path, target_time)
+	if not target_path then target_path = filePath end
+	if not target_time then target_time = seekTime end
+	get_list_contents('all','added-asc')
+	if not list_contents or not list_contents[1] then return end --Fix crash when history file is empty
+	
+	if not multiple then --delete only the latest targeted entry 
+		for i = #list_contents, 1, -1 do
+			if not round then --by default does not round and attempts to delete the exact entry
+				if list_contents[i].found_path == target_path and tonumber(list_contents[i].found_time) == target_time then
+					table.remove(list_contents, i)
+					break
+				end
+			else --if option to round is passed, then it will attempt to compare the target_time with the rounded found_time
+				if list_contents[i].found_path == target_path and math.floor(tonumber(list_contents[i].found_time)) == target_time then
+					table.remove(list_contents, i)
+					break
+				end
+			end
 		end
-	end)
+	else --deletes all the targeted found entries
+		for i = #list_contents, 1, -1 do
+			if not round then
+				if list_contents[i].found_path == target_path and tonumber(list_contents[i].found_time) == target_time then
+					table.remove(list_contents, i)
+				end
+			else
+				if list_contents[i].found_path == target_path and math.floor(tonumber(list_contents[i].found_time)) == target_time then
+					table.remove(list_contents, i)
+				end
+			end
+		end
+	end
 	
 	f = io.open(history_log, "w+")
-	if content then
-		for i = 1, #content do
-			f:write(("%s\n"):format(content[i]))
+	if list_contents[1] then
+		for i = 1, #list_contents do
+			f:write(("%s\n"):format(list_contents[i].found_line))
 		end
 	end
 	f:close()
@@ -997,6 +1056,7 @@ function get_list_keybinds()
 	end
 	
 	bind_keys(o.recents_filter_inside_list_keybind, 'recents-list-inside', function()display_list('recents') end)
+	bind_keys(o.distinct_filter_inside_list_keybind, 'distinct-list-inside', function()display_list('distinct') end)	
 	bind_keys(o.fileonly_filter_inside_list_keybind, 'fileonly-list-inside', function()display_list('fileonly') end)
 	bind_keys(o.timeonly_filter_inside_list_keybind, 'timeonly-list-inside', function()display_list('timeonly') end)
 	bind_keys(o.protocols_filter_inside_list_keybind, 'protocols-list-inside', function()display_list('protocols') end)
@@ -1005,6 +1065,7 @@ function get_list_keybinds()
 	bind_keys(o.playing_filter_inside_list_keybind, 'playing-list-inside', function()display_list('playing') end)
 	
 	unbind_keys(o.recents_filter_outside_list_keybind, 'recents-list-outside')
+	unbind_keys(o.distinct_filter_outside_list_keybind, 'distinct-list-outside')	
 	unbind_keys(o.fileonly_filter_outside_list_keybind, 'fileonly-list-outside')
 	unbind_keys(o.timeonly_filter_outside_list_keybind, 'timeonly-list-outside')
 	unbind_keys(o.protocols_filter_outside_list_keybind, 'protocols-list-outside')
@@ -1041,6 +1102,7 @@ function unbind_list_keys()
 	unbind_keys(o.previous_filter_sequence_keybind, 'list-filter-previous')
 	
 	unbind_keys(o.recents_filter_inside_list_keybind, 'recents-list-inside')
+	unbind_keys(o.distinct_filter_inside_list_keybind, 'distinct-list-inside')	
 	unbind_keys(o.fileonly_filter_inside_list_keybind, 'fileonly-list-inside')
 	unbind_keys(o.timeonly_filter_inside_list_keybind, 'timeonly-list-inside')
 	unbind_keys(o.protocols_filter_inside_list_keybind, 'protocols-list-inside')
@@ -1048,7 +1110,8 @@ function unbind_list_keys()
 	unbind_keys(o.keywords_filter_inside_list_keybind, 'keywords-list-inside')
 	unbind_keys(o.playing_filter_inside_list_keybind, 'playing-list-inside')
 	
-	bind_keys(o.recents_filter_outside_list_keybind, 'recents-list-outside', function()display_list('recents') end)	
+	bind_keys(o.recents_filter_outside_list_keybind, 'recents-list-outside', function()display_list('recents') end)
+	bind_keys(o.distinct_filter_outside_list_keybind, 'distinct-list-outside', function()display_list('distinct') end)		
 	bind_keys(o.fileonly_filter_outside_list_keybind, 'fileonly-list-outside', function()display_list('fileonly') end)
 	bind_keys(o.timeonly_filter_outside_list_keybind, 'timeonly-list-outside', function()display_list('timeonly') end)
 	bind_keys(o.protocols_filter_outside_list_keybind, 'protocols-list-outside', function()display_list('protocols') end)
@@ -1415,7 +1478,7 @@ function write_log(target_time)--1.20#renamed to target_time since it passes the
 	end
 	if seekTime < 0 then seekTime = 0 end
 	
-	delete_log_entry()
+	delete_log_entry(false, true, filePath, math.floor(seekTime)) --1.24# to not allow for duplicates by removing entries with the same time (rounding parameter is passed into function)
 
 	f = io.open(history_log, "a+")
 	if o.file_title_logging == 'all' then
@@ -1466,7 +1529,7 @@ function history_resume()
 		load(1)
 	elseif filePath ~= nil then
 		get_list_contents('all', 'added-asc') --Get contents sorted by added first
-		for i = #list_contents, 1, -1  do --Do a reverse loop and get the found_time based on playing file and time > 0. Once found break loop
+		for i = #list_contents, 1, -1 do --Do a reverse loop and get the found_time based on playing file and time > 0. Once found break loop
 			if list_contents[i].found_path == filePath and tonumber(list_contents[i].found_time) > 0 then
 				seekTime = tonumber(list_contents[i].found_time) + o.resume_offset
 				break
@@ -1500,6 +1563,7 @@ end
 
 if o.auto_run_list_idle == 'all'
 	or o.auto_run_list_idle == 'recents'
+	or o.auto_run_list_idle == 'distinct'	
 	or o.auto_run_list_idle == 'protocols'
 	or o.auto_run_list_idle == 'fileonly'
 	or o.auto_run_list_idle == 'titleonly'
@@ -1522,7 +1586,8 @@ mp.register_event('file-loaded', function()
 end)
 
 mp.add_hook('on_unload', 50, function()
-	history_save()
+	delete_log_entry(filePath, 0) --delete the added entry where time is 0, so each episode is only saved once with the added time
+	history_save() --save the new entry after deletion, so now even if saving with time is 0 it will add it, or it will override the previous 0
 end)
 
 
@@ -1531,6 +1596,7 @@ bind_keys(o.history_resume_keybind, 'history-resume', history_resume)
 bind_keys(o.history_load_last_keybind, 'history-load-last', history_load_last)
 
 bind_keys(o.recents_filter_outside_list_keybind, 'recents-list-outside', function()display_list('recents') end)
+bind_keys(o.distinct_filter_outside_list_keybind, 'distinct-list-outside', function()display_list('distinct') end)
 bind_keys(o.fileonly_filter_outside_list_keybind, 'fileonly-list-outside', function()display_list('fileonly') end)
 bind_keys(o.timeonly_filter_outside_list_keybind, 'timeonly-list-outside', function()display_list('timeonly') end)
 bind_keys(o.protocols_filter_outside_list_keybind, 'protocols-list-outside', function()display_list('protocols') end)
