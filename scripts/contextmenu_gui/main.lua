@@ -801,7 +801,7 @@ mp.register_event("file-loaded", function()
              {CHECK, "vsfilter系兼容", "V", "cycle sub-ass-vsfilter-aspect-compat", function() return propNative("sub-ass-vsfilter-aspect-compat") end, false},
              {CHECK, "blur标签缩放", "B", "cycle sub-ass-vsfilter-blur-compat", function() return propNative("sub-ass-vsfilter-blur-compat") end, false},
              {SEP},
-             {CHECK, "ass字幕输出到黑边", "Z", "cycle sub-ass-force-margins", function() return propNative("sub-ass-force-margins") end, false},
+             {CHECK, "ass字幕输出到黑边", "H", "cycle sub-ass-force-margins", function() return propNative("sub-ass-force-margins") end, false},
              {CHECK, "srt字幕输出到黑边", "Z", "cycle sub-use-margins", function() return propNative("sub-use-margins") end, false},
              {CHECK, "pgs字幕输出到黑边", "P", "cycle stretch-image-subs-to-screen", function() return propNative("stretch-image-subs-to-screen") end, false},
              {CHECK, "pgs字幕灰度转换", "p", "cycle sub-gray", function() return propNative("sub-gray") end, false},
