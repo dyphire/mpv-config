@@ -1,34 +1,26 @@
 --[[
 This script uses the lavfi cropdetect filter to automatically insert a crop filter with appropriate parameters for the
 currently playing video, the script run continuously by default (mode 4).
-
 The workflow is as follows: We observe two main events, vf-metadata and time-pos changes.
     vf-metadata are stored sequentially in buffer with time-pos being updated at every frame,
     then process to check and store trusted values to speed up future change for the current video.
     It will automatically crop the video as soon as a meta change is validated.
-
 Also It registers the key-binding "C" (shift+c) to control the script.
 The first press maintains the cropping and disables the script, a second pressure eliminates the cropping and a third pressure is necessary to restart the script.
 - Mode = 1-2, single cropping on demand, stays active until a valid cropping is apply.
 - Mode = 3-4, enable / disable continuous cropping.
-
 The default options can be overridden by adding script-opts-append=<script_name>-<parameter>=<value> into mpv.conf
     script-opts-append=dynamic_crop-mode=0
     script-opts-append=dynamic_crop-ratios=2.4 2.39 2 4/3 (quotes aren't needed like below)
-
 List of available parameters (For default values, see <options>)：
-
 prevent_change_mode: [0-2] - 0 any, 1 keep-largest, 2 keep-lowest - The prevent_change_timer is trigger after a change,
     to disable this, set prevent_change_timer to 0.
-
 resize_windowed: [true/false] - False, prevents the window from being resized, but always applies cropping,
     this function always avoids the default behavior to resize the window at the source size, in windowed/maximized mode.
-
 segmentation: % [0.0-n] e.g. 0.5 for 50% - Extra time to allow new metadata to be segmented instead of being continuous.
     By default, new_known_ratio_timer is validated with 5 sec accumulated over 7.5 sec elapsed and
     new_fallback_timer with 20 sec accumulated over 30 sec elapsed.
     to disable this, set 0.
-
 correction: % [0.0-1] e.g. 0.6 for 60% - Size minimum of collected meta (in percent based on source), to attempt a correction.
     to disable this, set 1.
 ]] --
@@ -109,7 +101,7 @@ local function remove_filter(label)
 end
 
 local function insert_cropdetect_filter()
-    if toggled or paused or seeking then return end
+    if toggled or paused then return end
     -- "vf pre" cropdetect / "vf append" crop, in a proper order
     local function command()
         return mp.command(string.format("no-osd vf pre @%s:lavfi-cropdetect=limit=%d/255:round=%d:reset=%d%s",
@@ -246,7 +238,7 @@ end
 
 local function check_stability(current_)
     local found
-    if not current_.is_source and stats.trusted[current_.whxy] then
+    if options.detect_round <= 4 and not current_.is_source and stats.trusted[current_.whxy] then
         for _, table_ in pairs(stats.trusted) do
             if current_ ~= table_ and
                 (not found and table_.time.overall > current_.time.overall * 1.1 or found and table_.time.overall >
@@ -296,15 +288,17 @@ local function process_metadata(event, time_pos_)
     -- reset last_seen before correction
     if stats.trusted[collected.whxy] and collected.time.last_seen < 0 then collected.time.last_seen = 0 end
 
+    -- use current as main meta that can be collected/corrected/stabilized
+    local current = collected
+
     -- correction with trusted meta for fast change in dark/ambiguous scene
-    local corrected
-    if not collected.is_invalid and not stats.trusted[collected.whxy] and
-        (collected.w > source.w * options.correction and collected.h > source.h * options.correction) then
+    if not current.is_invalid and not stats.trusted[current.whxy] and
+        (current.w > source.w * options.correction and current.h > source.h * options.correction) then
         -- find closest meta already applied
         local closest, in_between = {}, false
         for whxy in pairs(stats.trusted) do
             local diff = is_trusted_margin(whxy)
-            -- check if we have the same position between two sets of margin
+            -- break if we have the same position between two sets of margin
             if closest.whxy and closest.whxy ~= whxy and diff.count == closest.count and math.abs(diff.mt - diff.mb) ==
                 math.abs(closest.mt - closest.mb) and math.abs(diff.ml - diff.mr) == math.abs(closest.ml - closest.mr) then
                 in_between = true
@@ -318,19 +312,16 @@ local function process_metadata(event, time_pos_)
         end
         -- check if the corrected data is already applied
         if closest.whxy and not in_between and closest.whxy ~= applied.whxy then
-            corrected = stats.trusted[closest.whxy]
+            current = stats.trusted[closest.whxy]
         end
     end
-    -- use corrected metadata as main data
-    local current = collected
-    if corrected then current = corrected end
 
     -- stabilization of odd/unstable meta
     local stabilized = check_stability(current)
     if stabilized then
         current = stabilized
         print_debug(current, "detail", "\\ Stabilized")
-    elseif corrected then
+    elseif current ~= collected then
         print_debug(current, "detail", "\\ Corrected")
     end
 
@@ -350,7 +341,7 @@ local function process_metadata(event, time_pos_)
                           (collected.is_known_ratio and collected.time.buffer >= new_known_ratio_timer or fallback and
                               not collected.is_known_ratio and collected.time.buffer >= new_fallback_timer)
     local detect_source = current.is_source and
-                              (not corrected and last_collected == collected and limit.change == 1 or
+                              (current == collected and last_collected == current and limit.change == 1 or
                                   current.time.last_seen >= fast_change_timer)
     local confirmation = not current.is_source and
                              (stats.trusted[current.whxy] and current.time.last_seen >= fast_change_timer or new_ready)
@@ -459,40 +450,25 @@ local function collect_metadata(_, table_)
     end
 end
 
-local function observe_main_events(observe)
-    if observe then
-        mp.observe_property(string.format("vf-metadata/%s", labels.cropdetect), "native", collect_metadata)
-        mp.observe_property("time-pos", "number", update_time_pos)
-        insert_cropdetect_filter()
-    else
-        mp.unobserve_property(update_time_pos)
-        mp.unobserve_property(collect_metadata)
-        remove_filter(labels.cropdetect)
-    end
-end
-
-local function seek(name)
+local function seek(name, filter_change)
     print_debug(string.format("Stop by %s event.", name))
-    observe_main_events(false)
+    if filter_change then remove_filter(labels.cropdetect) end
     time_pos, collected = {}, {}
 end
 
-local function resume(name)
+local function resume(name, filter_change)
     print_debug(string.format("Resume by %s event.", name))
-    observe_main_events(true)
+    if filter_change then insert_cropdetect_filter() end
 end
 
-local function seek_event(event, id, error)
-    seeking = true
-    if not paused then
-        print_debug(string.format("Stop by %s event.", event["event"]))
-        time_pos, collected = {}, {}
+local function playback_events(event, id, error)
+    if event["event"] == "seek" then
+        seeking = true
+        if not paused then seek(event["event"], false) end
+    else
+        if not paused then resume(event["event"], false) end
+        seeking = false
     end
-end
-
-local function resume_event(event, id, error)
-    if not paused then print_debug(string.format("Resume by %s event.", event["event"])) end
-    seeking = false
 end
 
 function on_toggle(auto)
@@ -506,37 +482,35 @@ function on_toggle(auto)
         return
     end
     if not toggled then
-        seek("toggle")
+        seek("toggle", true)
         if not auto then mp.osd_message(string.format("%s paused.", label_prefix), 3) end
         toggled = true
     else
         toggled = false
-        resume("toggle")
+        resume("toggle", true)
         if not auto then mp.osd_message(string.format("%s resumed.", label_prefix), 3) end
     end
 end
 
 local function pause(_, bool)
     if bool then
-        seek("pause")
+        seek("pause", true)
         print_debug(nil, "stats")
         paused = true
     else
         paused = false
-        if not toggled then resume("unpause") end
+        if not toggled then resume("unpause", true) end
     end
 end
 
 function cleanup()
     if not paused then print_debug(nil, "stats") end
     mp.msg.info("Cleanup.")
-    -- unregister events
-    observe_main_events(false)
+    mp.unregister_event(playback_events)
+    mp.unobserve_property(collect_metadata)
+    mp.unobserve_property(update_time_pos)
     mp.unobserve_property(osd_size_change)
-    mp.unregister_event(seek_event)
-    mp.unregister_event(resume_event)
     mp.unobserve_property(pause)
-    -- remove existing filters
     for _, label in pairs(labels) do remove_filter(label) end
 end
 
@@ -563,9 +537,11 @@ local function on_start()
     time_pos.current = mp.get_property_number("time-pos")
     -- register events
     mp.observe_property("osd-dimensions", "native", osd_size_change)
-    mp.register_event("seek", seek_event)
-    mp.register_event("playback-restart", resume_event)
+    mp.register_event("seek", playback_events)
+    mp.register_event("playback-restart", playback_events)
     mp.observe_property("pause", "bool", pause)
+    mp.observe_property(string.format("vf-metadata/%s", labels.cropdetect), "native", collect_metadata)
+    mp.observe_property("time-pos", "number", update_time_pos)
     if options.mode % 2 == 1 then on_toggle(true) end
 end
 
