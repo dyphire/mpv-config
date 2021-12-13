@@ -1,3 +1,11 @@
+--[[
+SOURCE_ https://github.com/po5/chapterskip/blob/master/chapterskip.lua
+COMMIT_21 Sep 2020_f4c5da3e
+
+自动跳过指定章节
+--]]
+
+
 -- chapterskip.lua
 --
 -- Ain't Nobody Got Time for That
