@@ -1,3 +1,10 @@
+--[[
+SOURCE_ https://github.com/CogentRedTester/mpv-scroll-list/blob/master/examples/chapter-list.lua
+COMMIT_8 May 2021_35e9d7f
+
+章节列表
+--]]
+
 local settings = { 
     key_scroll_down = "DOWN WHEEL_DOWN",
     key_scroll_up = "UP WHEEL_UP",
