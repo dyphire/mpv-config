@@ -1,4 +1,11 @@
 -- // Bookmarker Menu v1.3.1 for mpv \\ --
+--[[
+SOURCE_ https://github.com/NurioHin/mpv-bookmarker/blob/master/bookmarker-menu.lua
+COMMIT_21 Sep 2020_aef6a1a
+
+书签功能
+--]]
+
 -- See README.md for instructions
 local o = {
     -- Maximum number of characters for bookmark name

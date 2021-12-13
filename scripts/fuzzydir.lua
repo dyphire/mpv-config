@@ -1,4 +1,12 @@
 --[[
+SOURCE_ https://github.com/dya-tel/mpv-scripts/blob/master/fuzzydir.lua
+COMMIT_11 Mar 2018_722824c
+
+章节列表
+--]]
+
+
+--[[
 Determines the max depth of recursive search, should be >= 1
 
  1 will disable recursion and only direct subdirectories would be found
