@@ -24,7 +24,7 @@
 | mpv-webp.lua | 剪切指定片段为 webp 动图（依赖 ffmpeg；配置文件 [webp.conf](../script-opts/webp.conf)） |
 | onedrive-hook.lua | 转换 onedrive 共享链接为播放链接 |
 | ontop_playback.lua            | 仅在播放时启用置顶                                           |
-| open_dialog.lua | 快捷键载入文件或网址                                           |
+| open_dialog.lua | 快捷键载入文件/网址/其他字幕或音轨/高级次字幕                  |
 | ordered-chapters-playlist.lua | 有序章节播放列表 |
 | playlistmanager.lua | 高级播放列表（配置文件 [playlistmanager.conf](../script-opts/playlistmanager.conf)） |
 | segment-linking.lua | 实现对 matroska [硬段链接](https://www.ietf.org/archive/id/draft-ietf-cellar-matroska-06.html#name-hard-linking) 的支持（依赖  [read-file.lua](../script-modules/read-file.lua)；配置文件 [segment_linking.conf](../script-opts/segment_linking.conf)） |

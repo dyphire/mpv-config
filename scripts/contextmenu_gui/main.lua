@@ -557,6 +557,11 @@ mp.register_event("file-loaded", function()
         open_menu = {
             {COMMAND, "【外置脚本】文件", "CTRL+o", "script-binding open_dialog/import_files", "", false},
             {COMMAND, "【外置脚本】地址", "CTRL+O", "script-binding open_dialog/import_url", "", false},
+            {COMMAND, "【外置脚本】加载其他字幕（切换）", "ALT+e", "script-binding open_dialog/sub_add", "", false},
+            {COMMAND, "【外置脚本】加载其他音轨（不切换）", "ALT+E", "script-binding open_dialog/audio_add", "", false},
+            {COMMAND, "【外置脚本】装载次字幕（滤镜型）", "CTRL+e", "script-binding open_dialog/append_vfSub", "", false},
+            {COMMAND, "【外置脚本】隐藏/显示 次字幕", "CTRL+E", "script-binding open_dialog/toggle_vfSub", "", false},
+            {COMMAND, "【外置脚本】移除次字幕", "CTRL+ALT+E", "script-binding open_dialog/remove_vfSub", "", false},
             {COMMAND, "【外置脚本】内置文件浏览器", "Tab", "script-message browse-files", "", false},
             {SEP},
             {COMMAND, "播放列表乱序重排", "", "playlist-shuffle", "", false},
