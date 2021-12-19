@@ -205,7 +205,7 @@ local function copy()
 		end
 		set_clipboard(filePath..' |time='..tostring(time))
 		
-		local copyLog = copyLogPath ..'/'.. copyLogFile
+		local copyLog = utils.join_path(o.copyLogPath, o.copyLogFile)
 		local copyLogAdd = io.open(copyLog, 'a+')
 		
 		copyLogAdd:write(('[%s] %s\n'):format(os.date('%d/%b/%y %X'), filePath..' |time='..tostring(time)))
@@ -230,7 +230,7 @@ local function copy_path()
 
 		set_clipboard(filePath)
 		
-		local copyLog = copyLogPath .. copyLogFile
+		local copyLog = utils.join_path(o.copyLogPath, o.copyLogFile)
 		local copyLogAdd = io.open(copyLog, 'a+')
 		
 		copyLogAdd:write(('[%s] %s\n'):format(os.date('%d/%b/%y %X'), filePath))    
@@ -269,7 +269,7 @@ function paste()
 	local currentVideoExtension = string.lower(get_extension(videoFile))
 	local currentVideoExtensionPath = (get_extentionpath(videoFile))
 	
-	local copyLog = copyLogPath .. copyLogFile
+	local copyLog = utils.join_path(o.copyLogPath, o.copyLogFile)
 	local copyLogAdd = io.open(copyLog, 'a+')
 	local copyLogOpen = io.open(copyLog, 'r+')
 
@@ -403,7 +403,7 @@ function paste_playlist()
 		videoFile = clip
 	end
 	
-	local copyLog = copyLogPath .. copyLogFile
+	local copyLog = utils.join_path(o.copyLogPath, o.copyLogFile)
 	local copyLogAdd = io.open(copyLog, 'a+')
 	local copyLogOpen = io.open(copyLog, 'r+')
 	
