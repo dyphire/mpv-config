@@ -95,13 +95,5 @@
     {
         "key": "MBTN_MID",
         "command": ["script-binding", "file_browser/dynamic/play"]
-    },
-    {
-        "key": "UP",
-        "command": ["osd-auto", "add", "volume", "2"]
-    },
-    {
-        "key": "DOWN",
-        "command": ["osd-auto", "add", "volume", "-2"]
     }
 ]
