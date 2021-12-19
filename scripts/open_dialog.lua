@@ -123,7 +123,7 @@ function audio_add()
 			$ofd.Multiselect = $false
 			If ($ofd.ShowDialog() -eq $true) {
 				ForEach ($filename in $ofd.FileNames) {
-					$u8filename = $u8.GetBytes("$filename`n")
+					$u8filename = $u8.GetBytes("$filename")
 					$out.Write($u8filename, 0, $u8filename.Length)
 				}
 			}
