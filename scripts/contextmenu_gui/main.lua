@@ -557,8 +557,8 @@ mp.register_event("file-loaded", function()
         open_menu = {
             {COMMAND, "【外置脚本】文件", "CTRL+o", "script-binding open_dialog/import_files", "", false},
             {COMMAND, "【外置脚本】地址", "CTRL+O", "script-binding open_dialog/import_url", "", false},
-            {COMMAND, "【外置脚本】加载其他字幕（切换）", "ALT+e", "script-binding open_dialog/sub_add", "", false},
-            {COMMAND, "【外置脚本】加载其他音轨（不切换）", "ALT+E", "script-binding open_dialog/audio_add", "", false},
+            {COMMAND, "【外置脚本】加载其他字幕（切换）", "ALT+e", "script-binding open_dialog/append_sid", "", false},
+            {COMMAND, "【外置脚本】加载其他音轨（不切换）", "ALT+E", "script-binding open_dialog/append_aid", "", false},
             {COMMAND, "【外置脚本】装载次字幕（滤镜型）", "CTRL+e", "script-binding open_dialog/append_vfSub", "", false},
             {COMMAND, "【外置脚本】隐藏/显示 次字幕", "CTRL+E", "script-binding open_dialog/toggle_vfSub", "", false},
             {COMMAND, "【外置脚本】移除次字幕", "CTRL+ALT+e", "script-binding open_dialog/remove_vfSub", "", false},

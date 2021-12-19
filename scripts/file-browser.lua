@@ -70,15 +70,29 @@ local o = {
     --directory to load external modules - currently just user-input-module
     module_directory = "~~/script-modules",
 
-    --ass tags
-    ass_header = "{\\q2\\fs35\\c&00ccff&}",
-    ass_body = "{\\q2\\fs25\\c&Hffffff&}",
-    ass_selected = "{\\c&Hfce788&}",
-    ass_multiselect = "{\\c&Hfcad88&}",
-    ass_playing = "{\\c&H33ff66&}",
-    ass_playingselected = [[{\c&H22b547&}]],
-    ass_footerheader = "{\\c&00ccff&\\fs16}",
-    ass_cursor = "{\\c&00ccff&}"
+    --style settings
+    font_bold_header = true,
+
+    font_size_header = 35,
+    font_size_body = 25,
+    font_size_wrappers = 16,
+
+    font_name_header = "",
+    font_name_body = "",
+    font_name_wrappers = "",
+    font_name_folder = "",
+    font_name_cursor = "",
+
+    font_colour_header = "00ccff",
+    font_colour_body = "ffffff",
+    font_colour_wrappers = "00ccff",
+    font_colour_cursor = "00ccff",
+
+    font_colour_multiselect = "fcad88",
+    font_colour_selected = "fce788",
+    font_colour_playing = "33ff66",
+    font_colour_playing_multiselected = "22b547"
+
 }
 
 opt.read_options(o, 'file_browser')
@@ -89,12 +103,31 @@ if not ass then return msg.error("Script requires minimum mpv version 0.31") end
 
 package.path = mp.command_native({"expand-path", o.module_directory}).."/?.lua;"..package.path
 
+local style = {
+    global = [[{\an7}]],
+
+    -- full line styles
+    header = ([[{\r\q2\b%s\fs%d\fn%s\c&H%s&}]]):format((o.font_bold_header and "1" or "0"), o.font_size_header, o.font_name_header, o.font_colour_header),
+    body = ([[{\r\q2\fs%d\fn%s\c&H%s&}]]):format(o.font_size_body, o.font_name_body, o.font_colour_body),
+    footer_header = ([[{\r\q2\fs%d\fn%s\c&H%s&}]]):format(o.font_size_wrappers, o.font_name_wrappers, o.font_colour_wrappers),
+
+    --small section styles (for colours)
+    multiselect = ([[{\c&H%s&}]]):format(o.font_colour_multiselect),
+    selected = ([[{\c&H%s&}]]):format(o.font_colour_selected),
+    playing = ([[{\c&H%s&}]]):format(o.font_colour_playing),
+    playing_selected = ([[{\c&H%s&}]]):format(o.font_colour_playing_multiselected),
+
+    --icon styles
+    cursor = ([[{\fn%s\c&H%s&}]]):format(o.font_name_cursor, o.font_colour_cursor),
+    folder = ([[{\fn%s}]]):format(o.font_name_folder)
+}
+
 local state = {
     list = {},
     selected = 1,
     hidden = true,
+    wrap = true,
     flag_update = false,
-    cursor_style = o.ass_cursor,
     keybinds = nil,
 
     parser = nil,
@@ -110,10 +143,10 @@ local state = {
 local parsers = {}
 local extensions = {}
 local sub_extensions = {}
+local audio_extensions = {}
 local parseable_extensions = {}
 
 local dvd_device = nil
-local osd_font = ""
 local current_file = {
     directory = nil,
     name = nil
@@ -138,7 +171,10 @@ local subtitle_extensions = {
     "etf","etf8","utf-8","idx","sub","srt","rt","ssa","ass","mks","vtt","sup","scc","smi","lrc",'pgs'
 }
 
-
+--creating a set of audio extensions for custom audio loading behaviour
+local audios_extensions = {
+    "mka","dts","dtshd"
+}
 
 --------------------------------------------------------------------------------------------------------
 --------------------------------------Cache Implementation----------------------------------------------
@@ -148,17 +184,17 @@ local subtitle_extensions = {
 --metatable of methods to manage the cache
 local __cache = {}
 
+__cache.cached_values = {
+    "directory", "directory_label", "list", "selected", "selection", "parser", "empty_text"
+}
+
 --inserts latest state values onto the cache stack
 function __cache:push()
-    table.insert(self, {
-        directory = state.directory,
-        directory_label = state.directory_label,
-        list = state.list,
-        selected = state.selected,
-        selection = state.selection,
-        parser = state.parser,
-        empty_text = state.empty_text
-    })
+    local t = {}
+    for _, value in ipairs(self.cached_values) do
+        t[value] = state[value]
+    end
+    table.insert(self, t)
 end
 
 function __cache:pop()
@@ -166,8 +202,9 @@ function __cache:pop()
 end
 
 function __cache:apply()
-    for key, value in pairs(self[#self]) do
-        state[key] = value
+    local t = self[#self]
+    for _, value in ipairs(self.cached_values) do
+        state[value] = t[value]
     end
 end
 
@@ -223,6 +260,11 @@ local function ass_escape(str)
     })
     str = str:gsub('^ ', '\\h')
     return str
+end
+
+--escape lua pattern characters
+local function pattern_escape(str)
+    return str:gsub("([%^%$%(%)%%%.%[%]%*%+%-])", "%%%1")
 end
 
 --standardises filepaths across systems
@@ -357,6 +399,7 @@ API_mt.valid_dir = valid_dir
 API_mt.filter = filter
 API_mt.sort = sort
 API_mt.ass_escape = ass_escape
+API_mt.pattern_escape = pattern_escape
 API_mt.fix_path = fix_path
 API_mt.get_full_path = get_full_path
 API_mt.get_extension = get_extension
@@ -374,6 +417,7 @@ API_mt.rescan_directory = nil
 function API_mt.get_script_opts() return copy_table(o) end
 function API_mt.get_extensions() return copy_table(extensions) end
 function API_mt.get_sub_extensions() return copy_table(sub_extensions) end
+function API_mt.get_audio_extensions() return copy_table(audio_extensions) end
 function API_mt.get_parseable_extensions() return copy_table(parseable_extensions) end
 function API_mt.get_state() return copy_table(state) end
 function API_mt.get_dvd_device() return dvd_device end
@@ -603,11 +647,11 @@ end
 local function update_ass()
     if state.hidden then state.flag_update = true ; return end
 
-    ass.data = ""
+    ass.data = style.global
 
     local dir_name = state.directory_label or state.directory
     if dir_name == "" then dir_name = "ROOT" end
-    append(o.ass_header)
+    append(style.header)
     append(ass_escape(dir_name)..'\\N ----------------------------------------------------')
     newline()
 
@@ -641,38 +685,40 @@ local function update_ass()
     if not overflow then finish = #state.list end
 
     --adding a header to show there are items above in the list
-    if start > 1 then append(o.ass_footerheader..(start-1)..' item(s) above\\N\\N') end
+    if start > 1 then append(style.footer_header..(start-1)..' item(s) above\\N\\N') end
 
     for i=start, finish do
         local v = state.list[i]
         local playing_file = highlight_entry(v)
-        append(o.ass_body)
+        append(style.body)
 
         --handles custom styles for different entries
-        if i == state.selected then append(state.cursor_style..o.cursor_icon.."\\h"..o.ass_body)
-        else append(o.indent_icon.."\\h") end
+        if i == state.selected then
+            append(style.cursor)
+            append((state.multiselect_start and style.multiselect or "")..o.cursor_icon)
+            append("\\h"..style.body)
+        else
+            append(o.indent_icon.."\\h"..style.body)
+        end
 
         --sets the selection colour scheme
         local multiselected = state.selection[i]
-        if multiselected then append(o.ass_multiselect)
-        elseif i == state.selected then append(o.ass_selected) end
+        if multiselected then append(style.multiselect)
+        elseif i == state.selected then append(style.selected) end
 
         --prints the currently-playing icon and style
-        if playing_file and multiselected then append(o.ass_playingselected)
-        elseif playing_file then append(o.ass_playing) end
+        if playing_file and multiselected then append(style.playing_selected)
+        elseif playing_file then append(style.playing) end
 
         --sets the folder icon
-        if v.type == 'dir' then append(o.folder_icon.."\\h") end
+        if v.type == 'dir' then append(style.folder..o.folder_icon.."\\h".."{\\fn"..o.font_name_body.."}") end
 
         --adds the actual name of the item
-        --the osd font is explicitly set to counterract users
-        --changing the font to support custom icons
-        append("{\\fn"..osd_font.."}")
         append(v.ass or v.label or v.name)
         newline()
     end
 
-    if overflow then append('\\N'..o.ass_footerheader..#state.list-finish..' item(s) remaining') end
+    if overflow then append('\\N'..style.footer_header..#state.list-finish..' item(s) remaining') end
     ass:update()
 end
 API_mt.update_ass = update_ass
@@ -686,7 +732,6 @@ API_mt.update_ass = update_ass
 
 --disables multiselect
 local function disable_select_mode()
-    state.cursor_style = o.ass_cursor
     state.multiselect_start = nil
     state.initial_selection = {}
 end
@@ -694,7 +739,6 @@ end
 --enables multiselect
 local function enable_select_mode()
     state.multiselect_start = state.selected
-    state.cursor_style = o.ass_multiselect
 
     --saving a copy of the original state
     for key, value in pairs(state.selection) do
@@ -1050,14 +1094,16 @@ local function custom_loadlist_recursive(directory, flag)
 
     for _, item in ipairs(list) do
         if not sub_extensions[ get_extension(item.name) ] then
-            if item.type == "dir" or parseable_extensions[get_extension(item.name)] then
-                if custom_loadlist_recursive( concatenate_path(item, directory) , flag) then flag = "append" end
-            else
-                local path = get_full_path(item, directory)
+            if not audio_extensions[ get_extension(item.name) ] then
+                if item.type == "dir" or parseable_extensions[get_extension(item.name)] then
+                    if custom_loadlist_recursive( concatenate_path(item, directory) , flag) then flag = "append" end
+                else
+                    local path = get_full_path(item, directory)
 
-                msg.verbose("Appending", path, "to the playlist")
-                mp.commandv("loadfile", path, flag)
-                flag = "append"
+                    msg.verbose("Appending", path, "to the playlist")
+                    mp.commandv("loadfile", path, flag)
+                    flag = "append"
+                end
             end
         end
     end
@@ -1089,10 +1135,12 @@ local function autoload_dir(path)
     local file_count = 0
     for _,item in ipairs(state.list) do
         if item.type == "file" and not sub_extensions[ get_extension(item.name) ] then
-            local p = get_full_path(item)
-            if p == path then pos = file_count
-            else mp.commandv("loadfile", p, "append") end
-            file_count = file_count + 1
+            if not audio_extensions[ get_extension(item.name) ] then
+                local p = get_full_path(item)
+                if p == path then pos = file_count
+                else mp.commandv("loadfile", p, "append") end
+                file_count = file_count + 1
+            end
         end
     end
     mp.commandv("playlist-move", 0, pos+1)
@@ -1104,7 +1152,9 @@ local function loadfile(item, flag, autoload, directory)
     if item.type == "dir" or parseable_extensions[ get_extension(item.name) ] then return loadlist(path, flag) end
 
     if sub_extensions[ get_extension(item.name) ] then
-        mp.commandv("sub-add", path, flag == "replace" and "select" or "auto")
+        mp.commandv("sub-add", path, flag == "replace" and "cached")
+    elseif audio_extensions[ get_extension(item.name) ] then
+        mp.commandv("audio-add", path, flag == "replace" and "auto")
     else
         mp.commandv('loadfile', path, flag)
         if autoload then autoload_dir(path) end
@@ -1412,13 +1462,19 @@ local function setup_extensions_list()
         sub_extensions[subtitle_extensions[i]] = true
     end
 
+    --setting up audios extensions
+    for i = 1, #audios_extensions do
+        extensions[audios_extensions[i]] = true
+        audio_extensions[audios_extensions[i]] = true
+    end
+
     --adding extra extensions on the whitelist
-    for str in string.gmatch(o.extension_whitelist, "([^"..o.root_seperators.."]+)") do
+    for str in string.gmatch(o.extension_whitelist, "([^"..pattern_escape(o.root_seperators).."]+)") do
         extensions[str] = true
     end
 
     --removing extensions that are in the blacklist
-    for str in string.gmatch(o.extension_blacklist, "([^"..o.root_seperators.."]+)") do
+    for str in string.gmatch(o.extension_blacklist, "([^"..pattern_escape(o.root_seperators).."]+)") do
         extensions[str] = nil
     end
 end
@@ -1426,7 +1482,7 @@ end
 --splits the string into a table on the semicolons
 local function setup_root()
     root = {}
-    for str in string.gmatch(o.root, "([^"..o.root_seperators.."]+)") do
+    for str in string.gmatch(o.root, "([^"..pattern_escape(o.root_seperators).."]+)") do
         local path = mp.command_native({'expand-path', str})
         path = fix_path(path, true)
 
@@ -1503,9 +1559,6 @@ end
 --------------------------------mpv API Callbacks-----------------------------------------
 ------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
-
---keeps track of the osd_font
-mp.observe_property("osd-font", "string", function(_,font) osd_font = font end)
 
 --we don't want to add any overhead when the browser isn't open
 mp.observe_property('path', 'string', function(_,path)

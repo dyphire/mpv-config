@@ -55,7 +55,9 @@ local bookmarkerControls = {
   UP = function() jumpSlot(-1) end,
   WHEEL_UP = function() jumpSlot(-1) end,
   RIGHT = function() jumpPage(1) end,
+  MBTN_FORWARD = function() jumpPage(1) end,
   LEFT = function() jumpPage(-1) end,
+  MBTN_BACK = function() jumpPage(-1) end,
   s = function() addBookmark() end,
   S = function() mode="save" typerStart() end,
   p = function() mode="replace" typerStart() end,
@@ -206,13 +208,19 @@ end
 -- Controls for the Mover
 local moverControls = {
   ESC = function() moverExit() end,
+  MBTN_RIGHT = function() moverExit() end,
   DOWN = function() jumpSlot(1) end,
+  WHEEL_DOWN = function() jumpSlot(1) end,
   UP = function() jumpSlot(-1) end,
+  WHEEL_UP = function() jumpSlot(-1) end,
   RIGHT = function() jumpPage(1) end,
+  MBTN_FORWARD = function() jumpPage(1) end,
   LEFT = function() jumpPage(-1) end,
+  MBTN_BACK = function() jumpPage(-1) end,
   s = function() addBookmark() end,
   m = function() moverCommit() end,
   ENTER = function() moverCommit() end,
+  MBTN_MID = function() moverCommit() end,
   KP_ENTER = function() moverCommit() end
 }
 

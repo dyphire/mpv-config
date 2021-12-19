@@ -5,6 +5,8 @@ COMMIT_8 May 2021_35e9d7f
 章节列表
 --]]
 
+local mp = require 'mp'
+
 local settings = { 
     key_scroll_down = "DOWN WHEEL_DOWN",
     key_scroll_up = "UP WHEEL_UP",
@@ -12,14 +14,8 @@ local settings = {
     key_close_browser = "ESC MBTN_RIGHT",
   }
 
---[[
-    This script implements an interractive chapter list
-
-    This script was written as an example for the mpv-scroll-list api
-    https://github.com/CogentRedTester/mpv-scroll-list
-]]
-
-local mp = require 'mp'
+local opts = require("mp.options")
+opts.read_options(settings, "chapter_list", function(list) update_opts(list) end)
 
 --adding the source directory to the package path and loading the module
 local list = dofile(mp.command_native({"expand-path", "~~/script-modules/scroll-list.lua"}))
