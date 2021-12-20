@@ -168,12 +168,12 @@ local compatible_file_extensions = {
 
 --creating a set of subtitle extensions for custom subtitle loading behaviour
 local subtitle_extensions = {
-    "etf","etf8","utf-8","idx","sub","srt","rt","ssa","ass","mks","vtt","sup","scc","smi","lrc",'pgs'
+    "etf","etf8","utf-8","idx","sub","srt","rt","ssa","ass","mks","vtt","sup","scc","smi","lrc","pgs"
 }
 
 --creating a set of audio extensions for custom audio loading behaviour
-local audios_extensions = {
-    "mka","dts","dtshd"
+local audio_extension_list = {
+    "mka","dts","dtshd","dts-hd","truehd","true-hd"
 }
 
 --------------------------------------------------------------------------------------------------------
@@ -1093,17 +1093,14 @@ local function custom_loadlist_recursive(directory, flag)
     if directory == "" then return end
 
     for _, item in ipairs(list) do
-        if not sub_extensions[ get_extension(item.name) ] then
-            if not audio_extensions[ get_extension(item.name) ] then
-                if item.type == "dir" or parseable_extensions[get_extension(item.name)] then
-                    if custom_loadlist_recursive( concatenate_path(item, directory) , flag) then flag = "append" end
-                else
-                    local path = get_full_path(item, directory)
-
-                    msg.verbose("Appending", path, "to the playlist")
-                    mp.commandv("loadfile", path, flag)
-                    flag = "append"
-                end
+        if not sub_extensions[ get_extension(item.name) ] and not audio_extensions[ get_extension(item.name) ] then
+            if item.type == "dir" or parseable_extensions[get_extension(item.name)] then
+                if custom_loadlist_recursive( concatenate_path(item, directory) , flag) then flag = "append" end
+            else
+                local path = get_full_path(item, directory)
+                msg.verbose("Appending", path, "to the playlist")
+                mp.commandv("loadfile", path, flag)
+                flag = "append"
             end
         end
     end
@@ -1134,13 +1131,14 @@ local function autoload_dir(path)
     local pos = 1
     local file_count = 0
     for _,item in ipairs(state.list) do
-        if item.type == "file" and not sub_extensions[ get_extension(item.name) ] then
-            if not audio_extensions[ get_extension(item.name) ] then
-                local p = get_full_path(item)
-                if p == path then pos = file_count
-                else mp.commandv("loadfile", p, "append") end
-                file_count = file_count + 1
-            end
+        if item.type == "file"
+        and not sub_extensions[ get_extension(item.name) ]
+        and not audio_extensions[ get_extension(item.name) ]
+        then
+            local p = get_full_path(item)
+            if p == path then pos = file_count
+            else mp.commandv("loadfile", p, "append") end
+            file_count = file_count + 1
         end
     end
     mp.commandv("playlist-move", 0, pos+1)
@@ -1152,9 +1150,9 @@ local function loadfile(item, flag, autoload, directory)
     if item.type == "dir" or parseable_extensions[ get_extension(item.name) ] then return loadlist(path, flag) end
 
     if sub_extensions[ get_extension(item.name) ] then
-        mp.commandv("sub-add", path, flag == "replace" and "cached")
+        mp.commandv("sub-add", path, flag == "replace" and "cached" or "select" or "auto")
     elseif audio_extensions[ get_extension(item.name) ] then
-        mp.commandv("audio-add", path, flag == "replace" and "auto")
+        mp.commandv("audio-add", path, flag == "replace" and "auto" or "cached" or "select")
     else
         mp.commandv('loadfile', path, flag)
         if autoload then autoload_dir(path) end
@@ -1462,10 +1460,10 @@ local function setup_extensions_list()
         sub_extensions[subtitle_extensions[i]] = true
     end
 
-    --setting up audios extensions
-    for i = 1, #audios_extensions do
-        extensions[audios_extensions[i]] = true
-        audio_extensions[audios_extensions[i]] = true
+    --setting up audio extensions
+    for i = 1, #audio_extension_list do
+        extensions[audio_extension_list[i]] = true
+        audio_extensions[audio_extension_list[i]] = true
     end
 
     --adding extra extensions on the whitelist
