@@ -1,4 +1,6 @@
 local mp = require 'mp'
+local opts = require("mp.options")
+
 local scroll_list = {
     global_style = [[]],
     header_style = [[{\q2\fs35\c&00ccff&}]],
@@ -15,8 +17,7 @@ local scroll_list = {
     empty_text = "no entries"
 }
 
-local opts = require("mp.options")
-opts.read_options(scroll_list, "scroll_list", function(list) update_opts(list) end)
+opts.read_options(scroll_list, "scroll_list", function(list) update_options(list) end)
 
 --formats strings for ass handling
 --this function is based on https://github.com/mpv-player/mpv/blob/master/player/lua/console.lua#L110
