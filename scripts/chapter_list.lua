@@ -1,11 +1,12 @@
 --[[
-SOURCE_ https://github.com/CogentRedTester/mpv-scroll-list/blob/master/examples/chapter-list.lua
-COMMIT_8 May 2021_35e9d7f
+    This script implements an interractive chapter list
 
-章节列表
---]]
+    This script was written as an example for the mpv-scroll-list api
+    https://github.com/CogentRedTester/mpv-scroll-list
+]]
 
 local mp = require 'mp'
+local opts = require("mp.options")
 
 local settings = { 
     key_scroll_down = "DOWN WHEEL_DOWN",
@@ -14,8 +15,7 @@ local settings = {
     key_close_browser = "ESC MBTN_RIGHT",
   }
 
-local opts = require("mp.options")
-opts.read_options(settings, "chapter_list", function(list) update_opts(list) end)
+opts.read_options(settings, "chapter_list")
 
 --adding the source directory to the package path and loading the module
 local list = dofile(mp.command_native({"expand-path", "~~/script-modules/scroll-list.lua"}))
