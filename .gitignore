@@ -12,5 +12,5 @@ shaders_cache/
 watch_later/
 icc_cache/
 
-mpv_sub-delay.json
 bookmarker.json
+persistent_config.json
