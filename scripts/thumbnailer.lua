@@ -2,7 +2,7 @@
 SOURCE_ https://github.com/deus0ww/mpv-conf/blob/master/scripts/Thumbnailer.lua
 COMMIT_ 20211005 62fa158
 hwaccel from https://github.com/hooke007/MPV_lazy/blob/main/portable_config/scripts/thumbnailer.lua
-modify by zhongfly - 2021-11-29 https://github.com/zhongfly/mpv-conf/blob/main/scripts/Thumbnailer.lua
+modify by zhongfly  https://github.com/zhongfly/mpv-conf/blob/main/scripts/Thumbnailer.lua
 ]]--
 
 local ipairs,loadfile,pairs,pcall,tonumber,tostring = ipairs,loadfile,pairs,pcall,tonumber,tostring
@@ -667,9 +667,9 @@ end
 
 local function delete_cache_dir()
 	if auto_delete == nil then auto_delete = user_opts.auto_delete end
+	local path = user_opts.cache_dir
+	remove_lock(path)
 	if auto_delete > 0 then 
-		local path = user_opts.cache_dir
-		remove_lock(path)
 		if not is_locked(path) then 
 			msg.debug('Clearing Cache on Shutdown:', path)
 			if path:len() < 16 then return end
@@ -683,9 +683,9 @@ end
 local function delete_cache_subdir()
 	if not state then return end
 	if auto_delete == nil then auto_delete = user_opts.auto_delete end
+	local path = state.cache_dir_base
+	remove_lock(path)
 	if auto_delete == 1 then
-		local path = state.cache_dir_base
-		remove_lock(path)
 		if not is_locked(path) then 
 			msg.debug('Clearing Cache for File:', path)
 			if path:len() < 16 then return end
@@ -693,8 +693,6 @@ local function delete_cache_subdir()
 		else
 			msg.debug('Clearing Cache for File:ignore ', path, '- Locked')
 		end
-	elseif  auto_delete == 2 then
-		remove_lock(state.cache_dir_base)
 	end
 end
 
