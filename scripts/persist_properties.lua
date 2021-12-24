@@ -4,6 +4,7 @@ local msg = require "mp.msg"
 
 local opts = {
     properties = "volume,sub-scale",
+    properties_path = 'persistent_config.json'
 }
 (require 'mp.options').read_options(opts, "persist_properties")
 
@@ -15,7 +16,7 @@ if not utils.file_info(CONFIG_ROOT) then
     local mpv_conf_dir = utils.split_path(mpv_conf_path)
     CONFIG_ROOT = mpv_conf_dir
 end
-local PCONFIG = utils.join_path(CONFIG_ROOT, 'persistent_config.json');
+local PCONFIG = utils.join_path(CONFIG_ROOT, opts.properties_path);
 
 local function split(input)
     local ret = {}
