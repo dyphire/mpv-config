@@ -489,6 +489,11 @@ menuList = {
     open_menu = {
         {COMMAND, "【外置脚本】文件", "CTRL+o", "script-binding open_dialog/import_files", "", false},
         {COMMAND, "【外置脚本】地址", "CTRL+O", "script-binding open_dialog/import_url", "", false},
+        {COMMAND, "【外置脚本】加载最后播放文件", "CTRL+l", "script-binding simplehistory/history-load-last", "", false},
+        {COMMAND, "【外置脚本】加载最后播放文件及进度", "CTRL+L", "script-binding simplehistory/history-resume", "", false},
+        {COMMAND, "【外置脚本】打开历史菜单", "CTRL+O", "script-binding simplehistory/display-list", "", false},
+        {COMMAND, "【外部脚本】打开剪贴菜单", "ALT+w", "script-binding smartcopypaste_II/display-list", "", false},
+        {COMMAND, "【外置脚本】打开书签菜单", "N", "script-binding simplebookmark/display-list", "", false},
         {COMMAND, "【外置脚本】内置文件浏览器", "Tab", "script-message browse-files", "", false},
     },
 
@@ -557,12 +562,14 @@ mp.register_event("file-loaded", function()
         open_menu = {
             {COMMAND, "【外置脚本】文件", "CTRL+o", "script-binding open_dialog/import_files", "", false},
             {COMMAND, "【外置脚本】地址", "CTRL+O", "script-binding open_dialog/import_url", "", false},
+            {COMMAND, "【外置脚本】打开历史菜单", "CTRL+O", "script-binding simplehistory/display-list", "", false},
+            {COMMAND, "【外置脚本】内置文件浏览器", "Tab", "script-message browse-files", "", false},
+            {SEP},
             {COMMAND, "【外置脚本】加载其他字幕（切换）", "ALT+e", "script-binding open_dialog/append_sid", "", false},
             {COMMAND, "【外置脚本】加载其他音轨（不切换）", "ALT+E", "script-binding open_dialog/append_aid", "", false},
             {COMMAND, "【外置脚本】装载次字幕（滤镜型）", "CTRL+e", "script-binding open_dialog/append_vfSub", "", false},
             {COMMAND, "【外置脚本】隐藏/显示 次字幕", "CTRL+E", "script-binding open_dialog/toggle_vfSub", "", false},
             {COMMAND, "【外置脚本】移除次字幕", "CTRL+ALT+e", "script-binding open_dialog/remove_vfSub", "", false},
-            {COMMAND, "【外置脚本】内置文件浏览器", "Tab", "script-message browse-files", "", false},
             {SEP},
             {COMMAND, "播放列表乱序重排", "", "playlist-shuffle", "", false},
             {CHECK, "列表循环", "", "cycle-values loop-playlist inf no", function() return statePlayLoop() end, false},
@@ -623,9 +630,9 @@ mp.register_event("file-loaded", function()
 
 -- 三级菜单 —— 书签
         bookmarker_menu = {
-            {COMMAND, "打开书签菜单", "N", "script-binding bookmarker-menu", "", false},
-            {COMMAND, "快速添加新书签", "CTRL+n", "script-binding bookmarker-quick-save", "", false},
-            {COMMAND, "快速加载最新书签", "ALT+n", "script-binding bookmarker-quick-load", "", false},
+            {COMMAND, "打开书签菜单", "N", "script-binding simplebookmark/display-list", "", false},
+            {COMMAND, "添加进度书签", "CTRL+n", "script-binding simplebookmark/bookmark-save", "", false},
+            {COMMAND, "添加文件书签", "ALT+n", "script-binding simplebookmark/bookmark-fileonly", "", false},
         },
 
 -- 二级菜单 —— 画面
@@ -864,11 +871,17 @@ mp.register_event("file-loaded", function()
             {COMMAND, "【外部脚本】匹配视频刷新率", "F10", "script-message match-refresh", "", false},
             {COMMAND, "【外部脚本】复制当前时间", "CTRL+ALT+t", "script-message copy-time", "", false},
             {COMMAND, "【外部脚本】复制当前字幕内容", "CTRL+ALT+s", "script-message copy-subtitle", "", false},
-            {COMMAND, "【外部脚本】复制视频路径", "CTRL+c", "script-binding smartcopypaste_II/copy-path", "", false},
-            {COMMAND, "【外部脚本】复制视频路径及进度", "CTRL+ALT+c", "script-binding smartcopypaste_II/copy", "", false},
-            {COMMAND, "【外部脚本】跳转到复制的视频", "CTRL+v", "script-binding smartcopypaste_II/paste", "", false},
-            {COMMAND, "【外部脚本】复制内容添加至播放列表", "CTRL+ALT+v", "script-binding smartcopypaste_II/paste-playlist", "", false},
+            {CASCADE, "【外部脚本】视频剪贴功能", "copy_menu", "", "", false},
             {COMMAND, "【外部脚本】更新脚本着色器", "M", "script-binding manager-update-all;show-text 更新脚本着色器", "", false},
+        },
+
+-- 三级菜单 —— 视频剪贴功能
+        copy_menu = {
+            {COMMAND, "【外部脚本】打开剪贴菜单", "ALT+w", "script-binding smartcopypaste_II/display-list", "", false},
+            {COMMAND, "【外部脚本】复制视频路径", "CTRL+ALT+c", "script-binding smartcopypaste_II/copy-specific", "", false},
+            {COMMAND, "【外部脚本】复制视频路径及进度", "CTRL+c", "script-binding smartcopypaste_II/copy", "", false},
+            {COMMAND, "【外部脚本】跳转到复制的视频", "CTRL+v", "script-binding smartcopypaste_II/paste", "", false},
+            {COMMAND, "【外部脚本】复制内容添加至播放列表", "CTRL+ALT+v", "script-binding smartcopypaste_II/paste-specific", "", false},
         },
 
 -- 二级菜单 —— 配置组
