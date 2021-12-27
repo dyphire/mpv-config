@@ -864,8 +864,10 @@ mp.register_event("file-loaded", function()
             {COMMAND, "【外部脚本】匹配视频刷新率", "F10", "script-message match-refresh", "", false},
             {COMMAND, "【外部脚本】复制当前时间", "CTRL+ALT+t", "script-message copy-time", "", false},
             {COMMAND, "【外部脚本】复制当前字幕内容", "CTRL+ALT+s", "script-message copy-subtitle", "", false},
-            {COMMAND, "【外部脚本】复制视频路径及进度", "CTRL+c", "script-binding smartcopypaste_II/copy", "", false},
-            {COMMAND, "【外部脚本】跳转到复制的视频路径及进度", "CTRL+v", "script-binding smartcopypaste_II/paste", "", false},
+            {COMMAND, "【外部脚本】复制视频路径", "CTRL+c", "script-binding smartcopypaste_II/copy-path", "", false},
+            {COMMAND, "【外部脚本】复制视频路径及进度", "CTRL+ALT+c", "script-binding smartcopypaste_II/copy", "", false},
+            {COMMAND, "【外部脚本】跳转到复制的视频", "CTRL+v", "script-binding smartcopypaste_II/paste", "", false},
+            {COMMAND, "【外部脚本】复制内容添加至播放列表", "CTRL+ALT+v", "script-binding smartcopypaste_II/paste-playlist", "", false},
             {COMMAND, "【外部脚本】更新脚本着色器", "M", "script-binding manager-update-all;show-text 更新脚本着色器", "", false},
         },
 
