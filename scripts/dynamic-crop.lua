@@ -1,26 +1,37 @@
 --[[
 This script uses the lavfi cropdetect filter to automatically insert a crop filter with appropriate parameters for the
 currently playing video, the script run continuously by default (mode 4).
+
 The workflow is as follows: We observe two main events, vf-metadata and time-pos changes.
     vf-metadata are stored sequentially in buffer with time-pos being updated at every frame,
     then process to check and store trusted values to speed up future change for the current video.
     It will automatically crop the video as soon as a meta change is validated.
-Also It registers the key-binding "C" (shift+c) to control the script.
-The first press maintains the cropping and disables the script, a second pressure eliminates the cropping and a third pressure is necessary to restart the script.
-- Mode = 1-2, single cropping on demand, stays active until a valid cropping is apply.
-- Mode = 3-4, enable / disable continuous cropping.
+
 The default options can be overridden by adding script-opts-append=<script_name>-<parameter>=<value> into mpv.conf
     script-opts-append=dynamic_crop-mode=0
     script-opts-append=dynamic_crop-ratios=2.4 2.39 2 4/3 (quotes aren't needed like below)
+
 List of available parameters (For default values, see <options>)：
+
+mode: [0-4] 0 disable, 1 on-demand, 2 one-shot, 3 dynamic-manual, 4 dynamic-auto
+    Mode 1 and 3 requires using the shortcut to start, 2 and 4 have an automatic start.
+Shortcut "C" (shift+c) to control the script.
+The first press maintains the cropping and disables the script, a second pressure eliminates the cropping 
+and a third pressure is necessary to restart the script.
+    Mode = 1-2, single cropping on demand, stays active until a valid cropping is apply.
+    Mode = 3-4, start / stop dynamic cropping.
+
 prevent_change_mode: [0-2] - 0 any, 1 keep-largest, 2 keep-lowest - The prevent_change_timer is trigger after a change,
     to disable this, set prevent_change_timer to 0.
+
 resize_windowed: [true/false] - False, prevents the window from being resized, but always applies cropping,
     this function always avoids the default behavior to resize the window at the source size, in windowed/maximized mode.
+
 segmentation: % [0.0-n] e.g. 0.5 for 50% - Extra time to allow new metadata to be segmented instead of being continuous.
     By default, new_known_ratio_timer is validated with 5 sec accumulated over 7.5 sec elapsed and
     new_fallback_timer with 20 sec accumulated over 30 sec elapsed.
     to disable this, set 0.
+
 correction: % [0.0-1] e.g. 0.6 for 60% - Size minimum of collected meta (in percent based on source), to attempt a correction.
     to disable this, set 1.
 ]] --
@@ -29,7 +40,7 @@ require "mp.options"
 
 local options = {
     -- behavior
-    mode = 4, -- [0-4] 0 disable, 1 on-demand, 2 single-start, 3 auto-manual, 4 auto-start
+    mode = 4, -- [0-4] more details above.
     start_delay = 0, -- delay in seconds used to skip intro (usefull with mode 2)
     prevent_change_timer = 0, -- seconds
     prevent_change_mode = 2, -- [0-2], disable with 'prevent_change_timer = 0'

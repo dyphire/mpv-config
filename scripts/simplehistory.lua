@@ -727,7 +727,7 @@ function list_empty_error_msg()
 end
 
 function display_list(filter, osd_hide)
-	if not filter then filter = 'all' end
+	if not filter then filter = 'distinct' end
 	
 	local prev_filter = filterName
 	filterName = filter
