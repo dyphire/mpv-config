@@ -80,6 +80,7 @@ local o = {
 	sort_search_filter = 'none',
 		
 	-----List Design Settings-----
+	list_alignment = 7, --The alignment for the list, uses numpad positions choose from 1-9 or 0 to disable. e,g.:7 top left alignment, 8 top middle alignment, 9 top right alignment.	
 	text_color = 'ffffff', --Text color for list in BGR hexadecimal
 	text_scale = 50, --Font size for the text of list
 	text_border = 0.7, --Black border size for the text of list
@@ -221,8 +222,8 @@ o.list_search_not_typing_mode_keybind = utils.parse_json(o.list_search_not_typin
 o.next_filter_sequence_keybind = utils.parse_json(o.next_filter_sequence_keybind)
 o.previous_filter_sequence_keybind = utils.parse_json(o.previous_filter_sequence_keybind)
 o.recents_filter_inside_list_keybind = utils.parse_json(o.recents_filter_inside_list_keybind)
+o.recents_filter_outside_list_keybind = utils.parse_json(o.recents_filter_outside_list_keybind) --3.05#organized
 o.distinct_filter_inside_list_keybind = utils.parse_json(o.distinct_filter_inside_list_keybind)
-o.recents_filter_outside_list_keybind = utils.parse_json(o.recents_filter_outside_list_keybind)
 o.distinct_filter_outside_list_keybind = utils.parse_json(o.distinct_filter_outside_list_keybind)
 o.fileonly_filter_inside_list_keybind = utils.parse_json(o.fileonly_filter_inside_list_keybind)
 o.fileonly_filter_outside_list_keybind = utils.parse_json(o.fileonly_filter_outside_list_keybind)
@@ -269,6 +270,9 @@ end
 
 
 function contain_value(tab, val)
+	if not tab then return end --3.0#4 handle if no value was passed
+	if not val then return end --3.0#4 handle if no value was passed
+	
 	for index, value in ipairs(tab) do
 		if value.match(string.lower(val), string.lower(value)) then
 			return true
@@ -278,7 +282,7 @@ function contain_value(tab, val)
 	return false
 end
 
-local function has_value(tab, val)
+function has_value(tab, val)
 	for index, value in ipairs(tab) do
 		if value == val then
 			return true
@@ -325,8 +329,12 @@ function bind_keys(keys, name, func, opts)
 		return
 	end
 	
-	for i = 1, #keys do
-		mp.add_forced_key_binding(keys[i], name .. i, func, opts)
+	for i = 1, #keys do--3.06# to make name consistent without 1 for script binding
+		if i == 1 then
+			mp.add_forced_key_binding(keys[i], name, func, opts)
+		else
+			mp.add_forced_key_binding(keys[i], name .. i, func, opts)
+		end
 	end
 end
 
@@ -336,8 +344,12 @@ function unbind_keys(keys, name)
 		return
 	end
 	
-	for i = 1, #keys do
-		mp.remove_key_binding(name .. i)
+	for i = 1, #keys do --3.09# fixes unbinding keys
+		if i == 1 then
+			mp.remove_key_binding(name)
+		else
+			mp.remove_key_binding(name .. i)
+		end
 	end
 end
 
@@ -496,14 +508,13 @@ function get_list_contents(filter, sort)
 		end
 		table.sort(filtered_table, function(a, b) return a['found_sequence'] < b['found_sequence'] end)
 		
-		if not sort then active_sort = o.sort_recents_filter end
+		if not sort then active_sort = o.sort_distinct_filter end --3.0.5# had wrong sort corrected it
 		if active_sort ~= 'none' or active_sort ~= '' then
 			list_sort(filtered_table, active_sort)
 		end
 		
 		list_contents = filtered_table
 	end
-
 	
 	if filter == 'fileonly' then
 		for i = 1, #list_contents do
@@ -519,6 +530,7 @@ function get_list_contents(filter, sort)
 		
 		list_contents = filtered_table
 	end
+	
 	if filter == 'timeonly' then
 		for i = 1, #list_contents do
 			if tonumber(list_contents[i].found_time) > 0 then
@@ -533,6 +545,7 @@ function get_list_contents(filter, sort)
 		
 		list_contents = filtered_table
 	end
+	
 	if filter == 'titleonly' then
 		for i = 1, #list_contents do
 			if list_contents[i].found_title then
@@ -622,9 +635,9 @@ function draw_list()
 	local osd_index = ''
 	local osd_key = ''
 	local key = 0
-	local osd_text = string.format("{\\fscx%f}{\\fscy%f}{\\bord%f}{\\1c&H%s}", o.text_scale, o.text_scale, o.text_border, o.text_color)
-	local osd_highlight = string.format("{\\fscx%f}{\\fscy%f}{\\bord%f}{\\1c&H%s}", o.highlight_scale, o.highlight_scale, o.highlight_border, o.highlight_color)
-	local osd_header = string.format("{\\fscx%f}{\\fscy%f}{\\bord%f}{\\1c&H%s}", o.header_scale, o.header_scale, o.header_border, o.header_color)
+	local osd_text = string.format("{\\an%f{\\fscx%f}{\\fscy%f}{\\bord%f}{\\1c&H%s}", o.list_alignment, o.text_scale, o.text_scale, o.text_border, o.text_color) --3.0.6#Understood Ass tags and added alignment
+	local osd_highlight = string.format("{\\an%f}{\\fscx%f}{\\fscy%f}{\\bord%f}{\\1c&H%s}", o.list_alignment, o.highlight_scale, o.highlight_scale, o.highlight_border, o.highlight_color)
+	local osd_header = string.format("{\\an%f}{\\fscx%f}{\\fscy%f}{\\bord%f}{\\1c&H%s}", o.list_alignment, o.header_scale, o.header_scale, o.header_border, o.header_color)
 	local osd_msg_end = "{\\1c&HFFFFFF}"
 	
 	if o.header_text ~= '' then
@@ -930,15 +943,12 @@ function delete_log_entry(multiple, round, target_path, target_time, entry_limit
 		end
 	end
 	
-	--1.31# moved after deletion, to fix saving without time could replace the next bookmark instead of updating
-	if entry_limit and entry_limit > -1 then --1.30# if entry_limit is passed and it is larger than -1 then remove the duplicates
+	if entry_limit and entry_limit > -1 then
 		local entries_found = 0
-		for i = #list_contents, 1, -1 do--1.30#loop in opposite order so newest is first
-			if list_contents[i].found_path == target_path and entries_found < entry_limit then --1.30# whenever we find an entry we increase the value, if it reaches the limit then we stop
-				print(format_time(tonumber(list_contents[i].found_time))..'should not be removed')
-				entries_found = entries_found + 1--1.30# increase the entries found so we delete other entries that surpass the limit
-			elseif list_contents[i].found_path == target_path and entries_found >= entry_limit then --1.30#Once the entries_found reach limit then we delete those entries
-				print(format_time(tonumber(list_contents[i].found_time))..'should be removed')
+		for i = #list_contents, 1, -1 do
+			if list_contents[i].found_path == target_path and entries_found < entry_limit then
+				entries_found = entries_found + 1
+			elseif list_contents[i].found_path == target_path and entries_found >= entry_limit then
 				table.remove(list_contents,i)
 			end
 		end
@@ -1067,7 +1077,7 @@ function get_list_keybinds()
 	end
 	
 	bind_keys(o.recents_filter_inside_list_keybind, 'recents-list-inside', function()display_list('recents') end)
-	bind_keys(o.distinct_filter_inside_list_keybind, 'distinct-list-inside', function()display_list('distinct') end)	
+	bind_keys(o.distinct_filter_inside_list_keybind, 'distinct-list-inside', function()display_list('distinct') end)
 	bind_keys(o.fileonly_filter_inside_list_keybind, 'fileonly-list-inside', function()display_list('fileonly') end)
 	bind_keys(o.timeonly_filter_inside_list_keybind, 'timeonly-list-inside', function()display_list('timeonly') end)
 	bind_keys(o.protocols_filter_inside_list_keybind, 'protocols-list-inside', function()display_list('protocols') end)
@@ -1113,7 +1123,7 @@ function unbind_list_keys()
 	unbind_keys(o.previous_filter_sequence_keybind, 'list-filter-previous')
 	
 	unbind_keys(o.recents_filter_inside_list_keybind, 'recents-list-inside')
-	unbind_keys(o.distinct_filter_inside_list_keybind, 'distinct-list-inside')	
+	unbind_keys(o.distinct_filter_inside_list_keybind, 'distinct-list-inside')
 	unbind_keys(o.fileonly_filter_inside_list_keybind, 'fileonly-list-inside')
 	unbind_keys(o.timeonly_filter_inside_list_keybind, 'timeonly-list-inside')
 	unbind_keys(o.protocols_filter_inside_list_keybind, 'protocols-list-inside')
@@ -1122,7 +1132,7 @@ function unbind_list_keys()
 	unbind_keys(o.playing_filter_inside_list_keybind, 'playing-list-inside')
 	
 	bind_keys(o.recents_filter_outside_list_keybind, 'recents-list-outside', function()display_list('recents') end)
-	bind_keys(o.distinct_filter_outside_list_keybind, 'distinct-list-outside', function()display_list('distinct') end)		
+	bind_keys(o.distinct_filter_outside_list_keybind, 'distinct-list-outside', function()display_list('distinct') end)
 	bind_keys(o.fileonly_filter_outside_list_keybind, 'fileonly-list-outside', function()display_list('fileonly') end)
 	bind_keys(o.timeonly_filter_outside_list_keybind, 'timeonly-list-outside', function()display_list('timeonly') end)
 	bind_keys(o.protocols_filter_outside_list_keybind, 'protocols-list-outside', function()display_list('protocols') end)
@@ -1479,7 +1489,7 @@ function mark_chapter()
 	mp.set_property_native("chapter-list", all_chapters)
 end
 
-function write_log(target_time, update_seekTime, entry_limit) --1.30# added entry_limit to limit entries based on value passed
+function write_log(target_time, update_seekTime, entry_limit)
 	if not filePath then return end
 	local prev_seekTime = seekTime
 	seekTime = (mp.get_property_number('time-pos') or 0)
@@ -1488,7 +1498,7 @@ function write_log(target_time, update_seekTime, entry_limit) --1.30# added entr
 	end
 	if seekTime < 0 then seekTime = 0 end
 	
-	delete_log_entry(false, true, filePath, math.floor(seekTime), entry_limit) --1.30#Pass the entry_limit passed to the delete_log
+	delete_log_entry(false, true, filePath, math.floor(seekTime), entry_limit)
 
 	f = io.open(history_log, "a+")
 	if o.file_title_logging == 'all' then
@@ -1504,7 +1514,7 @@ function write_log(target_time, update_seekTime, entry_limit) --1.30# added entr
 	f:write('\n')
 	f:close()
 	
-	if not update_seekTime then --1.29# If update_seekTime is passed then it will update globally 
+	if not update_seekTime then
 		seekTime = prev_seekTime
 	end
 end
@@ -1599,7 +1609,7 @@ end
 
 if o.auto_run_list_idle == 'all'
 	or o.auto_run_list_idle == 'recents'
-	or o.auto_run_list_idle == 'distinct'	
+	or o.auto_run_list_idle == 'distinct'
 	or o.auto_run_list_idle == 'protocols'
 	or o.auto_run_list_idle == 'fileonly'
 	or o.auto_run_list_idle == 'titleonly'
@@ -1623,12 +1633,12 @@ mp.register_event('file-loaded', function()
 end)
 
 mp.add_hook('on_unload', 50, function()
-	delete_log_entry(false, false, filePath, 0)--1.30#added false, false in the beginning, no clue how it was working without it o-o
+	delete_log_entry(false, false, filePath, 0)
 	history_save()
 end)
 
 
-bind_keys(o.history_list_keybind, 'history-list', display_list)
+bind_keys(o.history_list_keybind, 'display-list', display_list) --3.06#renamed to display-list to make consistency for all scripts
 bind_keys(o.history_resume_keybind, 'history-resume', history_resume)
 bind_keys(o.history_load_last_keybind, 'history-load-last', history_load_last)
 
