@@ -80,7 +80,7 @@ local o = {
 	sort_search_filter = 'none',
 		
 	-----List Design Settings-----
-	list_alignment = 7, --The alignment for the list, uses numpad positions choose from 1-9 or 0 to disable. e,g.:7 top left alignment, 8 top middle alignment, 9 top right alignment.	
+	list_alignment = 7, --The alignment for the list, uses numpad positions choose from 1-9 or 0 to disable. e,g.:7 top left alignment, 8 top middle alignment, 9 top right alignment.
 	text_color = 'ffffff', --Text color for list in BGR hexadecimal
 	text_scale = 50, --Font size for the text of list
 	text_border = 0.7, --Black border size for the text of list
@@ -727,7 +727,7 @@ function list_empty_error_msg()
 end
 
 function display_list(filter, osd_hide)
-	if not filter then filter = 'all' end
+	if not filter then filter = 'distinct' end
 	
 	local prev_filter = filterName
 	filterName = filter
