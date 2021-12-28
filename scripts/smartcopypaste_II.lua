@@ -56,6 +56,7 @@ local o = {
 	paste_subtitles=[[
 	["aqt", "gsub", "jss", "sub", "ttxt", "pjs", "psb", "rt", "smi", "slt", "ssf", "srt", "ssa", "ass", "usf", "idx", "vtt"]
 	]], --add above (after a comma) any extension you want paste to attempt to add as a subtitle file, e.g.:'txt'. Or set it as "" by deleting all defined extension to make paste attempt to add any subtitle.
+	main_list = 'all', --choose the main list, between: 'all', 'copy', 'paste', 'recents', 'distinct', 'protocols', 'fileonly', 'titleonly', 'timeonly', 'keywords'.
 	clipboard_list_keybind=[[
 	["c", "C"]
 	]], --Keybind that will be used to display the main list
@@ -834,7 +835,7 @@ function list_empty_error_msg()
 end
 
 function display_list(filter, osd_hide)
-	if not filter then filter = 'copy' end
+	if not filter then filter = o.main_list end
 	
 	local prev_filter = filterName
 	filterName = filter
