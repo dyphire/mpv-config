@@ -16,6 +16,7 @@ local o = {
 	resume_notification = true, --true so that when a file that is played previously, a notification to resume to the previous reached time will be triggered
 	resume_notification_threshold = 2, --0 to always show a resume notification when the same video has been played previously, a value such as 5 will only show the resume notification if the last played time starts after 5% of the video and ends before completion by 5%
 	mark_history_as_chapter = false, --true is for marking the time as a chapter. false disables mark as chapter behavior.
+	main_list = 'all', --choose the main list, between: 'all', 'recents', 'distinct', 'protocols', 'fileonly', 'titleonly', 'timeonly', 'keywords'.
 	history_list_keybind=[[
 	["h", "H"]
 	]], --Keybind that will be used to display the main list
@@ -727,7 +728,7 @@ function list_empty_error_msg()
 end
 
 function display_list(filter, osd_hide)
-	if not filter then filter = 'distinct' end
+	if not filter then filter = o.main_list end
 	
 	local prev_filter = filterName
 	filterName = filter

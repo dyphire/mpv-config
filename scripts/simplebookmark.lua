@@ -16,6 +16,7 @@ local o = {
 	bookmark_loads_last_idle = true, --When attempting to bookmark, if there is no video / file loaded, it will instead jump to your last bookmarked item and resume it.
 	bookmark_fileonly_loads_last_idle = true, --When attempting to bookmark fileonly, if there is no video / file loaded, it will instead jump to your last bookmarked item without resuming.
 	mark_bookmark_as_chapter = false, --true is for marking the time as a chapter. false disables mark as chapter behavior.
+	main_list = 'all', --choose the main list, between: 'all', 'keybinds', 'recents', 'distinct', 'protocols', 'fileonly', 'titleonly', 'timeonly', 'keywords'.
 	bookmark_list_keybind=[[
 	["b", "B"]
 	]], --Keybind that will be used to display the main list
@@ -796,7 +797,7 @@ function list_empty_error_msg()
 end
 
 function display_list(filter, osd_hide)
-	if not filter then filter = 'recents' end
+	if not filter then filter = o.main_list end
 	
 	local prev_filter = filterName
 	filterName = filter
