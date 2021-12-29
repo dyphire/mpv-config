@@ -16,22 +16,23 @@ local o = {
 	resume_notification = true, --true so that when a file that is played previously, a notification to resume to the previous reached time will be triggered
 	resume_notification_threshold = 2, --0 to always show a resume notification when the same video has been played previously, a value such as 5 will only show the resume notification if the last played time starts after 5% of the video and ends before completion by 5%
 	mark_history_as_chapter = false, --true is for marking the time as a chapter. false disables mark as chapter behavior.
-	main_list = 'all', --choose the main list, between: 'all', 'recents', 'distinct', 'protocols', 'fileonly', 'titleonly', 'timeonly', 'keywords'.
-	history_list_keybind=[[
-	["h", "H"]
-	]], --Keybind that will be used to display the main list
 	history_resume_keybind=[[
 	["ctrl+r", "ctrl+R"]
 	]], --Keybind that will be used to immediately load and resume last item when no video is playing. If video is playing it will resume to the last found position
 	history_load_last_keybind=[[
 	["alt+r", "alt+R"]
 	]], --Keybind that will be used to immediately load the last item without resuming when no video is playing. If video is playing then it will add into playlist
+	open_list_keybind=[[
+	[ ["h", "all"], ["H", "all"], ["r", "recents"] ]
+	]], --Keybind that will be used to open the list along with the specified filter. Available filters: 'all', 'recents', 'distinct', 'protocols', 'fileonly', 'titleonly', 'timeonly', 'keywords'.
+	list_filter_jump_keybind=[[
+	[ ["h", "all"], ["H", "all"], ["r", "recents"], ["R", "recents"], ["d", "distinct"], ["D", "distinct"], ["f", "fileonly"], ["F", "fileonly"] ]
+	]], --Keybind that is used while the list is open to jump to the specific filter (it also enables pressing a filter keybind twice to close list). Available fitlers: 'all', 'recents', 'distinct', 'protocols', 'fileonly', 'titleonly', 'timeonly', 'keywords'.
 
 	-----Logging Settings-----
 	log_path = '/:dir%mpvconf', --Change to '/:dir%script' for placing it in the same directory of script, OR change to '/:dir%mpvconf' for mpv portable_config directory. OR specify the desired path, e.g.: 'C:\Users\Eisa01\Desktop\'
 	log_file = 'mpvHistory.log', --name+extension of the file that will be used to store the log data
 	date_format = '%d/%m/%y %X', --Date format in the log (see lua date formatting), e.g.:'%d/%m/%y %X' or '%d/%b/%y %X'
-	log_time_text = 'time=', --The text that is stored for the video time inside log file. It can also be left blank.
 	file_title_logging = 'protocols', --Change between 'all', 'protocols', 'none'. This option will store the media title in log file, it is useful for websites / protocols because title cannot be parsed from links alone
 	logging_protocols=[[
 	["https?://", "magnet:", "rtmp:"]
@@ -81,7 +82,7 @@ local o = {
 	sort_search_filter = 'none',
 		
 	-----List Design Settings-----
-	list_alignment = 7, --The alignment for the list, uses numpad positions choose from 1-9 or 0 to disable. e,g.:7 top left alignment, 8 top middle alignment, 9 top right alignment.
+	list_alignment = 7, --The alignment for the list, uses numpad positions choose from 1-9 or 0 to disable. e,g.:7 top left alignment, 8 top middle alignment, 9 top right alignment.	
 	text_color = 'ffffff', --Text color for list in BGR hexadecimal
 	text_scale = 50, --Font size for the text of list
 	text_border = 0.7, --Black border size for the text of list
@@ -143,58 +144,6 @@ local o = {
 	["CTRL+ENTER"]
 	]], --Keybind that will be used to exit typing mode of search while keeping search open
 	
-	-----Filter Keybind Settings-----	
-	--Keybind to jump to the specific filter when list is open
-	recents_filter_inside_list_keybind=[[
-	["r", "R"]
-	]],
-	distinct_filter_inside_list_keybind=[[
-	["d", "D"]
-	]],
-	fileonly_filter_inside_list_keybind=[[
-	["f", "F"]
-	]],
-	timeonly_filter_inside_list_keybind=[[
-	[""]
-	]],
-	protocols_filter_inside_list_keybind=[[
-	[""]
-	]],
-	titleonly_filter_inside_list_keybind=[[
-	[""]
-	]],
-	keywords_filter_inside_list_keybind=[[
-	[""]
-	]],
-	playing_filter_inside_list_keybind=[[
-	[""]
-	]],
-	--Keybind to jump to the specific filter when list is closed
-	recents_filter_outside_list_keybind=[[
-	["r", "R"]
-	]],
-	distinct_filter_outside_list_keybind=[[
-	[""]
-	]],
-	fileonly_filter_outside_list_keybind=[[
-	[""]
-	]],
-	timeonly_filter_outside_list_keybind=[[
-	[""]
-	]],
-	protocols_filter_outside_list_keybind=[[
-	[""]
-	]],
-	titleonly_filter_outside_list_keybind=[[
-	[""]
-	]],
-	keywords_filter_outside_list_keybind=[[
-	[""]
-	]],
-	playing_filter_outside_list_keybind=[[
-	[""]
-	]],
-	
 ---------------------------END OF USER CUSTOMIZATION SETTINGS---------------------------
 }
 	
@@ -205,7 +154,6 @@ local msg = require 'mp.msg'
 o.filters_and_sequence = utils.parse_json(o.filters_and_sequence)
 o.keywords_filter_list = utils.parse_json(o.keywords_filter_list)
 o.logging_protocols = utils.parse_json(o.logging_protocols)
-o.history_list_keybind = utils.parse_json(o.history_list_keybind)
 o.history_resume_keybind = utils.parse_json(o.history_resume_keybind)
 o.history_load_last_keybind = utils.parse_json(o.history_load_last_keybind)
 o.list_move_up_keybind = utils.parse_json(o.list_move_up_keybind)
@@ -222,31 +170,19 @@ o.list_search_activate_keybind = utils.parse_json(o.list_search_activate_keybind
 o.list_search_not_typing_mode_keybind = utils.parse_json(o.list_search_not_typing_mode_keybind)
 o.next_filter_sequence_keybind = utils.parse_json(o.next_filter_sequence_keybind)
 o.previous_filter_sequence_keybind = utils.parse_json(o.previous_filter_sequence_keybind)
-o.recents_filter_inside_list_keybind = utils.parse_json(o.recents_filter_inside_list_keybind)
-o.recents_filter_outside_list_keybind = utils.parse_json(o.recents_filter_outside_list_keybind) --3.05#organized
-o.distinct_filter_inside_list_keybind = utils.parse_json(o.distinct_filter_inside_list_keybind)
-o.distinct_filter_outside_list_keybind = utils.parse_json(o.distinct_filter_outside_list_keybind)
-o.fileonly_filter_inside_list_keybind = utils.parse_json(o.fileonly_filter_inside_list_keybind)
-o.fileonly_filter_outside_list_keybind = utils.parse_json(o.fileonly_filter_outside_list_keybind)
-o.timeonly_filter_inside_list_keybind = utils.parse_json(o.timeonly_filter_inside_list_keybind)
-o.timeonly_filter_outside_list_keybind = utils.parse_json(o.timeonly_filter_outside_list_keybind)
-o.protocols_filter_inside_list_keybind = utils.parse_json(o.protocols_filter_inside_list_keybind)
-o.protocols_filter_outside_list_keybind = utils.parse_json(o.protocols_filter_outside_list_keybind)
-o.titleonly_filter_inside_list_keybind = utils.parse_json(o.titleonly_filter_inside_list_keybind)
-o.titleonly_filter_outside_list_keybind = utils.parse_json(o.titleonly_filter_outside_list_keybind)
-o.keywords_filter_inside_list_keybind = utils.parse_json(o.keywords_filter_inside_list_keybind)
-o.keywords_filter_outside_list_keybind = utils.parse_json(o.keywords_filter_outside_list_keybind)
-o.playing_filter_inside_list_keybind = utils.parse_json(o.playing_filter_inside_list_keybind)
-o.playing_filter_outside_list_keybind = utils.parse_json(o.playing_filter_outside_list_keybind)
+o.open_list_keybind = utils.parse_json(o.open_list_keybind) --64#parse for new option
+o.list_filter_jump_keybind = utils.parse_json(o.list_filter_jump_keybind) --64#parse for new option
 
 if o.log_path == '/:dir%mpvconf' then
 	o.log_path = mp.find_config_file('.')
 elseif o.log_path == '/:dir%script' then
 	o.log_path = debug.getinfo(1).source:match('@?(.*/)')
 end
-local history_log = utils.join_path(o.log_path, o.log_file)
+local log_fullpath = utils.join_path(o.log_path, o.log_file) --64#renamed to log_fullpath for consistency
 
+local log_time_text = 'time=' --The text that is stored for the video time inside log file. #64 Made it not user configurable as it could cause issues for pre-logged items
 local protocols = {'https?://', 'magnet:', 'rtmp:'}
+local available_filters = {'all', 'recents', 'distinct', 'protocols', 'fileonly', 'titleonly', 'timeonly', 'keywords'} --64# contains all available filters
 local search_string = ''
 local search_active = false
 
@@ -361,7 +297,7 @@ end
 ---------Start of LogReaderManager---------
 --LogReaderManager (Read and Format the List from Log)--
 function read_log(func)
-	local f = io.open(history_log, "r")
+	local f = io.open(log_fullpath, "r")
 	if not f then return end
 	list_contents = {}
 	for line in f:lines() do
@@ -377,12 +313,12 @@ function read_log_table()
 		local tt, p, t, s, d, n, e, l
 		if line:match('^.-\"(.-)\"') then
 			tt = line:match('^.-\"(.-)\"')
-			n, p = line:match('^.-\"(.-)\" | (.*) | ' .. esc_string(o.log_time_text) .. '(.*)')
+			n, p = line:match('^.-\"(.-)\" | (.*) | ' .. esc_string(log_time_text) .. '(.*)')
 		else
-			p = line:match('[(.*)%]]%s(.*) | ' .. esc_string(o.log_time_text) .. '(.*)')
+			p = line:match('[(.*)%]]%s(.*) | ' .. esc_string(log_time_text) .. '(.*)')
 			d, n, e = p:match('^(.-)([^\\/]-)%.([^\\/%.]-)%.?$')
 		end
-		t = line:match(' | ' .. esc_string(o.log_time_text) .. '(%d*%.?%d*)(.*)$')
+		t = line:match(' | ' .. esc_string(log_time_text) .. '(%d*%.?%d*)(.*)$')
 		l = line
 		line_pos = line_pos + 1
 		return {found_path = p, found_time = t, found_name = n, found_title = tt, found_line = l, found_sequence = line_pos, found_directory = d}
@@ -728,7 +664,7 @@ function list_empty_error_msg()
 end
 
 function display_list(filter, osd_hide)
-	if not filter then filter = o.main_list end
+	if not filter or not has_value(available_filters, filter) then filter = 'all' end --64#Convert wrong filters passed in cofiguration to all
 	
 	local prev_filter = filterName
 	filterName = filter
@@ -955,7 +891,7 @@ function delete_log_entry(multiple, round, target_path, target_time, entry_limit
 		end
 	end
 	
-	f = io.open(history_log, "w+")
+	f = io.open(log_fullpath, "w+")
 	if list_contents ~= nil and list_contents[1] then
 		for i = 1, #list_contents do
 			f:write(("%s\n"):format(list_contents[i].found_line))
@@ -1077,23 +1013,17 @@ function get_list_keybinds()
 		bind_keys(o.list_close_keybind, 'list-close', list_close_and_trash_collection)
 	end
 	
-	bind_keys(o.recents_filter_inside_list_keybind, 'recents-list-inside', function()display_list('recents') end)
-	bind_keys(o.distinct_filter_inside_list_keybind, 'distinct-list-inside', function()display_list('distinct') end)
-	bind_keys(o.fileonly_filter_inside_list_keybind, 'fileonly-list-inside', function()display_list('fileonly') end)
-	bind_keys(o.timeonly_filter_inside_list_keybind, 'timeonly-list-inside', function()display_list('timeonly') end)
-	bind_keys(o.protocols_filter_inside_list_keybind, 'protocols-list-inside', function()display_list('protocols') end)
-	bind_keys(o.titleonly_filter_inside_list_keybind, 'titleonly-list-inside', function()display_list('titleonly') end)
-	bind_keys(o.keywords_filter_inside_list_keybind, 'keywords-list-inside', function()display_list('keywords') end)
-	bind_keys(o.playing_filter_inside_list_keybind, 'playing-list-inside', function()display_list('playing') end)
-	
-	unbind_keys(o.recents_filter_outside_list_keybind, 'recents-list-outside')
-	unbind_keys(o.distinct_filter_outside_list_keybind, 'distinct-list-outside')	
-	unbind_keys(o.fileonly_filter_outside_list_keybind, 'fileonly-list-outside')
-	unbind_keys(o.timeonly_filter_outside_list_keybind, 'timeonly-list-outside')
-	unbind_keys(o.protocols_filter_outside_list_keybind, 'protocols-list-outside')
-	unbind_keys(o.titleonly_filter_outside_list_keybind, 'titleonly-list-outside')
-	unbind_keys(o.keywords_filter_outside_list_keybind, 'keywords-list-outside')
-	unbind_keys(o.playing_filter_outside_list_keybind, 'playing-list-outside')
+	for i = 1, #o.list_filter_jump_keybind do --64# bind list-filter-jump when list is open
+		mp.add_forced_key_binding(o.list_filter_jump_keybind[i][1], 'list-filter-jump'..i, function()display_list(o.list_filter_jump_keybind[i][2]) end)
+	end
+
+	for i = 1, #o.open_list_keybind do --64# unbind open-list when list is open
+		if i == 1 then
+			mp.remove_key_binding('open-list')
+		else
+			mp.remove_key_binding('open-list'..i)
+		end
+	end	
 	
 	if o.quickselect_0to9_keybind and o.list_show_amount <= 10 then
 		mp.add_forced_key_binding("1", "recent-1", function()load(list_start + 1) end)
@@ -1123,23 +1053,17 @@ function unbind_list_keys()
 	unbind_keys(o.next_filter_sequence_keybind, 'list-filter-next')
 	unbind_keys(o.previous_filter_sequence_keybind, 'list-filter-previous')
 	
-	unbind_keys(o.recents_filter_inside_list_keybind, 'recents-list-inside')
-	unbind_keys(o.distinct_filter_inside_list_keybind, 'distinct-list-inside')
-	unbind_keys(o.fileonly_filter_inside_list_keybind, 'fileonly-list-inside')
-	unbind_keys(o.timeonly_filter_inside_list_keybind, 'timeonly-list-inside')
-	unbind_keys(o.protocols_filter_inside_list_keybind, 'protocols-list-inside')
-	unbind_keys(o.titleonly_filter_inside_list_keybind, 'titleonly-list-inside')
-	unbind_keys(o.keywords_filter_inside_list_keybind, 'keywords-list-inside')
-	unbind_keys(o.playing_filter_inside_list_keybind, 'playing-list-inside')
-	
-	bind_keys(o.recents_filter_outside_list_keybind, 'recents-list-outside', function()display_list('recents') end)
-	bind_keys(o.distinct_filter_outside_list_keybind, 'distinct-list-outside', function()display_list('distinct') end)
-	bind_keys(o.fileonly_filter_outside_list_keybind, 'fileonly-list-outside', function()display_list('fileonly') end)
-	bind_keys(o.timeonly_filter_outside_list_keybind, 'timeonly-list-outside', function()display_list('timeonly') end)
-	bind_keys(o.protocols_filter_outside_list_keybind, 'protocols-list-outside', function()display_list('protocols') end)
-	bind_keys(o.titleonly_filter_outside_list_keybind, 'titleonly-list-outside', function()display_list('titleonly') end)
-	bind_keys(o.keywords_filter_outside_list_keybind, 'keywords-list-outside', function()display_list('keywords') end)
-	bind_keys(o.playing_filter_outside_list_keybind, 'playing-list-outside', function()display_list('playing') end)
+	for i = 1, #o.list_filter_jump_keybind do --64#unbind list-filter-jump when list is closed
+		mp.remove_key_binding('list-filter-jump'..i)
+	end
+
+	for i = 1, #o.open_list_keybind do --64#bind open-list when list is closed
+		if i == 1 then
+			mp.add_forced_key_binding(o.open_list_keybind[i][1], 'open-list', function()display_list(o.open_list_keybind[i][2]) end)
+		else
+			mp.add_forced_key_binding(o.open_list_keybind[i][1], 'open-list'..i, function()display_list(o.open_list_keybind[i][2]) end)
+		end
+	end
 	
 	if o.quickselect_0to9_keybind and o.list_show_amount <= 10 then
 		mp.remove_key_binding("recent-1")
@@ -1501,15 +1425,15 @@ function write_log(target_time, update_seekTime, entry_limit)
 	
 	delete_log_entry(false, true, filePath, math.floor(seekTime), entry_limit)
 
-	f = io.open(history_log, "a+")
+	f = io.open(log_fullpath, "a+")
 	if o.file_title_logging == 'all' then
-		f:write(("[%s] \"%s\" | %s | %s"):format(os.date(o.date_format), fileTitle, filePath, o.log_time_text .. tostring(seekTime)))
+		f:write(("[%s] \"%s\" | %s | %s"):format(os.date(o.date_format), fileTitle, filePath, log_time_text .. tostring(seekTime)))
 	elseif o.file_title_logging == 'protocols' and (starts_protocol(o.logging_protocols, filePath)) then
-		f:write(("[%s] \"%s\" | %s | %s"):format(os.date(o.date_format), fileTitle, filePath, o.log_time_text .. tostring(seekTime)))
+		f:write(("[%s] \"%s\" | %s | %s"):format(os.date(o.date_format), fileTitle, filePath, log_time_text .. tostring(seekTime)))
 	elseif o.file_title_logging == 'protocols' and not (starts_protocol(o.logging_protocols, filePath)) then
-		f:write(("[%s] %s | %s"):format(os.date(o.date_format), filePath, o.log_time_text .. tostring(seekTime)))
+		f:write(("[%s] %s | %s"):format(os.date(o.date_format), filePath, log_time_text .. tostring(seekTime)))
 	else
-		f:write(("[%s] %s | %s"):format(os.date(o.date_format), filePath, o.log_time_text .. tostring(seekTime)))
+		f:write(("[%s] %s | %s"):format(os.date(o.date_format), filePath, log_time_text .. tostring(seekTime)))
 	end
 
 	f:write('\n')
@@ -1608,19 +1532,6 @@ function history_load_last()
 	end
 end
 
-if o.auto_run_list_idle == 'all'
-	or o.auto_run_list_idle == 'recents'
-	or o.auto_run_list_idle == 'distinct'
-	or o.auto_run_list_idle == 'protocols'
-	or o.auto_run_list_idle == 'fileonly'
-	or o.auto_run_list_idle == 'titleonly'
-	or o.auto_run_list_idle == 'timeonly'
-	or o.auto_run_list_idle == 'keywords' then
-	mp.observe_property("idle-active", "bool", function(_, v)
-		if v then display_list(o.auto_run_list_idle, true) end
-	end)
-end
-
 mp.register_event('file-loaded', function()
 	list_close_and_trash_collection()
 	filePath, fileTitle = get_path()
@@ -1638,16 +1549,19 @@ mp.add_hook('on_unload', 50, function()
 	history_save()
 end)
 
+if has_value(available_filters, o.auto_run_list_idle) then --64#use available filters instead
+	mp.observe_property("idle-active", "bool", function(_, v)
+		if v then display_list(o.auto_run_list_idle, true) end
+	end)
+end
 
-bind_keys(o.history_list_keybind, 'display-list', display_list) --3.06#renamed to display-list to make consistency for all scripts
 bind_keys(o.history_resume_keybind, 'history-resume', history_resume)
 bind_keys(o.history_load_last_keybind, 'history-load-last', history_load_last)
 
-bind_keys(o.recents_filter_outside_list_keybind, 'recents-list-outside', function()display_list('recents') end)
-bind_keys(o.distinct_filter_outside_list_keybind, 'distinct-list-outside', function()display_list('distinct') end)
-bind_keys(o.fileonly_filter_outside_list_keybind, 'fileonly-list-outside', function()display_list('fileonly') end)
-bind_keys(o.timeonly_filter_outside_list_keybind, 'timeonly-list-outside', function()display_list('timeonly') end)
-bind_keys(o.protocols_filter_outside_list_keybind, 'protocols-list-outside', function()display_list('protocols') end)
-bind_keys(o.titleonly_filter_outside_list_keybind, 'titleonly-list-outside', function()display_list('titleonly') end)
-bind_keys(o.keywords_filter_outside_list_keybind, 'keywords-list-outside', function()display_list('keywords') end)
-bind_keys(o.playing_filter_outside_list_keybind, 'playing-list-outside', function()display_list('playing') end)
+for i = 1, #o.open_list_keybind do --#64 Binds list along with filter
+	if i == 1 then
+		mp.add_forced_key_binding(o.open_list_keybind[i][1], 'open-list', function()display_list(o.open_list_keybind[i][2]) end)
+	else
+		mp.add_forced_key_binding(o.open_list_keybind[i][1], 'open-list'..i, function()display_list(o.open_list_keybind[i][2]) end)
+	end
+end

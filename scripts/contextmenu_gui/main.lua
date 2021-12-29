@@ -491,9 +491,9 @@ menuList = {
         {COMMAND, "【外置脚本】地址", "CTRL+O", "script-binding open_dialog/import_url", "", false},
         {COMMAND, "【外置脚本】加载最后播放文件", "CTRL+l", "script-binding simplehistory/history-load-last", "", false},
         {COMMAND, "【外置脚本】加载最后播放文件及进度", "CTRL+L", "script-binding simplehistory/history-resume", "", false},
-        {COMMAND, "【外部脚本】打开剪贴菜单", "ALT+w", "script-binding smartcopypaste_II/display-list", "", false},
-        {COMMAND, "【外置脚本】打开书签菜单", "N", "script-binding simplebookmark/display-list", "", false},
-        {COMMAND, "【外置脚本】打开历史菜单", "`", "script-binding simplehistory/display-list", "", false},
+        {COMMAND, "【外部脚本】打开剪贴菜单", "ALT+w", "script-binding smartcopypaste_II/open-list", "", false},
+        {COMMAND, "【外置脚本】打开书签菜单", "N", "script-binding simplebookmark/open-list", "", false},
+        {COMMAND, "【外置脚本】打开历史菜单", "`", "script-binding simplehistory/open-list", "", false},
         {COMMAND, "【外置脚本】内置文件浏览器", "Tab", "script-message browse-files", "", false},
     },
 
@@ -562,7 +562,7 @@ mp.register_event("file-loaded", function()
         open_menu = {
             {COMMAND, "【外置脚本】文件", "CTRL+o", "script-binding open_dialog/import_files", "", false},
             {COMMAND, "【外置脚本】地址", "CTRL+O", "script-binding open_dialog/import_url", "", false},
-            {COMMAND, "【外置脚本】打开历史菜单", "`", "script-binding simplehistory/display-list", "", false},
+            {COMMAND, "【外置脚本】打开历史菜单", "`", "script-binding simplehistory/open-list", "", false},
             {COMMAND, "【外置脚本】内置文件浏览器", "Tab", "script-message browse-files", "", false},
             {SEP},
             {COMMAND, "【外置脚本】加载其他字幕（切换）", "ALT+e", "script-binding open_dialog/append_sid", "", false},
@@ -630,7 +630,7 @@ mp.register_event("file-loaded", function()
 
 -- 三级菜单 —— 书签
         bookmarker_menu = {
-            {COMMAND, "打开书签菜单", "N", "script-binding simplebookmark/display-list", "", false},
+            {COMMAND, "打开书签菜单", "N", "script-binding simplebookmark/open-list", "", false},
             {COMMAND, "添加进度书签", "CTRL+n", "script-binding simplebookmark/bookmark-save", "", false},
             {COMMAND, "添加文件书签", "ALT+n", "script-binding simplebookmark/bookmark-fileonly", "", false},
         },
@@ -877,7 +877,7 @@ mp.register_event("file-loaded", function()
 
 -- 三级菜单 —— 视频剪贴功能
         copy_menu = {
-            {COMMAND, "【外部脚本】打开剪贴菜单", "ALT+w", "script-binding smartcopypaste_II/display-list", "", false},
+            {COMMAND, "【外部脚本】打开剪贴菜单", "ALT+w", "script-binding smartcopypaste_II/open-list", "", false},
             {COMMAND, "【外部脚本】复制视频路径", "CTRL+ALT+c", "script-binding smartcopypaste_II/copy-specific", "", false},
             {COMMAND, "【外部脚本】复制视频路径及进度", "CTRL+c", "script-binding smartcopypaste_II/copy", "", false},
             {COMMAND, "【外部脚本】跳转到复制的视频", "CTRL+v", "script-binding smartcopypaste_II/paste", "", false},
