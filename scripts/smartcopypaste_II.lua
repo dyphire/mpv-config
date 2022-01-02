@@ -22,6 +22,8 @@ local o = {
 	osd_messages = true, --true is for displaying osd messages when actions occur. Change to false will disable all osd messages generated from this script
 	mark_clipboard_as_chapter = false, --true is for marking the time as a chapter. false disables mark as chapter behavior.
 	copy_time_method = 'all', --Option to copy time with video, 'none' for disabled, 'all' to copy time for all videos, 'protocols' for copying time only for protocols, 'specifics' to copy time only for websites defined below, 'local' to copy time for videos that are not protocols
+	log_paste_idle_behavior = 'force-noresume', --Behavior of paste when nothing valid is copied, and no video is running. select between 'force', 'force-noresume'
+	log_paste_running_behavior = 'timestamp>playlist', --Behavior of paste when nothing valid is copied, and a video is running. select between 'timestamp>playlist', 'timestamp>force', 'timestamp', 'playlist', 'force', 'force-noresume'
 	specific_time_attributes=[[
 	[ ["twitter", "?t=", ""], ["twitch", "?t=", "s"], ["youtube", "&t=", "s"] ]
 	]], --The time attributes which will be added when copying protocols of specific websites from this list. Additional attributes can be added following the same format.
@@ -1863,7 +1865,111 @@ function trigger_paste_action(action) --3.0#Use paste action function instead of
 		end
 		mp.commandv('loadfile', clip_file, 'append-play')
 		msg.info("Pasted the below into playlist and added it to the log file:\n"..clip_file)
+		--12#fixing writing log when pasting to playlist
+		local temp_filePath = filePath --12#make temporary filePath to restore original filePath after writing log
+		filePath = clip_file --12#Change filepath to clip_file for writing log
 		write_log(0, false, o.same_entry_limit, 'paste')
+		filePath = temp_filePath --12#revert filePath to original
+	end
+	
+	if action == 'log-force' then
+		get_list_contents('all', 'added-asc') --12#attempt to load last item in log file when there is error
+		load(1)
+		if seekTime > 0 then
+			mp.osd_message("Pasted From Log:\n"..list_contents[#list_contents - 1 + 1].found_path..o.time_seperator..format_time(list_contents[#list_contents - 1 + 1].found_time))
+			msg.info("Pasted the below from log file into mpv:\n"..list_contents[#list_contents - 1 + 1].found_path..o.time_seperator..format_time(list_contents[#list_contents - 1 + 1].found_time))
+		else
+			mp.osd_message("Pasted From Log:\n"..list_contents[#list_contents - 1 + 1].found_path)
+			msg.info("Pasted the below from log file into mpv:\n"..list_contents[#list_contents - 1 + 1].found_path)
+		end
+	end
+	
+	if action == 'log-force-noresume' then
+		get_list_contents('all', 'added-asc') --12#attempt to load last item in log file when there is error
+		if not list_contents or not list_contents[1] then return end --12# exit function if log file is empty, otherwise proceed
+		load(1, false, 0)
+		mp.osd_message("Pasted From Log:\n"..list_contents[#list_contents - 1 + 1].found_path)
+		msg.info("Pasted the below from log file into mpv:\n"..list_contents[#list_contents - 1 + 1].found_path)
+	end
+	
+	if action == 'log-playlist' then
+		get_list_contents('all', 'added-asc') --12#attempt to load last item in log file when there is error
+		if not list_contents or not list_contents[1] then return end --12# exit function if log file is empty, otherwise proceed
+		load(1, true)
+		mp.osd_message("Pasted From Log To Playlist:\n"..list_contents[#list_contents - 1 + 1].found_path)
+		msg.info("Pasted the below from log file into mpv playlist:\n"..list_contents[#list_contents - 1 + 1].found_path)
+	end
+	
+	if action == 'log-timestamp' then
+		get_list_contents('all', 'added-asc')
+		if not list_contents or not list_contents[1] then return end --12# exit function if log file is empty, otherwise proceed
+		local log_time = 0
+		for i = #list_contents, 1, -1 do
+			if list_contents[i].found_path == filePath and tonumber(list_contents[i].found_time) > 0 then
+				log_time = tonumber(list_contents[i].found_time) + o.resume_offset
+				break
+			end
+		end
+		if log_time > 0 then
+			mp.commandv('seek', log_time, 'absolute', 'exact')
+			if (o.osd_messages == true) then
+				mp.osd_message('Pasted Time From Log' .. o.time_seperator .. format_time(log_time))
+			end
+			msg.info('Pasted resume time of video from the log file: '..format_time(log_time))
+		else
+			list_contents = nil --12# clears out list_contents so error message shows
+		end
+	end
+	
+	if action == 'log-timestamp>playlist' then --12# when there is seekTime found for video then seek, otherwise add the latest pasted item to playlist
+		get_list_contents('all', 'added-asc')
+		if not list_contents or not list_contents[1] then return end --12# exit function if log file is empty, otherwise proceed
+		local log_time = 0
+		for i = #list_contents, 1, -1 do
+			if list_contents[i].found_path == filePath and tonumber(list_contents[i].found_time) > 0 then
+				log_time = tonumber(list_contents[i].found_time) + o.resume_offset
+				break
+			end
+		end
+		if log_time > 0 then
+			mp.commandv('seek', log_time, 'absolute', 'exact')
+			if (o.osd_messages == true) then
+				mp.osd_message('Pasted Time From Log' .. o.time_seperator .. format_time(log_time))
+			end
+			msg.info('Pasted resume time of video from the log file: '..format_time(log_time))
+		else
+			load(1, true)
+			mp.osd_message("Pasted From Log To Playlist:\n"..list_contents[#list_contents - 1 + 1].found_path)
+			msg.info("Pasted the below from log file into mpv playlist:\n"..list_contents[#list_contents - 1 + 1].found_path)
+		end
+	end
+	
+	if action == 'log-timestamp>force' then --12# when there is seekTime found for video then seek, otherwise add the latest pasted item to playlist
+		get_list_contents('all', 'added-asc')
+		if not list_contents or not list_contents[1] then return end --12# exit function if log file is empty, otherwise proceed
+		local log_time = 0
+		for i = #list_contents, 1, -1 do
+			if list_contents[i].found_path == filePath and tonumber(list_contents[i].found_time) > 0 then
+				log_time = tonumber(list_contents[i].found_time) + o.resume_offset
+				break
+			end
+		end
+		if log_time > 0 then
+			mp.commandv('seek', log_time, 'absolute', 'exact')
+			if (o.osd_messages == true) then
+				mp.osd_message('Pasted Time From Log' .. o.time_seperator .. format_time(log_time))
+			end
+			msg.info('Pasted resume time of video from the log file: '..format_time(log_time))
+		else
+			load(1)
+			if seekTime > 0 then
+				mp.osd_message("Pasted From Log:\n"..list_contents[#list_contents - 1 + 1].found_path..o.time_seperator..format_time(list_contents[#list_contents - 1 + 1].found_time))
+				msg.info("Pasted the below from log file into mpv:\n"..list_contents[#list_contents - 1 + 1].found_path..o.time_seperator..format_time(list_contents[#list_contents - 1 + 1].found_time))
+			else
+				mp.osd_message("Pasted From Log:\n"..list_contents[#list_contents - 1 + 1].found_path)
+				msg.info("Pasted the below from log file into mpv:\n"..list_contents[#list_contents - 1 + 1].found_path)
+			end
+		end
 	end
 	
 	--3.0#Error Messages
@@ -1936,9 +2042,15 @@ function paste()
 		elseif file_exists(clip_file) and has_value(o.paste_subtitles, currentVideoExtension) then --3.0# Error message if loading subtitle when no video is running
 			trigger_paste_action('error-subtitle')
 		elseif not has_value(o.paste_extensions, currentVideoExtension) then --3.0# If pasting unsupported item then error message
-			trigger_paste_action('error-unsupported')
+			trigger_paste_action('log-'..o.log_paste_idle_behavior)
+			if not list_contents or not list_contents[1] then --12# if there is no item in log then show error message
+				trigger_paste_action('error-unsupported')
+			end
 		elseif not file_exists(clip_file) then --3.0# Error message if file doesn't exist --The condition above it ensures that this paste is supported extension
-			trigger_paste_action('error-missing')
+			trigger_paste_action('log-'..o.log_paste_idle_behavior)
+			if not list_contents or not list_contents[1] then --12# if there is no item in log then show error message
+				trigger_paste_action('error-missing')
+			end
 		end
 	else --3.0# If pasting while file is running
 		if file_exists(clip_file) and has_value(o.paste_subtitles, currentVideoExtension) then --3.0#Option to paste subtitle files (the general stuff first that doesn't require checking paste_behavior)
@@ -1952,9 +2064,15 @@ function paste()
 			elseif clip_time ~= nil then --3.0# Seek if file doesn't exist or if clip_time exists from clipboard
 				trigger_paste_action('file-seek')
 			elseif not has_value(o.paste_extensions, currentVideoExtension) then --3.0# If pasting unsupported item then error message
-				trigger_paste_action('error-unsupported')
+				trigger_paste_action('log-'..o.log_paste_running_behavior)--12# when paste is not valid, then paste from log file based on behavior specified
+				if not list_contents or not list_contents[1] then --12# if there is no item in log then show error message
+					trigger_paste_action('error-unsupported')
+				end
 			elseif not file_exists(clip_file) then --3.0# Error message if file doesn't exist --The condition above it ensures that this paste is supported extension
-				trigger_paste_action('error-missing')
+				trigger_paste_action('log-'..o.log_paste_running_behavior)--12# when paste is not valid, then paste from log file based on behavior specified
+				if not list_contents or not list_contents[1] then --12# if there is no item in log then show error message
+					trigger_paste_action('error-missing')
+				end
 			end
 		elseif o.running_paste_behavior == 'timestamp' then--3.0# If the method is timestamp
 			if clip_time ~= nil then --3.0#jump to copied time when pasting '?t=10' alone should work, or if clipboard has a different video but contains time then go to that time
@@ -1963,9 +2081,15 @@ function paste()
 			or starts_protocol(o.paste_protocols, clip_file) then --3.0#Add pasted file to playlist when no copied item is found (this will only trigger if no time in clipboard because of the above)
 				trigger_paste_action('add-playlist')
 			elseif not has_value(o.paste_extensions, currentVideoExtension) then --3.0# If pasting unsupported item then error message
-				trigger_paste_action('error-unsupported')
+				trigger_paste_action('log-'..o.log_paste_running_behavior)--12# when paste is not valid, then paste from log file based on behavior specified
+				if not list_contents or not list_contents[1] then --12# if there is no item in log then show error message			
+					trigger_paste_action('error-unsupported')
+				end
 			elseif not file_exists(clip_file) then --3.0# Error message if file doesn't exist --The condition above it ensures that this paste is supported extension
-				trigger_paste_action('error-missing')
+				trigger_paste_action('log-'..o.log_paste_running_behavior)--12# when paste is not valid, then paste from log file based on behavior specified
+				if not list_contents or not list_contents[1] then --12# if there is no item in log then show error message				
+					trigger_paste_action('error-missing')
+				end
 			end
 		elseif o.running_paste_behavior == 'force' then
 			if filePath ~= clip_file and file_exists(clip_file) and has_value(o.paste_extensions, currentVideoExtension) 
@@ -1977,9 +2101,15 @@ function paste()
 			or filePath == clip_file and starts_protocol(o.paste_protocols, clip_file) then --3.0# If its the same file, then add to playlist if there is no time (no need to check time == nil because the above handles finding the time)
 				trigger_paste_action('add-playlist')
 			elseif not has_value(o.paste_extensions, currentVideoExtension) then --3.0# If pasting unsupported item then error message
-				trigger_paste_action('error-unsupported')
+				trigger_paste_action('log-'..o.log_paste_running_behavior)--12# when paste is not valid, then paste from log file based on behavior specified
+				if not list_contents or not list_contents[1] then --12# if there is no item in log then show error message			
+					trigger_paste_action('error-unsupported')
+				end
 			elseif not file_exists(clip_file) then --3.0# Error message if file doesn't exist --The condition above it ensures that this paste is supported extension
-				trigger_paste_action('error-missing')
+				trigger_paste_action('log-'..o.log_paste_running_behavior)--12# when paste is not valid, then paste from log file based on behavior specified
+				if not list_contents or not list_contents[1] then --12# if there is no item in log then show error message
+					trigger_paste_action('error-missing')
+				end
 			end
 		end
 	end	
