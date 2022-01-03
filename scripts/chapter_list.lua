@@ -8,7 +8,9 @@
 local mp = require 'mp'
 local opts = require("mp.options")
 
-local settings = { 
+local settings = {
+    header = "Chapter List \\N ------------------------------------",
+    wrap = true,
     key_scroll_down = "DOWN WHEEL_DOWN",
     key_scroll_up = "UP WHEEL_UP",
     key_open_chapter = "ENTER MBTN_LEFT",
@@ -21,7 +23,8 @@ opts.read_options(settings, "chapter_list")
 local list = dofile(mp.command_native({"expand-path", "~~/script-modules/scroll-list.lua"}))
 
 --modifying the list settings
-list.header = "Chapter List \\N ------------------------------------"
+list.header = settings.header
+list.wrap = settings.wrap
 
 --jump to the selected chapter
 local function open_chapter()
@@ -61,6 +64,7 @@ local function add_keys(keys, name, fn, flags)
       i = i + 1
     end
 end
+
 add_keys(settings.key_scroll_down, 'scroll_down', function() list:scroll_down() end, {repeatable = true})
 add_keys(settings.key_scroll_up, 'scroll_up', function() list:scroll_up() end, {repeatable = true})
 add_keys(settings.key_open_chapter, 'open_chapter', open_chapter, {})

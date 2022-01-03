@@ -83,6 +83,11 @@
     "dest":"~~/scripts"
   },
   {
+    "git":"https://github.com/CogentRedTester/mpv-scroll-list",
+    "whitelist":"scroll%-list%.lua$",
+    "dest":"~~/script-modules"
+  },
+  {
     "git":"https://github.com/CogentRedTester/mpv-user-input",
     "whitelist":"user%-input%-module%.lua$",
     "dest":"~~/script-modules"
