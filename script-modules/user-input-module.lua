@@ -18,15 +18,17 @@ local counter = 1
 
 -- sends a request to ask the user for input using formatted options provided
 -- creates a script message to recieve the response and call fn
-function mod.get_user_input(fn, options)
+function mod.get_user_input(fn, options, ...)
     options = options or {}
     local response_string = name.."/__user_input_request/"..counter
     counter = counter + 1
 
+    local passthrough_args = ... and {...} or nil
+
     -- create a callback for user-input to respond to
     mp.register_script_message(response_string, function(input, err)
         mp.unregister_script_message(response_string)
-        fn(err == "" and input or nil, err)
+        fn(err == "" and input or nil, err, passthrough_args and unpack(passthrough_args))
     end)
 
     -- send the input command
