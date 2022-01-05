@@ -26,6 +26,6 @@ PS：自行编辑配置文件时，注意编码格式应为 UTF-8，换行符为
 
 参考：
 
-* [mpv 原版官方的开发版手册（英文）](https://mpv.io/manual/master/)
 * [hooke007 配置手册](https://hooke007.github.io/mpv-lazy/mpv.html)
-
+* [mpv 原版官方的开发版手册（英文）](https://mpv.io/manual/master/)
+* [mpv 官方文档的汉化版-hooke007](https://github.com/hooke007/mpv_doc-CN)
