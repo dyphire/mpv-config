@@ -503,7 +503,7 @@ menuList = {
         {CHECK, "窗口边框", "ALT+B", "cycle border", function() return propNative("border") end, false},
         {CHECK, "全屏", "ENTER", "cycle fullscreen", function() return propNative("fullscreen") end, false},
         {SEP},
-        {COMMAND, "【外置脚本】开/关 进度条预览", "CTRL+t", "cycle-values script-opts thumbnailer-auto_gen=no,thumbnailer-auto_show=no thumbnailer-auto_gen=yes,thumbnailer-auto_show=yes", "", false},
+        {COMMAND, "【外置脚本】开/关 进度条预览", "CTRL+T", "cycle-values script-opts thumbnailer-auto_gen=no,thumbnailer-auto_show=no thumbnailer-auto_gen=yes,thumbnailer-auto_show=yes", "", false},
     },
 
 -- 二级菜单 —— 其它
@@ -656,12 +656,13 @@ mp.register_event("file-loaded", function()
             {COMMAND, "重置", "ALT+BS", "set video-zoom 0;set panscan 0;set video-rotate 0;set video-pan-x 0;set video-pan-y 0", "", false},
             {SEP},
             {CHECK, "自动ICC校色", "CTRL+I", "cycle icc-profile-auto", function() return propNative("icc-profile-auto") end, false},
-            {CHECK, "色域裁剪", "CTRL+g", "cycle gamut-clipping", function() return propNative("gamut-clipping") end, false},
+            {COMMAND, "切换 色调映射基准", "CTRL+t", "cycle tone-mapping-mode", "", false},
+            {COMMAND, "切换 色域剪切方式", "CTRL+g", "cycle gamut-mapping-mode", "", false},
             {COMMAND, "切换 gamma环境系数", "G", "cycle-values gamma-factor 1.1 1.2 1.0", "", false},
-            {COMMAND, "切换 hdr映射曲线 ", "h", "cycle-values tone-mapping mobius reinhard hable bt.2390 gamma", "", false},
+            {COMMAND, "切换 hdr映射曲线 ", "h", "cycle-values tone-mapping auto mobius reinhard hable bt.2390 gamma spline bt.2446a", "", false},
             {COMMAND, "切换 hdr动态映射", "ALT+h", "cycle-values hdr-compute-peak yes no", "", false},
             {SEP},
-            {COMMAND, "【外置脚本】开/关 进度条预览", "CTRL+t", "cycle-values script-opts thumbnailer-auto_gen=no,thumbnailer-auto_show=no thumbnailer-auto_gen=yes,thumbnailer-auto_show=yes", "", false},
+            {COMMAND, "【外置脚本】开/关 进度条预览", "CTRL+T", "cycle-values script-opts thumbnailer-auto_gen=no,thumbnailer-auto_show=no thumbnailer-auto_gen=yes,thumbnailer-auto_show=yes", "", false},
         },
 
 -- 三级菜单 —— 长宽比
@@ -911,7 +912,6 @@ mp.register_event("file-loaded", function()
             {COMMAND, "切换 Tscale配置", "F", "apply-profile Tscale;show-text Tscale", "", false},
             {COMMAND, "切换 Tscale+配置", "f", "apply-profile Tscale+;show-text Tscale+", "", false},
             {COMMAND, "切换 Dither配置", "", "apply-profile Dither;show-text Dither", "", false},
-            {COMMAND, "切换 Dither+配置", "", "apply-profile Dither+;show-text Dither+", "", false},
         },
 
 -- 二级菜单 —— 关于
