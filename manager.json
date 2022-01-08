@@ -21,12 +21,6 @@
     "branch":"main"
   },
   {
-    "git":"https://github.com/zhongfly/mpv-conf",
-    "whitelist":"ontop%_playback%.lua$",
-    "dest":"~~/scripts",
-    "branch":"main"
-  },
-  {
     "git":"https://github.com/snylonue/mpv_slicing_copy",
     "whitelist":"%.lua$",
     "dest":"~~/scripts"
