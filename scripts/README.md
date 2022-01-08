@@ -15,6 +15,7 @@
 | cycle_adevice.lua | 快捷键切换音频输出设备 |
 | delete_file.lua | 退出时删除标记文件 |
 | dynamic-crop.lua | 自动检测黑边并裁切（[autocrop.lua](https://github.com/mpv-player/mpv/blob/master/TOOLS/lua/autocrop.lua) 改进版；配置文件 [dynamic_crop.conf](../script-opts/dynamic_crop.conf)） |
+| display-profiles.lua | 实现mpv窗口按显示器自动切换参数及配置文件，详见脚本内说明 |
 | file-browser.lua | 内置文件浏览器（依赖 [user-input.lua](../scripts/user-input.lua); [user-input-module.lua](../script-modules/user-input-module.lua) ；配置文件 [file_browser.conf](../script-opts/file_browser.conf)） |
 | fuzzydir.lua | 外挂音轨/字幕路径检测增强 |
 | history-bookmark.lua | 记录并恢复视频目录播放记录（可确认是否恢复该目录上次播放进度） |
@@ -25,6 +26,7 @@
 | open_dialog.lua | 快捷键载入文件/网址/其他字幕或音轨/高级次字幕                  |
 | ordered-chapters-playlist.lua | 有序章节播放列表 |
 | persist_properties.lua | 保存预设值（如音量）（配置文件 [persist_properties.conf](../script-opts/persist_properties.conf)） |
+| pause-indicator.lua | 在 mpv 暂停时在屏幕中间显示暂停图标 |
 | playlistmanager.lua | 高级播放列表（配置文件 [playlistmanager.conf](../script-opts/playlistmanager.conf)） |
 | segment-linking.lua | 实现对 matroska [硬段链接](https://www.ietf.org/archive/id/draft-ietf-cellar-matroska-06.html#name-hard-linking) 的支持（依赖  [read-file.lua](../script-modules/read-file.lua)；配置文件 [segment_linking.conf](../script-opts/segment_linking.conf)） |
 | skiptosilence.lua | 跳至播放文件的下一个静音位置（另类地实现跳 op 的方法；配置文件 [skiptosilence.conf](../script-opts/skiptosilence.conf)） |
