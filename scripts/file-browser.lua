@@ -173,7 +173,7 @@ local subtitle_extensions = {
 
 --creating a set of audio extensions for custom audio loading behaviour
 local audio_extension_list = {
-    "mka","dts","dtshd","dts-hd","truehd","true-hd"
+    "mka","flac","dts","dtshd","dts-hd","truehd","true-hd"
 }
 
 --------------------------------------------------------------------------------------------------------
