@@ -200,7 +200,7 @@ local function prev_utf8(str, pos)
     return pos
 end
 
--- Insert a character at the current cursor position (any_unicode, Shift+Enter)
+-- Insert a character at the current cursor position (any_unicode)
 local function handle_char_input(c)
     if insert_mode then
         line = line:sub(1, cursor - 1) .. c .. line:sub(next_utf8(line, cursor))
@@ -256,8 +256,8 @@ end
 -- Close the REPL if the current line is empty, otherwise do nothing (Ctrl+D)
 local function maybe_exit()
     if line == '' then
-        send_response(false, "exitted")
-        queue:pop()
+    else
+        handle_del()
     end
 end
 
@@ -354,7 +354,7 @@ local function go_end()
     update()
 end
 
--- Delete from the cursor to the end of the word (Ctrl+W)
+-- Delete from the cursor to the beginning of the word (Ctrl+Backspace)
 local function del_word()
     local before_cur = line:sub(1, cursor - 1)
     local after_cur = line:sub(cursor)
@@ -362,6 +362,18 @@ local function del_word()
     before_cur = before_cur:gsub('[^%s]+%s*$', '', 1)
     line = before_cur .. after_cur
     cursor = before_cur:len() + 1
+    update()
+end
+
+-- Delete from the cursor to the end of the word (Ctrl+Del)
+local function del_next_word()
+    if cursor > line:len() then return end
+
+    local before_cur = line:sub(1, cursor - 1)
+    local after_cur = line:sub(cursor)
+
+    after_cur = after_cur:gsub('^%s*[^%s]+', '', 1)
+    line = before_cur .. after_cur
     update()
 end
 
@@ -448,39 +460,53 @@ end
 -- bindings and readline bindings.
 local function get_bindings()
     local bindings = {
-        { 'esc',         handle_esc                                 },
-        { 'enter',       handle_enter                               },
-        { 'kp_enter',    handle_enter                               },
-        { 'shift+enter', function() handle_char_input('\n') end     },
-        { 'bs',          handle_backspace                           },
-        { 'shift+bs',    handle_backspace                           },
-        { 'del',         handle_del                                 },
-        { 'shift+del',   handle_del                                 },
-        { 'ins',         handle_ins                                 },
-        { 'shift+ins',   function() paste(false) end                },
-        { 'mbtn_mid',    function() paste(false) end                },
-        { 'left',        function() prev_char() end                 },
-        { 'right',       function() next_char() end                 },
-        { 'up',          function() move_history(-1) end            },
-        { 'wheel_up',    function() move_history(-1) end            },
-        { 'down',        function() move_history(1) end             },
-        { 'wheel_down',  function() move_history(1) end             },
-        { 'wheel_left',  function() end                             },
-        { 'wheel_right', function() end                             },
-        { 'ctrl+left',   prev_word                                  },
-        { 'ctrl+right',  next_word                                  },
-        { 'home',        go_home                                    },
-        { 'end',         go_end                                     },
-        { 'pgup',        handle_pgup                                },
-        { 'pgdwn',       handle_pgdown                              },
-        { 'ctrl+c',      clear                                      },
-        { 'ctrl+d',      maybe_exit                                 },
-        { 'ctrl+k',      del_to_eol                                 },
-        { 'ctrl+u',      del_to_start                               },
-        { 'ctrl+v',      function() paste(true) end                 },
-        { 'meta+v',      function() paste(true) end                 },
-        { 'ctrl+w',      del_word                                   },
-        { 'kp_dec',      function() handle_char_input('.') end      },
+        { 'esc',         handle_esc                             },
+        { 'enter',       handle_enter                           },
+        { 'kp_enter',    handle_enter                           },
+        { 'shift+enter', function() handle_char_input('\n') end },
+        { 'ctrl+j',      handle_enter                           },
+        { 'ctrl+m',      handle_enter                           },
+        { 'bs',          handle_backspace                       },
+        { 'shift+bs',    handle_backspace                       },
+        { 'ctrl+h',      handle_backspace                       },
+        { 'del',         handle_del                             },
+        { 'shift+del',   handle_del                             },
+        { 'ins',         handle_ins                             },
+        { 'shift+ins',   function() paste(false) end            },
+        { 'mbtn_mid',    function() paste(false) end            },
+        { 'left',        function() prev_char() end             },
+        { 'ctrl+b',      function() prev_char() end             },
+        { 'right',       function() next_char() end             },
+        { 'ctrl+f',      function() next_char() end             },
+        { 'up',          function() move_history(-1) end        },
+        { 'ctrl+p',      function() move_history(-1) end        },
+        { 'wheel_up',    function() move_history(-1) end        },
+        { 'down',        function() move_history(1) end         },
+        { 'ctrl+n',      function() move_history(1) end         },
+        { 'wheel_down',  function() move_history(1) end         },
+        { 'wheel_left',  function() end                         },
+        { 'wheel_right', function() end                         },
+        { 'ctrl+left',   prev_word                              },
+        { 'alt+b',       prev_word                              },
+        { 'ctrl+right',  next_word                              },
+        { 'alt+f',       next_word                              },
+        { 'ctrl+a',      go_home                                },
+        { 'home',        go_home                                },
+        { 'ctrl+e',      go_end                                 },
+        { 'end',         go_end                                 },
+        { 'pgup',        handle_pgup                            },
+        { 'pgdwn',       handle_pgdown                          },
+        { 'ctrl+c',      clear                                  },
+        { 'ctrl+d',      maybe_exit                             },
+        { 'ctrl+k',      del_to_eol                             },
+        { 'ctrl+u',      del_to_start                           },
+        { 'ctrl+v',      function() paste(true) end             },
+        { 'meta+v',      function() paste(true) end             },
+        { 'ctrl+bs',     del_word                               },
+        { 'ctrl+w',      del_word                               },
+        { 'ctrl+del',    del_next_word                          },
+        { 'alt+d',       del_next_word                          },
+        { 'kp_dec',      function() handle_char_input('.') end  },
     }
 
     for i = 0, 9 do

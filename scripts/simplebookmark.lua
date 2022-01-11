@@ -163,7 +163,7 @@ local o = {
 	
 ---------------------------END OF USER CUSTOMIZATION SETTINGS---------------------------
 }
-	
+
 (require 'mp.options').read_options(o)
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
@@ -190,20 +190,20 @@ o.list_search_activate_keybind = utils.parse_json(o.list_search_activate_keybind
 o.list_search_not_typing_mode_keybind = utils.parse_json(o.list_search_not_typing_mode_keybind)
 o.next_filter_sequence_keybind = utils.parse_json(o.next_filter_sequence_keybind)
 o.previous_filter_sequence_keybind = utils.parse_json(o.previous_filter_sequence_keybind)
-o.open_list_keybind = utils.parse_json(o.open_list_keybind) --64#parse for new option
-o.list_filter_jump_keybind = utils.parse_json(o.list_filter_jump_keybind) --64#parse for new option
+o.open_list_keybind = utils.parse_json(o.open_list_keybind)
+o.list_filter_jump_keybind = utils.parse_json(o.list_filter_jump_keybind)
 
 if o.log_path == '/:dir%mpvconf' then
 	o.log_path = mp.find_config_file('.')
 elseif o.log_path == '/:dir%script' then
 	o.log_path = debug.getinfo(1).source:match('@?(.*/)')
 end
-local log_fullpath = utils.join_path(o.log_path, o.log_file) --64#renamed to log_fullpath for consistency
+local log_fullpath = utils.join_path(o.log_path, o.log_file)
 
-local log_time_text = 'time=' --The text that is stored for the video time inside log file. #64 Made it not user configurable as it could cause issues for pre-logged items
-local log_keybind_text = 'slot=' --The text that is stored for the keybind slot inside log file. #64 Made it not user configurable as it could cause issues for pre-logged items
+local log_time_text = 'time='
+local log_keybind_text = 'slot='
 local protocols = {'https?://', 'magnet:', 'rtmp:'}
-local available_filters = {'all', 'keybinds', 'recents', 'distinct', 'protocols', 'fileonly', 'titleonly', 'timeonly', 'keywords'} --64# contains all available filters
+local available_filters = {'all', 'keybinds', 'recents', 'distinct', 'protocols', 'fileonly', 'titleonly', 'timeonly', 'keywords'}
 local search_string = ''
 local search_active = false
 
@@ -230,8 +230,8 @@ end
 
 
 function contain_value(tab, val)
-	if not tab then return end --3.0#4 handle if no value was passed
-	if not val then return end --3.0#4 handle if no value was passed
+	if not tab then return end
+	if not val then return end
 	
 	for index, value in ipairs(tab) do
 		if value.match(string.lower(val), string.lower(value)) then
@@ -301,7 +301,7 @@ function bind_keys(keys, name, func, opts)
 		return
 	end
 	
-	for i = 1, #keys do--3.06# to make name consistent without 1 for script binding
+	for i = 1, #keys do
 		if i == 1 then 
 			mp.add_forced_key_binding(keys[i], name, func, opts)
 		else
@@ -316,7 +316,7 @@ function unbind_keys(keys, name)
 		return
 	end
 	
-	for i = 1, #keys do --3.09# fixes unbinding keys
+	for i = 1, #keys do
 		if i == 1 then
 			mp.remove_key_binding(name)
 		else
@@ -500,7 +500,7 @@ function get_list_contents(filter, sort)
 		end
 		table.sort(filtered_table, function(a, b) return a['found_sequence'] < b['found_sequence'] end)
 		
-		if not sort then active_sort = o.sort_distinct_filter end --3.0.5# had wrong sort corrected it
+		if not sort then active_sort = o.sort_distinct_filter end
 		if active_sort ~= 'none' or active_sort ~= '' then
 			list_sort(filtered_table, active_sort)
 		end
@@ -629,7 +629,7 @@ function draw_list()
 	local osd_index = ''
 	local osd_key = ''
 	local key = 0
-	local osd_text = string.format("{\\an%f{\\fscx%f}{\\fscy%f}{\\bord%f}{\\1c&H%s}", o.list_alignment, o.text_scale, o.text_scale, o.text_border, o.text_color) --3.0.6#Understood Ass tags and added alignment
+	local osd_text = string.format("{\\an%f{\\fscx%f}{\\fscy%f}{\\bord%f}{\\1c&H%s}", o.list_alignment, o.text_scale, o.text_scale, o.text_border, o.text_color)
 	local osd_highlight = string.format("{\\an%f}{\\fscx%f}{\\fscy%f}{\\bord%f}{\\1c&H%s}", o.list_alignment, o.highlight_scale, o.highlight_scale, o.highlight_border, o.highlight_color)
 	local osd_header = string.format("{\\an%f}{\\fscx%f}{\\fscy%f}{\\bord%f}{\\1c&H%s}", o.list_alignment, o.header_scale, o.header_scale, o.header_border, o.header_color)
 	local osd_msg_end = "{\\1c&HFFFFFF}"
@@ -725,7 +725,7 @@ function list_empty_error_msg()
 end
 
 function display_list(filter, osd_hide)
-	if not filter or not has_value(available_filters, filter) then filter = 'all' end --64#Convert wrong filters passed in cofiguration to all
+	if not filter or not has_value(available_filters, filter) then filter = 'all' end
 	
 	local prev_filter = filterName
 	filterName = filter
@@ -942,14 +942,13 @@ function delete_log_entry(multiple, round, target_path, target_time, entry_limit
 		end
 	end
 	
-	--1.31# moved after deletion, to fix saving without time could replace the next bookmark instead of updating
-	if entry_limit and entry_limit > -1 then --1.30# if entry_limit is passed and it is larger than -1 then remove the duplicates
+	if entry_limit and entry_limit > -1 then
 		local entries_found = 0
-		for i = #list_contents, 1, -1 do--1.30#loop in opposite order so newest is first
-			if list_contents[i].found_path == target_path and entries_found < entry_limit then --1.30# whenever we find an entry we increase the value, if it reaches the limit then we stop
+		for i = #list_contents, 1, -1 do
+			if list_contents[i].found_path == target_path and entries_found < entry_limit then
 				print(format_time(tonumber(list_contents[i].found_time))..'should not be removed')
-				entries_found = entries_found + 1--1.30# increase the entries found so we delete other entries that surpass the limit
-			elseif list_contents[i].found_path == target_path and entries_found >= entry_limit then --1.30#Once the entries_found reach limit then we delete those entries
+				entries_found = entries_found + 1
+			elseif list_contents[i].found_path == target_path and entries_found >= entry_limit then
 				print(format_time(tonumber(list_contents[i].found_time))..'should be removed')
 				table.remove(list_contents,i)
 			end
@@ -1079,11 +1078,11 @@ function get_list_keybinds()
 		bind_keys(o.list_close_keybind, 'list-close', list_close_and_trash_collection)
 	end
 	
-	for i = 1, #o.list_filter_jump_keybind do --64# bind list-filter-jump when list is open
+	for i = 1, #o.list_filter_jump_keybind do
 		mp.add_forced_key_binding(o.list_filter_jump_keybind[i][1], 'list-filter-jump'..i, function()display_list(o.list_filter_jump_keybind[i][2]) end)
 	end
 
-	for i = 1, #o.open_list_keybind do --64# unbind open-list when list is open
+	for i = 1, #o.open_list_keybind do
 		if i == 1 then
 			mp.remove_key_binding('open-list')
 		else
@@ -1120,11 +1119,11 @@ function unbind_list_keys()
 	unbind_keys(o.next_filter_sequence_keybind, 'list-filter-next')
 	unbind_keys(o.previous_filter_sequence_keybind, 'list-filter-previous')
 	
-	for i = 1, #o.list_filter_jump_keybind do --64#unbind list-filter-jump when list is closed
+	for i = 1, #o.list_filter_jump_keybind do
 		mp.remove_key_binding('list-filter-jump'..i)
 	end
 
-	for i = 1, #o.open_list_keybind do --64#bind open-list when list is closed
+	for i = 1, #o.open_list_keybind do
 		if i == 1 then
 			mp.add_forced_key_binding(o.open_list_keybind[i][1], 'open-list', function()display_list(o.open_list_keybind[i][2]) end)
 		else
@@ -1523,7 +1522,7 @@ function mark_chapter()
 	mp.set_property_native("chapter-list", all_chapters)
 end
 
-function write_log(target_time, keybind_slot, update_seekTime, entry_limit) --1.30# added entry_limit to limit entries based on value passed
+function write_log(target_time, keybind_slot, update_seekTime, entry_limit)
 	if not filePath then return end
 	local prev_seekTime = seekTime
 
@@ -1533,7 +1532,7 @@ function write_log(target_time, keybind_slot, update_seekTime, entry_limit) --1.
 	end
 	if seekTime < 0 then seekTime = 0 end
 	
-	delete_log_entry(false, true, filePath, math.floor(seekTime), entry_limit) --1.30#Pass the entry_limit passed to the delete_log
+	delete_log_entry(false, true, filePath, math.floor(seekTime), entry_limit)
 	if keybind_slot then
 		remove_slot_log_entry()
 	end
@@ -1553,7 +1552,7 @@ function write_log(target_time, keybind_slot, update_seekTime, entry_limit) --1.
 	f:write('\n')
 	f:close()
 	
-	if not update_seekTime then --1.29# If update_seekTime is passed then it will update globally 
+	if not update_seekTime then
 		seekTime = prev_seekTime
 	end
 end
@@ -1576,7 +1575,7 @@ end
 function add_load_slot(key_index)
 	if not key_index then return end
 	slotKeyIndex = key_index
-	local current_filePath = mp.get_property('path')--1.30# to only seek if its the same file
+	local current_filePath = mp.get_property('path')
 	
 	if list_drawn then
 		write_log_slot_entry()
@@ -1595,19 +1594,19 @@ function add_load_slot(key_index)
 			end
 			if slot_taken then
 				if file_exists(filePath) or starts_protocol(protocols, filePath) then
-					if filePath ~= current_filePath then--1.30# Only load file if its not the same, otherwise seek 
+					if filePath ~= current_filePath then
 						mp.commandv('loadfile', filePath)
 						if o.keybinds_auto_resume then
 							resume_selected = true
 						end
-					elseif filePath == current_filePath and o.keybinds_auto_resume then --1.30#seek only if loading the same file when auto_resume is enabled
+					elseif filePath == current_filePath and o.keybinds_auto_resume then
 						mp.commandv('seek', seekTime, 'absolute', 'exact')
 						list_close_and_trash_collection()
-					elseif filePath == current_filePath and not o.keybinds_auto_resume then --1.30#seek to begining if loading the same file when auto_resume is disabled
+					elseif filePath == current_filePath and not o.keybinds_auto_resume then
 						mp.commandv('seek', 0, 'absolute', 'exact')
 						list_close_and_trash_collection()
 					end
-					if o.keybinds_auto_resume then--1.30# Improve notification
+					if o.keybinds_auto_resume then
 						if o.osd_messages == true then
 							mp.osd_message('Loaded slot:' .. o.keybinds_seperator .. get_slot_keybind(slotKeyIndex) .. '\n' .. fileTitle .. o.time_seperator .. format_time(seekTime))
 						end
@@ -1669,13 +1668,13 @@ function quicksave_slot(key_index)
 	else
 		if filePath ~= nil then
 			if o.keybinds_quicksave_fileonly then
-				write_log(0, true)--#1.29 Added fileonly notification without time
+				write_log(0, true)
 				if o.osd_messages == true then
 					mp.osd_message('Bookmarked Fileonly & Added Keybind:\n' .. fileTitle .. o.keybinds_seperator .. get_slot_keybind(slotKeyIndex))
 				end
 				msg.info('Bookmarked the below & added keybind:\n' .. fileTitle .. o.keybinds_seperator .. get_slot_keybind(slotKeyIndex))
 			else
-				write_log(false, true, true) --#1.29 utilize the third true parameter to update seekTime globally for the correct notification
+				write_log(false, true, true)
 				if o.osd_messages == true then
 					mp.osd_message('Bookmarked & Added Keybind:\n' .. fileTitle .. o.time_seperator .. format_time(seekTime) .. o.keybinds_seperator .. get_slot_keybind(slotKeyIndex))
 				end
@@ -1693,7 +1692,7 @@ end
 
 function bookmark_save()
 	if filePath ~= nil then
-		write_log(false, false, true, o.same_entry_limit) --1.30#Pass the same_entry_limit value
+		write_log(false, false, true, o.same_entry_limit)
 		if list_drawn then
 			get_list_contents()
 			select(0)
@@ -1715,7 +1714,7 @@ end
 
 function bookmark_fileonly_save()
 	if filePath ~= nil then
-		write_log(0, false, false, o.same_entry_limit) --1.30#Pass the same_entry_limit value
+		write_log(0, false, false, o.same_entry_limit)
 		if list_drawn then
 			get_list_contents()
 			select(0)
@@ -1745,7 +1744,7 @@ mp.register_event('file-loaded', function()
 	mark_chapter()
 end)
 
-if has_value(available_filters, o.auto_run_list_idle) then --64#use available filters instead
+if has_value(available_filters, o.auto_run_list_idle) then
 	mp.observe_property("idle-active", "bool", function(_, v)
 		if v then display_list(o.auto_run_list_idle, true) end
 	end)
@@ -1754,7 +1753,7 @@ end
 bind_keys(o.bookmark_save_keybind, 'bookmark-save', bookmark_save)
 bind_keys(o.bookmark_fileonly_keybind, 'bookmark-fileonly', bookmark_fileonly_save)
 
-for i = 1, #o.open_list_keybind do --#64 Binds list along with filter
+for i = 1, #o.open_list_keybind do
 	if i == 1 then
 		mp.add_forced_key_binding(o.open_list_keybind[i][1], 'open-list', function()display_list(o.open_list_keybind[i][2]) end)
 	else

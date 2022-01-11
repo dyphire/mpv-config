@@ -52,6 +52,11 @@ local o = {
     --when enabled the keybind disables autoload for the file
     autoload = false,
 
+    --if autoload is triggered by selecting the currently playing file, then
+    --the current file will have it's watch-later config saved before being closed
+    --essentially the current file will not be restarted
+    autoload_save_current = true,
+
     --when opening the browser in idle mode prefer the current working directory over the root
     --note that the working directory is set as the 'current' directory regardless, so `home` will
     --move the browser there even if this option is set to false
@@ -149,7 +154,8 @@ local parseable_extensions = {}
 local dvd_device = nil
 local current_file = {
     directory = nil,
-    name = nil
+    name = nil,
+    path = nil
 }
 
 local root = nil
@@ -236,29 +242,40 @@ local function concatenate_path(item, directory)
 end
 
 --returns the file extension of the given file
-local function get_extension(filename)
-    return filename:match("%.([^%./]+)$")
+local function get_extension(filename, def)
+    return filename:match("%.([^%./]+)$") or def
 end
 
 --returns the protocol scheme of the given url, or nil if there is none
-local function get_protocol(filename)
-    return filename:match("^(%a%w*)://")
+local function get_protocol(filename, def)
+    return filename:match("^(%a%w*)://") or def
 end
 
 --formats strings for ass handling
 --this function is based on a similar function from https://github.com/mpv-player/mpv/blob/master/player/lua/console.lua#L110
-local function ass_escape(str)
-    str = str:gsub('[\\{}\n] ?', {
+local function ass_escape(str, replace_newline)
+    if replace_newline == true then replace_newline = "\\\239\187\191n" end
+
+    --escape the invalid single characters
+    str = str:gsub('[\\{}\n]', {
+        -- There is no escape for '\' in ASS (I think?) but '\' is used verbatim if
+        -- it isn't followed by a recognised character, so add a zero-width
+        -- non-breaking space
         ['\\'] = '\\\239\187\191',
         ['{'] = '\\{',
         ['}'] = '\\}',
         -- Precede newlines with a ZWNBSP to prevent ASS's weird collapsing of
         -- consecutive newlines
         ['\n'] = '\239\187\191\\N',
-        -- Turn leading spaces into hard spaces to prevent ASS from stripping them
-        ['\\N '] = '\\N\\h'
     })
+
+    -- Turn leading spaces into hard spaces to prevent ASS from stripping them
+    str = str:gsub('\\N ', '\\N\\h')
     str = str:gsub('^ ', '\\h')
+
+    if replace_newline then
+        str = str:gsub("\\N", replace_newline)
+    end
     return str
 end
 
@@ -301,7 +318,7 @@ end
 
 local function valid_file(file)
     if o.filter_dot_files and (file:sub(1,1) == ".") then return false end
-    if o.filter_files and not extensions[ get_extension(file) ] then return false end
+    if o.filter_files and not extensions[ get_extension(file, "") ] then return false end
     return true
 end
 
@@ -342,16 +359,26 @@ local function sort_keys(t, include_item)
 end
 
 --copies a table without leaving any references to the original
-local function copy_table(t)
+--uses a structured clone algorithm to maintain cyclic references
+local function copy_table_recursive(t, references)
     if not t then return nil end
     local copy = {}
+    references[t] = copy
+
     for key, value in pairs(t) do
         if type(value) == "table" then
-            if value == t then copy[key] = copy
-            else copy[key] = copy_table(value) end
-        else copy[key] = value end
+            if references[value] then copy[key] = references[value]
+            else copy[key] = copy_table_recursive(value, references) end
+        else
+            copy[key] = value end
     end
     return copy
+end
+
+--a wrapper around copy_table to provide the reference table
+local function copy_table(t)
+    --this is to handle cyclic table references
+    return copy_table_recursive(t, {})
 end
 
 
@@ -405,6 +432,7 @@ API_mt.get_full_path = get_full_path
 API_mt.get_extension = get_extension
 API_mt.get_protocol = get_protocol
 API_mt.join_path = join_path
+API_mt.copy_table = copy_table
 
 function API_mt.clear_cache() cache:clear() end
 
@@ -619,10 +647,10 @@ end
 --detects whether or not to highlight the given entry as being played
 local function highlight_entry(v)
     if current_file.name == nil then return false end
-    if v.type == "dir" or parseable_extensions[get_extension(v.name) or ""] then
+    if v.type == "dir" or parseable_extensions[get_extension(v.name, "")] then
         return current_file.directory:find(get_full_path(v), 1, true)
     else
-        return current_file.directory..current_file.name == get_full_path(v)
+        return current_file.path == get_full_path(v)
     end
 end
 
@@ -632,6 +660,7 @@ local function update_current_directory(_, filepath)
     if filepath == nil then 
         current_file.directory = fix_path( mp.get_property("working-directory", ""), true)
         current_file.name = nil
+        current_file.path = nil
         return
     elseif filepath:find("dvd://") == 1 then
         filepath = dvd_device..filepath:match("dvd://(.*)")
@@ -641,6 +670,7 @@ local function update_current_directory(_, filepath)
     local exact_path = join_path(workingDirectory, filepath)
     exact_path = fix_path(exact_path, false)
     current_file.directory, current_file.name = utils.split_path(exact_path)
+    current_file.path = exact_path
 end
 
 --refreshes the ass text using the contents of the list
@@ -652,7 +682,8 @@ local function update_ass()
     local dir_name = state.directory_label or state.directory
     if dir_name == "" then dir_name = "ROOT" end
     append(style.header)
-    append(ass_escape(dir_name)..'\\N ----------------------------------------------------')
+    append(ass_escape(dir_name, style.cursor.."\\\239\187\191n"..style.header))
+    append('\\N ----------------------------------------------------')
     newline()
 
     if #state.list < 1 then
@@ -714,7 +745,7 @@ local function update_ass()
         if v.type == 'dir' then append(style.folder..o.folder_icon.."\\h".."{\\fn"..o.font_name_body.."}") end
 
         --adds the actual name of the item
-        append(v.ass or v.label or v.name)
+        append(v.ass or ass_escape(v.label or v.name, true))
         newline()
     end
 
@@ -824,7 +855,7 @@ end
 local function select_prev_directory()
     if state.prev_directory:find(state.directory, 1, true) == 1 then
         local i = 1
-        while (state.list[i] and (state.list[i].type == "dir" or parseable_extensions[get_extension(state.list[i].name) or ""])) do
+        while (state.list[i] and (state.list[i].type == "dir" or parseable_extensions[get_extension(state.list[i].name, "")])) do
             if state.prev_directory:find(get_full_path(state.list[i]), 1, true) then
                 state.selected = i
                 return
@@ -902,7 +933,7 @@ local function update_list()
     --this only matters when displaying the list on the screen, so it doesn't need to be in the scan function
     if not opts.escaped then
         for i = 1, #list do
-            list[i].ass = list[i].ass or ass_escape(list[i].label or list[i].name)
+            list[i].ass = list[i].ass or ass_escape(list[i].label or list[i].name, true)
         end
     end
 
@@ -950,19 +981,23 @@ local function update(moving_adjacent)
 end
 API_mt.rescan_directory = update
 
+--the base function for moving to a directory
+local function goto_directory(directory)
+    state.directory = directory
+    cache:clear()
+    update()
+end
+
 --loads the root list
 local function goto_root()
-    msg.verbose('loading root')
-    state.directory = ""
-    update()
+    msg.verbose('jumping to root')
+    goto_directory("")
 end
 
 --switches to the directory of the currently playing file
 local function goto_current_dir()
-    state.directory = current_file.directory
-    cache:clear()
-    state.selected = 1
-    update()
+    msg.verbose('jumping to current directory')
+    goto_directory(current_file.directory)
 end
 
 --moves up a directory
@@ -988,7 +1023,7 @@ end
 --moves down a directory
 local function down_dir()
     local current = state.list[state.selected]
-    if not current or current.type ~= 'dir' and not parseable_extensions[get_extension(current.name)] then return end
+    if not current or current.type ~= 'dir' and not parseable_extensions[get_extension(current.name, "")] then return end
 
     cache:push()
     state.directory = concatenate_path(current, state.directory)
@@ -1058,14 +1093,14 @@ end
 local function browse_directory(directory)
     if not directory then return end
     directory = mp.command_native({"expand-path", directory}, "")
+    -- directory = join_path( mp.get_property("working-directory", ""), directory )
+
     if directory ~= "" then directory = fix_path(directory, true) end
     msg.verbose('recieved directory from script message: '..directory)
 
     if directory == "dvd://" then directory = dvd_device end
-    state.directory = directory
-    cache:clear()
+    goto_directory(directory)
     open()
-    update()
 end
 API_mt.browse_directory = browse_directory
 
@@ -1093,11 +1128,12 @@ local function custom_loadlist_recursive(directory, flag)
     if directory == "" then return end
 
     for _, item in ipairs(list) do
-        if not sub_extensions[ get_extension(item.name) ] and not audio_extensions[ get_extension(item.name) ] then
-            if item.type == "dir" or parseable_extensions[get_extension(item.name)] then
+        if not sub_extensions[ get_extension(item.name, "") ] and not audio_extensions[ get_extension(item.name, "") ] then
+            if item.type == "dir" or parseable_extensions[get_extension(item.name, "")] then
                 if custom_loadlist_recursive( concatenate_path(item, directory) , flag) then flag = "append" end
             else
                 local path = get_full_path(item, directory)
+
                 msg.verbose("Appending", path, "to the playlist")
                 mp.commandv("loadfile", path, flag)
                 flag = "append"
@@ -1128,16 +1164,24 @@ end
 
 --load playlist entries before and after the currently playing file
 local function autoload_dir(path)
+    if o.autoload_save_current and path == current_file.path then
+        mp.commandv("write-watch-later-config") end
+
+    --loads the currently selected file, clearing the playlist in the process
+    mp.commandv("loadfile", path)
+
     local pos = 1
     local file_count = 0
     for _,item in ipairs(state.list) do
-        if item.type == "file"
-        and not sub_extensions[ get_extension(item.name) ]
-        and not audio_extensions[ get_extension(item.name) ]
+        if item.type == "file" 
+        and not sub_extensions[ get_extension(item.name, "") ]
+        and not audio_extensions[ get_extension(item.name, "") ]
         then
             local p = get_full_path(item)
+
             if p == path then pos = file_count
             else mp.commandv("loadfile", p, "append") end
+
             file_count = file_count + 1
         end
     end
@@ -1147,15 +1191,16 @@ end
 --runs the loadfile or loadlist command
 local function loadfile(item, flag, autoload, directory)
     local path = get_full_path(item, directory)
-    if item.type == "dir" or parseable_extensions[ get_extension(item.name) ] then return loadlist(path, flag) end
+    if item.type == "dir" or parseable_extensions[ get_extension(item.name, "") ] then
+        return loadlist(path, flag) end
 
-    if sub_extensions[ get_extension(item.name) ] then
+    if sub_extensions[ get_extension(item.name, "") ] then
         mp.commandv("sub-add", path, flag == "replace" and "cached" or "select" or "auto")
-    elseif audio_extensions[ get_extension(item.name) ] then
+    elseif audio_extensions[ get_extension(item.name, "") ] then
         mp.commandv("audio-add", path, flag == "replace" and "auto" or "cached" or "select")
     else
-        mp.commandv('loadfile', path, flag)
-        if autoload then autoload_dir(path) end
+        if autoload then autoload_dir(path)
+        else mp.commandv('loadfile', path, flag) end
         return true
     end
 end
@@ -1490,7 +1535,7 @@ local function setup_root()
         local path = mp.command_native({'expand-path', str})
         path = fix_path(path, true)
 
-        local temp = {name = path, type = 'dir', label = str, ass = ass_escape(str)}
+        local temp = {name = path, type = 'dir', label = str, ass = ass_escape(str, true)}
 
         root[#root+1] = temp
     end

@@ -23,7 +23,7 @@ local o = {
 	["alt+r", "alt+R"]
 	]], --Keybind that will be used to immediately load the last item without resuming when no video is playing. If video is playing then it will add into playlist
 	open_list_keybind=[[
-	[ ["h", "all"], ["H", "all"], ["r", "recents"] ]
+	[ ["h", "all"], ["H", "all"], ["r", "recents"], ["R", "recents"] ]
 	]], --Keybind that will be used to open the list along with the specified filter. Available filters: 'all', 'recents', 'distinct', 'protocols', 'fileonly', 'titleonly', 'timeonly', 'keywords'.
 	list_filter_jump_keybind=[[
 	[ ["h", "all"], ["H", "all"], ["r", "recents"], ["R", "recents"], ["d", "distinct"], ["D", "distinct"], ["f", "fileonly"], ["F", "fileonly"] ]
@@ -146,7 +146,7 @@ local o = {
 	
 ---------------------------END OF USER CUSTOMIZATION SETTINGS---------------------------
 }
-	
+
 (require 'mp.options').read_options(o)
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
@@ -170,19 +170,19 @@ o.list_search_activate_keybind = utils.parse_json(o.list_search_activate_keybind
 o.list_search_not_typing_mode_keybind = utils.parse_json(o.list_search_not_typing_mode_keybind)
 o.next_filter_sequence_keybind = utils.parse_json(o.next_filter_sequence_keybind)
 o.previous_filter_sequence_keybind = utils.parse_json(o.previous_filter_sequence_keybind)
-o.open_list_keybind = utils.parse_json(o.open_list_keybind) --64#parse for new option
-o.list_filter_jump_keybind = utils.parse_json(o.list_filter_jump_keybind) --64#parse for new option
+o.open_list_keybind = utils.parse_json(o.open_list_keybind)
+o.list_filter_jump_keybind = utils.parse_json(o.list_filter_jump_keybind)
 
 if o.log_path == '/:dir%mpvconf' then
 	o.log_path = mp.find_config_file('.')
 elseif o.log_path == '/:dir%script' then
 	o.log_path = debug.getinfo(1).source:match('@?(.*/)')
 end
-local log_fullpath = utils.join_path(o.log_path, o.log_file) --64#renamed to log_fullpath for consistency
+local log_fullpath = utils.join_path(o.log_path, o.log_file)
 
-local log_time_text = 'time=' --The text that is stored for the video time inside log file. #64 Made it not user configurable as it could cause issues for pre-logged items
+local log_time_text = 'time='
 local protocols = {'https?://', 'magnet:', 'rtmp:'}
-local available_filters = {'all', 'recents', 'distinct', 'protocols', 'fileonly', 'titleonly', 'timeonly', 'keywords'} --64# contains all available filters
+local available_filters = {'all', 'recents', 'distinct', 'protocols', 'fileonly', 'titleonly', 'timeonly', 'keywords'}
 local search_string = ''
 local search_active = false
 
@@ -207,8 +207,8 @@ end
 
 
 function contain_value(tab, val)
-	if not tab then return end --3.0#4 handle if no value was passed
-	if not val then return end --3.0#4 handle if no value was passed
+	if not tab then return end
+	if not val then return end
 	
 	for index, value in ipairs(tab) do
 		if value.match(string.lower(val), string.lower(value)) then
@@ -266,7 +266,7 @@ function bind_keys(keys, name, func, opts)
 		return
 	end
 	
-	for i = 1, #keys do--3.06# to make name consistent without 1 for script binding
+	for i = 1, #keys do
 		if i == 1 then
 			mp.add_forced_key_binding(keys[i], name, func, opts)
 		else
@@ -281,7 +281,7 @@ function unbind_keys(keys, name)
 		return
 	end
 	
-	for i = 1, #keys do --3.09# fixes unbinding keys
+	for i = 1, #keys do
 		if i == 1 then
 			mp.remove_key_binding(name)
 		else
@@ -445,7 +445,7 @@ function get_list_contents(filter, sort)
 		end
 		table.sort(filtered_table, function(a, b) return a['found_sequence'] < b['found_sequence'] end)
 		
-		if not sort then active_sort = o.sort_distinct_filter end --3.0.5# had wrong sort corrected it
+		if not sort then active_sort = o.sort_distinct_filter end
 		if active_sort ~= 'none' or active_sort ~= '' then
 			list_sort(filtered_table, active_sort)
 		end
@@ -572,7 +572,7 @@ function draw_list()
 	local osd_index = ''
 	local osd_key = ''
 	local key = 0
-	local osd_text = string.format("{\\an%f{\\fscx%f}{\\fscy%f}{\\bord%f}{\\1c&H%s}", o.list_alignment, o.text_scale, o.text_scale, o.text_border, o.text_color) --3.0.6#Understood Ass tags and added alignment
+	local osd_text = string.format("{\\an%f{\\fscx%f}{\\fscy%f}{\\bord%f}{\\1c&H%s}", o.list_alignment, o.text_scale, o.text_scale, o.text_border, o.text_color)
 	local osd_highlight = string.format("{\\an%f}{\\fscx%f}{\\fscy%f}{\\bord%f}{\\1c&H%s}", o.list_alignment, o.highlight_scale, o.highlight_scale, o.highlight_border, o.highlight_color)
 	local osd_header = string.format("{\\an%f}{\\fscx%f}{\\fscy%f}{\\bord%f}{\\1c&H%s}", o.list_alignment, o.header_scale, o.header_scale, o.header_border, o.header_color)
 	local osd_msg_end = "{\\1c&HFFFFFF}"
@@ -664,7 +664,7 @@ function list_empty_error_msg()
 end
 
 function display_list(filter, osd_hide)
-	if not filter or not has_value(available_filters, filter) then filter = 'all' end --64#Convert wrong filters passed in cofiguration to all
+	if not filter or not has_value(available_filters, filter) then filter = 'all' end
 	
 	local prev_filter = filterName
 	filterName = filter
@@ -1013,11 +1013,11 @@ function get_list_keybinds()
 		bind_keys(o.list_close_keybind, 'list-close', list_close_and_trash_collection)
 	end
 	
-	for i = 1, #o.list_filter_jump_keybind do --64# bind list-filter-jump when list is open
+	for i = 1, #o.list_filter_jump_keybind do
 		mp.add_forced_key_binding(o.list_filter_jump_keybind[i][1], 'list-filter-jump'..i, function()display_list(o.list_filter_jump_keybind[i][2]) end)
 	end
 
-	for i = 1, #o.open_list_keybind do --64# unbind open-list when list is open
+	for i = 1, #o.open_list_keybind do
 		if i == 1 then
 			mp.remove_key_binding('open-list')
 		else
@@ -1053,11 +1053,11 @@ function unbind_list_keys()
 	unbind_keys(o.next_filter_sequence_keybind, 'list-filter-next')
 	unbind_keys(o.previous_filter_sequence_keybind, 'list-filter-previous')
 	
-	for i = 1, #o.list_filter_jump_keybind do --64#unbind list-filter-jump when list is closed
+	for i = 1, #o.list_filter_jump_keybind do
 		mp.remove_key_binding('list-filter-jump'..i)
 	end
 
-	for i = 1, #o.open_list_keybind do --64#bind open-list when list is closed
+	for i = 1, #o.open_list_keybind do
 		if i == 1 then
 			mp.add_forced_key_binding(o.open_list_keybind[i][1], 'open-list', function()display_list(o.open_list_keybind[i][2]) end)
 		else
@@ -1549,7 +1549,7 @@ mp.add_hook('on_unload', 50, function()
 	history_save()
 end)
 
-if has_value(available_filters, o.auto_run_list_idle) then --64#use available filters instead
+if has_value(available_filters, o.auto_run_list_idle) then
 	mp.observe_property("idle-active", "bool", function(_, v)
 		if v then display_list(o.auto_run_list_idle, true) end
 	end)
@@ -1558,7 +1558,7 @@ end
 bind_keys(o.history_resume_keybind, 'history-resume', history_resume)
 bind_keys(o.history_load_last_keybind, 'history-load-last', history_load_last)
 
-for i = 1, #o.open_list_keybind do --#64 Binds list along with filter
+for i = 1, #o.open_list_keybind do
 	if i == 1 then
 		mp.add_forced_key_binding(o.open_list_keybind[i][1], 'open-list', function()display_list(o.open_list_keybind[i][2]) end)
 	else
