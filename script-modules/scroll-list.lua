@@ -16,21 +16,33 @@ local scroll_list = {
 }
 
 --formats strings for ass handling
---this function is based on https://github.com/mpv-player/mpv/blob/master/player/lua/console.lua#L110
-function scroll_list.ass_escape(str)
-    str = str:gsub('[\\{}\n\\N] ?', {
+--this function is based on a similar function from https://github.com/mpv-player/mpv/blob/master/player/lua/console.lua#L110
+function scroll_list.ass_escape(str, replace_newline)
+    if replace_newline == true then replace_newline = "\\\239\187\191n" end
+
+    --escape the invalid single characters
+    str = str:gsub('[\\{}\n]', {
+        -- There is no escape for '\' in ASS (I think?) but '\' is used verbatim if
+        -- it isn't followed by a recognised character, so add a zero-width
+        -- non-breaking space
         ['\\'] = '\\\239\187\191',
         ['{'] = '\\{',
         ['}'] = '\\}',
         -- Precede newlines with a ZWNBSP to prevent ASS's weird collapsing of
         -- consecutive newlines
         ['\n'] = '\239\187\191\\N',
-        -- Turn leading spaces into hard spaces to prevent ASS from stripping them
-        ['\\N '] = '\\N\\h'
     })
+
+    -- Turn leading spaces into hard spaces to prevent ASS from stripping them
+    str = str:gsub('\\N ', '\\N\\h')
     str = str:gsub('^ ', '\\h')
+
+    if replace_newline then
+        str = str:gsub("\\N", replace_newline)
+    end
     return str
 end
+
 --appends the entered text to the overlay
 function scroll_list:append(text)
         if text == nil then return end
