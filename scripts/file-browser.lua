@@ -460,6 +460,11 @@ function API_mt.get_selected_index() return state.selected end
 function API_mt.get_selected_item() return copy_table(state.list[state.selected]) end
 function API_mt.get_open_status() return not state.hidden end
 
+function API_mt.set_empty_text(str)
+    state.empty_text = str
+    API_mt.update_ass()
+end
+
 function API_mt.set_selected_index(index)
     if type(index) ~= "number" then return false end
     if index < 1 then index = 1 end

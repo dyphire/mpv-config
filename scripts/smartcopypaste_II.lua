@@ -2,7 +2,7 @@
 -- License: BSD 2-Clause License
 -- Creator: Eisa AlAwadhi
 -- Project: SmartCopyPaste_II
--- Version: 3.0
+-- Version: 3.0.1
 
 local o = {
 ---------------------------USER CUSTOMIZATION SETTINGS---------------------------
@@ -67,7 +67,7 @@ local o = {
 	
 	-----Logging Settings-----
 	log_path = '/:dir%mpvconf', --Change to '/:dir%script' for placing it in the same directory of script, OR change to '/:dir%mpvconf' for mpv portable_config directory. OR specify the desired path, e.g.: 'C:\Users\Eisa01\Desktop\'
-	log_file = 'mpvClip.log', --name+extension of the file that will be used to store the log data
+	log_file = 'mpvClipboard.log', --name+extension of the file that will be used to store the log data
 	date_format = '%d/%m/%y %X', --Date format in the log (see lua date formatting), e.g.:'%d/%m/%y %X' or '%d/%b/%y %X'
 	file_title_logging = 'protocols', --Change between 'all', 'protocols', 'none'. This option will store the media title in log file, it is useful for websites / protocols because title cannot be parsed from links alone
 	logging_protocols=[[
@@ -127,11 +127,13 @@ local o = {
 	highlight_color = 'ffbf7f', --Highlight color in BGR hexadecimal
 	highlight_scale = 50, --Font size for highlighted text in list
 	highlight_border = 0.7, --Black border size for highlighted text in list
-	header_text = '📋 Clipboard [%cursor/%total] %prefilter%filter%afterfilter%presearch%search%aftersearch', --Text to be shown as header for the list. %cursor: shows the position of highlighted file. %total: shows the total amount of items. %filter: shows the filter name, %prefilter: user defined text before showing filter, %afterfilter: user defined text after showing filter, %search: shows the typed search, %presearch, %aftersearch: same concept of prefilter and afterfilter.
+	header_text = '📋 Clipboard [%cursor/%total] %prefilter%filter%afterfilter%presearch%search%aftersearch', --Text to be shown as header for the list. %cursor: shows the position of highlighted file. %total: shows the total amount of items. %filter: shows the filter name, %prefilter: user defined text before showing filter, %afterfilter: user defined text after showing filter, %search: shows the typed search, %presearch, %aftersearch: same concept of prefilter and afterfilter, %listduration: shows the total playback duration of displayed list. %prelistduration, %afterlistduration: same concept of prefilter and afterfilter.
 	header_filter_pre_text = ' (filtered: ', --Text to be shown before filter in the header
 	header_filter_after_text = ')', --Text to be shown after filter in the header (since filter is inside the header, if you need to add a variable like %%search it will need double %%)
 	header_search_pre_text = '\\h\\N\\N(search=', --Text to be shown before search in the header
 	header_search_after_text = '..)', --Text to be shown after search in the header
+	header_list_duration_pre_text = '🕒 ', --Text to be shown before playback total duration of displayed list in the header
+	header_list_duration_after_text = '', --Text to be shown after playback total duration of displayed list in the header	
 	header_color = '56ffaa', --Header color in BGR hexadecimal
 	search_color_typing = 'ffffaa', --Search color when in typing mode
 	search_color_not_typing = '56ffaa', --Search color when not in typing mode and it is active
@@ -230,7 +232,7 @@ local log_fullpath = utils.join_path(o.log_path, o.log_file)
 local log_time_text = 'time='
 local log_clipboard_text = 'clip='
 local protocols = {'https?://', 'magnet:', 'rtmp:'}
-local available_filters = {'all', 'copy', 'paste', 'recents', 'distinct', 'protocols', 'fileonly', 'titleonly', 'timeonly', 'keywords'}
+local available_filters = {'all', 'copy', 'paste', 'recents', 'distinct', 'playing', 'protocols', 'fileonly', 'titleonly', 'timeonly', 'keywords'}
 local search_string = ''
 local search_active = false
 
@@ -418,6 +420,23 @@ function parse_header(string)
 		string = string:gsub("%%filter", '')
 		:gsub("%%prefilter", '')
 		:gsub("%%afterfilter", '')
+	end
+	
+	local list_total_duration = 0
+	if string:match('%listduration') then
+		list_total_duration = get_total_duration()
+		if list_total_duration > 0 then
+			string = string:gsub("%%listduration", format_time(list_total_duration))
+		else
+			string = string:gsub("%%listduration", '')
+		end
+	end	
+	if list_total_duration > 0 then
+		string = string:gsub("%%prelistduration", o.header_list_duration_pre_text)
+		:gsub("%%afterlistduration", o.header_list_duration_after_text)
+	else
+		string = string:gsub("%%prelistduration", '')
+		:gsub("%%afterlistduration", '')
 	end
 	
 	if search_active then
@@ -1018,6 +1037,17 @@ function list_delete()
 	else
 		select(-1)
 	end
+end
+
+function get_total_duration()
+	if not list_contents or not list_contents[1] then return 0 end
+	local list_total_duration = 0
+	for i = #list_contents, 1, -1 do
+		if tonumber(list_contents[i].found_time) > 0 then
+			list_total_duration = list_total_duration + list_contents[i].found_time
+		end
+	end
+	return list_total_duration
 end
 --End of LogReaderManager Actions--
 
