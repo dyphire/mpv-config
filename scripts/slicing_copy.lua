@@ -4,10 +4,6 @@ local options = require "mp.options"
 
 local cut_pos = nil
 local copy_audio = true
-local command_template = {
-    ss = "$shift",
-    t = "$duration",
-}
 local o = {
     ffmpeg_path = "ffmpeg",
     target_dir = "~~/cutfragments",
@@ -100,9 +96,9 @@ local function cut(shift, endpos)
     if referer and referer ~= '' then
         cmds:arg('-referer', referer)
     end
-    cmds:arg("-ss", (command_template.ss:gsub("$shift", shift)))
+    cmds:arg("-ss", tostring(shift))
         :arg("-i", inpath)
-        :arg("-t", (command_template.t:gsub("$duration", endpos - shift)))
+        :arg("-t", tostring(endpos - shift))
         :arg("-c:v", o.vcodec)
         :arg("-c:a", o.acodec)
         :arg(not copy_audio and "-an" or nil)
