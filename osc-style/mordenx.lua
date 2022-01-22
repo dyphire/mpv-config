@@ -38,7 +38,8 @@ local user_opts = {
     seekbarkeyframes = true,    -- use keyframes when dragging the seekbar
     title = '${media-title}',   -- string compatible with property-expansion
                                 -- to be shown as OSC title
-    showtitle = true,		-- show title and no hide timeout on pause
+    showtitle = true,		-- show title in OSC
+    showonpause = true,         -- whether to disable the hide timeout on pause
     timetotal = true,          	-- display total time instead of remaining time?
     timems = false,             -- Display time down to millliseconds by default
     visibility = 'auto',        -- only used at init to set visibility_mode(...)
@@ -135,7 +136,7 @@ local state = {
     border = true,
     maximized = false,
     osd = mp.create_osd_overlay('ass-events'),
-    lastvisibility = user_opts.visibility,	-- save last visibility on pause if showtitle
+    lastvisibility = user_opts.visibility,	-- save last visibility on pause if showonpause
     fulltime = user_opts.timems,
 }
 
@@ -1529,7 +1530,8 @@ end
 
 function pause_state(name, enabled)
     state.paused = enabled
-    if user_opts.showtitle then
+    mp.add_timeout(0.1, function() state.osd:update() end) 
+    if user_opts.showonpause then
 		if enabled then
 			state.lastvisibility = user_opts.visibility
 			visibility_mode("always", true)

@@ -20,15 +20,37 @@ local temp_files = {}
 --this platform test was taken from mpv's console.lua
 local PLATFORM_WINDOWS = mp.get_property_native('options/vo-mmcss-profile', o) ~= o
 
-local function execute(args)
+local function async_callback(args, callback, success, cmd, error)
+    if not success then return callback( nil, error ) end
+
+    if (cmd.status == 0) then
+        return callback( cmd.stdout )
+    else
+        local err = table.concat(args, ' ')..'\n'
+            .."command exitted with status code: "..cmd.status..'\n'
+            ..cmd.stderr
+
+        return callback( nil, err )
+    end
+end
+
+local function execute(args, callback)
     msg.debug("executing command:", table.concat(args, " "))
-    local cmd = mp.command_native({
+    local mpv_command = {
         name = "subprocess",
         playback_only = false,
         capture_stdout = true,
         capture_stderr = true,
         args = args
-    })
+    }
+
+    local cmd
+    if callback then
+        cmd = mp.command_native_async(mpv_command, function(...) async_callback(args, callback, ...) end)
+        return cmd
+    else
+        cmd = mp.command_native(mpv_command)
+    end
 
     if (cmd.status == 0) then
         return cmd.stdout
@@ -151,8 +173,7 @@ function rf.lines(file)
     end
 end
 
---if wget is not available 
-assert(execute({"wget", "-h"}), "wget not available in the system PATH")
+execute({"wget", "-V"}, function(result) assert(result, "wget not available in the system PATH") end)
 
 --removes all temporary files created by this script
 mp.register_event("shutdown", function()
