@@ -2,7 +2,6 @@
 SOURCE_ https://github.com/dya-tel/mpv-scripts/blob/master/fuzzydir.lua
 COMMIT_11 Mar 2018_722824c
 
-章节列表
 --]]
 
 
