@@ -2,7 +2,7 @@
 -- License: BSD 2-Clause License
 -- Creator: Eisa AlAwadhi
 -- Project: SimpleBookmark
--- Version: 1.0.1
+-- Version: 1.0.2
 
 local o = {
 ---------------------------USER CUSTOMIZATION SETTINGS---------------------------
@@ -162,6 +162,9 @@ local o = {
 	list_search_not_typing_mode_keybind=[[
 	["CTRL+ENTER"]
 	]], --Keybind that will be used to exit typing mode of search while keeping search open
+	list_ignored_keybind=[[
+	["h", "H", "r", "R", "c", "C"]
+	]], --Keybind thats are ignored when list is open
 	
 ---------------------------END OF USER CUSTOMIZATION SETTINGS---------------------------
 }
@@ -194,6 +197,7 @@ o.next_filter_sequence_keybind = utils.parse_json(o.next_filter_sequence_keybind
 o.previous_filter_sequence_keybind = utils.parse_json(o.previous_filter_sequence_keybind)
 o.open_list_keybind = utils.parse_json(o.open_list_keybind)
 o.list_filter_jump_keybind = utils.parse_json(o.list_filter_jump_keybind)
+o.list_ignored_keybind = utils.parse_json(o.list_ignored_keybind)
 
 if o.log_path == '/:dir%mpvconf' then
 	o.log_path = mp.find_config_file('.')
@@ -447,7 +451,7 @@ function parse_header(string)
 	return string
 end
 
-function get_list_contents(filter, sort)
+function get_list_contents(filter, sort, ignore_search)
 	if not filter then filter = filterName end
 	
 	local active_sort = sort
@@ -617,7 +621,7 @@ function get_list_contents(filter, sort)
 		list_contents = filtered_table
 	end
 	
-	if search_active and search_string ~= '' then
+	if search_active and search_string ~= '' and not ignore_search then
 		filtered_table = {}
 		for i = 1, #list_contents do
 			if string.lower(list_contents[i].found_path):match(string.lower(esc_string(search_string))) then
@@ -930,7 +934,7 @@ end
 function delete_log_entry(multiple, round, target_path, target_time, entry_limit)
 	if not target_path then target_path = filePath end
 	if not target_time then target_time = seekTime end
-	get_list_contents('all','added-asc')
+	get_list_contents('all','added-asc', true)
 	if not list_contents or not list_contents[1] then return end
 	
 	if not multiple then
@@ -1090,6 +1094,7 @@ end
 
 --LogReaderManager (List Bind and Unbind)--
 function get_list_keybinds()
+	bind_keys(o.list_ignored_keybind, 'ignore')
 	bind_keys(o.list_move_up_keybind, 'move-up', list_move_up, 'repeatable')
 	bind_keys(o.list_move_down_keybind, 'move-down', list_move_down, 'repeatable')
 	bind_keys(o.list_move_first_keybind, 'move-first', list_move_first, 'repeatable')
@@ -1135,6 +1140,7 @@ function get_list_keybinds()
 end
 
 function unbind_list_keys()
+	unbind_keys(o.list_ignored_keybind, 'ignore')
 	unbind_keys(o.list_move_up_keybind, 'move-up')
 	unbind_keys(o.list_move_down_keybind, 'move-down')
 	unbind_keys(o.list_move_first_keybind, 'move-first')
@@ -1499,6 +1505,26 @@ function remove_slot_log_entry()
 	f:close()
 end
 
+function add_slot_log_entry()
+	get_list_contents('all','added-asc', true)
+	if not list_contents or not list_contents[1] then return end	
+
+	for i = #list_contents, 1, -1 do
+		if list_contents[i].found_path == filePath and tonumber(list_contents[i].found_time) == seekTime then
+			list_contents[i].found_line = list_contents[i].found_line:match('(.* | ' .. esc_string(log_time_text) .. '%d*%.?%d*)(.*)$')..' | '.. log_keybind_text .. slotKeyIndex
+			break
+		end
+	end
+	
+	f = io.open(log_fullpath, "w+")
+	if list_contents ~= nil and list_contents[1] then
+		for i = 1, #list_contents do
+			f:write(("%s\n"):format(list_contents[i].found_line))
+		end
+	end
+	f:close()
+end
+
 function list_slot_remove()
 	if not list_drawn then return end
 	slotKeyIndex = tonumber(list_contents[#list_contents - list_cursor + 1].found_slot)
@@ -1510,10 +1536,41 @@ function list_slot_remove()
 	msg.info('Removed Keybind: ' .. get_slot_keybind(slotKeyIndex))
 end
 
+function list_slot_add()
+	if not list_drawn then return end
+	filePath = list_contents[#list_contents - list_cursor + 1].found_path
+	fileTitle = list_contents[#list_contents - list_cursor + 1].found_name
+	seekTime = tonumber(list_contents[#list_contents - list_cursor + 1].found_time)
+	if not filePath or not fileTitle or not seekTime then
+		msg.info("Failed to add slot")
+		return
+	end
+	remove_slot_log_entry()
+	add_slot_log_entry()
+	msg.info('Added Keybind:\n' .. fileTitle .. o.time_seperator .. format_time(seekTime) .. o.keybinds_seperator .. get_slot_keybind(slotKeyIndex))
+	filePath, fileTitle = get_path()
+end
+
 function slot_remove()
 	list_slot_remove()
 	get_list_contents()
-	if list_cursor ~= #list_contents + 1 then
+	if #list_contents == 0 then
+		list_cursor = 0
+		select(list_cursor)
+	elseif list_cursor ~= #list_contents + 1 then
+		select(0) 
+	else 
+		select(-1) 
+	end
+end
+
+function slot_add()
+	list_slot_add()
+	get_list_contents()
+	if #list_contents == 0 then
+		list_cursor = 0
+		select(list_cursor)
+	elseif list_cursor ~= #list_contents + 1 then
 		select(0) 
 	else 
 		select(-1) 
@@ -1587,28 +1644,13 @@ function write_log(target_time, keybind_slot, update_seekTime, entry_limit)
 	end
 end
 
-function write_log_slot_entry()
-	filePath = list_contents[#list_contents - list_cursor + 1].found_path
-	fileTitle = list_contents[#list_contents - list_cursor + 1].found_name
-	seekTime = tonumber(list_contents[#list_contents - list_cursor + 1].found_time)
-	if not filePath or not fileTitle or not seekTime then
-		msg.info("Failed to delete")
-		return
-	end
-	write_log(seekTime, true)
-	get_list_contents()
-	list_move_first()
-	msg.info('Added Keybind:\n' .. fileTitle .. o.time_seperator .. format_time(seekTime) .. o.keybinds_seperator .. get_slot_keybind(slotKeyIndex))
-	filePath, fileTitle = get_path()
-end
-
 function add_load_slot(key_index)
 	if not key_index then return end
 	slotKeyIndex = key_index
 	local current_filePath = mp.get_property('path')
 	
 	if list_drawn then
-		write_log_slot_entry()
+		slot_add()
 	else
 		local slot_taken = false
 		get_list_contents()
@@ -1694,7 +1736,7 @@ function quicksave_slot(key_index)
 	slotKeyIndex = key_index
 	
 	if list_drawn then
-		write_log_slot_entry()
+		slot_add()
 	else
 		if filePath ~= nil then
 			if o.keybinds_quicksave_fileonly then
