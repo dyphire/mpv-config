@@ -2,7 +2,7 @@
 -- License: BSD 2-Clause License
 -- Creator: Eisa AlAwadhi
 -- Project: SimpleHistory
--- Version: 1.0.1
+-- Version: 1.0.2
 
 local o = {
 ---------------------------USER CUSTOMIZATION SETTINGS---------------------------
@@ -145,6 +145,9 @@ local o = {
 	list_search_not_typing_mode_keybind=[[
 	["CTRL+ENTER"]
 	]], --Keybind that will be used to exit typing mode of search while keeping search open
+	list_ignored_keybind=[[
+	["B", "b", "k", "K", "c", "C"]
+	]], --Keybind thats are ignored when list is open
 	
 ---------------------------END OF USER CUSTOMIZATION SETTINGS---------------------------
 }
@@ -174,6 +177,7 @@ o.next_filter_sequence_keybind = utils.parse_json(o.next_filter_sequence_keybind
 o.previous_filter_sequence_keybind = utils.parse_json(o.previous_filter_sequence_keybind)
 o.open_list_keybind = utils.parse_json(o.open_list_keybind)
 o.list_filter_jump_keybind = utils.parse_json(o.list_filter_jump_keybind)
+o.list_ignored_keybind = utils.parse_json(o.list_ignored_keybind)
 
 if o.log_path == '/:dir%mpvconf' then
 	o.log_path = mp.find_config_file('.')
@@ -407,7 +411,7 @@ function parse_header(string)
 	return string
 end
 
-function get_list_contents(filter, sort)
+function get_list_contents(filter, sort, ignore_search)
 	if not filter then filter = filterName end
 	
 	local active_sort = sort
@@ -562,7 +566,7 @@ function get_list_contents(filter, sort)
 		list_contents = filtered_table
 	end
 	
-	if search_active and search_string ~= '' then
+	if search_active and search_string ~= '' and not ignore_search then
 		filtered_table = {}
 		for i = 1, #list_contents do
 			if string.lower(list_contents[i].found_path):match(string.lower(esc_string(search_string))) then
@@ -868,7 +872,7 @@ end
 function delete_log_entry(multiple, round, target_path, target_time, entry_limit)
 	if not target_path then target_path = filePath end
 	if not target_time then target_time = seekTime end
-	get_list_contents('all','added-asc')
+	get_list_contents('all','added-asc', true)
 	if not list_contents or not list_contents[1] then return end
 	
 	if not multiple then
@@ -1026,6 +1030,7 @@ end
 
 --LogReaderManager (List Bind and Unbind)--
 function get_list_keybinds()
+	bind_keys(o.list_ignored_keybind, 'ignore')
 	bind_keys(o.list_move_up_keybind, 'move-up', list_move_up, 'repeatable')
 	bind_keys(o.list_move_down_keybind, 'move-down', list_move_down, 'repeatable')
 	bind_keys(o.list_move_first_keybind, 'move-first', list_move_first, 'repeatable')
@@ -1070,6 +1075,7 @@ function get_list_keybinds()
 end
 
 function unbind_list_keys()
+	unbind_keys(o.list_ignored_keybind, 'ignore')
 	unbind_keys(o.list_move_up_keybind, 'move-up')
 	unbind_keys(o.list_move_down_keybind, 'move-down')
 	unbind_keys(o.list_move_first_keybind, 'move-first')
