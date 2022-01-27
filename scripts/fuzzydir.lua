@@ -17,12 +17,26 @@ local options = require 'mp.options'
 local utils = require 'mp.utils'
 
 o = {
-    max_search_depth = 3
+    max_search_depth = 3,
+    special_protocols=[[
+	["https?://", "magnet:", "rtmp:", "smb://", "bd://", "dvd://", "cdda://"]
+	]],
 }
 options.read_options(o)
 
+o.special_protocols = utils.parse_json(o.special_protocols)
+
 local default_audio_paths = mp.get_property_native("options/audio-file-paths")
 local default_sub_paths = mp.get_property_native("options/sub-file-paths")
+
+function starts_protocol(tab, val)
+	for index, value in ipairs(tab) do
+		if (val:find(value) == 1) then
+			return true
+		end
+	end
+	return false
+end
 
 function starts_with(str, prefix)
     return string.sub(str, 1, string.len(prefix)) == prefix
@@ -88,12 +102,15 @@ function explode(from, working_directory)
     for index, path in pairs(from) do
         path = utils.join_path(working_directory, normalize(path))
         local parent, leftover = utils.split_path(path)
+        local fpath = mp.get_property('path')
 
-        if leftover == "**" then
-            table.insert(result, parent)
-            add_all(result, traverse(parent))
-        else
-            table.insert(result, path)
+        if not starts_protocol(o.special_protocols, fpath) then
+            if leftover == "**" then
+                table.insert(result, parent)
+                add_all(result, traverse(parent))
+            else
+                table.insert(result, path)
+            end
         end
     end
 
