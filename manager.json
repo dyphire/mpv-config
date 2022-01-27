@@ -10,6 +10,11 @@
     "dest":"~~/scripts"
   },
   {
+    "git":"https://github.com/occivink/mpv-scripts",
+    "whitelist":"blacklist%-extensions%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
     "git":"https://github.com/Ashyni/mpv-scripts",
     "whitelist":"dynamic%-crop%.lua$",
     "dest":"~~/scripts"
