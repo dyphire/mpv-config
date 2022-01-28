@@ -18,12 +18,16 @@ local utils = require 'mp.utils'
 
 o = {
     max_search_depth = 3,
-    special_protocols=[[
+    excluded_dir = [[
+        ["?:"]
+        ]], --excluded directories for shared, #windows: ["X:", "Z:"]
+    special_protocols = [[
 	["https?://", "magnet:", "rtmp:", "smb://", "bd://", "dvd://", "cdda://"]
-	]],
+	]], --add above (after a comma) any protocol to disable
 }
 options.read_options(o)
 
+o.excluded_dir = utils.parse_json(o.excluded_dir)
 o.special_protocols = utils.parse_json(o.special_protocols)
 
 local default_audio_paths = mp.get_property_native("options/audio-file-paths")
@@ -104,7 +108,7 @@ function explode(from, working_directory)
         local parent, leftover = utils.split_path(path)
         local fpath = mp.get_property('path')
 
-        if not starts_protocol(o.special_protocols, fpath) then
+        if not starts_protocol(o.special_protocols, fpath) and not starts_protocol(o.excluded_dir, path) then
             if leftover == "**" then
                 table.insert(result, parent)
                 add_all(result, traverse(parent))
