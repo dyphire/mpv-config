@@ -20,7 +20,7 @@
 
 
 // ============================================================================
-// Contrast Adaptive Sharpening - deus0ww - 2020-08-04
+// Contrast Adaptive Sharpening - deus0ww - 2022-01-28
 // 
 // Orginal: https://github.com/GPUOpen-Effects/FidelityFX-CAS
 // Reshade: https://gist.github.com/SLSNe/bbaf2d77db0b2a2a0755df581b3cf00c
@@ -28,15 +28,15 @@
 // ============================================================================
 
 
-//!HOOK SCALED
+//!HOOK LUMA
 //!BIND HOOKED
-//!DESC Contrast Adaptive Sharpening [0.50]
+//!DESC Contrast Adaptive Sharpening [0712] luma
 
-#define SHARPNESS 0.50  // Sharpening strength
+#define CONTRAST   0.7  // Adjusts the range the shader adapts to high contrast (0 is not all the way off).  Higher values = more high contrast sharpening.
+#define SHARPENING 1.2  // Adjusts sharpening intensity by averaging the original pixels to the sharpened result.
 
-#define saturate(x) clamp(x, 0.0, 1.0)
-
-const float peak = -1.0 / mix(8.0, 5.0, saturate(SHARPNESS));
+const float peak       = -1.0 / (-3.0 * clamp(CONTRAST, 0.0, 1.0) + 8.0);
+const float sharpening = clamp(SHARPENING, 0.0, 1.0);
 
 vec4 hook() {
 	// fetch a 3x3 neighborhood around the pixel 'e',
@@ -47,7 +47,7 @@ vec4 hook() {
 	vec3 b = HOOKED_texOff(ivec2( 0, -1)).rgb;
 	vec3 c = HOOKED_texOff(ivec2( 1, -1)).rgb;
 	vec3 d = HOOKED_texOff(ivec2(-1,  0)).rgb;
-	vec3 e = HOOKED_texOff(ivec2( 0,  0)).rgb;
+	vec4 e = HOOKED_tex(HOOKED_pos);
 	vec3 f = HOOKED_texOff(ivec2( 1,  0)).rgb;
 	vec3 g = HOOKED_texOff(ivec2(-1,  1)).rgb;
 	vec3 h = HOOKED_texOff(ivec2( 0,  1)).rgb;
@@ -58,25 +58,28 @@ vec4 hook() {
 	//	d e f * 0.5	 +	d e f * 0.5
 	//	g h i			  h
 	// These are 2.0x bigger (factored out the extra multiply).
-    vec3 mnRGB = min(min(min(d, e), min(f, b)), h);
+    vec3 mnRGB = min(min(min(d, e.rgb), min(f, b)), h);
     vec3 mnRGB2 = min(mnRGB, min(min(a, c), min(g, i)));
     mnRGB += mnRGB2;
 
-    vec3 mxRGB = max(max(max(d, e), max(f, b)), h);
+    vec3 mxRGB = max(max(max(d, e.rgb), max(f, b)), h);
     vec3 mxRGB2 = max(mxRGB, max(max(a, c), max(g, i)));
     mxRGB += mxRGB2;
 
 	// Smooth minimum distance to signal limit divided by smooth max.
-	vec3 ampRGB = saturate(min(mnRGB, 2.0 - mxRGB) / mxRGB);
+	vec3 ampRGB = clamp(min(mnRGB, 2.0 - mxRGB) / mxRGB, 0.0, 1.0);
 	
 	// Shaping amount of sharpening.
 	vec3 wRGB = sqrt(ampRGB) * peak;
+	vec3 weightRGB = 4.0 * wRGB + 1.0;
 	
 	// Filter shape.
 	//  0 w 0
 	//  w 1 w
 	//  0 w 0  
-	vec3 weightRGB = 1.0 + 4.0 * wRGB;
 	vec3 window = (b + d) + (f + h);
-	return vec4(saturate((window * wRGB + e) / weightRGB).rgb, HOOKED_tex(HOOKED_pos).a);
+	vec3 outColor = clamp((window * wRGB + e.rgb) / weightRGB, 0.0, 1.0);
+	
+	return vec4(mix(e.rgb, outColor, sharpening), e.a);
 }
+
