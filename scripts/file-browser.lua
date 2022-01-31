@@ -75,6 +75,11 @@ local o = {
     --directory to load external modules - currently just user-input-module
     module_directory = "~~/script-modules",
 
+    --force file-browser to use a specific text alignment (default: top-left)
+    --uses ass tag alignment numbers: https://aegi.vmoe.info/docs/3.0/ASS_Tags/#index23h3
+    --set to 0 to use the default mpv osd-align options
+    alignment = 7,
+
     --style settings
     font_bold_header = true,
 
@@ -109,7 +114,7 @@ if not ass then return msg.error("Script requires minimum mpv version 0.31") end
 package.path = mp.command_native({"expand-path", o.module_directory}).."/?.lua;"..package.path
 
 local style = {
-    global = [[{\an7}]],
+    global = o.alignment == 0 and "" or ([[{\an%d}]]):format(o.alignment),
 
     -- full line styles
     header = ([[{\r\q2\b%s\fs%d\fn%s\c&H%s&}]]):format((o.font_bold_header and "1" or "0"), o.font_size_header, o.font_name_header, o.font_colour_header),
