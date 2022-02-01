@@ -108,7 +108,9 @@ function explode(from, working_directory)
         local parent, leftover = utils.split_path(path)
         local fpath = mp.get_property('path')
 
-        if not starts_protocol(o.special_protocols, fpath) and not starts_protocol(o.excluded_dir, path) then
+        if not starts_protocol(o.special_protocols, fpath)
+        and not starts_protocol(o.excluded_dir, path) 
+        then
             if leftover == "**" then
                 table.insert(result, parent)
                 add_all(result, traverse(parent))
