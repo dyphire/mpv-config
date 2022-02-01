@@ -1138,7 +1138,9 @@ local function custom_loadlist_recursive(directory, flag)
     if directory == "" then return end
 
     for _, item in ipairs(list) do
-        if not sub_extensions[ get_extension(item.name, "") ] and not audio_extensions[ get_extension(item.name, "") ] then
+        if not sub_extensions[ get_extension(item.name, "") ]
+        and not audio_extensions[ get_extension(item.name, "") ]
+        then
             if item.type == "dir" or parseable_extensions[get_extension(item.name, "")] then
                 if custom_loadlist_recursive( concatenate_path(item, directory) , flag) then flag = "append" end
             else
