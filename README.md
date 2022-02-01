@@ -13,8 +13,7 @@ PS：自行编辑配置文件时，注意编码格式应为 UTF-8，换行符为
   - 使用 Github Action 编译版：[zhongfly_mpv](https://github.com/zhongfly/mpv-winbuild) [![releases](https://img.shields.io/github/v/release/zhongfly/mpv-winbuild)](https://github.com/zhongfly/mpv-winbuild/releases)
   - 基于个人修改的 [libass](https://github.com/dyphire/libass/tree/dev) 编译版：[dyphire_mpv](https://github.com/dyphire/mpv-winbuild) [![releases](https://img.shields.io/github/v/release/dyphire/mpv-winbuild)](https://github.com/dyphire/mpv-winbuild/releases)
     -  修复 libass 在 ass 字幕脚本比例和视频比例不匹配时导致的 PlayResX 缩放错误的问题
-    -  修复 windows 上 non-unicode 字符编码的字体名称识别加载问题
-    -  仍有其他标签缩放比例问题待解决
+    -  实现 windows 上 unicode 的文件名支持
 - 目前比较成熟的 mpv/libmpv 前端推荐 ： [mpv.net](https://github.com/stax76/mpv.net) [![mpv.net](https://flat.badgen.net/github/last-commit/stax76/mpv.net?scale=1.0&cache=1800)](https://github.com/stax76/mpv.net) [![releases](https://img.shields.io/github/v/release/stax76/mpv.net)](https://github.com/stax76/mpv.net/releases)
 	- 其汉化版： [mpv.net_CM](https://github.com/hooke007/mpv.net_CM) [![releases](https://img.shields.io/github/v/release/hooke007/mpv.net_CM)](https://github.com/hooke007/mpv.net_CM/releases)
 	- 个人 Github Action 编译版: [mpv.net](https://github.com/dyphire/mpv.net) 
