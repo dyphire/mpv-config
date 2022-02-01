@@ -791,6 +791,7 @@ mp.register_event("file-loaded", function()
             {COMMAND, "切换 默认字体", "T", "cycle-values sub-font SourceHanSansSC-Bold SourceHanSerifSC-Bold 思源黑体 思源宋体", "", false},
             {COMMAND, "切换 字幕", "j", "cycle sub", "", false},
             {COMMAND, "加载次字幕", "k", "cycle secondary-sid", "", false},
+            {COMMAND, "开/关 字幕选择脚本", "Y", "script-message sub-select toggle", "", false},
             {SEP},
             {COMMAND, "重置", "SHIFT+BS", "no-osd set sub-delay 0; no-osd set sub-pos 100; no-osd set sub-scale 1.0", "", false},
             {COMMAND, "字号 -0.1", "ALT+j", "add sub-scale -0.1", "", false},
