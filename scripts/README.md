@@ -8,7 +8,7 @@
 | autodeint.lua        | 自动检测去交错（默认禁用，需快捷键启用）       |
 | autosave.lua         | 每隔 1 分钟自动保存进度（而不是退出时）  |
 | blacklist-extensions.lua         | mpv 直接拖放目录时的文件加载类型的黑/白名单 |
-| change-refresh.lua   | 更改刷新率（配置文件 [changerefresh.conf](../script-opts/changerefresh.conf)） |
+| change-refresh.lua   | 更改刷新率（依赖[nircmd](https://www.nirsoft.net/utils/nircmd.html) ，配置文件 [changerefresh.conf](../script-opts/changerefresh.conf)） |
 | channel_mixer.lua    | 调节各通道音                             |
 | chapter_list.lua | 章节列表（依赖 [scroll-list.lua](../script-modules/scroll-list.lua)） |
 | chapterskip.lua | 跳过指定章节（配置文件 [chapterskip.conf](../script-opts/chapterskip.conf)） |
