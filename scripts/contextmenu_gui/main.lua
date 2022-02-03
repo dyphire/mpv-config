@@ -680,6 +680,7 @@ mp.register_event("file-loaded", function()
             {CASCADE, "轨道", "vidtrack_menu", "", "", function() return enableVidTrack() end},
             {SEP},
             {CASCADE, "解码模式", "hwdec_menu", "", "", false},
+            {COMMAND, "开/关 flip模式", "CTRL+f", "cycle d3d11-flip", "", false},
             {COMMAND, "切换 帧同步方式", "CTRL+p", "cycle video-sync", "", false},
             {CHECK, "抖动补偿", "ALT+i", "cycle interpolation", function() return propNative("interpolation") end, false},
             {COMMAND, "开/关 去黑边", "C", "script-message toggle_crop", "", false},
