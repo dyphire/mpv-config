@@ -37,8 +37,9 @@ function mod.get_user_input(fn, options, ...)
         name .. '/' .. (options.id or ""),      -- id code for the request
         "["..(options.source or name).."] "..(options.request_text or options.text or ("requesting user input:")),
         options.default_input or "",
-        options.queueable and "1" or "",
-        options.replace and "1" or ""
+        options.queueable and "1" or "0",
+        options.replace and "1" or "0",
+        options.cursor_pos or 1
     )
 end
 

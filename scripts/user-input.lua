@@ -146,6 +146,13 @@ local function update()
                   '\\1c&Heeeeee&\\3c&H111111&\\4c&H000000&' ..
                   '\\fn' .. opts.font .. '\\fs' .. opts.font_size ..
                   '\\bord1\\xshad0\\yshad1\\fsp0\\q1}'
+
+    local queue_style = '{\\r' ..
+                        '\\1a&H00&\\3a&H00&\\4a&H99&' ..
+                        '\\1c&Heeeeee&\\3c&H111111&\\4c&H000000&' ..
+                        '\\fn' .. opts.font .. '\\fs' .. opts.font_size .. '\\c&H66ccff&' ..
+                        '\\bord1\\xshad0\\yshad1\\fsp0\\q1}'
+
     -- Create the cursor glyph as an ASS drawing. ASS will draw the cursor
     -- inline with the surrounding text, but it sets the advance to the width
     -- of the drawing. So the cursor doesn't affect layout too much, make it as
@@ -164,6 +171,9 @@ local function update()
     ass:new_event()
     ass:an(1)
     ass:pos(2, screeny - 2 - global_margin_y * screeny)
+
+    if (#queue.queue == 2) then ass:append(queue_style .. string.format("There is 1 more request queued\\N"))
+    elseif (#queue.queue > 2) then ass:append(queue_style .. string.format("There are %d more requests queued\\N", #queue.queue-1)) end
     ass:append(style .. request.text .. '\\N')
     ass:append('> ' .. before_cur)
     ass:append(cglyph)
@@ -614,6 +624,7 @@ function queue:push(req)
 
     table.insert(self.queue, req)
     self.active_ids[req.id] = (self.active_ids[req.id] or 0) + 1
+    update()
     if #self.queue == 1 then return self:start_queue() end
 end
 
@@ -635,12 +646,14 @@ end
 function queue:start_queue()
     request = self.queue[1]
     line = request.default_input
+    cursor = request.cursor_pos
     set_active(true)
 end
 
 function queue:continue_queue()
     request = self.queue[1]
     line = request.default_input
+    cursor = request.cursor_pos
     update()
 end
 
@@ -666,9 +679,8 @@ mp.register_script_message("cancel-user-input", function(id)
     end
 end)
 
--- script message to recieve input requests, get-user-input.lua acts as an interface to call this script message
--- requests are recieved as json objects
-mp.register_script_message("request-user-input", function(response, id, request_text, default_input, queueable, replace)
+--the function that parses the input requests
+local function input_request(response, id, request_text, default_input, queueable, replace, cursor_pos)
     local req = {}
 
     if not response then msg.error("input requests require a response string") ; return end
@@ -680,9 +692,26 @@ mp.register_script_message("request-user-input", function(response, id, request_
     req.queueable = (queueable == "1")
     req.replace = (replace == "1")
 
+    if cursor_pos ~= "1" then
+        cursor_pos = tonumber(cursor_pos)
+
+        if cursor_pos < 1 then cursor_pos = 1
+        elseif cursor_pos > #default_input then cursor_pos = #default_input end
+        req.cursor_pos = cursor_pos
+    else
+        req.cursor_pos = 1
+    end
+
     if not histories[id] then histories[id] = {pos = 1, list = {}} end
     req.history = histories[id]
 
+    msg.debug(utils.to_string(req))
     queue:push(req)
+end
+
+-- script message to recieve input requests, get-user-input.lua acts as an interface to call this script message
+mp.register_script_message("request-user-input", function(...)
+    local success, err = pcall(input_request, ...)
+    if not success then msg.error(err) end
 end)
 
