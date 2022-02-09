@@ -681,7 +681,7 @@ mp.register_event("file-loaded", function()
             {SEP},
             {CASCADE, "解码模式", "hwdec_menu", "", "", false},
             {COMMAND, "开/关 flip模式", "CTRL+f", "cycle d3d11-flip", "", false},
-            {COMMAND, "切换 帧同步方式", "CTRL+p", "cycle video-sync", "", false},
+            {COMMAND, "切换 帧同步", "CTRL+p", "cycle-values video-sync display-resample audio display-vdrop display-resample-vdrop", "", false},
             {CHECK, "抖动补偿", "ALT+i", "cycle interpolation", function() return propNative("interpolation") end, false},
             {COMMAND, "开/关 去黑边", "C", "script-message toggle_crop", "", false},
             {CHECK, "去色带", "D", "cycle deband", function() return propNative("deband") end, false},
