@@ -789,7 +789,7 @@ mp.register_event("file-loaded", function()
         subtitle_menu = {
             {CASCADE, "轨道", "subtrack_menu", "", "", false},
             {COMMAND, "切换 渲染样式", "u", "cycle sub-ass-override", "", false},
-            {COMMAND, "切换 默认字体", "T", "cycle-values sub-font SourceHanSansSC-Bold SourceHanSerifSC-Bold 思源黑体 思源宋体", "", false},
+            {COMMAND, "切换 默认字体", "T", "cycle-values sub-font '思源黑体 Bold' '思源宋体 Bold' 思源黑体 思源宋体", "", false},
             {COMMAND, "切换 字幕", "j", "cycle sub", "", false},
             {COMMAND, "加载次字幕", "k", "cycle secondary-sid", "", false},
             {COMMAND, "开/关 字幕选择脚本", "Y", "script-message sub-select toggle", "", false},
