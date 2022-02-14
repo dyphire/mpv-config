@@ -175,7 +175,7 @@ vec4 hook() {
     vec2 mVar = vec2(0.0);
     for (int X=-1; X<=1; X++)
     for (int Y=-1; Y<=1; Y++) {
-        vec2 w = clamp(1.5 - abs(vec2(X,Y) - offset), 0.0, 1.0);
+        vec2 w = clamp(1.5 - abs(vec2(X,Y)), 0.0, 1.0);
         mVar += w.r * w.g * vec2(GetH(X,Y).a, 1.0);
     }
     mVar.r /= mVar.g;

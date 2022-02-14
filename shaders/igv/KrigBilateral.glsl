@@ -110,7 +110,7 @@ vec4 hook() {
 
 #define getnsum(i)  X[i] = vec4(LOWRES_Y_tex(LOWRES_Y_pt*(pos+coords[i]+vec2(0.5))).xy, \
                                 CHROMA_tex(CHROMA_pt*(pos+coords[i]+vec2(0.5))).xy); \
-                    w = clamp(1.5 - abs(coords[i] - offset), 0.0, 1.0); \
+                    w = clamp(1.5 - abs(coords[i]), 0.0, 1.0); \
                     total += w.x*w.y*vec4(X[i].x, X[i].x * X[i].x, X[i].y, 1.0);
 
 #define I3(f, n)    f(n) f(n+1) f(n+2)
