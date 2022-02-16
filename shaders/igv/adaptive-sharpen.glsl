@@ -25,13 +25,13 @@
 // Adaptive sharpen - version 2021-10-17
 // Tuned for use post-resize, EXPECTS FULL RANGE GAMMA LIGHT (requires ps >= 3.0)
 
-//!HOOK POSTKERNEL
+//!HOOK OUTPUT
 //!BIND HOOKED
 //!DESC adaptive-sharpen
 
 //--------------------------------------- Settings ------------------------------------------------
 
-#define curve_height    0.4                  // Main control of sharpening strength [>0]
+#define curve_height    1.0                  // Main control of sharpening strength [>0]
                                              // 0.3 <-> 2.0 is a reasonable range of values
 
 #define anime_mode      false                // Only darken edges
