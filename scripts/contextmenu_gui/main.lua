@@ -902,7 +902,7 @@ mp.register_event("file-loaded", function()
             {COMMAND, "切换 Anime4K配置", "ALT+7", "apply-profile Anime4K;show-text Anime4K", "", false},
             {COMMAND, "切换 Anime4K+配置", "ALT+8", "apply-profile Anime4K+;show-text Anime4K+", "", false},
             {COMMAND, "切换 NNEDI3配置", "ALT+9", "apply-profile NNEDI3;show-text NNEDI3", "", false},
-            {COMMAND, "切换 NNEDI3+配置", "ALT+0", "apply-profile NNEDI3+;show-text NNEDI3+", "", false},
+            {COMMAND, "切换 AMD-FSR_EASU配置", "ALT+0", "apply-profile AMD-FSR_EASU;show-text AMD-FSR_EASU", "", false},
             {COMMAND, "切换 SSIM配置", "", "apply-profile SSIM;show-text SSIM", "", false},
             {SEP},
             {COMMAND, "切换 ICC配置", "", "apply-profile ICC;show-text ICC", "", false},
