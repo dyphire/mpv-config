@@ -3,14 +3,13 @@
 ]]--
 
 local mp = require "mp"
-local home = mp.command_native({"expand-path", "~/"})
+local fb = require "file-browser"
+
+local home = fb.fix_path(mp.command_native({"expand-path", "~/"}), true)
+
 local home_label = {
     priority = 100
 }
-
-function home_label:setup()
-    home = self.fix_path(home, true)
-end
 
 function home_label:can_parse(directory)
     return directory:sub(1, home:len()) == home
