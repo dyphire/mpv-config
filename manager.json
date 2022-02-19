@@ -98,7 +98,7 @@
   },
   {
     "git":"https://github.com/CogentRedTester/mpv-file-browser",
-    "whitelist":"favourites%.lua$|powershell%.lua$|apache%-browser%.lua$|home%-label%.lua$|m3u%-browser%.lua$|ftp%-browser%.lua$",
+    "whitelist":"favourites%.lua$|powershell%.lua$|apache%-browser%.lua$|home%-label%.lua$|url%-decode%.lua$|m3u%-browser%.lua$|ftp%-browser%.lua$",
     "dest":"~~/script-modules/file-browser-addons"
   },
   {
