@@ -23,9 +23,8 @@
 // THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // Adaptive sharpen - version 2021-10-17
-// Tuned for use post-resize, EXPECTS FULL RANGE GAMMA LIGHT (requires ps >= 3.0)
 
-//!HOOK OUTPUT
+//!HOOK SCALED
 //!BIND HOOKED
 //!DESC adaptive-sharpen
 
@@ -38,9 +37,6 @@
 
 #define overshoot_ctrl  false                // Allow for higher overshoot if the current edge pixel
                                              // is surrounded by similar edge pixels
-
-#define video_level_out false                // True to preserve BTB & WTW (minor summation error)
-                                             // Normally it should be set to false
 
 // Defined values under this row are "optimal" DO NOT CHANGE IF YOU DO NOT KNOW WHAT YOU ARE DOING!
 
@@ -72,11 +68,11 @@
 #define wpmean(a,b,w)  ( pow(w*pow(abs(a), pm_p) + abs(1.0-w)*pow(abs(b), pm_p), (1.0/pm_p)) )
 
 // Get destination pixel values
-#define get(x,y)       ( sat(HOOKED_texOff(vec2(x, y)).rgb) )
+#define get(x,y)       ( HOOKED_texOff(vec2(x, y)).rgb )
 #define sat(x)         ( clamp(x, 0.0, 1.0) )
 #define dxdy(val)      ( length(fwidth(val)) ) // =~1/2.5 hq edge without c_comp
 
-#define CtL(RGB)       ( sqrt(dot(RGB*RGB, vec3(0.2126, 0.7152, 0.0722))) )
+#define CtL(RGB)       ( sat(dot(RGB, vec3(0.2126, 0.7152, 0.0722))) )
 
 #define b_diff(pix)    ( abs(blur-c[pix]) )
 
@@ -100,7 +96,7 @@ vec4 hook() {
                           dxdy(c[10]), dxdy(c[11]), dxdy(c[12]));
 
     // Blur, gauss 3x3
-    vec3  blur   = (2.0 * (c[2]+c[4]+c[5]+c[7]) + (c[1]+c[3]+c[6]+c[8]) + 4.0 * c[0]) / 16.0;
+    vec3  blur   = sat((2.0 * (c[2]+c[4]+c[5]+c[7]) + (c[1]+c[3]+c[6]+c[8]) + 4.0 * c[0]) / 16.0);
 
     // Contrast compression, center = 0.5, scaled to 1/3
     float c_comp = sat(0.266666681f + 0.9*exp2(dot(blur, vec3(-7.4/3.0))));
@@ -250,8 +246,8 @@ vec4 hook() {
               - wpmean(min(sharpdiff, 0.0), soft_lim( min(sharpdiff, 0.0), pn_scale.y ), cs.y );
 
     float sharpdiff_lim = sat(c0_Y + sharpdiff) - c0_Y;
-    float satmul = (c0_Y + max(sharpdiff_lim*0.9, sharpdiff_lim)*1.03 + 0.03)/(c0_Y + 0.03);
-    vec3 res = c0_Y + (sharpdiff_lim*3.0 + sharpdiff)/4.0 + (c[0] - c0_Y)*satmul;
+    float satmul = (c0_Y + max(sharpdiff_lim*0.9, sharpdiff_lim)*0.3 + 0.03)/(c0_Y + 0.03);
+    vec3 res = c0_Y + sharpdiff + (c[0] - c0_Y)*satmul;
 
-    return vec4(video_level_out == true ? res + HOOKED_texOff(0).rgb - c[0] : res, HOOKED_texOff(0).a);
+    return vec4(res, HOOKED_texOff(0).a);
 }
