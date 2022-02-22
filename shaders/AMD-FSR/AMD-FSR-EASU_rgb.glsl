@@ -22,7 +22,7 @@
 
 //!HOOK MAIN
 //!BIND HOOKED
-//!DESC FSR_EASU
+//!DESC AMD-FSR-EASU_rgb
 //!WHEN OUTPUT.w OUTPUT.h * MAIN.w MAIN.h * / 1.0 >
 //!WIDTH OUTPUT.w
 //!HEIGHT OUTPUT.h
@@ -131,7 +131,7 @@ void FsrEasuSet(
 vec4 hook() {
 	//------------------------------------------------------------------------------------------------------------------------------
 	// Get position of 'f'.
-	vec2 pp = HOOKED_pos * input_size - vec2(0.5);
+	vec2 pp = HOOKED_pos * HOOKED_size - vec2(0.5);
 	vec2 fp = floor(pp);
 	pp -= fp;
 	//------------------------------------------------------------------------------------------------------------------------------
@@ -153,38 +153,38 @@ vec4 hook() {
 	// Allowing dead-code removal to remove the 'z's.
 	
  #if (defined(HOOKED_gather) && (__VERSION__ >= 400 || (GL_ES && __VERSION__ >= 310)))
-	vec4 bczzR = HOOKED_gather(vec2((fp + vec2(1.0, -1.0)) / HOOKED_size), 0);
-	vec4 bczzG = HOOKED_gather(vec2((fp + vec2(1.0, -1.0)) / HOOKED_size), 1);
-	vec4 bczzB = HOOKED_gather(vec2((fp + vec2(1.0, -1.0)) / HOOKED_size), 2);
+	vec4 bczzR = HOOKED_gather(vec2((fp + vec2(1.0, -1.0)) * HOOKED_pt), 0);
+	vec4 bczzG = HOOKED_gather(vec2((fp + vec2(1.0, -1.0)) * HOOKED_pt), 1);
+	vec4 bczzB = HOOKED_gather(vec2((fp + vec2(1.0, -1.0)) * HOOKED_pt), 2);
 	
-	vec4 ijfeR = HOOKED_gather(vec2((fp + vec2(0.0, 1.0)) / HOOKED_size), 0);
-	vec4 ijfeG = HOOKED_gather(vec2((fp + vec2(0.0, 1.0)) / HOOKED_size), 1);
-	vec4 ijfeB = HOOKED_gather(vec2((fp + vec2(0.0, 1.0)) / HOOKED_size), 2);
+	vec4 ijfeR = HOOKED_gather(vec2((fp + vec2(0.0, 1.0)) * HOOKED_pt), 0);
+	vec4 ijfeG = HOOKED_gather(vec2((fp + vec2(0.0, 1.0)) * HOOKED_pt), 1);
+	vec4 ijfeB = HOOKED_gather(vec2((fp + vec2(0.0, 1.0)) * HOOKED_pt), 2);
 	
-	vec4 klhgR = HOOKED_gather(vec2((fp + vec2(2.0, 1.0)) / HOOKED_size), 0);
-	vec4 klhgG = HOOKED_gather(vec2((fp + vec2(2.0, 1.0)) / HOOKED_size), 1);
-	vec4 klhgB = HOOKED_gather(vec2((fp + vec2(2.0, 1.0)) / HOOKED_size), 2);
+	vec4 klhgR = HOOKED_gather(vec2((fp + vec2(2.0, 1.0)) * HOOKED_pt), 0);
+	vec4 klhgG = HOOKED_gather(vec2((fp + vec2(2.0, 1.0)) * HOOKED_pt), 1);
+	vec4 klhgB = HOOKED_gather(vec2((fp + vec2(2.0, 1.0)) * HOOKED_pt), 2);
 	
-	vec4 zzonR = HOOKED_gather(vec2((fp + vec2(1.0, 3.0)) / HOOKED_size), 0);
-	vec4 zzonG = HOOKED_gather(vec2((fp + vec2(1.0, 3.0)) / HOOKED_size), 1);
-	vec4 zzonB = HOOKED_gather(vec2((fp + vec2(1.0, 3.0)) / HOOKED_size), 2);
+	vec4 zzonR = HOOKED_gather(vec2((fp + vec2(1.0, 3.0)) * HOOKED_pt), 0);
+	vec4 zzonG = HOOKED_gather(vec2((fp + vec2(1.0, 3.0)) * HOOKED_pt), 1);
+	vec4 zzonB = HOOKED_gather(vec2((fp + vec2(1.0, 3.0)) * HOOKED_pt), 2);
 #else
 	// pre-OpenGL 4.0 compatibility
-	vec3 b = HOOKED_tex(vec2((fp + vec2(0.5, -0.5)) / HOOKED_size)).rgb;
-	vec3 c = HOOKED_tex(vec2((fp + vec2(1.5, -0.5)) / HOOKED_size)).rgb;
+	vec3 b = HOOKED_tex(vec2((fp + vec2(0.5, -0.5)) * HOOKED_pt)).rgb;
+	vec3 c = HOOKED_tex(vec2((fp + vec2(1.5, -0.5)) * HOOKED_pt)).rgb;
 	
-	vec3 e = HOOKED_tex(vec2((fp + vec2(-0.5, 0.5)) / HOOKED_size)).rgb;
-	vec3 f = HOOKED_tex(vec2((fp + vec2( 0.5, 0.5)) / HOOKED_size)).rgb;
-	vec3 g = HOOKED_tex(vec2((fp + vec2( 1.5, 0.5)) / HOOKED_size)).rgb;
-	vec3 h = HOOKED_tex(vec2((fp + vec2( 2.5, 0.5)) / HOOKED_size)).rgb;
+	vec3 e = HOOKED_tex(vec2((fp + vec2(-0.5, 0.5)) * HOOKED_pt)).rgb;
+	vec3 f = HOOKED_tex(vec2((fp + vec2( 0.5, 0.5)) * HOOKED_pt)).rgb;
+	vec3 g = HOOKED_tex(vec2((fp + vec2( 1.5, 0.5)) * HOOKED_pt)).rgb;
+	vec3 h = HOOKED_tex(vec2((fp + vec2( 2.5, 0.5)) * HOOKED_pt)).rgb;
 	
-	vec3 i = HOOKED_tex(vec2((fp + vec2(-0.5, 1.5)) / HOOKED_size)).rgb;
-	vec3 j = HOOKED_tex(vec2((fp + vec2( 0.5, 1.5)) / HOOKED_size)).rgb;
-	vec3 k = HOOKED_tex(vec2((fp + vec2( 1.5, 1.5)) / HOOKED_size)).rgb;
-	vec3 l = HOOKED_tex(vec2((fp + vec2( 2.5, 1.5)) / HOOKED_size)).rgb;
+	vec3 i = HOOKED_tex(vec2((fp + vec2(-0.5, 1.5)) * HOOKED_pt)).rgb;
+	vec3 j = HOOKED_tex(vec2((fp + vec2( 0.5, 1.5)) * HOOKED_pt)).rgb;
+	vec3 k = HOOKED_tex(vec2((fp + vec2( 1.5, 1.5)) * HOOKED_pt)).rgb;
+	vec3 l = HOOKED_tex(vec2((fp + vec2( 2.5, 1.5)) * HOOKED_pt)).rgb;
 	
-	vec3 n = HOOKED_tex(vec2((fp + vec2(0.5, 2.5) )/ HOOKED_size)).rgb;
-	vec3 o = HOOKED_tex(vec2((fp + vec2(1.5, 2.5) )/ HOOKED_size)).rgb;
+	vec3 n = HOOKED_tex(vec2((fp + vec2(0.5, 2.5) ) * HOOKED_pt)).rgb;
+	vec3 o = HOOKED_tex(vec2((fp + vec2(1.5, 2.5) ) * HOOKED_pt)).rgb;
 
 	vec4 bczzR = vec4(b.r, c.r, 0.0, 0.0);
 	vec4 bczzG = vec4(b.g, c.g, 0.0, 0.0);
