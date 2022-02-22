@@ -19,21 +19,15 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// NVIDIA Image Scaling v1.0.2 by NVIDIA
-// ported to mpv by agyild
+// Mod from NVScaler.glsl
 
-// Changelog
-// Made it directly operate on LUMA plane, since the original shader was operating
-// on LUMA by deriving it from RGB. This should cause a major increase in performance,
-// especially on OpenGL 4.0+ renderers
-
-//!HOOK LUMA
+//!HOOK MAIN
 //!BIND HOOKED
 //!BIND coef_scaler
 //!BIND coef_usm
-//!DESC NVIDIA Image Scaling and Sharpening v1.0.2
+//!DESC NVScaler_rgb
 //!COMPUTE 32 24 256 1
-//!WHEN OUTPUT.w OUTPUT.h * LUMA.w LUMA.h * / 1.0 >
+//!WHEN OUTPUT.w OUTPUT.h * MAIN.w MAIN.h * / 1.0 >
 //!WIDTH OUTPUT.w
 //!HEIGHT OUTPUT.h
 
@@ -93,6 +87,13 @@ shared float shCoefUSM[kPhaseCount][kFilterSize];
 shared vec4 shEdgeMap[kEdgeMapSize];
 
 // Shader code
+float getY(vec3 rgba) {
+#if (NIS_HDR_MODE == 1)
+	return float(0.262f) * rgba.x + float(0.678f) * rgba.y + float(0.0593f) * rgba.z;
+#else
+	return float(0.2126f) * rgba.x + float(0.7152f) * rgba.y + float(0.0722f) * rgba.z;
+#endif
+}
 
 vec4 GetEdgeMap(float p[4][4], int i, int j) {
 	const float g_0 = abs(p[0 + i][0 + j] + p[0 + i][1 + j] + p[0 + i][2 + j] - p[2 + i][0 + j] - p[2 + i][1 + j] - p[2 + i][2 + j]);
@@ -401,20 +402,22 @@ void hook()
 			float p[2][2];
 #ifdef HOOKED_gather
 			{
-				const vec4 sY = HOOKED_gather(vec2(tx, ty), 0);
+				const vec4 sr = HOOKED_gather(vec2(tx, ty), 0);
+				const vec4 sg = HOOKED_gather(vec2(tx, ty), 1);
+				const vec4 sb = HOOKED_gather(vec2(tx, ty), 2);
 
-				p[0][0] = sY.w;
-				p[0][1] = sY.z;
-				p[1][0] = sY.x;
-				p[1][1] = sY.y;
+				p[0][0] = getY(vec3(sr.w, sg.w, sb.w));
+				p[0][1] = getY(vec3(sr.z, sg.z, sb.z));
+				p[1][0] = getY(vec3(sr.x, sg.x, sb.x));
+				p[1][1] = getY(vec3(sr.y, sg.y, sb.y));
 			}
 #else
 			for (int j = 0; j < 2; j++)
 			{
 				for (int k = 0; k < 2; k++)
 				{
-					const float px = HOOKED_tex(vec2(tx + k * kSrcNormX, ty + j * kSrcNormY)).r;
-					p[j][k] = px;
+					const vec4 px = HOOKED_tex(vec2(tx + k * kSrcNormX, ty + j * kSrcNormY));
+					p[j][k] = getY(px.xyz);
 				}
 			}
 #endif
@@ -525,12 +528,13 @@ void hook()
         // get directional filter bank output
         opY += AddDirFilters(p, fx, fy, fx_int, fy_int, w);
 
-        // do bilinear tap for luma upscaling
-		vec4 op = vec4(0.0, 0.0, 0.0, 1.0);
-		op.r = HOOKED_tex(vec2((srcX + 0.5f) * kSrcNormX, (srcY + 0.5f) * kSrcNormY)).r;
+        // do bilinear tap for chroma upscaling
+		vec4 op = HOOKED_tex(vec2((srcX + 0.5f) * kSrcNormX, (srcY + 0.5f) * kSrcNormY));
 
-        const float corr = opY * (1.0f / NIS_SCALE_FLOAT) - op.r;
-        op += corr;
+        const float corr = opY * (1.0f / NIS_SCALE_FLOAT) - getY(vec3(op.x, op.y, op.z));
+        op.x += corr;
+        op.y += corr;
+        op.z += corr;
 
         imageStore(out_image, ivec2(dstX, dstY), op);
     }

@@ -1,8 +1,9 @@
-//!DESC unsharp-masking_blur_1_0
+
+//!DESC unsharp-masking_sharpen
 //!HOOK MAIN
 //!BIND HOOKED
 
-#define PARAM -1.0   // terrible when below -2
+#define SHARPEN 1.0   // terrible when over 3
 
 vec4 hook()
 {
@@ -18,5 +19,6 @@ vec4 hook()
               + HOOKED_texOff(st2 * vec2(-1,  0))
               + HOOKED_texOff(st2 * vec2( 0, -1));
     vec4 t = p * 0.859375 + sum2 * -0.1171875 + sum1 * -0.09765625;
-    return p + t * PARAM;
+    return p + t * SHARPEN;
 }
+
