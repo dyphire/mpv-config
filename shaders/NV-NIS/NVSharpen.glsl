@@ -1,6 +1,6 @@
 // The MIT License(MIT)
 //
-// Copyright(c) 2021 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright(c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of
 // this software and associated documentation files(the "Software"), to deal in
@@ -19,12 +19,12 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// NVIDIA Image Scaling v1.0.1 by NVIDIA
+// NVIDIA Image Scaling v1.0.2 by NVIDIA
 // ported to mpv by agyild
 
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC NVIDIA Image Sharpening
+//!DESC NVIDIA Image Sharpening v1.0.2
 //!COMPUTE 32 32 256 1
 
 // User variables
@@ -40,16 +40,17 @@
 #define kNumPixelsY (NIS_BLOCK_HEIGHT + kSupportSize + 1)
 #define NIS_SCALE_FLOAT 1.0f
 const float sharpen_slider = clamp(SHARPNESS, 0.0f, 1.0f) - 0.5f;
+const float MaxScale = (sharpen_slider >= 0.0f) ? 1.25f : 1.75f;
 const float MinScale = (sharpen_slider >= 0.0f) ? 1.25f : 1.0f;
 const float LimitScale = (sharpen_slider >= 0.0f) ? 1.25f : 1.0f;
-const float kDetectRatio = 1127.0f / 1024.0f;
+const float kDetectRatio = 2 * 1127.f / 1024.f;
 const float kDetectThres = (bool(NIS_HDR_MODE) ? 32.0f : 64.0f) / 1024.0f;
 const float kMinContrastRatio = bool(NIS_HDR_MODE) ? 1.5f : 2.0f;
 const float kMaxContrastRatio = bool(NIS_HDR_MODE) ? 5.0f : 10.0f;
 const float kSharpStartY = bool(NIS_HDR_MODE) ? 0.35f : 0.45f;
 const float kSharpEndY = bool(NIS_HDR_MODE) ? 0.55f : 0.9f;
 const float kSharpStrengthMin = max(0.0f, 0.4f + sharpen_slider * MinScale * (bool(NIS_HDR_MODE) ? 1.1f : 1.2));
-const float kSharpStrengthMax = ((bool(NIS_HDR_MODE) ? 2.2f : 1.6f) + sharpen_slider * 1.8f);
+const float kSharpStrengthMax = ((bool(NIS_HDR_MODE) ? 2.2f : 1.6f) + sharpen_slider * MaxScale * 1.8f);
 const float kSharpLimitMin = max((bool(NIS_HDR_MODE) ? 0.06f :0.1f), (bool(NIS_HDR_MODE) ? 0.1f : 0.14f) + sharpen_slider * LimitScale * (bool(NIS_HDR_MODE) ? 0.28f : 0.32f)); //
 const float kSharpLimitMax = ((bool(NIS_HDR_MODE) ? 0.6f : 0.5f) + sharpen_slider * LimitScale * 0.6f);
 const float kRatioNorm = 1.0f / (kMaxContrastRatio - kMinContrastRatio);
@@ -57,7 +58,7 @@ const float kSharpScaleY = 1.0f / (kSharpEndY - kSharpStartY);
 const float kSharpStrengthScale = kSharpStrengthMax - kSharpStrengthMin;
 const float kSharpLimitScale = kSharpLimitMax - kSharpLimitMin;
 const float kContrastBoost = 1.0f;
-const float kEps = 1.0f;
+const float kEps = 1.0f / 255.0f;
 #define kSrcNormX HOOKED_pt.x
 #define kSrcNormY HOOKED_pt.y
 #define kDstNormX kSrcNormX
@@ -93,41 +94,26 @@ vec4 GetEdgeMap(float p[5][5], int i, int j) {
 	float e_0_90 = 0;
 	float e_45_135 = 0;
 
-	if ((g_0_90_max + g_45_135_max) != 0)
-	{
-		e_0_90 = g_0_90_max / (g_0_90_max + g_45_135_max);
-		e_0_90 = min(e_0_90, 1.0f);
-		e_45_135 = 1.0f - e_0_90;
-	}
+    if (g_0_90_max + g_45_135_max == 0)
+    {
+        return vec4(0, 0, 0, 0);
+    }
 
-	float e = ((g_0_90_max > (g_0_90_min * kDetectRatio)) && (g_0_90_max > kDetectThres) && (g_0_90_max > g_45_135_min)) ? 1.f : 0.f;
-	float edge_0  = (g_0_90_max == g_0) ? e   : 0.f;
-	float edge_90 = (g_0_90_max == g_0) ? 0.f : e;
+    e_0_90 = min(g_0_90_max / (g_0_90_max + g_45_135_max), 1.0f);
+    e_45_135 = 1.0f - e_0_90;
 
-	e = ((g_45_135_max > (g_45_135_min * kDetectRatio)) && (g_45_135_max > kDetectThres) && (g_45_135_max > g_0_90_min)) ? 1.f : 0.f;
-	float edge_45  = (g_45_135_max == g_45) ? e   : 0.f;
-	float edge_135 = (g_45_135_max == g_45) ? 0.f : e;
+    bool c_0_90 = (g_0_90_max > (g_0_90_min * kDetectRatio)) && (g_0_90_max > kDetectThres) && (g_0_90_max > g_45_135_min);
+    bool c_45_135 = (g_45_135_max > (g_45_135_min * kDetectRatio)) && (g_45_135_max > kDetectThres) && (g_45_135_max > g_0_90_min);
+    bool c_g_0_90 = g_0_90_max == g_0;
+    bool c_g_45_135 = g_45_135_max == g_45;
 
-	float weight_0 = 0.f;
-	float weight_90 = 0.f;
-	float weight_45 = 0.f;
-	float weight_135 = 0.f;
-	if ((edge_0 + edge_90 + edge_45 + edge_135) >= 2.0f)
-	{
-		weight_0  = (edge_0 == 1.0f) ? e_0_90 : 0.f;
-		weight_90 = (edge_0 == 1.0f) ? 0.f    : e_0_90;
+    float f_e_0_90 = (c_0_90 && c_45_135) ? e_0_90 : 1.0f;
+    float f_e_45_135 = (c_0_90 && c_45_135) ? e_45_135 : 1.0f;
 
-		weight_45 =  (edge_45 == 1.0f) ? e_45_135 : 0.f;
-		weight_135 = (edge_45 == 1.0f) ? 0.f      : e_45_135;
-	}
-	else if ((edge_0 + edge_90 + edge_45 + edge_135) >= 1.0f)
-	{
-		weight_0 = edge_0;
-		weight_90 = edge_90;
-		weight_45 = edge_45;
-		weight_135 = edge_135;
-	}
-
+    float weight_0 = (c_0_90 && c_g_0_90) ? f_e_0_90 : 0.0f;
+    float weight_90 = (c_0_90 && !c_g_0_90) ? f_e_0_90 : 0.0f;
+    float weight_45 = (c_45_135 && c_g_45_135) ? f_e_45_135 : 0.0f;
+    float weight_135 = (c_45_135 && !c_g_45_135) ? f_e_45_135 : 0.0f;
 
 	return vec4(weight_0, weight_90, weight_45, weight_135);
 }
@@ -142,7 +128,7 @@ float CalcLTIFast(const float y[5]) {
 	const float a_cont = a_max - a_min;
 	const float b_cont = b_max - b_min;
 
-	const float cont_ratio = max(a_cont, b_cont) / (min(a_cont, b_cont) + kEps * (1.0f / NIS_SCALE_FLOAT));
+	const float cont_ratio = max(a_cont, b_cont) / (min(a_cont, b_cont) + kEps);
 	return (1.0f - saturate((cont_ratio - kMinContrastRatio) * kRatioNorm)) * kContrastBoost;
 }
 
@@ -225,7 +211,7 @@ void hook() {
 	const float kShift = 0.5f - kSupportSize / 2;
 
 	for (int i = int(threadIdx) * 2; i < kNumPixelsX * kNumPixelsY / 2; i += NIS_THREAD_GROUP_SIZE * 2) {
-		uvec2 pos = uvec2(i % kNumPixelsX, i / kNumPixelsX * 2);
+		uvec2 pos = uvec2(uint(i) % uint(kNumPixelsX), uint(i) / uint(kNumPixelsX) * 2);
 
 		for (int dy = 0; dy < 2; dy++) {
 			for (int dx = 0; dx < 2; dx++) {
@@ -242,7 +228,7 @@ void hook() {
 
 	for (int k = int(threadIdx); k < NIS_BLOCK_WIDTH * NIS_BLOCK_HEIGHT; k += NIS_THREAD_GROUP_SIZE)
 	{
-		const ivec2 pos = ivec2(k % NIS_BLOCK_WIDTH, k / NIS_BLOCK_WIDTH);
+		const ivec2 pos = ivec2(uint(k) % uint(NIS_BLOCK_WIDTH), uint(k) / uint(NIS_BLOCK_WIDTH));
 
 		// load 5x5 support to regs
 		float p[5][5];
