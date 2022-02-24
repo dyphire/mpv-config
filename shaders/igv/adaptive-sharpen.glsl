@@ -23,8 +23,9 @@
 // THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // Adaptive sharpen - version 2021-10-17
+// Tuned for use post-resize
 
-//!HOOK SCALED
+//!HOOK OUTPUT
 //!BIND HOOKED
 //!DESC adaptive-sharpen
 
