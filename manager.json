@@ -15,6 +15,11 @@
     "dest":"~~/scripts"
   },
   {
+    "git":"https://github.com/fbriere/mpv-scripts",
+    "whitelist":"sub%-fonts%-dir%-autos%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
     "git":"https://github.com/Ashyni/mpv-scripts",
     "whitelist":"dynamic%-crop%.lua$",
     "dest":"~~/scripts"
