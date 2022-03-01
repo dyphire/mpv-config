@@ -35,6 +35,7 @@
 | simplebookmark.lua | 高级书签菜单（配置文件 [simplebookmark.conf](../script-opts/simplebookmark.conf)）；键位绑定均在同名配置文件中 |
 | simplehistory.lua | 高级历史菜单，可恢复最后的播放记录并播放（配置文件 [simplehistory.conf](../script-opts/simplehistory.conf)）；键位绑定均在同名配置文件中 |
 | smartcopypaste_II.lua        | 高级剪贴菜单，智能复制粘贴视频路径及进度（配置文件 [smartcopypaste_II.conf](../script-opts/smartcopypaste_II.conf)）；键位绑定均在同名配置文件中 |
+| sub-fonts-dir-auto.lua | 在播放目录下自动指定`sub-fonts-dir`要使用的字体目录fonts以实现加载特定字体目录。**注意**：mpv必须以包含pr [mpv-player/#9856](https://github.com/mpv-player/mpv/pull/9856) 的版本编译方可使用此脚本 |
 | sub-select.lua | 指定字幕轨道优先级/黑白名单（配置文件 [sub_select.conf](../script-opts/sub_select.conf)；[sub-select.json](../script-opts/sub-select.json)） |
 | thumbnailer*.lua          | 缩略图引擎(依赖 [thumbnailer_osc.lua](../scripts/thumbnailer_osc.lua)；配置文件 [thumbnailer.conf](../script-opts/thumbnailer.conf)) |
 | thumbnailer_osc.lua         | 缩略图引擎搭配的 OSC 界面（配置文件 [thumbnailer_osc.conf](../script-opts/thumbnailer_osc.conf)） |
