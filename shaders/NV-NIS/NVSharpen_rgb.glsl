@@ -19,18 +19,12 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// NVIDIA Image Scaling v1.0.2 by NVIDIA
-// ported to mpv by agyild
+// MOD from NVSharpen.glsl
 
-// Changelog
-// Made it directly operate on LUMA plane, since the original shader was operating
-// on LUMA by deriving it from RGB.
-
-//!HOOK LUMA
+//!HOOK OUTPUT
 //!BIND HOOKED
 //!DESC NVIDIA Image Sharpening v1.0.2
 //!COMPUTE 32 32 256 1
-//!WHEN OUTPUT.w OUTPUT.h * LUMA.w LUMA.h * / 1.0 > ! OUTPUT.w OUTPUT.h * LUMA.w LUMA.h * / 1.0 < ! *
 
 // User variables
 #define SHARPNESS 0.25 // Amount of sharpening. 0.0 to 1.0.
@@ -43,6 +37,7 @@
 #define kSupportSize 5
 #define kNumPixelsX (NIS_BLOCK_WIDTH + kSupportSize + 1)
 #define kNumPixelsY (NIS_BLOCK_HEIGHT + kSupportSize + 1)
+#define NIS_SCALE_FLOAT 1.0f
 const float sharpen_slider = clamp(SHARPNESS, 0.0f, 1.0f) - 0.5f;
 const float MaxScale = (sharpen_slider >= 0.0f) ? 1.25f : 1.75f;
 const float MinScale = (sharpen_slider >= 0.0f) ? 1.25f : 1.0f;
@@ -76,6 +71,13 @@ const float kEps = 1.0f / 255.0f;
 shared float shPixelsY[kNumPixelsY][kNumPixelsX];
 
 // Shader code
+float getY(vec3 rgba) {
+#if (NIS_HDR_MODE == 1)
+	return float(0.262f) * rgba.x + float(0.678f) * rgba.y + float(0.0593f) * rgba.z;
+#else
+	return float(0.2126f) * rgba.x + float(0.7152f) * rgba.y + float(0.0722f) * rgba.z;
+#endif
+}
 
 vec4 GetEdgeMap(float p[5][5], int i, int j) {
 	const float g_0 = abs(p[0 + i][0 + j] + p[0 + i][1 + j] + p[0 + i][2 + j] - p[2 + i][0 + j] - p[2 + i][1 + j] - p[2 + i][2 + j]);
@@ -214,8 +216,8 @@ void hook() {
 			for (int dx = 0; dx < 2; dx++) {
 				const float tx = (dstBlockX + pos.x + dx + kShift) * kSrcNormX;
 				const float ty = (dstBlockY + pos.y + dy + kShift) * kSrcNormY;
-				const float px = HOOKED_tex(vec2(tx, ty)).r;
-				shPixelsY[pos.y + dy][pos.x + dx] = px;
+				const vec4 px = HOOKED_tex(vec2(tx, ty));
+				shPixelsY[pos.y + dy][pos.x + dx] = getY(px.xyz);
 			}
 		}
 	}
@@ -247,13 +249,16 @@ void hook() {
 		// final USM is a weighted sum filter outputs
 		const float usmY = (dirUSM.x * w.x + dirUSM.y * w.y + dirUSM.z * w.z + dirUSM.w * w.w);
 
-		// do bilinear tap and correct luma texel so it produces new sharpened luma
+		// do bilinear tap and correct rgb texel so it produces new sharpened luma
 		const int dstX = dstBlockX + pos.x;
 		const int dstY = dstBlockY + pos.y;
 
 		vec4 op = HOOKED_tex(vec2((dstX + 0.5f) * kDstNormX, (dstY + 0.5f) * kDstNormY));
 		op.x += usmY;
+		op.y += usmY;
+		op.z += usmY;
 
 		imageStore(out_image, ivec2(dstX, dstY), op);
 	}
 }
+

@@ -39,6 +39,9 @@
 //!HEIGHT OUTPUT.h OUTPUT.h LUMA.h 2 * < * LUMA.h 2 * OUTPUT.h LUMA.h 2 * > * + OUTPUT.h OUTPUT.h LUMA.h 2 * = * +
 //!COMPONENTS 1
 
+// User variables - EASU
+#define FSR_PQ 0 // Whether the source content has PQ gamma or not. Needs to be set to the same value for both passes. 0 or 1.
+
 // Shader code
 
 float APrxLoRcpF1(float a) {
@@ -56,6 +59,14 @@ float AMin3F1(float x, float y, float z) {
 float AMax3F1(float x, float y, float z) {
 	return max(x, max(y, z));
 }
+
+#if (FSR_PQ == 1)
+
+float ToGamma2(float a) { 
+	return pow(a, 4.0);
+}
+
+#endif
 
  // Filtering for a given tap for the scalar.
  void FsrEasuTap(
@@ -203,6 +214,22 @@ vec4 hook() {
 	float gL = klhgL.w;
 	float oL = zzonL.z;
 	float nL = zzonL.w;
+
+#if (FSR_PQ == 1)
+	bL = ToGamma2(bL);
+	cL = ToGamma2(cL);
+	iL = ToGamma2(iL);
+	jL = ToGamma2(jL);
+	fL = ToGamma2(fL);
+	eL = ToGamma2(eL);
+	kL = ToGamma2(kL);
+	lL = ToGamma2(lL);
+	hL = ToGamma2(hL);
+	gL = ToGamma2(gL);
+	oL = ToGamma2(oL);
+	nL = ToGamma2(nL);
+#endif
+
 	// Accumulate for bilinear interpolation.
 	vec2 dir = vec2(0.0);
 	float len = float(0.0);
@@ -260,7 +287,7 @@ vec4 hook() {
 	//------------------------------------------------------------------------------------------------------------------------------
 	// Normalize and dering.
 	vec4 pix = vec4(0.0, 0.0, 0.0, 1.0);
-	pix.r = min(max1, max(min1, aC * float(1.0 / aW)));
+	pix.r = clamp(min(max1, max(min1, aC * float(1.0 / aW))), 0.0, 1.0);
 
 	return pix;
 }
@@ -273,8 +300,9 @@ vec4 hook() {
 //!COMPONENTS 1
 
 // User variables - RCAS
-#define SHARPNESS 0.25 // Controls the amount of sharpening. The scale is {0.0 := maximum, to N>0, where N is the number of stops (halving) of the reduction of sharpness}. 0.0 to N>0.
+#define SHARPNESS 0.2 // Controls the amount of sharpening. The scale is {0.0 := maximum, to N>0, where N is the number of stops (halving) of the reduction of sharpness}. 0.0 to 2.0.
 #define FSR_RCAS_DENOISE 1 // If set to 1, applies denoising in addition to sharpening. Can be disabled for better performance. 0 or 1.
+#define FSR_PQ 0 // Whether the source content has PQ gamma or not. Needs to be set to the same value for both passes. 0 or 1.
 
 // Shader code
 
@@ -292,6 +320,14 @@ float AMax3F1(float x, float y, float z) {
 float AMin3F1(float x, float y, float z) {
 	return min(x, min(y, z));
 }
+
+#if (FSR_PQ == 1)
+
+float FromGamma2(float a) { 
+	return sqrt(sqrt(a));
+}
+
+#endif
 
 vec4 hook() {
 	// Algorithm uses minimal 3x3 pixel neighborhood.
@@ -326,7 +362,7 @@ vec4 hook() {
 	float hitMinL = min(mn1L, e) * (float(1.0) / (float(4.0) * mx1L));
 	float hitMaxL = (peakC.x - max(mx1L, e)) * (float(1.0) / (float(4.0) * mn1L + peakC.y));
 	float lobeL = max(-hitMinL, hitMaxL);
-	float lobe = max(float(-FSR_RCAS_LIMIT), min(lobeL, float(0.0))) * exp2(-max(float(SHARPNESS), float(0.0)));
+	float lobe = max(float(-FSR_RCAS_LIMIT), min(lobeL, float(0.0))) * exp2(-clamp(float(SHARPNESS), 0.0, 2.0));
 
 	// Apply noise removal.
 #if (FSR_RCAS_DENOISE == 1)
@@ -341,6 +377,9 @@ vec4 hook() {
 	float rcpL = APrxMedRcpF1(float(4.0) * lobe + float(1.0));
 	vec4 pix = vec4(0.0, 0.0, 0.0, 1.0);
 	pix.r = float((lobe * b + lobe * d + lobe * h + lobe * f + e) * rcpL);
+#if (FSR_PQ == 1)
+	pix.r = FromGamma2(pix.r);
+#endif
 
 	return pix;
 }
