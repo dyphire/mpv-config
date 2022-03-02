@@ -75,12 +75,10 @@ const float kSharpStrengthScale = kSharpStrengthMax - kSharpStrengthMin;
 const float kSharpLimitScale = kSharpLimitMax - kSharpLimitMin;
 const float kContrastBoost = 1.0f;
 const float kEps = 1.0f;
+#define kScaleX (HOOKED_size.x / target_size.x)
+#define kScaleY (HOOKED_size.y / target_size.y)
 #define kSrcNormX HOOKED_pt.x
 #define kSrcNormY HOOKED_pt.y
-#define kDstNormX (1.f / target_size.x)
-#define kDstNormY (1.f / target_size.y)
-#define kScaleX (input_size.x / target_size.x)
-#define kScaleY (input_size.y / target_size.y)
 
 // HLSL to GLSL macros
 #define saturate(x) clamp(x, 0, 1)
@@ -108,26 +106,26 @@ vec4 GetEdgeMap(float p[4][4], int i, int j) {
 	float e_0_90 = 0;
 	float e_45_135 = 0;
 
-    if (g_0_90_max + g_45_135_max == 0)
-    {
-        return vec4(0, 0, 0, 0);
-    }
+	if (g_0_90_max + g_45_135_max == 0)
+	{
+		return vec4(0, 0, 0, 0);
+	}
 
-    e_0_90 = min(g_0_90_max / (g_0_90_max + g_45_135_max), 1.0f);
-    e_45_135 = 1.0f - e_0_90;
+	e_0_90 = min(g_0_90_max / (g_0_90_max + g_45_135_max), 1.0f);
+	e_45_135 = 1.0f - e_0_90;
 
-    bool c_0_90 = (g_0_90_max > (g_0_90_min * kDetectRatio)) && (g_0_90_max > kDetectThres) && (g_0_90_max > g_45_135_min);
-    bool c_45_135 = (g_45_135_max > (g_45_135_min * kDetectRatio)) && (g_45_135_max > kDetectThres) && (g_45_135_max > g_0_90_min);
-    bool c_g_0_90 = g_0_90_max == g_0;
-    bool c_g_45_135 = g_45_135_max == g_45;
+	bool c_0_90 = (g_0_90_max > (g_0_90_min * kDetectRatio)) && (g_0_90_max > kDetectThres) && (g_0_90_max > g_45_135_min);
+	bool c_45_135 = (g_45_135_max > (g_45_135_min * kDetectRatio)) && (g_45_135_max > kDetectThres) && (g_45_135_max > g_0_90_min);
+	bool c_g_0_90 = g_0_90_max == g_0;
+	bool c_g_45_135 = g_45_135_max == g_45;
 
-    float f_e_0_90 = (c_0_90 && c_45_135) ? e_0_90 : 1.0f;
-    float f_e_45_135 = (c_0_90 && c_45_135) ? e_45_135 : 1.0f;
+	float f_e_0_90 = (c_0_90 && c_45_135) ? e_0_90 : 1.0f;
+	float f_e_45_135 = (c_0_90 && c_45_135) ? e_45_135 : 1.0f;
 
-    float weight_0 = (c_0_90 && c_g_0_90) ? f_e_0_90 : 0.0f;
-    float weight_90 = (c_0_90 && !c_g_0_90) ? f_e_0_90 : 0.0f;
-    float weight_45 = (c_45_135 && c_g_45_135) ? f_e_45_135 : 0.0f;
-    float weight_135 = (c_45_135 && !c_g_45_135) ? f_e_45_135 : 0.0f;
+	float weight_0 = (c_0_90 && c_g_0_90) ? f_e_0_90 : 0.0f;
+	float weight_90 = (c_0_90 && !c_g_0_90) ? f_e_0_90 : 0.0f;
+	float weight_45 = (c_45_135 && c_g_45_135) ? f_e_45_135 : 0.0f;
+	float weight_135 = (c_45_135 && !c_g_45_135) ? f_e_45_135 : 0.0f;
 
 	return vec4(weight_0, weight_90, weight_45, weight_135);
 }
@@ -140,7 +138,6 @@ void LoadFilterBanksSh(int i0, int di) {
 		int phase = i >> 1;
 		int vIdx = i & 1;
 
-		// vec4 v = vec4(NVTEX_LOAD(coef_scaler, ivec2(vIdx, phase)));
 		vec4 v = vec4(texelFetch(coef_scaler, ivec2(vIdx, phase), 0));
 		int filterOffset = vIdx * 4;
 		shCoefScaler[phase][filterOffset + 0] = v.x;
@@ -151,7 +148,6 @@ void LoadFilterBanksSh(int i0, int di) {
 			shCoefScaler[phase][3] = v.w;
 		}
 
-		// v = vec4(NVTEX_LOAD(coef_usm, ivec2(vIdx, phase)));
 		v = vec4(texelFetch(coef_usm, ivec2(vIdx, phase), 0));
 		shCoefUSM[phase][filterOffset + 0] = v.x;
 		shCoefUSM[phase][filterOffset + 1] = v.y;
@@ -242,8 +238,8 @@ float FilterNormal(const float p[6][6], int phase_x_frac_int, int phase_y_frac_i
 float AddDirFilters(float p[6][6], float phase_x_frac, float phase_y_frac, int phase_x_frac_int, int phase_y_frac_int, vec4 w)
 {
 	float f = 0.f;
-    if (w.x > 0.0f)
-    {
+	if (w.x > 0.0f)
+	{
 		// 0 deg filter
 		float interp0Deg[6];
 		{
@@ -252,11 +248,11 @@ float AddDirFilters(float p[6][6], float phase_x_frac, float phase_y_frac, int p
 				interp0Deg[i] = lerp(p[i][2], p[i][3], phase_x_frac);
 			}
 		}
-        f += EvalPoly6(interp0Deg, phase_y_frac_int) * w.x;
-    }
+		f += EvalPoly6(interp0Deg, phase_y_frac_int) * w.x;
+	}
 
-    if (w.y > 0.0f)
-    {
+	if (w.y > 0.0f)
+	{
 		// 90 deg filter
 		float interp90Deg[6];
 		{
@@ -266,9 +262,9 @@ float AddDirFilters(float p[6][6], float phase_x_frac, float phase_y_frac, int p
 			}
 		}
 		f += EvalPoly6(interp90Deg, phase_x_frac_int) * w.y;
-    }
-    if (w.z > 0.0f)
-    {
+	}
+	if (w.z > 0.0f)
+	{
 		//45 deg filter
 		float pphase_b45;
 		pphase_b45 = 0.5f + 0.5f * (phase_x_frac - phase_y_frac);
@@ -307,10 +303,10 @@ float AddDirFilters(float p[6][6], float phase_x_frac, float phase_y_frac, int p
 			}
 		}
 		f += EvalPoly6(interp45Deg, int(pphase_p45 * 64)) * w.z;
-    }
-    
+	}
+	
 	if (w.w > 0.0f)
-    {
+	{
 		//135 deg filter
 		float pphase_b135 = 0.5f * (phase_x_frac + phase_y_frac);
 
@@ -460,80 +456,79 @@ void hook()
 	groupMemoryBarrier();
 	barrier();
 
-    // output coord within a tile
-    const ivec2 pos = ivec2(uint(threadIdx) % uint(NIS_BLOCK_WIDTH), uint(threadIdx) / uint(NIS_BLOCK_WIDTH));
-    // x coord inside the output image
-    const int dstX = dstBlockX + pos.x;
-    // x coord inside the input image
-    const float srcX = (0.5f + dstX) * kScaleX - 0.5f;
-    // nearest integer part
-    const int px = int(floor(srcX) - srcBlockStartX);
-    // fractional part
-    const float fx = srcX - floor(srcX);
-    // discretized phase
-    const int fx_int = int(fx * kPhaseCount);
+	// output coord within a tile
+	const ivec2 pos = ivec2(uint(threadIdx) % uint(NIS_BLOCK_WIDTH), uint(threadIdx) / uint(NIS_BLOCK_WIDTH));
+	// x coord inside the output image
+	const int dstX = dstBlockX + pos.x;
+	// x coord inside the input image
+	const float srcX = (0.5f + dstX) * kScaleX - 0.5f;
+	// nearest integer part
+	const int px = int(floor(srcX) - srcBlockStartX);
+	// fractional part
+	const float fx = srcX - floor(srcX);
+	// discretized phase
+	const int fx_int = int(fx * kPhaseCount);
 
-    for (int k = 0; k < NIS_BLOCK_WIDTH * NIS_BLOCK_HEIGHT / NIS_THREAD_GROUP_SIZE; ++k)
-    {
-        // y coord inside the output image
-        const int dstY = dstBlockY + pos.y + k * (NIS_THREAD_GROUP_SIZE / NIS_BLOCK_WIDTH);
-        // y coord inside the input image
-        const float srcY = (0.5f + dstY) * kScaleY - 0.5f;
+	for (int k = 0; k < NIS_BLOCK_WIDTH * NIS_BLOCK_HEIGHT / NIS_THREAD_GROUP_SIZE; ++k)
+	{
+		// y coord inside the output image
+		const int dstY = dstBlockY + pos.y + k * (NIS_THREAD_GROUP_SIZE / NIS_BLOCK_WIDTH);
+		// y coord inside the input image
+		const float srcY = (0.5f + dstY) * kScaleY - 0.5f;
 
-        // nearest integer part
-        const int py = int(floor(srcY) - srcBlockStartY);
-        // fractional part
-        const float fy = srcY - floor(srcY);
-        // discretized phase
-        const int fy_int = int(fy * kPhaseCount);
+		// nearest integer part
+		const int py = int(floor(srcY) - srcBlockStartY);
+		// fractional part
+		const float fy = srcY - floor(srcY);
+		// discretized phase
+		const int fy_int = int(fy * kPhaseCount);
 
-        // generate weights for directional filters
-        const int startEdgeMapIdx = py * kEdgeMapPitch + px;
-        vec4 edge[2][2];
-        for (int i = 0; i < 2; i++)
-        {
-            for (int j = 0; j < 2; j++)
-            {
-                // need to shift edge map sampling since it's a 2x2 centered inside 6x6 grid
-                edge[i][j] = shEdgeMap[startEdgeMapIdx + (i * kEdgeMapPitch) + j];
-            }
-        }
-        const vec4 w = GetInterpEdgeMap(edge, fx, fy) * NIS_SCALE_INT;
+		// generate weights for directional filters
+		const int startEdgeMapIdx = py * kEdgeMapPitch + px;
+		vec4 edge[2][2];
+		for (int i = 0; i < 2; i++)
+		{
+			for (int j = 0; j < 2; j++)
+			{
+				// need to shift edge map sampling since it's a 2x2 centered inside 6x6 grid
+				edge[i][j] = shEdgeMap[startEdgeMapIdx + (i * kEdgeMapPitch) + j];
+			}
+		}
+		const vec4 w = GetInterpEdgeMap(edge, fx, fy) * NIS_SCALE_INT;
 
-        // load 6x6 support to regs
-        const int startTileIdx = py * kTilePitch + px;
-        float p[6][6];
-        {
-            for (int i = 0; i < 6; ++i)
-            {
-                for (int j = 0; j < 6; ++j)
-                {
-                    p[i][j] = shPixelsY[startTileIdx + i * kTilePitch + j];
-                }
-            }
-        }
+		// load 6x6 support to regs
+		const int startTileIdx = py * kTilePitch + px;
+		float p[6][6];
+		{
+			for (int i = 0; i < 6; ++i)
+			{
+				for (int j = 0; j < 6; ++j)
+				{
+					p[i][j] = shPixelsY[startTileIdx + i * kTilePitch + j];
+				}
+			}
+		}
 
-        // weigth for luma
-        const float baseWeight = NIS_SCALE_FLOAT - w.x - w.y - w.z - w.w;
+		// weigth for luma
+		const float baseWeight = NIS_SCALE_FLOAT - w.x - w.y - w.z - w.w;
 
-        // final luma is a weighted product of directional & normal filters
-        float opY = 0;
+		// final luma is a weighted product of directional & normal filters
+		float opY = 0;
 
-        // get traditional scaler filter output
-        opY += FilterNormal(p, fx_int, fy_int) * baseWeight;
+		// get traditional scaler filter output
+		opY += FilterNormal(p, fx_int, fy_int) * baseWeight;
 
-        // get directional filter bank output
-        opY += AddDirFilters(p, fx, fy, fx_int, fy_int, w);
+		// get directional filter bank output
+		opY += AddDirFilters(p, fx, fy, fx_int, fy_int, w);
 
-        // do bilinear tap for luma upscaling
-		vec4 op = vec4(0.0, 0.0, 0.0, 1.0);
-		op.r = HOOKED_tex(vec2((srcX + 0.5f) * kSrcNormX, (srcY + 0.5f) * kSrcNormY)).r;
+		// do bilinear tap for luma upscaling
+		vec4 op = HOOKED_tex(vec2((srcX + 0.5f) * kSrcNormX, (srcY + 0.5f) * kSrcNormY));
 
-        const float corr = opY * (1.0f / NIS_SCALE_FLOAT) - op.r;
-        op += corr;
+		const float corr = opY * (1.0f / NIS_SCALE_FLOAT) - op.r;
+		op.x += corr;
 
-        imageStore(out_image, ivec2(dstX, dstY), op);
-    }
+		imageStore(out_image, ivec2(dstX, dstY), op);
+	}
 }
 
 //!TEXTURE coef_scaler
