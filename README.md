@@ -8,6 +8,8 @@
 
 PS：自行编辑配置文件时，注意编码格式应为 UTF-8，换行符为 Unix，否则 MPV 可能无法识别
 
+**mpv整合包下载**：[Releases](https://github.com/dyphire/mpv-config/releases)
+
 - 目前 mpv 没有官方发布的客户端，官网上有放一些推荐的第三方编译版：[https://mpv.io/installation](https://mpv.io/installation)
   - windows 上推荐使用 shinchiro 版： [shinchiro_mpv](https://sourceforge.net/projects/mpv-player-windows/files/64bit/)
   - 使用 Github Action 编译版：[zhongfly_mpv](https://github.com/zhongfly/mpv-winbuild) [![releases](https://img.shields.io/github/v/release/zhongfly/mpv-winbuild)](https://github.com/zhongfly/mpv-winbuild/releases)
