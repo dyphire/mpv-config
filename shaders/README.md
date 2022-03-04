@@ -1,7 +1,6 @@
 > 原文地址 [hooke007.github.io](https://hooke007.github.io/mpv-lazy/[01]_%E7%AC%AC%E4%B8%89%E6%96%B9%E7%9D%80%E8%89%B2%E5%99%A8%E4%BB%8B%E7%BB%8D.html)
 
-
-_ver.20210818_
+*ver.20220222*
 
 我选择主设置文件夹下新建的 **shaders** 目录下放置第三方着色器，常见后缀名为 .glsl .hook 
 
@@ -13,11 +12,15 @@ _ver.20210818_
 
 通过控制台 console(`) 和统计信息界面 stats(shift+i → 2) 共同检查着色器的工作状态
 
-扩展阅读： 关于色度、亮度升频和缩放：[https://vcb-s.com/archives/2726](https://vcb-s.com/archives/2726) 关于影像瑕疵：[https://vcb-s.com/archives/4738](https://vcb-s.com/archives/4738) 不同着色器 / 算法的比较参考：[https://artoriuz.github.io/blog/mpv_upscaling.html](https://artoriuz.github.io/blog/mpv_upscaling.html)
+扩展阅读： 关于色度、亮度升频和缩放：[https://vcb-s.com/archives/2726](https://vcb-s.com/archives/2726) 关于影像瑕疵：[https://vcb-s.com/archives/4738](https://vcb-s.com/archives/4738) 
+
+不同着色器 / 算法的比较参考：[https://artoriuz.github.io/blog/mpv_upscaling.html](https://artoriuz.github.io/blog/mpv_upscaling.html)
 
 ☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲
 
-Anime4K
+## 第三方着色器介绍
+
+### Anime4K
 -------
 
 它是一组开源的高质量的实时动漫缩放 / 降噪算法。在 v1 之前是个纯粹的锐化滤镜，v2 引入人工智能卷积核，在 v3 之后进行了模块化改造，目前版本 v4 在局部场景下能达到 waifu2x 的效果。 A4k 不提供 cscale 色度升频类着色器。(v3.2-v4 不兼容 v3.1 及之前的版本，旧版与区别说明见 **附录** 部分)
@@ -56,7 +59,7 @@ S → M → L → VL → UL 性能要求逐渐提高（处理耗时大致加倍�
 
 ☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲
 
-ACNet
+### ACNet
 -----
 
 是 Anime4KCPP-Net 的缩写，设计用于高性能动画风格的图像和视频放大，它与 Asymmetric Convolution Net(缩写重名 ACNet) 无关，与现在的 Anime4k 也无太大关联。ACNet 是 Anime4KCPP 自己的基于 CNN 的算法。
@@ -71,7 +74,7 @@ ACNet
 
 ☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲
 
-FSRCNNX
+### FSRCNNX
 -------
 
 由原始 SRCNN 发展而来，是 FSRCNN 的变体，较快速的通用型 AI 放大算法。
@@ -88,8 +91,7 @@ FSRCNNX
 
 ☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲
 
-AviSynth AiUpscale
-------------------
+### AviSynth AiUpscale
 
 名字奇怪是因为开发者主要移植到 AviSynth + 上用的，和 FSRCNNX 有相似的体系结构，但使用了不同的滤镜。
 
@@ -105,27 +107,23 @@ x2 x3 x4 分别对应 二倍 三倍 四倍 放大 质量上 Fast 弱于 Medium �
 
 ☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲
 
-Adaptive Sharpen
-----------------
+### Adaptive Sharpen
 
 自适应锐化
 
-Krig
-----
+### Krig
 
 利用亮度信息进行高质量的色度升频 mpv 目前最好的色度升频着色器，可以与其他缩放（--scale/dscale）算法共同使用
 
 🔺 启用将覆盖 **mpv.conf** 中指定的 --cscale=xxxxx 算法
 
-SSimDownscaler
---------------
+### SSimDownscaler
 
 基于感知的缩小算法增强
 
 🔺 仅当 **mpv.conf** 中设定 --dscale=mitchell --linear-downscaling=no 时正常工作
 
-SSimSuperRes
-------------
+### SSimSuperRes
 
 该着色器的目的是对 mpv 内置 --scale=xxxxx 算法进行增强校正。
 
@@ -135,18 +133,15 @@ SSimSuperRes
 
 ☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲
 
-RAVU
-----
+### RAVU
 
 (Rapid and Accurate Video Upscaling) 是一组受 RAISR（快速准确的图像超分辨率）启发的预分频器。 它具有不同的变体以适应不同的场景。 RAVU 整体的性能消耗设计上比 mpv 内置的 ewa 系缩放器只略高。
 
-NNEDI3
-------
+### NNEDI3
 
 全称 Neural Network Edge Directed Interpolation，是一种超高质量的插值放大算法。nnedi3 版速度较快（即便如此相比其它算法依旧速度极慢，开销巨大）
 
-SuperXBR
---------
+### SuperXBR
 
 一个经典的整数倍放大算法，消耗介于 NNEDI3 和 RAVU 之间。
 
@@ -182,21 +177,70 @@ r2 → r3 → r4； nns16 → nns32 → nns64 → nns128 → nns256；win8x4 →
 
 ☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲
 
-CAS
----
+### AMD-CAS
 
-(Contrast Adaptive Sharpening) 对比度自适应锐化是一种低开销的锐化算法 移植自 AMD FidelityFX CAS，来源：[https://github.com/deus0ww/mpv-conf/tree/master/shaders/cas](https://github.com/deus0ww/mpv-conf/tree/master/shaders/cas) 
+   移植自AMD FidelityFX CAS (Contrast Adaptive Sharpening)，原始设计用于游戏，对比度自适应锐化是一种低开销的锐化算法。
 
-🔺 参考同前 -yuv 变体， luma 变体无法处理 rgb 的源
+🔺  rgb  变体作用于后处理，比常规版本开销微高，速度微慢
 
-相关列表：
+### AMD-FSR
 
- `cas_luma.glsl` <br/> `cas_rgb.glsl`
+   移植自AMD FidelityFX Super Resolution (FSR)，原始设计用于游戏，是一种先执行常规放大后再进行对比度自适应锐化的改良算法。放大部分基于lanczos+bilinear，锐化部分基于cas
+
+   相关列表：https://gist.github.com/agyild/82219c545228d70c5604f865ce0b0ce5 & https://gist.github.com/agyild/bbb4e58298b2f86aa24da3032a0d2ee6
+
+（变体  scaled  功能完整，附带了缩放模块而非纯粹的锐化算法）
+
+`AMD-CAS.glsl` <br/>
+`AMD-CAS-scaled.glsl` <br/>
+`AMD-FSR.glsl` <br/>
+
+相关列表：MOD
+
+（变体  rgb  没有放大倍率的上限；变体  EASU  分离自fsr的放大模块，用作纯粹的放大算法）
+
+`AMD-CAS_rgb.glsl` <br/>
+`AMD-CAS-scaled_rgb.glsl` <br/>
+`AMD-FSR_rgb.glsl` <br/>
+`AMD-FSR-EASU_rgb.glsl` <br/>
+
+相关列表：https://github.com/deus0ww/mpv-conf/tree/master/shaders/cas
+
+（另一种移植的精简cas功能后的版本，更快速和低耗）
+
+`AMD-CAS-lite_luma.glsl` <br/>
+`AMD-CAS-lite_rgb.glsl` <br/>
+
+🔺 无后缀名的版本都只作用于亮度通道（预处理）
 
 ☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲
 
-Noise Static
-------------
+### NV-NIS
+
+   移植自NVIDIA Image Scaling (NIS)，原始设计用于游戏，是一种基于lanczos的常规放大算法，并辅以自适应锐化改变观感。
+
+🔺 此算法的振铃伪影异常明显，并且会随着锐化强度的增加而愈发显著
+
+### NV-NVSharpen
+
+   移植自NIS中的锐化模块，原始设计用于游戏。
+
+相关列表：https://gist.github.com/agyild/7e8951915b2bf24526a9343d951db214
+
+`NVScaler.glsl` <br/>
+`NVSharpen.glsl` <br/>
+
+相关列表：MOD
+
+（变体  rgb  作用于后处理，比常规版本开销微高，速度微慢）
+
+`NVScaler_rgb.glsl` <br/>
+
+ 🔺无后缀名的 NVScaler 只作用于亮度通道（预处理），而 NVSharpen 作用于后处理
+
+☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲
+
+### Noise Static
 
 优化静态（亮度 / 色度）噪点。本版略作修改 来源：[https://pastebin.com/yacMe6EZ](https://pastebin.com/yacMe6EZ) & [https://pastebin.com/15ZTaaUC](https://pastebin.com/15ZTaaUC) 
 
@@ -204,26 +248,52 @@ Noise Static
 
 相关列表：
 
- `noise_static_luma.glsl` <br/> `noise_static_chroma.glsl`
+`noise_static_luma.glsl` <br/> `noise_static_chroma.glsl`
 
 ☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲
 
-# 实际工作顺序
+### 其它
 
-着色器按工作插入位置可分为 “预处理” 与“后处理”两类，此由着色器本身决定，无法被配置文件更改。（在统计信息的第二页可直观查看） 如图，以 combining planes 为分界——之前的步骤为预处理， --cscale=xxxxx 也在此处（图中被 krig 替换）。之后的步骤为后处理， --scale/dscale=xxxxx 也在此处。 ![](https://hooke007.github.io/mpv-lazy/IMG/[01]%20stats-01.webp) 因此，着色器的实际工作顺序，首选遵守该原则，其次才是用户指定的顺序。（此外在预处理与后处理中也有顺序限制，具体请自行测试)
+相关列表：
+```yaml
+antiring.glsl                      -- 抗振铃（对EWA类放大算法生效，对外部着色器无效）
+color-alt_luma.glsl                -- 色彩黑白翻转（亮度通道）
+colorlevels.glsl                   -- 色彩范围调整
+colorlevel_expand.glsl             -- 色彩范围扩展
+colorlevel_expand_chroma.glsl      -- 色彩范围扩展（色度通道）
+colorlevel_expand_luma.glsl        -- 色彩范围扩展（亮度通道）
+colorlevel_shrink.glsl             -- 色彩范围收缩
+colorlevel_shrink_chroma.glsl      -- 色彩范围收缩（色度通道）
+colorlevel_shrink_luma.glsl        -- 色彩范围收缩（亮度通道）
+minblur-usm.glsl                   -- 通用锐化，程度细微
+unsharp.glsl                       -- 通用锐化，程度轻微
+unsharp-masking_blur.glsl          -- 通用糊化，强度1.0
+unsharp-masking_sharpen.glsl       -- 通用锐化，强度1.0
+```
+## 实际工作顺序
 
-*   预处理 ACNet FSRCNNX AiU Krig RAVU NNEDI3 SXBR CAS NoiseS
-*   后处理 A4k SSDS SSSR Adaptive 所有 yuv、rgb 变体
+着色器按工作插入位置可分为 “预处理” 与“后处理”两类，此由着色器本身决定，无法被配置文件更改。（在统计信息的第二页可直观查看） 如图，以 combining planes 为分界——之前的步骤为预处理， --cscale=xxxxx 也在此处（图中被 krig 替换）。之后的步骤为后处理， --scale/dscale=xxxxx 也在此处。 ![](https://hooke007.github.io/mpv-lazy/IMG/[01]%20stats-01.webp)
+   因此，着色器的实际工作顺序，首选遵守该原则，其次才是用户指定的顺序。（此外在预处理与后处理中也有顺序限制，具体请自行测试)
 
-# 叠加放大类着色器的注意点
+- 预处理 <br/>
+
+  所有_luma、 _chroma变体   ACNet   FSRCNNX   AiU   Krig   RAVU   NNEDI3   SXBR   CAS   NoiseS   minblur-usm
+
+- 后处理 <br/>
+
+  所有-yuv、-rgb变体   A4k   SSDS   SSSR   Adaptive   colorlevel   unsharp   unsharp-masking
+
+## 叠加放大类着色器的注意点
 
 前文已经讲了着色器加载顺序上的一些逻辑，这里补充放大类着色器的专属问题。
 
-不同的放大类着色器对 “源” 尺寸的影响不一样： 直觉认识里，1080p 的视频不管怎么拉伸，源的大小始终是 1080p。符合这一逻辑的只有：Anime4k 中带有 _Original_x2 的变体 反直觉的是，经过上一级着色器放大后的源大小变成了放大后的尺寸。遵守这一规则的有：Anime4k 中的其它放大变体; ACNet;FSRCNNX;AviSynth AiUpscale;RAVU;NNEDI3
+不同的放大类着色器对 “源” 尺寸的影响不一样： 直觉认识里，1080p 的视频不管怎么拉伸，源的大小始终是 1080p。符合这一逻辑的只有：Anime4k 中带有 _Original_x2 的变体。反直觉的是，经过上一级着色器放大后的源大小变成了放大后的尺寸。遵守这一规则的有：Anime4k 中的其它放大变体; ACNet;FSRCNNX;AviSynth AiUpscale;RAVU;NNEDI3
 
-例一：在 1440p 显示器上打开一个 1080p 视频全屏，此时你（只要性能足够）可以无限叠加 n 个 `Anime4K_Upscale_Original_x2.glsl` 无障碍实现 2^n 倍放大。 例二：同上的硬件环境，720p 的视频先调用了 nnedi3 再调用 fsrcnnx 进行二次放大，你可能发现无法真实触发后者，原因在于 720p 的视频经过 nnedi3 第一次放大后被后方加载的 fsrcnnx 认为源是 (720x2=)1440p，此时 2k 的显示器在全屏模式的分辨率并不满足 fsrcnnx 的最小放大触发倍率
+例一：在 1440p 显示器上打开一个 1080p 视频全屏，此时你（只要性能足够）可以无限叠加 n 个 `Anime4K_Upscale_Original_x2.glsl` 无障碍实现 2^n 倍放大。
 
-# 快捷键动态启用
+例二：同上的硬件环境，720p 的视频先调用了 nnedi3 再调用 fsrcnnx 进行二次放大，你可能发现无法真实触发后者，原因在于 720p 的视频经过 nnedi3 第一次放大后被后方加载的 fsrcnnx 认为源是 (720x2=)1440p，此时 2k 的显示器在全屏模式的分辨率并不满足 fsrcnnx 的最小放大触发倍率
+
+## 快捷键动态启用
 
 适用于 **input.conf** 语法结构： 
 
@@ -235,11 +305,19 @@ Noise Static
 
 支持使用 mpv 的相对路径（比如 `~~/` 指向主设置文件夹） 例如：
 
+```yaml
+CTRL+1 change-list glsl-shaders set "~~/shaders/KrigBilateral.glsl;~~/shaders/ravu-zoom-r3.glsl;~~/shaders/cas_luma.glsl"
+```
+
 其它示例参考懒人包内的 **input.conf** 即可。
 
-# 速度的对比参考
+## 速度的对比参考
 
-使用个别着色器进行 2x 放大，计算每秒所能生成的最大帧数。数据可能过时，数值越大说明速度越快，越适合实际观看时使用，数值低于视频原始帧率即完全不可用。 实际速度**极大**取决于视频的质量、缩放倍率和你的显卡性能，因此两表中同一个 fsrcnnx16 的性能差异不符合常理也不要奇怪，数据仅供大概参考。
+🔺 （信息可能已过时）
+
+使用个别着色器进行 2x 放大，计算每秒所能生成的最大帧数。数据可能过时，数值越大说明速度越快，越适合实际观看时使用，数值低于视频原始帧率即完全不可用。 
+
+实际速度**极大**取决于视频的质量、缩放倍率和你的显卡性能，因此两表中同一个 fsrcnnx16 的性能差异不符合常理也不要奇怪，数据仅供大概参考。
 
 _数据来源 GitHub@Alexkral(NVIDIA GTX 1080)_
 
@@ -249,10 +327,9 @@ _数据来源 GitHub@Artoriuz_
 
 <table><thead><tr><th>算法 &amp; 着色器</th><th>mpv_2x : 720p → 1440p</th></tr></thead><tbody><tr><td>bilinear</td><td>468</td></tr><tr><td>spline36</td><td>383</td></tr><tr><td>ewa_lanczossharp</td><td>338</td></tr><tr><td>RAVU lite r4</td><td>307</td></tr><tr><td>RAVU r4</td><td>238</td></tr><tr><td>NNEDI3 16 8x4</td><td>210</td></tr><tr><td>SSSR</td><td>169</td></tr><tr><td>NNEDI3 32 8x4</td><td>156</td></tr><tr><td>RAVU zoom r4</td><td>138</td></tr><tr><td>NNEDI3 64 8x4</td><td>99</td></tr><tr><td>NNEDI3 128 8x4</td><td>55</td></tr><tr><td>FSRCNNX 16</td><td>52</td></tr><tr><td>NNEDI3 256 8x4</td><td>30</td></tr></tbody></table>
 
-# 附录
+## 附录
 
-Anime4k v3-v3.1
----------------
+### Anime4k v3-v3.1
 
 这里是旧版 a4k 的说明。 旧版工作在 luma 通道，新版工作在 RGB 空间。 RA Upscale+Deblur_CNN Deblur_CNN 这些变体在 v4 中合并在 Restore 模块中 
 
