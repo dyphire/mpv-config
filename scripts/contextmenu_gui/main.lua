@@ -620,7 +620,7 @@ mp.register_event("file-loaded", function()
             {COMMAND, "【外置脚本】自动跳过指定章节", "ALT+q", "script-message chapter-skip;show-text 自动跳过指定章节", "", false},
             {COMMAND, "【外置脚本】跳到下一个静音位置 ", "F4", "script-message skip-to-silence;show-text 跳到下一个静音位置", "", false},
             {SEP},
---            {CASCADE, "Title/Edition", "edition_menu", "", "", function() return enableEdition() end},
+            {CASCADE, "版本（Edition）", "edition_menu", "", "", function() return enableEdition() end},
             {CASCADE, "章节", "chapter_menu", "", "", function() return enableChapter() end},
         },
 
