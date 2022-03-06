@@ -14,9 +14,11 @@
 | chapterskip.lua | 跳过指定章节（配置文件 [chapterskip.conf](../script-opts/chapterskip.conf)） |
 | copy_subortime.lua | 复制当前字幕内容或播放时间 |
 | cycle_adevice.lua | 快捷键切换音频输出设备 |
+| cycle-commands.lua | 快捷键循环切换命令，使用方法见脚本内说明 |
 | delete_file.lua | 退出时删除标记文件 |
 | dynamic-crop.lua | 自动检测黑边并裁切（[autocrop.lua](https://github.com/mpv-player/mpv/blob/master/TOOLS/lua/autocrop.lua) 改进版；配置文件 [dynamic_crop.conf](../script-opts/dynamic_crop.conf)） |
 | display-profiles.lua | 实现mpv窗口按显示器自动切换参数及配置文件，详见脚本内说明 |
+| editions-notification.lua | 如果检测到播放文件存在多个edition则在OSD上提示 |
 | file-browser.lua | 内置文件浏览器（依赖 [user-input.lua](../scripts/user-input.lua); [user-input-module.lua](../script-modules/user-input-module.lua) ；配置文件 [file_browser.conf](../script-opts/file_browser.conf)） |
 | fuzzydir.lua | 外挂音轨/字幕路径检测增强 |
 | history-bookmark.lua | 记录并恢复视频目录播放记录（可确认是否恢复该目录上次播放进度） |
