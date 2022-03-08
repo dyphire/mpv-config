@@ -56,21 +56,6 @@
         "whitelist": ["tc"]
     },
     {
-        "alang": "j[ap]n?",
-        "slang": ["chs", "sc", "cht", "tc", "chi", "zh", "und", "no"],
-        "whitelist": ["简"]
-    },
-    {
-        "alang": "j[ap]n?",
-        "slang": ["chs", "sc", "cht", "tc", "chi", "zh", "und", "no"],
-        "whitelist": ["中"]
-    },
-    {
-        "alang": "j[ap]n?",
-        "slang": ["chs", "sc", "cht", "tc", "chi", "zh", "und", "no"],
-        "whitelist": ["繁"]
-    },
-    {
         "alang": "eng?",
         "slang": ["chs", "sc", "cht", "tc", "chi", "zh", "und", "no"],
         "whitelist": ["chs&eng?"]
@@ -284,6 +269,16 @@
     {
         "alang": "*",
         "slang": ["chs", "sc", "cht", "tc", "chi", "zh", "und", "no"],
+        "whitelist": ["cn"]
+    },
+    {
+        "alang": "*",
+        "slang": ["chs", "sc", "cht", "tc", "chi", "zh", "und", "no"],
+        "whitelist": ["hans"]
+    },
+    {
+        "alang": "*",
+        "slang": ["chs", "sc", "cht", "tc", "chi", "zh", "und", "no"],
         "whitelist": ["cht"]
     },
     {
@@ -291,6 +286,21 @@
         "slang": ["chs", "sc", "cht", "tc", "chi", "zh", "und", "no"],
         "blacklist": ["dutch"],
         "whitelist": ["tc"]
+    },
+    {
+        "alang": "*",
+        "slang": ["chs", "sc", "cht", "tc", "chi", "zh", "und", "no"],
+        "whitelist": ["hant"]
+    },
+    {
+        "alang": "*",
+        "slang": ["chs", "sc", "cht", "tc", "chi", "zh", "und", "no"],
+        "whitelist": ["hk"]
+    },
+    {
+        "alang": "*",
+        "slang": ["chs", "sc", "cht", "tc", "chi", "zh", "und", "no"],
+        "whitelist": ["tw"]
     },
     {
         "alang": "*",
