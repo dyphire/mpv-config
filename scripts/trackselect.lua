@@ -1,5 +1,5 @@
 -- trackselect.lua
---
+-- https://github.com/po5/trackselect
 -- Because --slang isn't smart enough.
 --
 -- This script tries to select non-dub
@@ -129,7 +129,9 @@ end
 
 function trackselect()
     mp.options.read_options(options, "trackselect")
+    local fpath = mp.get_property('path')
     if not options.enabled then return end
+    if string.sub(fpath, 1, 4) == "http" then return end
     tracks = copy(defaults)
     local filename = mp.get_property("filename/no-ext")
     local tracklist = mp.get_property_native("track-list")
