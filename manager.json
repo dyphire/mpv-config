@@ -42,11 +42,6 @@
     "branch":"main"
   },
   {
-    "git":"https://github.com/po5/trackselect",
-    "whitelist":"%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
     "git":"https://github.com/jonniek/mpv-playlistmanager",
     "whitelist":"%.lua$",
     "dest":"~~/scripts"
