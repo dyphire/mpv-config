@@ -9,9 +9,18 @@ local msg = require 'mp.msg'         -- this is for debugging
 local M = {}
 
 local o = {
-    save_period = 30
+    save_period = 30,
+    excluded_dir = [[
+        ["?:"]
+        ]], --excluded directories for shared, #windows: ["X:", "Z:"]
+    special_protocols = [[
+	["https?://", "magnet:", "rtmp:", "smb://", "bd://", "dvd://", "cdda://"]
+	]], --add above (after a comma) any protocol to disable
 }
 options.read_options(o)
+
+o.excluded_dir = utils.parse_json(o.excluded_dir)
+o.special_protocols = utils.parse_json(o.special_protocols)
 
 local cwd_root = utils.getcwd()
 
@@ -28,6 +37,15 @@ local BOOKMARK_NAME = ".mpv.history"
 local bookmark_path
 
 local wait_msg
+
+function starts_protocol(tab, val)
+	for index, value in ipairs(tab) do
+		if (val:find(value) == 1) then
+			return true
+		end
+	end
+	return false
+end
 
 function M.prompt_msg(msg, ms)
     mp.commandv("show-text", msg, ms)
@@ -211,6 +229,9 @@ function M.exe()
     local dir, fname = utils.split_path(path)
     local ftype = fname:match('%.([^.]+)$')
     bookmark_path = utils.join_path(dir, BOOKMARK_NAME)
+
+    if starts_protocol(o.special_protocols, path) then return end
+    if starts_protocol(o.excluded_dir, dir) then return end
 
     msg.info('folder -- ' .. dir)
     msg.info('playing -- ' .. fname)
