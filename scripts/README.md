@@ -44,7 +44,7 @@
 | trackselect.lua               | 指定音频轨道优先级/黑白名单（配置文件 [trackselect.conf](../script-opts/trackselect.conf)） |
 | undoredo.lua                  | 智能跳跃记录操作                                             |
 | contextmenu_gui（组）         | 图形化右键菜单（依赖tclkit，上游说明：https://github.com/hooke007/MPV_lazy/discussions/60 ） |
-1. 部分脚本为**个人修改版本**，主要改进功能实现或键位绑定方式。如：autoload.lua; chapter_list.lua; chapterskip.lua; copy_subortime.lua; file-browser.lua; fuzzydir.lua; history-bookmark.lua; local-language.lua;  persist_properties.lua; skiptosilence.lua
+1. 部分脚本为**个人修改版本**，主要改进功能实现或键位绑定方式。如：autoload.lua; chapter_list.lua; chapterskip.lua; copy_subortime.lua; file-browser.lua; fuzzydir.lua; history-bookmark.lua; local-language.lua;  persist_properties.lua; skiptosilence.lua; trackselect.lua
 2. 所有脚本预绑定的`mp.add_key_binding`静态键位已被 [mpv.conf](../mpv.conf) 中的`input-default-bindings=no`参数屏蔽，可查看 [input.conf](../input.conf)  的"LUA 脚本"部分示例参考绑定所需键位  
    - 本配置绑定的快捷键及功能请参考 [快捷键.md](../快捷键.md) 文件
 3. 部分脚本存在动态绑定键位，可查看对应脚本及配置文件相关部分（或[快捷键.md](../快捷键.md)中相关说明）
