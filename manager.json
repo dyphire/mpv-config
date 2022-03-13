@@ -5,6 +5,12 @@
     "dest":"~~/scripts"
   },
   {
+    "git":"https://github.com/dyphire/mpv",
+    "whitelist":"ytdl%_hook%.lua$",
+    "dest":"~~/scripts",
+    "branch":"tests"
+  },
+  {
     "git":"https://gist.github.com/CyberShadow/2f71a97fb85ed42146f6d9f522bc34ef",
     "whitelist":"%.lua$",
     "dest":"~~/scripts"
