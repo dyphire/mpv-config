@@ -1,7 +1,3 @@
---[[
-SOURCE_ https://github.com/mpv-player/mpv/blob/master/player/lua/ytdl_hook.lua
-COMMIT_ 20220226 b15b3f6
-]]--
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
 local options = require 'mp.options'
@@ -403,6 +399,10 @@ local function formats_to_edl(json, formats, use_all_formats)
         end
     end
 
+    if requested_formats then
+		set_http_headers(requested_formats[1].http_headers)
+    end
+
     local duration = as_integer(json["duration"])
     local single_url = nil
     local streams = {}
@@ -582,7 +582,6 @@ local function add_single_video(json)
 
         if res then
             streamurl = res.url
-            set_http_headers(json.http_headers)
         end
     end
 
@@ -787,8 +786,7 @@ function run_ytdl_hook(url)
     end
 
     if (allsubs == true) then
-        table.insert(command, "--sub-lang")
-        table.insert(command, "all")
+        table.insert(command, "--all-subs")
     end
     if not use_playlist then
         table.insert(command, "--no-playlist")
