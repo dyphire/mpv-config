@@ -1,7 +1,7 @@
 --[[
-  * skiptosilence.lua v.2020-01-25
+  * skiptosilence.lua v.2022-02-27
   *
-  * AUTHOR: detuur
+  * AUTHORS: detuur, microraptor
   * License: MIT
   * link: https://github.com/detuur/mpv-scripts
   * 
@@ -24,10 +24,8 @@
 # The default is -30 (yes, negative). -60 is very sensitive,
 # -10 is more tolerant to noise.
 quietness = -30
-
 # Minimum duration of silence to trigger.
 duration = 0.1
-
 # The fast-forwarded audio can sound jarring. Set to 'yes'
 # to mute it while skipping.
 mutewhileskipping = no
@@ -48,9 +46,31 @@ old_speed = 1
 was_paused = false
 was_muted = false
 
+--[[
+Dev note about the used filters:
+- `silencedetect` is an audio filter that listens for silence and
+  emits text output with details whenever silence is detected.
+- `nullsink` interrupts the video stream requests to the decoder,
+  which stops it from bogging down the fast-forward.
+- `color` generates a blank image, which renders very quickly and is
+  good for fast-forwarding.
+- Filter documentation: https://ffmpeg.org/ffmpeg-filters.html
+--]]
+
 function doSkip()
-    setAudioFilter(true)
-    setVideoFilter(true, mp.get_property_native("width"), mp.get_property_native("height"))
+    -- Get video dimensions
+    local width = mp.get_property_native("width");
+    local height = mp.get_property_native("height")
+
+    -- Create audio and video filters
+    mp.command(
+        "no-osd af add @skiptosilence:lavfi=[silencedetect=noise=" ..
+        opts.quietness .. "dB:d=" .. opts.duration .. "]"
+    )
+    mp.command(
+        "no-osd vf add @skiptosilence-blackout:lavfi=" ..
+        "[nullsink,color=c=black:s=" .. width .. "x" .. height .. "]"
+    )
 
     -- Triggers whenever the `silencedetect` filter emits output
     mp.observe_property("af-metadata/skiptosilence", "string", foundSilence)
@@ -82,88 +102,25 @@ function foundSilence(name, value)
     mp.set_property("speed", old_speed)
     mp.unobserve_property(foundSilence)
 
-    setAudioFilter(false)
-    setVideoFilter(false, 0, 0)
+    -- Remove used audio and video filters
+    mp.command("no-osd af remove @skiptosilence")
+    mp.command("no-osd vf remove @skiptosilence-blackout")
 
     -- Seeking to the exact moment even though we've already
     -- fast forwarded here allows the video decoder to skip
     -- the missed video. This prevents massive A-V lag.
     mp.set_property_number("time-pos", timecode)
+
     -- If we don't wait at least 50ms before messaging the user, we
     -- end up displaying an old value for time-pos.
-    mp.add_timeout(0.05, osdSkippedMessage)
+    mp.add_timeout(0.05, skippedMessage)
 end
 
-function osdSkippedMessage()
-    mp.osd_message("Skipped to "..mp.get_property_osd("time-pos"))
-end
-
-
--- Adds the filters to the filtergraph on mpv init
--- in a disabled state.
--- Filter documentation: https://ffmpeg.org/ffmpeg-filters.html
-function init()
-    -- `silencedetect` is an audio filter that listens for silence
-    -- and emits text output with details whenever silence is detected.
-    local af_table = mp.get_property_native("af")
-    af_table[#af_table + 1] = {
-        enabled=false,
-        label="skiptosilence",
-        name="lavfi",
-        params= {
-            graph = "silencedetect=noise="..opts.quietness.."dB:d="..opts.duration
-        }
-    }
-    mp.set_property_native("af", af_table)
-
-    -- `nullsink` interrupts the video stream requests to the decoder,
-    -- which stops it from bogging down the fast-forward.
-    -- `color` generates a blank image, which renders very quickly and
-    -- is good for fast-forwarding.
-    -- The graph is not actually filled in now, but when toggled on,
-    -- as it needs the resolution information.
-    local vf_table = mp.get_property_native("vf")
-    vf_table[#vf_table + 1] = {
-        enabled=false,
-        label="skiptosilence-blackout",
-        name="lavfi",
-        params= {
-            graph = "" --"nullsink,color=c=black:s=1920x1080"
-        }
-    }
-    mp.set_property_native("vf", vf_table)
-end
-
-function setAudioFilter(state)
-    local af_table = mp.get_property_native("af")
-    if #af_table > 0 then
-        for i = #af_table, 1, -1 do
-            if af_table[i].label == "skiptosilence" then
-                af_table[i].enabled = state
-                mp.set_property_native("af", af_table)
-                return
-            end
-        end
-    end
-end
-
-function setVideoFilter(state, width, height)
-    local vf_table = mp.get_property_native("vf")
-    if #vf_table > 0 then
-        for i = #vf_table, 1, -1 do
-            if vf_table[i].label == "skiptosilence-blackout" then
-                vf_table[i].enabled = state
-                vf_table[i].params = {
-                    graph = "nullsink,color=c=black:s="..width.."x"..height
-                }
-                mp.set_property_native("vf", vf_table)
-                return
-            end
-        end
-    end
+function skippedMessage()
+    msg.info("Skipped to silence at " .. mp.get_property_osd("time-pos"))
+    mp.osd_message("Skipped to silence at " .. mp.get_property_osd("time-pos"))
 end
 
 options.read_options(opts)
-init()
 
 mp.register_script_message("skip-to-silence", doSkip)
