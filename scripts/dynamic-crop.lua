@@ -47,13 +47,13 @@ local options = {
     resize_windowed = true,
     fast_change_timer = 1, -- seconds
     new_known_ratio_timer = 5, -- seconds
-    new_fallback_timer = 20, -- seconds, >= 'new_known_ratio_timer', disable with 0
+    new_fallback_timer = 30, -- seconds, >= 'new_known_ratio_timer', disable with 0
     ratios = "2.4 2.39 2.35 2.2 2 1.85 16/9 5/3 1.5 4/3 1.25 9/16", -- list separated by space
     ratios_extra_px = 2, -- even number, pixel added to check with the ratios list and offsets
     segmentation = 0.5, -- %, 0 will approved only a continuous metadata (strict)
     correction = 0.6, -- %, -- TODO auto value with trusted meta
     -- filter, see https://ffmpeg.org/ffmpeg-filters.html#cropdetect for details
-    detect_limit = 24, -- is the maximum use, increase it slowly if lighter black are present
+    detect_limit = 26, -- is the maximum use, increase it slowly if lighter black are present
     detect_round = 2, -- even number
     detect_reset = 1, -- minimum 1
     detect_skip = 1, -- minimum 1, default 2 (new ffmpeg build since 12/2020)
@@ -79,11 +79,13 @@ local labels = {
 -- state (boolean)
 local in_progress, seeking, paused, toggled, filter_missing, filter_inserted
 -- option
+local function convert_sec_to_ms(num) return math.floor(num * 1000) end
+local function convert_ms_to_sec(num) return num / 1000 end
 local time_pos = {}
-local prevent_change_timer = options.prevent_change_timer * 1000
-local fast_change_timer = options.fast_change_timer * 1000
-local new_known_ratio_timer = options.new_known_ratio_timer * 1000
-local new_fallback_timer = options.new_fallback_timer * 1000
+local prevent_change_timer = convert_sec_to_ms(options.prevent_change_timer)
+local fast_change_timer = convert_sec_to_ms(options.fast_change_timer)
+local new_known_ratio_timer = convert_sec_to_ms(options.new_known_ratio_timer)
+local new_fallback_timer = convert_sec_to_ms(options.new_fallback_timer)
 local fallback = new_fallback_timer >= new_known_ratio_timer
 local cropdetect_skip = string.format(":skip=%d", options.detect_skip)
 
@@ -174,8 +176,8 @@ end
 local function print_debug(meta, type_, label)
     if options.debug then
         if type_ == "detail" then
-            print(string.format("%s, %s | Offset X:%s Y:%s | limit:%s", label, meta.whxy, meta.offset.x, meta.offset.y,
-                                limit.current))
+            print(string.format("%s, %-29s | offX:%3s offY:%3s | limit:%-2s", label, meta.whxy, meta.offset.x,
+                                meta.offset.y, limit.current))
         end
         if not type_ then print(meta) end
     end
@@ -191,22 +193,24 @@ local function print_debug(meta, type_, label)
         mp.msg.info(string.format("Trusted Offset - X:%s| Y:%s", read_maj_offset.x, read_maj_offset.y))
         for whxy, table_ in pairs(stats.trusted) do
             if stats.trusted[whxy] then
-                mp.msg.info(string.format("%s | offX=%s offY=%s | applied=%s overall=%s last_seen=%s", whxy,
-                                          table_.offset.x, table_.offset.y, table_.applied, table_.time.overall / 1000,
-                                          table_.time.last_seen / 1000))
+                mp.msg.info(string.format("- %-29s | offX=%3s offY=%3s | applied=%s overall=%s last_seen=%s", whxy,
+                                          table_.offset.x, table_.offset.y, table_.applied,
+                                          convert_ms_to_sec(table_.time.overall),
+                                          convert_ms_to_sec(table_.time.last_seen)))
             end
         end
-        mp.msg.info("Buffer - total: " .. buffer.index_total,
-                    buffer.time_total / 1000 .. "sec, unique_meta: " .. buffer.unique_meta .. " | known_ratio:",
-                    buffer.index_known_ratio, buffer.time_known / 1000 .. "sec")
+        mp.msg.info("Buffer - total: " .. buffer.index_total, convert_ms_to_sec(buffer.time_total) ..
+                        "sec, unique_meta: " .. buffer.unique_meta .. " | known_ratio:", buffer.index_known_ratio,
+                    convert_ms_to_sec(buffer.time_known) .. "sec")
         if options.debug and stats.buffer then
             for whxy, table_ in pairs(stats.buffer) do
-                mp.msg.info(string.format("- %s | offX=%s offY=%s | time.buffer=%ssec known_ratio=%s", whxy,
-                                          table_.offset.x, table_.offset.y, table_.time.buffer / 1000,
-                                          table_.is_known_ratio))
+                mp.msg.info(string.format(
+                                "- %-29s | offX=%3s offY=%3s | time=%6ssec known_ratio=%-4s trusted_offsets=%s", whxy,
+                                table_.offset.x, table_.offset.y, convert_ms_to_sec(table_.time.buffer),
+                                table_.is_known_ratio, table_.is_trusted_offsets))
             end
             for pos, table_ in pairs(buffer.ordered) do
-                mp.msg.info(string.format("-- %s %s", pos, table_[1].whxy))
+                mp.msg.info(string.format("-- %3s %-29s %sms", pos, table_[1].whxy, table_[2]))
             end
         end
     end
@@ -252,9 +256,9 @@ local function check_stability(current_)
     if options.detect_round <= 4 and not current_.is_source and stats.trusted[current_.whxy] then
         for _, table_ in pairs(stats.trusted) do
             if current_ ~= table_ and
-                (not found and table_.time.overall > current_.time.overall * 1.1 or found and table_.time.overall >
-                    found.time.overall * 1.1) and math.abs(current_.w - table_.w) <= 4 and
-                math.abs(current_.h - table_.h) <= 4 then found = table_ end
+                (not found and table_.time.overall > current_.time.overall * 2 or found and table_.time.overall >
+                    found.time.overall) and math.abs(current_.w - table_.w) <= 4 and math.abs(current_.h - table_.h) <=
+                4 then found = table_ end
         end
     end
     return found
@@ -348,7 +352,7 @@ local function process_metadata(event, time_pos_)
     end
 
     -- last check before add a new meta as trusted
-    local new_ready = stats.buffer[collected.whxy] and
+    local new_ready = stats.buffer[collected.whxy] and not stats.trusted[collected.whxy] and
                           (collected.is_known_ratio and collected.time.buffer >= new_known_ratio_timer or fallback and
                               not collected.is_known_ratio and collected.time.buffer >= new_fallback_timer)
     local detect_source = current.is_source and
@@ -425,7 +429,7 @@ local function update_time_pos(_, time_pos_)
     if not time_pos_ then return end
 
     time_pos.prev = time_pos.current
-    time_pos.current = math.floor(time_pos_ * 1000)
+    time_pos.current = convert_sec_to_ms(time_pos_)
     if not time_pos.insert then time_pos.insert = time_pos.current end
 
     if in_progress or not collected.whxy or not time_pos.prev or filter_inserted or seeking or paused or toggled or
