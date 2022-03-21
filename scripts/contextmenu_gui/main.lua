@@ -5,7 +5,6 @@
 ** Extension_ Thomas Carmichael https://gitlab.com/carmanaught **
 *****************************************************************
 mpv的tcl图形菜单的核心脚本
-
 建议在 input.conf 中绑定右键以支持唤起菜单
 MOUSE_BTN2   script-message-to contextmenu_gui contextmenu_tk
 --]]
@@ -55,15 +54,15 @@ end
 
 -- Edition menu functions
 local function enableEdition()
-    local editionState = false
-    if (propNative("edition-list/count") < 1) then editionState = true end
-    return editionState
+    local editionEnable = false
+    if (propNative("edition-list/count") ~= nil and propNative("edition-list/count") < 1) then editionEnable = true end
+    return editionEnable
 end
 
 local function checkEdition(editionNum)
-    local editionEnable, editionCur = false, propNative("edition")
-    if (editionNum == editionCur) then editionEnable = true end
-    return editionEnable
+    local editionState, editionCur = false, propNative("edition")
+    if (editionNum == editionCur) then editionState = true end
+    return editionState
 end
 
 local function editionMenu()
@@ -79,7 +78,7 @@ local function editionMenu()
             table.insert(editionMenuVal, {RADIO, editionTitle, "", editionCommand, function() return checkEdition(editionNum) end, false})
         end
     else
-        table.insert(editionMenuVal, {COMMAND, "No Editions", "", "", ""})
+        table.insert(editionMenuVal, {COMMAND, "No Editions", "", "", "", true})
     end
 
     return editionMenuVal
@@ -88,7 +87,7 @@ end
 -- Chapter menu functions
 local function enableChapter()
     local chapterEnable = false
-    if (propNative("chapter-list/count") < 1) then chapterEnable = true end
+    if (propNative("chapter-list/count") ~= nil and propNative("chapter-list/count") < 1) then chapterEnable = true end
     return chapterEnable
 end
 
@@ -170,7 +169,7 @@ local function vidTrackMenu()
             table.insert(vidTrackMenuVal, {RADIO, vidTrackTitle, "", vidTrackCommand, function() return checkTrack(vidTrackNum) end, false})
         end
     else
-        table.insert(vidTrackMenuVal, {RADIO, "无视频轨", "", "", ""})
+        table.insert(vidTrackMenuVal, {RADIO, "无视频轨", "", "", "", true})
     end
 
     return vidTrackMenuVal
@@ -578,7 +577,7 @@ mp.register_event("file-loaded", function()
 
 -- 二级菜单 —— 文件
         file_menu = {
-            {COMMAND, "停止", "F11", "stop", "", false},
+--            {COMMAND, "停止", "F11", "stop", "", false},
             {CHECK, "播放/暂停", "SPACE", "cycle pause", function() return propNative("pause") end, false},
             {SEP},
             {COMMAND, "显示OSD时间轴", "O", "no-osd cycle-values osd-level 3 1", "", false},
