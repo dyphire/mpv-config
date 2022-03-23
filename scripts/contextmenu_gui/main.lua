@@ -52,15 +52,15 @@ local function round(num, numDecimalPlaces)
     return tonumber(string.format("%." .. (numDecimalPlaces or 0) .. "f", num))
 end
 
--- Edition menu functions
-local function enableEdition()
-    local editionEnable = false
-    if (propNative("edition-list/count") ~= nil and propNative("edition-list/count") < 1) then editionEnable = true end
-    return editionEnable
+-- 版本（Edition）子菜单
+local function inspectEdition()
+    local editionDisable = false
+    if (propNative("edition-list/count") ~= nil and propNative("edition-list/count") < 1) then editionDisable = true end
+    return editionDisable
 end
 
 local function checkEdition(editionNum)
-    local editionState, editionCur = false, propNative("edition")
+    local editionState, editionCur = false, propNative("current-edition")
     if (editionNum == editionCur) then editionState = true end
     return editionState
 end
@@ -84,11 +84,11 @@ local function editionMenu()
     return editionMenuVal
 end
 
--- Chapter menu functions
-local function enableChapter()
-    local chapterEnable = false
-    if (propNative("chapter-list/count") ~= nil and propNative("chapter-list/count") < 1) then chapterEnable = true end
-    return chapterEnable
+-- 章节子菜单
+local function inspectChapter()
+    local chapterDisable = false
+    if (propNative("chapter-list/count") ~= nil and propNative("chapter-list/count") < 1) then chapterDisable = true end
+    return chapterDisable
 end
 
 local function checkChapter(chapterNum)
@@ -149,10 +149,10 @@ local function checkTrack(trackNum)
 end
 
 -- 视频轨子菜单
-local function enableVidTrack()
-    local vidTrackEnable, vidTracks = false, trackCount("video")
-    if (#vidTracks < 1) then vidTrackEnable = true end
-    return vidTrackEnable
+local function inspectVidTrack()
+    local vidTrackDisable, vidTracks = false, trackCount("video")
+    if (#vidTracks < 1) then vidTrackDisable = true end
+    return vidTrackDisable
 end
 
 local function vidTrackMenu()
@@ -619,8 +619,8 @@ mp.register_event("file-loaded", function()
             {COMMAND, "【外置脚本】自动跳过指定章节", "ALT+q", "script-message chapter-skip;show-text 自动跳过指定章节", "", false},
             {COMMAND, "【外置脚本】跳到下一个静音位置 ", "F4", "script-message skip-to-silence;show-text 跳到下一个静音位置", "", false},
             {SEP},
-            {CASCADE, "版本（Edition）", "edition_menu", "", "", function() return enableEdition() end},
-            {CASCADE, "章节", "chapter_menu", "", "", function() return enableChapter() end},
+            {CASCADE, "版本（Edition）", "edition_menu", "", "", function() return inspectEdition() end},
+            {CASCADE, "章节", "chapter_menu", "", "", function() return inspectChapter() end},
         },
 
         -- Use functions returning tables, since we don't need these menus if there aren't any editions or any chapters to seek through.
@@ -676,7 +676,7 @@ mp.register_event("file-loaded", function()
 
 -- 二级菜单 —— 视频
         video_menu = {
-            {CASCADE, "轨道", "vidtrack_menu", "", "", function() return enableVidTrack() end},
+            {CASCADE, "轨道", "vidtrack_menu", "", "", function() return inspectVidTrack() end},
             {SEP},
             {CASCADE, "解码模式", "hwdec_menu", "", "", false},
             {COMMAND, "开/关 flip模式", "CTRL+f", "cycle d3d11-flip", "", false},
