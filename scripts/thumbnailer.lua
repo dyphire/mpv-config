@@ -2,7 +2,7 @@
 SOURCE_ https://github.com/deus0ww/mpv-conf/blob/master/scripts/Thumbnailer.lua
 COMMIT_ 20220111 ec1792d
 hwaccel from https://github.com/hooke007/MPV_lazy/blob/main/portable_config/scripts/thumbnailer.lua
-modify by zhongfly  https://github.com/zhongfly/mpv-conf/blob/main/scripts/Thumbnailer.lua
+modify by https://github.com/dexeonify/mpv-config/blob/main/scripts/Thumbnailer.lua
 ]]--
 
 local ipairs,loadfile,pairs,pcall,tonumber,tostring = ipairs,loadfile,pairs,pcall,tonumber,tostring
@@ -181,18 +181,16 @@ end
 
 local function delete_dir(path)
 	if is_empty(path) then return end
-	msg.warn('Deleting Dir:', path)
 	return run_subprocess( OPERATING_SYSTEM == OS_WIN and {'cmd', '/e:on', '/c', 'rd', '/s', '/q', path} or {'rm', '-r', path} )
 end
 
 local function delete_file(path)
 	if not file_exists(path) then return end
-	msg.warn('Deleting File:', path)
 	return os.remove(path)
 end
 
 local function add_lock(path)
-	msg.debug('Add file lock to:', path)
+	msg.debug('Adding File Lock to:', path)
 	local file = io.open(join_paths(path, tostring(utils.getpid())), 'w')
 	if file then 
 		file:close()
@@ -202,12 +200,13 @@ local function add_lock(path)
 end
 
 local function remove_lock(path)
-	msg.debug('Remove file lock from:', path)
+	msg.warn('Removing File Lock from:', path)
 	return delete_file(join_paths(path, tostring(utils.getpid())))
 end
 
 local function is_locked(path)
-	return #utils.readdir(path,'files') ~= 0
+    if utils.readdir(path, 'files') == nil then return
+    else return #utils.readdir(path, 'files') ~= 0 end
 end
 
 
@@ -671,11 +670,11 @@ local function delete_cache_dir()
 	remove_lock(path)
 	if auto_delete > 0 then 
 		if not is_locked(path) then 
-			msg.debug('Clearing Cache on Shutdown:', path)
+			msg.warn('Deleting Thumbnailer folder:', path)
 			if path:len() < 16 then return end
 			delete_dir(path)
 		else
-			msg.debug('Clearing Cache on Shutdown:ignore ', path, '- Locked')
+			msg.warn('Can\'t Delete Thumbnailer folder:', path, '- Locked')
 		end
 	end
 end
@@ -687,11 +686,11 @@ local function delete_cache_subdir()
 	remove_lock(path)
 	if auto_delete == 1 then
 		if not is_locked(path) then 
-			msg.debug('Clearing Cache for File:', path)
+			msg.warn('Clearing Cache for Current File:', path)
 			if path:len() < 16 then return end
 			delete_dir(path)
 		else
-			msg.debug('Clearing Cache for File:ignore ', path, '- Locked')
+			msg.warn('Can\'t Clear Cache for Current File:', path, '- Locked')
 		end
 	end
 end
