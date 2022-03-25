@@ -1,12 +1,13 @@
 --[[
 SOURCE_ https://github.com/mpv-player/mpv/blob/master/player/lua/osc.lua
-COMMIT_20211004_ca6108b
+COMMIT_ 20220206 0197729
 SOURCE_ https://github.com/deus0ww/mpv-conf/blob/master/scripts/Thumbnailer_OSC.lua
-COMMIT_20211004_19a8c13
-改进版本的OSC，须禁用原始mpv的内置OSC，且不兼容其它OSC类脚本，实现全部功能需搭配额外两个缩略图引擎脚本（Thumbnailer）
-
+COMMIT_ 20220207 8b57a11
+SOURCE_ https://github.com/hooke007/MPV_lazy/commit/9116558a85fc8468d30dfe785c83a67838f0f6da
+COMMIT_ 20220325 9116558
+改进版本的OSC，须禁用原始mpv的内置OSC，且不兼容其它OSC类脚本，实现全部功能需搭配额外两个缩略图引擎脚本（Thumbnailer）。
 示例在 input.conf 中写入：
-SHIFT+DEL  script-binding Thumbnailer_OSC/visibility  # 切换Thumbnailer_OSC的可见性
+SHIFT+DEL  script-binding thumbnailer_osc/visibility  # 切换thumbnailer_osc的可见性
 --]]
 
 local orig_osc = mp.get_property('osc')
@@ -56,7 +57,7 @@ local user_opts = {
     iamaprogrammer = false,             -- use native mpv values and disable OSC
                                         -- internal track list management (and some
                                         -- functions that depend on it)
-    layout = "bottombar",               -- 原可选为 "bottombar" "topbar" "box" "slimbox" ；在Thumbnailer_OSC中新增 "bottombox"
+    layout = "bottombar",               -- 原可选为 "bottombar" "topbar" "box" "slimbox" ；在thumbnailer_osc中新增 "bottombox"
     seekbarstyle = "bar",               -- bar, diamond or knob
     seekbarhandlesize = 0.6,            -- size ratio of the diamond and knob handle
     seekrangestyle = "inverted",        -- bar, line, slider, inverted or none
@@ -78,6 +79,7 @@ local user_opts = {
     chapters_osd = true,                -- whether to show chapters OSD on next/prev
     playlist_osd = true,                -- whether to show playlist OSD on next/prev
     chapter_fmt = "章节：%s",           -- chapter print format for seekbar-hover. "no" to disable
+
     -- 以下为thumbnailer_osc的独占选项
 
     wctitle = "${media-title}",         -- 无边框的上方标题
@@ -635,7 +637,7 @@ local state = {
     maximized = false,
     osd = mp.create_osd_overlay("ass-events"),
     chapter_list = {},                      -- sorted by time
-    lastvisibility = user_opts.visibility,  -- save last visibility on pause if showonpause
+    lastvisibility = user_opts.visibility,  -- 如果showonpause，则在暂停时保存最后一次的可见性
 }
 
 local window_control_box_width = 80
@@ -1107,7 +1109,7 @@ function prepare_elements()
             element.eventresponder = nil
         end
 
-        -- gray out the element if it is toggled off
+        -- 禁用时灰化相关元素
         if (element.off) then
             element.layout.alpha[1] = 136
         end
@@ -1123,7 +1125,6 @@ end
 function get_chapter(possec)
     local cl = state.chapter_list  -- sorted, get latest before possec, if any
 
-    -- chapters might not be sorted by time. find nearest-before/at possec
     for n=#cl,1,-1 do
         if possec >= cl[n].time then
             return cl[n]
@@ -1952,7 +1953,12 @@ layouts["bottombox"] = function ()
     lo.geometry = {x = posX, y = titlerowY, an = 5, w = 500, h = 18}
     lo.style = osc_styles.bb_downtitle
     lo.button.maxchars = user_opts.boxmaxchars
-    if (osc_param.display_aspect < 1) then lo.button.maxchars = 50 end
+
+    if (user_opts.layout == "bottombox") then
+        if (osc_param.display_aspect < 1) then
+            lo.button.maxchars = 50
+        end
+    end
 
     -- 右侧子标题
 
@@ -2586,9 +2592,12 @@ function osc_init()
     ne.eventresponder["mbtn_left_up"] =
         function () mp.commandv("cycle", "pause") end
 
-    --skipback
+    --skipback -- 进度（前滚）
     ne = new_element("skipback", "button")
-    ne.visible = (osc_param.display_aspect > 1)
+
+    if (user_opts.layout == "bottombox") then
+        ne.visible = (osc_param.display_aspect > 1)
+    end
 
     ne.softrepeat = true
     ne.content = "\238\128\132"
@@ -2599,9 +2608,12 @@ function osc_init()
     ne.eventresponder["mbtn_right_down"] =
         function () mp.commandv("seek", -30, "relative", "keyframes") end
 
-    --skipfrwd
+    --skipfrwd -- 进度（后滚）
     ne = new_element("skipfrwd", "button")
-    ne.visible = (osc_param.display_aspect > 1)
+
+    if (user_opts.layout == "bottombox") then
+        ne.visible = (osc_param.display_aspect > 1)
+    end
 
     ne.softrepeat = true
     ne.content = "\238\128\133"
@@ -2612,9 +2624,12 @@ function osc_init()
     ne.eventresponder["mbtn_right_down"] =
         function () mp.commandv("seek", 60, "relative", "keyframes") end
 
-    --ch_prev
+    --ch_prev --章节（上一个）
     ne = new_element("ch_prev", "button")
-    ne.visible = (osc_param.display_aspect > 1)
+
+    if (user_opts.layout == "bottombox") then
+        ne.visible = (osc_param.display_aspect > 1)
+    end
 
     ne.enabled = have_ch
     ne.content = "\238\132\132"
@@ -2630,9 +2645,12 @@ function osc_init()
     ne.eventresponder["mbtn_right_up"] =
         function () show_message(get_chapterlist(), 3) end
 
-    --ch_next
+    --ch_next --章节（下一个）
     ne = new_element("ch_next", "button")
-    ne.visible = (osc_param.display_aspect > 1)
+
+    if (user_opts.layout == "bottombox") then
+        ne.visible = (osc_param.display_aspect > 1)
+    end
 
     ne.enabled = have_ch
     ne.content = "\238\132\133"
@@ -2678,7 +2696,10 @@ function osc_init()
 
     --cy_sub --全局字幕按钮增强
     ne = new_element("cy_sub", "button")
-    ne.visible = (osc_param.display_aspect > 1)
+
+    if (user_opts.layout == "bottombox") then
+        ne.visible = (osc_param.display_aspect > 1)
+    end
 
     ne.enabled = (#tracks_osc.sub > 0)
     ne.off = (get_track('sub') == 0)
@@ -2702,9 +2723,12 @@ function osc_init()
     ne.eventresponder["wheel_down_press"] =
         function () set_track("sub", 1) end
 
-    --tog_fs
+    --tog_fs --切换全屏/窗口化
     ne = new_element("tog_fs", "button")
-    ne.visible = (osc_param.display_aspect > 1)
+
+    if (user_opts.layout == "bottombox") then
+        ne.visible = (osc_param.display_aspect > 1)
+    end
 
     ne.content = function ()
         if (state.fullscreen) then
@@ -3006,6 +3030,7 @@ function osc_visible(visible)
 end
 
 function pause_state(name, enabled)
+    -- 暂停状态检查
     state.paused = enabled
     mp.add_timeout(0.1, function() state.osd:update() end)
     if user_opts.showonpause then
