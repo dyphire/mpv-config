@@ -29,7 +29,6 @@ ignore_hidden=yes
 
 --]]
 
-MAXENTRIES = 5000
 
 local msg = require 'mp.msg'
 local options = require 'mp.options'
@@ -41,6 +40,7 @@ o = {
     videos = true,
     audio = true,
     sameseries = false,
+    max_entries = 500,
     ignore_hidden = true
 }
 options.read_options(o)
@@ -211,7 +211,7 @@ function find_and_add_entries()
 
     local append = {[-1] = {}, [1] = {}}
     for direction = -1, 1, 2 do -- 2 iterations, with direction = -1 and +1
-        for i = 1, MAXENTRIES do
+        for i = 1, o.max_entries do
             local file = files[current + i * direction]
             local pl_e = pl[pl_current + i * direction]
             if file == nil or file[1] == "." then
