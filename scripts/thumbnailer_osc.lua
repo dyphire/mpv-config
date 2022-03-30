@@ -57,7 +57,7 @@ local user_opts = {
     iamaprogrammer = false,             -- use native mpv values and disable OSC
                                         -- internal track list management (and some
                                         -- functions that depend on it)
-    layout = "bottombar",               -- 原可选为 "bottombar" "topbar" "box" "slimbox" ；在thumbnailer_osc中新增 "bottombox"
+    layout = "bottombar",               -- 原版可选为 "bottombar" "topbar" "box" "slimbox" ；在thumbnailer_osc中新增 "bottombox"
     seekbarstyle = "bar",               -- bar, diamond or knob
     seekbarhandlesize = 0.6,            -- size ratio of the diamond and knob handle
     seekrangestyle = "inverted",        -- bar, line, slider, inverted or none
@@ -67,10 +67,10 @@ local user_opts = {
     title = "${media-title}",           -- string compatible with property-expansion
                                         -- to be shown as OSC title
     tooltipborder = 1,                  -- border of tooltip in bottom/topbar
-    timetotal = true,                   -- display total time instead of remaining time?   -- 原为false
+    timetotal = true,                   -- display total time instead of remaining time?   -- 原版为false
     timems = false,                     -- display timecodes with milliseconds?
     visibility = "auto",                -- only used at init to set visibility_mode(...)
-    boxmaxchars = 150,                  -- title crop threshold for box layout             -- 原为80
+    boxmaxchars = 150,                  -- title crop threshold for box layout             -- 原版为80
     boxvideo = false,                   -- apply osc_param.video_margins to video
     windowcontrols = "auto",            -- whether to show window controls
     windowcontrols_alignment = "right", -- which side to show window controls on
@@ -85,6 +85,7 @@ local user_opts = {
     wctitle = "${media-title}",         -- 无边框的上方标题
     sub_title = " ",                    -- bottombox布局的右侧子标题
     sub_title2 = "对比[${contrast}]  亮度[${brightness}]  伽马[${gamma}]  饱和[${saturation}]  色相[${hue}]", -- bottombox布局的临时右侧子标题
+    seekbar_scrollseek = "fast",        -- 进度条的滚轮跳转模式 "fast" "second" "frame"
     showonpause = false,                -- 在暂停时显示 OSC
     showonstart = false,                -- 在播放开始或当播放下一个文件时显示 OSC
     showonseek = false,                 -- 在跳转时显示 OSC
@@ -2740,7 +2741,7 @@ function osc_init()
     ne.eventresponder["mbtn_left_up"] =
         function () mp.commandv("cycle", "fullscreen") end
 
-    --seekbar
+    --seekbar --全局进度条增强
     ne = new_element("seekbar", "slider")
 
     ne.enabled = not (mp.get_property("percent-pos") == nil)
@@ -2818,6 +2819,20 @@ function osc_init()
         function (element) element.state.lastseek = nil end
     ne.eventresponder["mbtn_right_down"] = function (element) mp.commandv('script-message', 'Thumbnailer-toggle-osc') end
     ne.eventresponder["mbtn_right_dbl_press"] = function (element) mp.commandv('script-message', 'Thumbnailer-double') end
+
+    ne.eventresponder["wheel_up_press"] = function ()
+        if user_opts.seekbar_scrollseek == "fast" then mp.commandv('seek', -1, 'keyframes')
+        elseif user_opts.seekbar_scrollseek == "second" then mp.commandv('seek', -1, 'exact')
+        elseif user_opts.seekbar_scrollseek == "frame" then mp.commandv('frame-back-step')
+        end
+    end
+
+    ne.eventresponder["wheel_down_press"] = function ()
+        if user_opts.seekbar_scrollseek == "fast" then mp.commandv('seek', 1, 'keyframes')
+        elseif user_opts.seekbar_scrollseek == "second" then mp.commandv('seek', 1, 'exact')
+        elseif user_opts.seekbar_scrollseek == "frame" then mp.commandv('frame-step')
+        end
+    end
 
     -- tc_left (current pos)
     ne = new_element("tc_left", "button")
