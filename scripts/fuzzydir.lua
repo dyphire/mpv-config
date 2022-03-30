@@ -1,5 +1,5 @@
 --[[
-SOURCE_ https://github.com/dya-tel/mpv-scripts/blob/master/fuzzydir.lua
+SOURCE_ https://github.com/sibwaf/mpv-scripts/blob/master/fuzzydir.lua
 COMMIT_18 Mar 2022_ce23414
 	Allows using "**" wildcards in sub-file-paths and audio-file-paths
     so you don't have to specify all the possible directory names.
