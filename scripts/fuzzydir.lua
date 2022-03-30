@@ -1,15 +1,24 @@
 --[[
 SOURCE_ https://github.com/dya-tel/mpv-scripts/blob/master/fuzzydir.lua
-COMMIT_11 Mar 2018_722824c
+COMMIT_18 Mar 2022_ce23414
+	Allows using "**" wildcards in sub-file-paths and audio-file-paths
+    so you don't have to specify all the possible directory names.
+    Basically, allows you to do this and never have the need to edit any paths ever again:
+    audio-file-paths = **
+    sub-file-paths = **
+	MIT license - do whatever you want, but I'm not responsible for any possible problems.
+	Please keep the URL to the original repository. Thanks!
+]]
 
-Determines the max depth of recursive search, should be >= 1
-
- 1 will disable recursion and only direct subdirectories would be found
- 2 will allow single recursion and direct subdirectories would be found along with their direct subdirectories
- ...
-
-Please be careful when setting this value too high
-as it can result in awful performance or even stack overflow
+--[[
+    Configuration:
+    # max_search_depth
+    
+    Determines the max depth of recursive search, should be >= 1
+    Examples for "sub-file-paths = **":
+    "max_search_depth = 1" => finds [subs/xyz.ass]
+    "max_search_depth = 2" => finds [subs/xyz.ass, subs/moresubs/xyz.ass]
+    Please be careful when setting this value too high as it can result in awful performance or even stack overflow
 ]]
 
 local msg = require 'mp.msg'
@@ -17,10 +26,10 @@ local options = require 'mp.options'
 local utils = require 'mp.utils'
 
 o = {
-    max_search_depth = 3,
+    max_search_depth = 3, --determines the max depth of recursive search, should be >= 1
     excluded_dir = [[
-        ["?:"]
-        ]], --excluded directories for shared, #windows: ["X:", "Z:"]
+        []
+        ]], --excluded directories for cloud mount disks on Windows, example: ["X:", "Z:"]. !!the option only for Windows
     special_protocols = [[
 	["https?://", "magnet:", "rtmp:", "smb://", "bd://", "dvd://", "cdda://"]
 	]], --add above (after a comma) any protocol to disable
