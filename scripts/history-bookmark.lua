@@ -11,7 +11,7 @@ local M = {}
 local o = {
     save_period = 30,
     excluded_dir = [[
-        ["?:"]
+        []
         ]], --excluded directories for shared, #windows: ["X:", "Z:"]
     special_protocols = [[
 	["https?://", "magnet:", "rtmp:", "smb://", "bd://", "dvd://", "cdda://"]
