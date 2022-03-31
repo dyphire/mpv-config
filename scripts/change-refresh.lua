@@ -225,15 +225,26 @@ function changeRefresh(width, height, rate, display)
     height = tostring(height)
     display = tostring(display)
 
+    setCurrentRes()
+
     msg.verbose('calling nircmd with command: ' .. options.nircmd .. " setdisplay monitor:" .. display .. " " .. width .. " " .. height .. " " .. options.bdepth .. " " .. rate)
 
     msg.info("changing display " .. display .. " to " .. width .. "x" .. height .. " " .. rate .. "Hz")
 
     --pauses the video while the change occurs to avoid A/V desyncs
-    local isPaused = mp.get_property_bool("pause")
-    mp.set_property_bool("pause", true)
-    
-    local time = mp.get_time()
+    if
+        options.pause > 0 and not mp.get_property_bool("pause")
+        and not (   tostring(var.current_height) == height and
+                    tostring(var.current_width) == width and
+                    tostring(math.floor(mp.get_property_number('display-fps'))) == rate
+                )
+    then
+        mp.set_property_bool("pause", true)
+        mp.add_timeout(options.pause, function()
+            mp.set_property_bool("pause", false)
+        end)
+    end
+
     local process = mp.command_native({
         name = 'subprocess',
         playback_only = false,
@@ -256,21 +267,7 @@ function changeRefresh(width, height, rate, display)
         end
     end
 
-    --pauses the player for a set duration of seconds while the display is switching
-    while
-        time + options.pause > mp.get_time() and
-        mp.get_property_bool("eof-reached") == false
-    do
-        osdMessage("changing display " .. var.dnumber .. " to " .. width .. "x" .. height .. " " .. rate .. "Hz")
-    end
-    
-    --if pause is disabled then it sends a seperate message
-    if options.pause < 1 then
-        osdMessage("changing display " .. var.dnumber .. " to " .. width .. "x" .. height .. " " .. rate .. "Hz")
-    end
-
-    --sets the video to the original pause state
-    mp.set_property_bool("pause", isPaused)
+    osdMessage("changing display " .. var.dnumber .. " to " .. width .. "x" .. height .. " " .. rate .. "Hz")
 
     --clears the memory for the display resolution
     var.current_width, var.current_height = 0, 0
