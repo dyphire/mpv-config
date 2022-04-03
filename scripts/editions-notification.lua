@@ -22,7 +22,9 @@ function showNotification()
     while (mp.get_time() - time < 1) do
 
     end
-    mp.osd_message('file has ' .. editions .. ' editions', '2')
+    mp.add_timeout(3, function()
+        mp.osd_message('file has ' .. editions .. ' editions', '2')
+    end)
 end
 
 --The script remembers the first time the edition is switched using mp.observe_property, and afterwards always displays the edition-list on each file-loaded
