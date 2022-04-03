@@ -158,6 +158,8 @@ vec4 hook() {
 //!WHEN NATIVE_CROPPED.h POSTKERNEL.h >
 //!DESC SSimDownscaler final pass
 
+#define oversharp   0.0
+
 #define locality    2.0
 
 #define offset      vec2(0,0)
@@ -181,6 +183,7 @@ mat3x3 ScaleH(vec2 pos) {
         float w = Kernel(rel);
 
         vec4 MR = MR_tex(pos);
+        MR.a *= (1.0 + oversharp);
         avg += w * mat3x3(MR.a*MR.rgb, MR.rgb, MR.aaa);
         W += w;
     }
