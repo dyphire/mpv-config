@@ -34,7 +34,8 @@
 #define curve_height    1.0                  // Main control of sharpening strength [>0]
                                              // 0.3 <-> 2.0 is a reasonable range of values
 
-#define anime_mode      false                // Only darken edges
+#define linear_laplace  false                // Enable when applying this shader at native resolution or
+                                             // after a super-resolution. Also could be useful for anime
 
 #define overshoot_ctrl  false                // Allow for higher overshoot if the current edge pixel
                                              // is surrounded by similar edge pixels
@@ -181,12 +182,15 @@ vec4 hook() {
     {
         float lowthr = clamp((20.*4.5*c_comp*e[pix + 1] - 0.221), 0.01, 1.0);
 
-        neg_laplace += luma[pix+1] * weights[pix] * lowthr;
+        neg_laplace += (linear_laplace ? luma[pix+1] * luma[pix+1] : luma[pix+1]) * weights[pix] * lowthr;
         weightsum   += weights[pix] * lowthr;
         lowthrsum   += lowthr / 12.0;
     }
 
     neg_laplace = neg_laplace / weightsum;
+
+    if (linear_laplace)
+        neg_laplace = sqrt(neg_laplace);
 
     // Compute sharpening magnitude function
     float sharpen_val = curve_height/(curve_height*curveslope*pow(edge, 3.5) + 0.625);
@@ -242,8 +246,7 @@ vec4 hook() {
     pn_scale = min(pn_scale, scale_lim*(1.0 - scale_cs) + pn_scale*scale_cs);
 
     // Soft limited anti-ringing with tanh, wpmean to control compression slope
-    sharpdiff = (anime_mode ? 0. :
-                wpmean(max(sharpdiff, 0.0), soft_lim( max(sharpdiff, 0.0), pn_scale.x ), cs.x ))
+    sharpdiff = wpmean(max(sharpdiff, 0.0), soft_lim( max(sharpdiff, 0.0), pn_scale.x ), cs.x )
               - wpmean(min(sharpdiff, 0.0), soft_lim( min(sharpdiff, 0.0), pn_scale.y ), cs.y );
     /*
     float sharpdiff_lim = sat(c0_Y + sharpdiff) - c0_Y;
