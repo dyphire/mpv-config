@@ -1,4 +1,7 @@
 --[[
+SOURCE_ https://github.com/Ashyni/mpv-scripts/blob/master/dynamic-crop.lua
+COMMIT_18 Mar 2022_b9b5523
+
 This script uses the lavfi cropdetect filter to automatically insert a crop filter with appropriate parameters for the
 currently playing video, the script run continuously by default (mode 4).
 
@@ -557,7 +560,13 @@ local function on_start()
     mp.observe_property("pause", "bool", pause)
     mp.observe_property(string.format("vf-metadata/%s", labels.cropdetect), "native", collect_metadata)
     mp.observe_property("time-pos", "number", update_time_pos)
-    if options.mode % 2 == 1 then on_toggle(true) end
+    if options.mode % 2 == 1 then
+        toggled = false
+        on_toggle(true)
+    else
+        toggled = true
+        on_toggle(false)
+    end
 end
 
 mp.add_key_binding("C", "toggle_crop", on_toggle)

@@ -26,11 +26,6 @@
     "dest":"~~/scripts"
   },
   {
-    "git":"https://github.com/Ashyni/mpv-scripts",
-    "whitelist":"dynamic%-crop%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
     "git":"https://github.com/hooke007/MPV_lazy",
     "whitelist":"cycle%_adevice%.lua$|thumbnailer%_worker%.lua$",
     "dest":"~~/scripts",
