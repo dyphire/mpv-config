@@ -31,10 +31,10 @@
 
 //--------------------------------------- Settings ------------------------------------------------
 
-#define curve_height    1.0                  // Main control of sharpening strength [>0]
+#define curve_height    0.5                  // Main control of sharpening strength [>0]
                                              // 0.3 <-> 2.0 is a reasonable range of values
 
-#define linear_laplace  false                // Enable when applying this shader at native resolution or
+#define linear_laplace  true                 // Enable when applying this shader at native resolution or
                                              // after a super-resolution. Also could be useful for anime
 
 #define overshoot_ctrl  false                // Allow for higher overshoot if the current edge pixel
