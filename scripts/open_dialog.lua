@@ -177,7 +177,9 @@ function remove_vfSub()
 	mp.command(vfSub)
 end
 
-
+mp.register_event("file-loaded", function()
+	if mp.get_property("vf") ~= "" then mp.command("vf remove @LUA-open_dialog") end
+end)
 
 mp.add_key_binding(nil, 'import_files', import_files)
 mp.add_key_binding(nil, 'import_url', import_url)
