@@ -6,6 +6,10 @@
 -- audio and subtitle tracks.
 -- Idea from https://github.com/siikamiika/scripts/blob/master/mpv%20scripts/dualaudiofix.lua
 
+local msg = require 'mp.msg'
+local options = require 'mp.options'
+local utils = require 'mp.utils'
+
 local defaults = {
     audio = {
         selected = nil,
@@ -50,7 +54,12 @@ local options = {
     force = false,
 
     -- Try to re-select the last track if mpv cannot do it e.g. when fingerprint changes
-    smart_keep = false
+    smart_keep = false,
+
+    --add above (after a comma) any protocol to disable
+    special_protocols = [[
+        ["https?://", "magnet:", "rtmp:", "smb://", "bd://", "dvd://", "cdda://"]
+        ]], 
 }
 
 for _type, track in pairs(defaults) do
@@ -66,6 +75,17 @@ local last = {}
 local fingerprint = ""
 
 mp.options = require "mp.options"
+
+options.special_protocols = utils.parse_json(options.special_protocols)
+
+function need_ignore(tab, val)
+	for index, element in ipairs(tab) do
+		if (val:find(element) == 1) then
+			return true
+		end
+	end
+	return false
+end
 
 function contains(track, words, attr)
     if not track[attr] then return false end
@@ -131,7 +151,7 @@ function trackselect()
     mp.options.read_options(options, "trackselect")
     local fpath = mp.get_property('path')
     if not options.enabled then return end
-    if string.sub(fpath, 1, 4) == "http" then return end
+    if need_ignore(options.special_protocols, fpath) then return end
     tracks = copy(defaults)
     local filename = mp.get_property("filename/no-ext")
     local tracklist = mp.get_property_native("track-list")

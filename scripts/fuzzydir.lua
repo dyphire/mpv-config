@@ -29,7 +29,7 @@ o = {
     max_search_depth = 3, --determines the max depth of recursive search, should be >= 1
     excluded_dir = [[
         []
-        ]], --excluded directories for cloud mount disks on Windows, example: ["X:", "Z:"]. !!the option only for Windows
+        ]], --excluded directories for cloud mount disks on Windows, example: ["X:", "Z:", "F:\\Download\\"]. !!the option only for Windows
     special_protocols = [[
 	["https?://", "magnet:", "rtmp:", "smb://", "bd://", "dvd://", "cdda://"]
 	]], --add above (after a comma) any protocol to disable
@@ -42,9 +42,9 @@ o.special_protocols = utils.parse_json(o.special_protocols)
 local default_audio_paths = mp.get_property_native("options/audio-file-paths")
 local default_sub_paths = mp.get_property_native("options/sub-file-paths")
 
-function starts_protocol(tab, val)
-	for index, value in ipairs(tab) do
-		if (val:find(value) == 1) then
+function need_ignore(tab, val)
+	for index, element in ipairs(tab) do
+		if (val:find(element) == 1) then
 			return true
 		end
 	end
@@ -117,8 +117,8 @@ function explode(from, working_directory)
         local parent, leftover = utils.split_path(path)
         local fpath = mp.get_property('path')
 
-        if not starts_protocol(o.special_protocols, fpath)
-        and not starts_protocol(o.excluded_dir, path) 
+        if not need_ignore(o.special_protocols, fpath)
+        and not need_ignore(o.excluded_dir, path) 
         then
             if leftover == "**" then
                 table.insert(result, parent)
