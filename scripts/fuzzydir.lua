@@ -1,6 +1,6 @@
 --[[
 SOURCE_ https://github.com/sibwaf/mpv-scripts/blob/master/fuzzydir.lua
-COMMIT_18 Mar 2022_ce23414
+COMMIT_7 Apr 2022_bccda6d
 	Allows using "**" wildcards in sub-file-paths and audio-file-paths
     so you don't have to specify all the possible directory names.
     Basically, allows you to do this and never have the need to edit any paths ever again:
@@ -16,8 +16,8 @@ COMMIT_18 Mar 2022_ce23414
     
     Determines the max depth of recursive search, should be >= 1
     Examples for "sub-file-paths = **":
-    "max_search_depth = 1" => finds [subs/xyz.ass]
-    "max_search_depth = 2" => finds [subs/xyz.ass, subs/moresubs/xyz.ass]
+    "max_search_depth = 1" => mpv will be able to find [xyz.ass, subs/xyz.ass]
+    "max_search_depth = 2" => mpv will be able to find [xyz.ass, subs/xyz.ass, subs/moresubs/xyz.ass]
     Please be careful when setting this value too high as it can result in awful performance or even stack overflow
 ]]
 
@@ -83,7 +83,7 @@ function normalize(path)
         path = string.sub(path, 3, -1)
     end
     if ends_with(path, "/") or ends_with(path, "\\") then
-        path = string.sub(path, 1, -1)
+        path = string.sub(path, 1, -2)
     end
 
     return path
@@ -132,7 +132,7 @@ function explode(from, working_directory)
     local normalized = {}
     for index, path in pairs(result) do
         local normalized_path = normalize(path)
-        if not contains(normalized, normalized_path) then
+        if not contains(normalized, normalized_path) and normalized_path ~= normalize(working_directory) then
             table.insert(normalized, normalized_path)
         end
     end
