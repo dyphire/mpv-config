@@ -12,7 +12,7 @@ local o = {
     save_period = 30,
     excluded_dir = [[
         []
-        ]], --excluded directories for shared, #windows: ["X:", "Z:"]
+        ]], --excluded directories for shared, #windows: ["X:", "Z:", "F:\\Download\\"]
     special_protocols = [[
 	["https?://", "magnet:", "rtmp:", "smb://", "bd://", "dvd://", "cdda://"]
 	]], --add above (after a comma) any protocol to disable
@@ -38,9 +38,9 @@ local bookmark_path
 
 local wait_msg
 
-function starts_protocol(tab, val)
-	for index, value in ipairs(tab) do
-		if (val:find(value) == 1) then
+function need_ignore(tab, val)
+	for index, element in ipairs(tab) do
+		if (val:find(element) == 1) then
 			return true
 		end
 	end
@@ -230,8 +230,8 @@ function M.exe()
     local ftype = fname:match('%.([^.]+)$')
     bookmark_path = utils.join_path(dir, BOOKMARK_NAME)
 
-    if starts_protocol(o.special_protocols, path) then return end
-    if starts_protocol(o.excluded_dir, dir) then return end
+    if need_ignore(o.special_protocols, path) then return end
+    if need_ignore(o.excluded_dir, dir) then return end
 
     msg.info('folder -- ' .. dir)
     msg.info('playing -- ' .. fname)
