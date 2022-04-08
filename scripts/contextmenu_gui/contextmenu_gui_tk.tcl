@@ -243,6 +243,8 @@ set win_y [expr {$pos_y - [winfo rooty .]}]
 tk_popup $baseMenu $win_x $win_y
 # Use after idle and check if the 'post' menu check is true and do a postcascade on the
 # relevant menus to have the menu pop back up, with the cascade in the same place.
+# Note: This doesn't work on Windows, as per the comment below regarding tk_popup being
+#       synchronous and will only run after the menu is closed.
 after idle {
     if {$postMenu == "true"} {
         set menuArgs [split $postMenus "?"]
