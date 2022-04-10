@@ -1,6 +1,6 @@
 > 原文地址 [hooke007.github.io](https://hooke007.github.io/mpv-lazy/[01]_%E7%AC%AC%E4%B8%89%E6%96%B9%E7%9D%80%E8%89%B2%E5%99%A8%E4%BB%8B%E7%BB%8D.html)
 
-*ver.20220222*
+*ver.20220407*
 
 我选择主设置文件夹下新建的 **shaders** 目录下放置第三方着色器，常见后缀名为 .glsl .hook 
 
@@ -41,9 +41,11 @@ S → M → L → VL → UL 性能要求逐渐提高（处理耗时大致加倍�
 
 `Anime4K_Thin_VeryFast.glsl` <br/> `Anime4K_Thin_Fast.glsl` <br/> `Anime4K_Thin_HQ.glsl`
 
-线条重建系列： Light → Moderate ； Soft 为柔化（抗锯齿）的版本（推荐 **Anime4K_Restore_CNN_Moderate_M.glsl** 变体）
+线条重建系列：开发者推荐在upscale之前使用，减少上采样后产生的伪影。  Soft  为更适合与downscale一起使用，可用于下采样抗锯齿。  GAN  变体使用生成型对抗网络，通常比  CNN  具有更高的质量。
 
- `Anime4K_Restore_CNN_Light_S.glsl` <br/> `Anime4K_Restore_CNN_Light_M.glsl` <br/> `Anime4K_Restore_CNN_Light_L.glsl` <br/> `Anime4K_Restore_CNN_Light_VL.glsl` <br/> `Anime4K_Restore_CNN_Light_UL.glsl` <br/> `Anime4K_Restore_CNN_Light_Soft_S.glsl` <br/> `Anime4K_Restore_CNN_Light_Soft_M.glsl` <br/> `Anime4K_Restore_CNN_Light_Soft_L.glsl` <br/> `Anime4K_Restore_CNN_Light_Soft_VL.glsl` <br/> `Anime4K_Restore_CNN_Light_Soft_UL.glsl` <br/> `Anime4K_Restore_CNN_Moderate_S.glsl` <br/> `Anime4K_Restore_CNN_Moderate_M.glsl` <br/> `Anime4K_Restore_CNN_Moderate_L.glsl` <br/> `Anime4K_Restore_CNN_Moderate_VL.glsl` <br/> `Anime4K_Restore_CNN_Moderate_UL.glsl` <br/> `Anime4K_Restore_CNN_Moderate_Soft_S.glsl` <br/> `Anime4K_Restore_CNN_Moderate_Soft_M.glsl` <br/> `Anime4K_Restore_CNN_Moderate_Soft_L.glsl` <br/> `Anime4K_Restore_CNN_Moderate_Soft_VL.glsl` <br/> `Anime4K_Restore_CNN_Moderate_Soft_UL.glsl`
+ `Anime4K_Restore_CNN_S.glsl` <br/> `Anime4K_Restore_CNN_M.glsl` <br/> `Anime4K_Restore_CNN_L.glsl` <br/> `Anime4K_Restore_CNN_VL.glsl` <br/> `Anime4K_Restore_CNN_UL.glsl` <br/> `Anime4K_Restore_CNN_Soft_S.glsl` <br/> `Anime4K_Restore_CNN_Soft_M.glsl` <br/> `Anime4K_Restore_CNN_Soft_L.glsl` <br/> `Anime4K_Restore_CNN_Soft_VL.glsl` <br/> `Anime4K_Restore_CNN_Soft_UL.glsl` <br/>
+`Anime4K_Restore_GAN_UL.glsl` <br/>
+`Anime4K_Restore_GAN_UUL.glsl` <br/>
 
 放大系列： CNN 变体最小缩放触发倍率为 1.2。 Original 变体始终执行二倍放大且无缩放触发倍率限制。
 
@@ -53,9 +55,23 @@ S → M → L → VL → UL 性能要求逐渐提高（处理耗时大致加倍�
 
  `Anime4K_Upscale_DoG_x2.glsl` <br/> `Anime4K_Upscale_DTD_x2.glsl` <br/> `Anime4K_Upscale_Deblur_Original_x2.glsl` <br/> `Anime4K_Upscale_Deblur_DoG_x2.glsl` <br/> `Anime4K_Upscale_Denoise_CNN_x2_S.glsl` <br/> `Anime4K_Upscale_Denoise_CNN_x2_M.glsl` <br/> `Anime4K_Upscale_Denoise_CNN_x2_L.glsl` <br/> `Anime4K_Upscale_Denoise_CNN_x2_VL.glsl` <br/> `Anime4K_Upscale_Denoise_CNN_x2_UL.glsl`
 
-其它系列： AutoDownscalePre 常用于 2k 屏全屏观看 1080p 执行二倍放大过度（4k 目标分辨率远超显示设备分辨率），也可用于 4k 屏两次放大 720p 视频。该着色器位置放在两次放大着色器之间。 Clamp 主要用于抗振铃。该着色器位置放在所有后处理着色器之前。    `Anime4K_AutoDownscalePre_x4.glsl` <br/>`Anime4K_Clamp_Highlights.glsl`
+其它系列： 
 
-追加说明：对新版着色器的混合顺序为 Clamp → Restore → Upscale → AutoDownscalePre → Upscale ...（仅作为推荐，可自行调节删改） 通常仅需一个 **Anime4K_Restore_CNN_Moderate_M.glsl** 模块即满足大多数人的口味（适度画面修复 + 弱感知强化 + 微量伪影引入）
+AutoDownscalePre 防止过度放大超越显示分辨率，避免额外一步的downscale处理。   
+
+x2版常用于2k屏全屏观看1080p执行二倍放大过度（4k目标分辨率远超显示设备分辨率），也可用于4k屏两次放大720p视频。该着色器放在首个放大着色器之后。x4版放在两次放大着色器之间。
+
+Clamp 主要用于钳制画面的高光，抗振铃和减少过冲。该着色器放在**所有**处理着色器之前或（推荐）之后。
+
+3DGraphics 主要用于游戏类3d画面放大。AA为抗锯齿版本。（无缩放倍率限制）
+
+`Anime4K_AutoDownscalePre_x2.glsl` <br/>
+`Anime4K_AutoDownscalePre_x4.glsl` <br/>
+`Anime4K_Clamp_Highlights.glsl` <br/>
+`Anime4K_3DGraphics_Upscale_x2_US.glsl` <br/>
+`Anime4K_3DGraphics_AA_Upscale_x2_US.glsl` <br/>
+
+追加说明：对新版着色器的混合顺序为 Clamp → Restore → Upscale → AutoDownscalePre → Upscale ...（仅作为推荐，可自行调节删改） 通常仅需一个 **Anime4K_Restore_CNN_M.glsl** 模块即满足大多数人的口味（适度画面修复 + 弱感知强化 + 微量伪影引入）
 
 ☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲
 
@@ -66,7 +82,9 @@ S → M → L → VL → UL 性能要求逐渐提高（处理耗时大致加倍�
 
 🔺 启用将覆盖 **mpv.conf** 中指定的 --scale=xxxxx 算法 
 
-🔺 最小缩放触发倍率为 1.2 副作用： HDN 变体能更好的降噪，等级 1 → 2 → 3，越高降噪效果越好，但可能导致模糊和缺少细节。
+🔺 最小缩放触发倍率为 1.2 
+
+副作用： HDN 变体能更好的降噪，等级 1 → 2 → 3，越高降噪效果越好，但可能导致模糊和缺少细节。
 
 相关列表：[https://github.com/TianZerL/ACNetGLSL](https://github.com/TianZerL/ACNetGLSL)
 
@@ -81,13 +99,21 @@ S → M → L → VL → UL 性能要求逐渐提高（处理耗时大致加倍�
 
 🔺 启用将覆盖 **mpv.conf** 中指定的 --scale=xxxxx 算法 
 
-🔺 最小缩放触发倍率为 1.3 LineArt 和 anime 变体更适合 2d 动画 enhance 变体在去除伪影强度上更大
+🔺 最小缩放触发倍率为 1.3 
+
+LineArt 和 anime 变体更适合 2d 动画 
+
+enhance 变体在去除伪影强度上更大
 
 副作用： 16-0-4-1 变体用更多的能耗（更慢）换取更好的质量，但感知较弱。
 
-相关列表：[https://github.com/igv/FSRCNN-TensorFlow](https://github.com/igv/FSRCNN-TensorFlow) & [https://github.com/HelpSeeker/FSRCNN-TensorFlow](https://github.com/HelpSeeker/FSRCNN-TensorFlow) 
+相关列表：[https://github.com/igv/FSRCNN-TensorFlow](https://github.com/igv/FSRCNN-TensorFlow) 
 
- `FSRCNNX_x2_8-0-4-1.glsl` <br/> `FSRCNNX_x2_8-0-4-1_LineArt.glsl` <br/> `FSRCNNX_x2_16-0-4-1.glsl` <br/> `FSRCNNX_x2_16-0-4-1_anime_enhance.glsl` <br/> `FSRCNNX_x2_16-0-4-1_enhance.glsl`
+ `FSRCNNX_x2_8-0-4-1.glsl` <br/> `FSRCNNX_x2_8-0-4-1_LineArt.glsl` <br/> `FSRCNNX_x2_16-0-4-1.glsl` <br/>
+
+ 相关列表：https://github.com/HelpSeeker/FSRCNN-TensorFlow
+
+`FSRCNNX_x2_16-0-4-1_anime_enhance.glsl` <br/> `FSRCNNX_x2_16-0-4-1_enhance.glsl`
 
 ☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲
 
@@ -127,9 +153,17 @@ x2 x3 x4 分别对应 二倍 三倍 四倍 放大 质量上 Fast 弱于 Medium �
 
 该着色器的目的是对 mpv 内置 --scale=xxxxx 算法进行增强校正。
 
-以上四项及 FSRCNNX 皆由同一开发者移植 相关列表：[https://gist.github.com/igv](https://gist.github.com/igv) 
+以上四项及 FSRCNNX 皆由同一开发者移植 
+
+相关列表：[https://gist.github.com/igv](https://gist.github.com/igv) 
 
  `adaptive-sharpen.glsl` <br/> `KrigBilateral.glsl` <br/> `SSimDownscaler.glsl` <br/> `SSimSuperRes.glsl`
+
+相关列表：MOD 
+
+（变体  luma  仅作用于亮度通道） 
+
+`adaptive-sharpen_luma.glsl`
 
 ☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲
 
