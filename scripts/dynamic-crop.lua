@@ -48,7 +48,7 @@ local options = {
     prevent_change_timer = 0, -- seconds
     prevent_change_mode = 2, -- [0-2], disable with 'prevent_change_timer = 0'
     resize_windowed = true,
-    fast_change_timer = 1, -- seconds
+    fast_change_timer = 1, -- seconds, 0 = 1 frame minimum
     new_known_ratio_timer = 5, -- seconds
     new_fallback_timer = 30, -- seconds, >= 'new_known_ratio_timer', disable with 0
     ratios = "2.4 2.39 2.35 2.2 2 1.85 16/9 5/3 1.5 4/3 1.25 9/16", -- list separated by space
@@ -330,8 +330,7 @@ local function process_metadata(timestamp, collected)
                           (collected.is_known_ratio and collected.time.buffer >= new_known_ratio_timer or fallback and
                               not collected.is_known_ratio and collected.time.buffer >= new_fallback_timer)
     local detect_source = current.is_source and
-                              (current == collected and last_collected == current and limit.change == 1 or
-                                  current.time.last_seen >= fast_change_timer)
+                              (current == collected and last_collected == current and limit.change == 1)
     local confirmation = not current.is_source and
                              (stats.trusted[current.whxy] and current.time.last_seen >= fast_change_timer or new_ready)
     local crop_filter = not collected.is_invalid and applied.whxy ~= current.whxy and current.is_trusted_offsets and
@@ -402,6 +401,10 @@ local function process_metadata(timestamp, collected)
         (last_collected == collected or last_collected and math.abs(collected.w - last_collected.w) <= 2 and
             math.abs(collected.h - last_collected.h) <= 2) then -- math.abs <= 2 to help stabilize odd metadata
         limit.change = 0
+        -- reset limit to help with different dark color
+        if not current.is_trusted_offsets then
+            limit.current = options.detect_limit
+        end
     else -- decrease limit
         limit.change = -1
         if limit.current > 0 then
