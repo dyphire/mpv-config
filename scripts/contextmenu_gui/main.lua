@@ -719,21 +719,18 @@ mp.register_event("file-loaded", function()
 -- 三级菜单 —— 解码
         hwdec_menu = {
             {COMMAND, "优先 软解", "", "set hwdec no", "", false},
-            {COMMAND, "优先 硬解", "", "set hwdec yes", "", false},
-            {COMMAND, "优先 硬解（增强）", "", "set hwdec auto-copy", "", false},
+            {COMMAND, "优先 硬解", "", "set hwdec auto-safe", "", false},
+            {COMMAND, "优先 硬解（copy）", "", "set hwdec auto-copy-safe", "", false},
             {SEP},
             {RADIO, "SW", "", "set hwdec no", function() return stateHwdec("no") end, false},
-            {RADIO, "dxva2", "", "set hwdec dxva2", function() return stateHwdec("dxva2") end, false},
-            {RADIO, "dxva2-copy", "", "set hwdec dxva2-copy", function() return stateHwdec("dxva2-copy") end, false},
-            {RADIO, "d3d11va", "", "set hwdec d3d11va", function() return stateHwdec("d3d11va") end, false},
-            {RADIO, "d3d11va-copy", "", "set hwdec d3d11va-copy", function() return stateHwdec("d3d11va-copy") end, false},
-            {RADIO, "qsv", "", "set hwdec qsv", function() return stateHwdec("qsv") end, false},
-            {RADIO, "qsv-copy", "", "set hwdec qsv-copy", function() return stateHwdec("qsv-copy") end, false},
-            {RADIO, "cuda", "", "set hwdec cuda", function() return stateHwdec("cuda") end, false},
-            {RADIO, "cuda-copy", "", "set hwdec cuda-copy", function() return stateHwdec("cuda-copy") end, false},
             {RADIO, "nvdec", "", "set hwdec nvdec", function() return stateHwdec("nvdec") end, false},
             {RADIO, "nvdec-copy", "", "set hwdec nvdec-copy", function() return stateHwdec("nvdec-copy") end, false},
-
+            {RADIO, "d3d11va", "", "set hwdec d3d11va", function() return stateHwdec("d3d11va") end, false},
+            {RADIO, "d3d11va-copy", "", "set hwdec d3d11va-copy", function() return stateHwdec("d3d11va-copy") end, false},
+            {RADIO, "dxva2", "", "set hwdec dxva2", function() return stateHwdec("dxva2") end, false},
+            {RADIO, "dxva2-copy", "", "set hwdec dxva2-copy", function() return stateHwdec("dxva2-copy") end, false},
+            {RADIO, "cuda", "", "set hwdec cuda", function() return stateHwdec("cuda") end, false},
+            {RADIO, "cuda-copy", "", "set hwdec cuda-copy", function() return stateHwdec("cuda-copy") end, false},
         },
 
 -- 三级菜单 —— 调色
