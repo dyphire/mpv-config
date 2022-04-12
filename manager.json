@@ -48,6 +48,12 @@
     "branch":"main"
   },
   {
+    "git":"https://github.com/cvzi/mpv-youtube-download",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts",
+    "branch":"main"
+  },
+  {
     "git":"https://github.com/jonniek/mpv-playlistmanager",
     "whitelist":"%.lua$",
     "dest":"~~/scripts"
