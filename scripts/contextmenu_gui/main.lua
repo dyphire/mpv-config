@@ -601,6 +601,7 @@ mp.register_event("file-loaded", function()
             {COMMAND, "重置速度", "BS", "set speed 1;show-text  重置播放速度:${speed}", "", false},
             {SEP},
             {CASCADE, "【外置脚本】删除文件", "del_menu", "", "", false},
+            {CASCADE, "【外置脚本】Youtube-dl菜单", "ytdl_menu", "", "", false},
         },
 
 -- 三级菜单 —— 删除文件
@@ -608,6 +609,17 @@ mp.register_event("file-loaded", function()
             {COMMAND, "标记/取消", "CTRL+DEL", "script-message delete_file", "", false},
             {COMMAND, "显示删除列表", "ALT+DEL", "script-message list_marks", "", false},
             {COMMAND, "清除删除列表", "CTRL+SHIFT+DEL", "script-message clear_list", "", false},
+        },
+
+-- 三级菜单 —— Youtube-dl菜单
+        ytdl_menu = {
+            {COMMAND, "打开ytdl视频选择菜单", "CTRL+F", "script-binding youtube_quality/quality-menu-video", "", false},
+            {COMMAND, "打开ytdl音频选择菜单", "ALT+F", "script-binding youtube_quality/quality-menu-audio", "", false},
+            {COMMAND, "下载ytdl视频", "ALT+V", "script-binding youtube_download/download-video", "", false},
+            {COMMAND, "下载ytdl音频", "ALT+Y", "script-binding youtube_download/download-audio", "", false},
+            {COMMAND, "下载ytdl字幕", "ALT+Z", "script-binding youtube_download/download-subtitle", "", false},
+            {COMMAND, "下载ytdl字幕+视频", "CTRL+ALT+V", "script-binding youtube_download/download-embed-subtitle", "", false},
+            {COMMAND, "选择ytdl下载片段", "ALT+R", "script-binding youtube_download/select-range-start", "", false},
         },
 
 -- 二级菜单 —— 导航
@@ -683,7 +695,7 @@ mp.register_event("file-loaded", function()
             {RADIO, "强制2.35:1", "", "set video-aspect-override 2.35:1", function() return stateRatio("2.35:1") end, false},
         },
 
--- 三级菜单 —— 长宽比
+-- 三级菜单 —— 画面移动
         videopan_menu = {
             {COMMAND, "重置", "", "set video-pan-x 0;set video-pan-y 0;show-text 重置画面移动", "", false},
             {COMMAND, "画面左移动", "ALT+LEFT", "add video-pan-x -0.1;show-text 画面左移动:${video-pan-x}", "", false},
@@ -897,11 +909,11 @@ mp.register_event("file-loaded", function()
 
 -- 三级菜单 —— 视频剪贴功能
         copy_menu = {
-            {COMMAND, "【外部脚本】打开剪贴菜单", "ALT+w", "script-binding smartcopypaste_II/open-list", "", false},
-            {COMMAND, "【外部脚本】复制视频路径", "CTRL+ALT+c", "script-binding smartcopypaste_II/copy-specific", "", false},
-            {COMMAND, "【外部脚本】复制视频路径及进度", "CTRL+c", "script-binding smartcopypaste_II/copy", "", false},
-            {COMMAND, "【外部脚本】跳转到复制的视频", "CTRL+v", "script-binding smartcopypaste_II/paste", "", false},
-            {COMMAND, "【外部脚本】复制内容添加至播放列表", "CTRL+ALT+v", "script-binding smartcopypaste_II/paste-specific", "", false},
+            {COMMAND, "打开剪贴菜单", "ALT+w", "script-binding smartcopypaste_II/open-list", "", false},
+            {COMMAND, "复制视频路径", "CTRL+ALT+c", "script-binding smartcopypaste_II/copy-specific", "", false},
+            {COMMAND, "复制视频路径及进度", "CTRL+c", "script-binding smartcopypaste_II/copy", "", false},
+            {COMMAND, "跳转到复制的视频", "CTRL+v", "script-binding smartcopypaste_II/paste", "", false},
+            {COMMAND, "复制内容添加至播放列表", "CTRL+ALT+v", "script-binding smartcopypaste_II/paste-specific", "", false},
         },
 
 -- 二级菜单 —— 配置组
@@ -929,9 +941,6 @@ mp.register_event("file-loaded", function()
             {COMMAND, "切换 DeBand-low配置", "ALT+1", "apply-profile DeBand-low;show-text DeBand-low", "", false},
             {COMMAND, "切换 DeBand-mediu配置", "ALT+d", "apply-profile DeBand-medium;show-text DeBand-medium", "", false},
             {COMMAND, "切换 DeBand-high配置", "ALT+D", "apply-profile DeBand-high;show-text DeBand-high", "", false},
-            {COMMAND, "切换 Tscale配置", "F", "apply-profile Tscale;show-text Tscale", "", false},
-            {COMMAND, "切换 Tscale+配置", "f", "apply-profile Tscale+;show-text Tscale+", "", false},
-            {COMMAND, "切换 Dither配置", "", "apply-profile Dither;show-text Dither", "", false},
         },
 
 -- 二级菜单 —— 关于
