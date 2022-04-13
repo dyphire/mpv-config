@@ -195,8 +195,8 @@ function M.wait4jumping()
 end
 
 function M.bind_key()
-    mp.add_key_binding('ENTER', 'resume_yes', M.key_jump)
-    mp.add_key_binding('n', 'resume_not', function()
+    mp.register_script_message('resume_yes', M.key_jump)
+    mp.register_script_message('resume_not', function()
         M.unbind_key()
         M.wait_jump_timer:kill()
     end)

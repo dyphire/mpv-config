@@ -499,4 +499,4 @@ end
 -- Entry point
 
 init()
-mp.add_key_binding("n", "autosubsync-menu", function() ref_selector:open() end)
+mp.register_script_message("autosubsync-menu", function() ref_selector:open() end)
