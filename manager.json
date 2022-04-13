@@ -1,8 +1,9 @@
 [
   {
-    "git":"https://github.com/po5/mpv_manager",
+    "git":"https://github.com/CogentRedTester/mpv_manager",
     "whitelist":"%.lua$",
-    "dest":"~~/scripts"
+    "dest":"~~/scripts",
+    "branch":"local-repo-support"
   },
   {
     "git":"https://github.com/dyphire/mpv",
@@ -28,6 +29,11 @@
   {
     "git":"https://github.com/Ashyni/mpv-scripts",
     "whitelist":"dynamic%-crop%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/detuur/mpv-scripts",
+    "whitelist":"skiptosilence%.lua$",
     "dest":"~~/scripts"
   },
   {

@@ -40,5 +40,5 @@ function copy_subtitle ()
   mp.osd_message("已复制当前字幕内容")
 end
 
-mp.add_key_binding(nil, "copy-time", copy_time)
-mp.add_key_binding(nil, "copy-subtitle", copy_subtitle)
+mp.register_script_message("copy-time", copy_time)
+mp.register_script_message("copy-subtitle", copy_subtitle)

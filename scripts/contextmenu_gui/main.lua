@@ -486,14 +486,14 @@ menuList = {
 
 -- 二级菜单 —— 加载
     open_menu = {
-        {COMMAND, "【外置脚本】文件", "CTRL+o", "script-binding open_dialog/import_files", "", false},
-        {COMMAND, "【外置脚本】地址", "CTRL+O", "script-binding open_dialog/import_url", "", false},
+        {COMMAND, "【外置脚本】文件", "CTRL+o", "script-message-to open_dialog import_files", "", false},
+        {COMMAND, "【外置脚本】地址", "CTRL+O", "script-message-to open_dialog import_url", "", false},
         {COMMAND, "【外置脚本】加载最后播放文件", "CTRL+l", "script-binding simplehistory/history-load-last", "", false},
         {COMMAND, "【外置脚本】加载最后播放文件及进度", "CTRL+L", "script-binding simplehistory/history-resume", "", false},
         {COMMAND, "【外部脚本】打开剪贴菜单", "ALT+w", "script-binding smartcopypaste_II/open-list", "", false},
         {COMMAND, "【外置脚本】打开书签菜单", "N", "script-binding simplebookmark/open-list", "", false},
         {COMMAND, "【外置脚本】打开历史菜单", "`", "script-binding simplehistory/open-list", "", false},
-        {COMMAND, "【外置脚本】内置文件浏览器", "Tab", "script-message browse-files", "", false},
+        {COMMAND, "【外置脚本】内置文件浏览器", "Tab", "script-message-to file_browser browse-files", "", false},
     },
 
 -- 二级菜单 —— 画面
@@ -566,16 +566,16 @@ mp.register_event("file-loaded", function()
 
 -- 二级菜单 —— 加载
         open_menu = {
-            {COMMAND, "【外置脚本】文件", "CTRL+o", "script-binding open_dialog/import_files", "", false},
-            {COMMAND, "【外置脚本】地址", "CTRL+O", "script-binding open_dialog/import_url", "", false},
+            {COMMAND, "【外置脚本】文件", "CTRL+o", "script-message-to open_dialog import_files", "", false},
+            {COMMAND, "【外置脚本】地址", "CTRL+O", "script-message-to open_dialog import_url", "", false},
             {COMMAND, "【外置脚本】打开历史菜单", "`", "script-binding simplehistory/open-list", "", false},
             {COMMAND, "【外置脚本】内置文件浏览器", "Tab", "script-message browse-files", "", false},
             {SEP},
-            {COMMAND, "【外置脚本】加载其他字幕（切换）", "ALT+e", "script-binding open_dialog/append_sid", "", false},
-            {COMMAND, "【外置脚本】加载其他音轨（不切换）", "ALT+E", "script-binding open_dialog/append_aid", "", false},
-            {COMMAND, "【外置脚本】装载次字幕（滤镜型）", "CTRL+e", "script-binding open_dialog/append_vfSub", "", false},
-            {COMMAND, "【外置脚本】隐藏/显示 次字幕", "CTRL+E", "script-binding open_dialog/toggle_vfSub", "", false},
-            {COMMAND, "【外置脚本】移除次字幕", "CTRL+ALT+e", "script-binding open_dialog/remove_vfSub", "", false},
+            {COMMAND, "【外置脚本】加载其他字幕（切换）", "ALT+e", "script-message-to open_dialog append_sid", "", false},
+            {COMMAND, "【外置脚本】加载其他音轨（不切换）", "ALT+E", "script-message-to open_dialog append_aid", "", false},
+            {COMMAND, "【外置脚本】装载次字幕（滤镜型）", "CTRL+e", "script-message-to open_dialog append_vfSub", "", false},
+            {COMMAND, "【外置脚本】隐藏/显示 次字幕", "CTRL+E", "script-message-to open_dialog toggle_vfSub", "", false},
+            {COMMAND, "【外置脚本】移除次字幕", "CTRL+ALT+e", "script-message-to open_dialog remove_vfSub", "", false},
             {SEP},
             {COMMAND, "播放列表乱序重排", "", "playlist-shuffle", "", false},
             {CHECK, "列表循环", "", "cycle-values loop-playlist inf no", function() return statePlayLoop() end, false},
@@ -613,18 +613,18 @@ mp.register_event("file-loaded", function()
 
 -- 三级菜单 —— Youtube-dl菜单
         ytdl_menu = {
-            {COMMAND, "打开ytdl视频选择菜单", "CTRL+F", "script-binding youtube_quality/quality-menu-video", "", false},
-            {COMMAND, "打开ytdl音频选择菜单", "ALT+F", "script-binding youtube_quality/quality-menu-audio", "", false},
-            {COMMAND, "下载ytdl视频", "ALT+V", "script-binding youtube_download/download-video", "", false},
-            {COMMAND, "下载ytdl音频", "ALT+Y", "script-binding youtube_download/download-audio", "", false},
-            {COMMAND, "下载ytdl字幕", "ALT+Z", "script-binding youtube_download/download-subtitle", "", false},
-            {COMMAND, "下载ytdl字幕+视频", "CTRL+ALT+V", "script-binding youtube_download/download-embed-subtitle", "", false},
-            {COMMAND, "选择ytdl下载片段", "ALT+R", "script-binding youtube_download/select-range-start", "", false},
+            {COMMAND, "打开ytdl视频选择菜单", "CTRL+F", "script-message-to youtube_quality quality-menu-video", "", false},
+            {COMMAND, "打开ytdl音频选择菜单", "ALT+F", "script-message-to youtube_quality quality-menu-audio", "", false},
+            {COMMAND, "下载ytdl视频", "ALT+V", "script-message-to youtube_download download-video", "", false},
+            {COMMAND, "下载ytdl音频", "ALT+Y", "script-message-to youtube_download download-audio", "", false},
+            {COMMAND, "下载ytdl字幕", "ALT+Z", "script-message-to youtube_download download-subtitle", "", false},
+            {COMMAND, "下载ytdl字幕+视频", "CTRL+ALT+V", "script-message-to youtube_download download-embed-subtitle", "", false},
+            {COMMAND, "选择ytdl下载片段", "ALT+R", "script-message-to youtube_download select-range-start", "", false},
         },
 
 -- 二级菜单 —— 导航
         navi_menu = {
-            {COMMAND, "【外置脚本】OSD高级播放列表", "F8", "script-binding playlistmanager/showplaylist", "", false},
+            {COMMAND, "【外置脚本】OSD高级播放列表", "F8", "script-message-to playlistmanager showplaylist", "", false},
             {COMMAND, "OSD轨道信息", "F9", "show-text ${track-list} 5000", "", false},
             {COMMAND, "重播", "", "seek 0 absolute", "", false},
             {COMMAND, "上个文件", "<", "playlist-prev;show-text  播放列表:${playlist-pos-1}/${playlist-count}", "", false},
@@ -635,8 +635,8 @@ mp.register_event("file-loaded", function()
             {COMMAND, "前进5秒", "LEFT", "seek 5", "", false},
             {SEP},
             {CASCADE, "【外置脚本】书签", "bookmarker_menu", "", "", false},
-            {COMMAND, "【外置脚本】自动跳过指定章节", "ALT+q", "script-message chapter-skip;show-text 自动跳过指定章节", "", false},
-            {COMMAND, "【外置脚本】跳到下一个静音位置 ", "F4", "script-message skip-to-silence;show-text 跳到下一个静音位置", "", false},
+            {COMMAND, "【外置脚本】自动跳过指定章节", "ALT+q", "script-message-to chapterskip chapter-skip;show-text 自动跳过指定章节", "", false},
+            {COMMAND, "【外置脚本】跳到下一个静音位置 ", "F4", "script-message-to skiptosilence skip-to-silence;show-text 跳到下一个静音位置", "", false},
             {SEP},
             {CASCADE, "版本（Edition）", "edition_menu", "", "", function() return inspectEdition() end},
             {CASCADE, "章节", "chapter_menu", "", "", function() return inspectChapter() end},
@@ -712,7 +712,7 @@ mp.register_event("file-loaded", function()
             {COMMAND, "开/关 flip模式", "CTRL+f", "cycle d3d11-flip", "", false},
             {COMMAND, "切换 帧同步模式", "CTRL+p", "cycle-values video-sync display-resample audio display-vdrop display-resample-vdrop;show-text  帧同步模式:${video-sync}", "", false},
             {CHECK, "抖动补偿", "ALT+i", "cycle interpolation;show-text  抖动补偿:${interpolation}", function() return propNative("interpolation") end, false},
-            {COMMAND, "开/关 去黑边", "C", "script-message toggle_crop", "", false},
+            {COMMAND, "开/关 去黑边", "C", "script-message-to dynamic_crop toggle_crop", "", false},
             {CHECK, "去交错", "d", "cycle deinterlace;show-text  去交错:${deinterlace}", function() return propNative("deinterlace") end, false},
             {CHECK, "去色带", "D", "cycle deband;show-text  去色带:${deband}", function() return propNative("deband") end, false},
             {COMMAND, "去色带强度+1", "ALT+z", "add deband-iterations +1;show-text  增加去色带强度:${deband-iterations}", "", false},
@@ -804,8 +804,8 @@ mp.register_event("file-loaded", function()
             {COMMAND, "重置偏移", ";", "set audio-delay 0;show-text  重置音频延迟:${audio-delay}", "", false},
             {SEP},
             {COMMAND, "音频设备列表", "F6", "show-text ${audio-device-list} 5000", "", false},
-            {COMMAND, "上个输出设备", "CTRL+a", "script-binding cycle_adevice/back", "", false},
-            {COMMAND, "下个输出设备", "ALT+a", "script-binding cycle_adevice/next", "", false},
+            {COMMAND, "上个输出设备", "CTRL+a", "script-message-to cycle_adevice back", "", false},
+            {COMMAND, "下个输出设备", "ALT+a", "script-message-to cycle_adevice next", "", false},
             {CASCADE, "声道布局", "channel_layout", "", "", false},
         },
 
@@ -821,7 +821,7 @@ mp.register_event("file-loaded", function()
             {COMMAND, "切换 字幕", "j", "cycle sub;show-text  字幕切换为:${sub}", "", false},
             {COMMAND, "加载次字幕", "k", "cycle secondary-sid;show-text  加载次字幕:${secondary-sid}", "", false},
             {COMMAND, "开/关 字幕选择脚本", "Y", "script-message sub-select toggle", "", false},
-            {COMMAND, "打开 字幕同步菜单", "CTRL+m", "script-binding autosubsync-menu", "", false},
+            {COMMAND, "打开 字幕同步菜单", "CTRL+m", "script-message-to autosubsync autosubsync-menu", "", false},
             {SEP},
             {COMMAND, "重置", "SHIFT+BS", "no-osd set sub-delay 0; no-osd set sub-pos 100; no-osd set sub-scale 1.0;show-text  重置字幕状态", "", false},
             {COMMAND, "字号 -0.1", "ALT+j", "add sub-scale -0.1;show-text  字幕缩小:${sub-scale}", "", false},
@@ -900,11 +900,11 @@ mp.register_event("file-loaded", function()
 
 -- 二级菜单 —— 工具
         tool_menu = {
-            {COMMAND, "【外部脚本】匹配视频刷新率", "F10", "script-message match-refresh", "", false},
-            {COMMAND, "【外部脚本】复制当前时间", "CTRL+ALT+t", "script-message copy-time", "", false},
-            {COMMAND, "【外部脚本】复制当前字幕内容", "CTRL+ALT+s", "script-message copy-subtitle", "", false},
+            {COMMAND, "【外部脚本】匹配视频刷新率", "F10", "script-binding change_refresh/match-refresh", "", false},
+            {COMMAND, "【外部脚本】复制当前时间", "CTRL+ALT+t", "script-message-to copy_subortime copy-time", "", false},
+            {COMMAND, "【外部脚本】复制当前字幕内容", "CTRL+ALT+s", "script-message-to copy_subortime copy-subtitle", "", false},
             {CASCADE, "【外部脚本】视频剪贴功能", "copy_menu", "", "", false},
-            {COMMAND, "【外部脚本】更新脚本着色器", "M", "script-binding manager-update-all;show-text 更新脚本着色器", "", false},
+            {COMMAND, "【外部脚本】更新脚本着色器", "M", "script-message manager-update-all;show-text 更新脚本着色器", "", false},
         },
 
 -- 三级菜单 —— 视频剪贴功能
