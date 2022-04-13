@@ -17,21 +17,19 @@ local assdraw = require 'mp.assdraw'
 
 local opts = {
     --key bindings
-    toggle_video_menu_binding = "ctrl+f",
-    toggle_audio_menu_binding = "alt+f",
-    close_menu_binding = "ESC",
-    up_binding = "UP",
-    down_binding = "DOWN",
-    select_binding = "ENTER",
+    up_binding = "UP WHEEL_UP",
+    down_binding = "DOWN WHEEL_DOWN",
+    select_binding = "ENTER MBTN_LEFT",
+    close_menu_binding = "ESC MBTN_RIGHT",
 
     --youtube-dl version(could be youtube-dl or yt-dlp, or something else)
     ytdl_ver = "yt-dlp",
 
     --formatting / cursors
-    selected_and_active     = "▶ - ",
+    selected_and_active     = "▶  - ",
     selected_and_inactive   = "●  - ",
     unselected_and_active   = "▷ - ",
-    unselected_and_inactive = "○  - ",
+    unselected_and_inactive = "○ - ",
 
 	--font size scales by window, if false requires larger font and padding sizes
 	scale_playlist_by_window=false,
@@ -74,7 +72,7 @@ local opts = {
     --if file was opened previously, reset to previously selected format
     reset_format = true,
 }
-(require 'mp.options').read_options(opts, "youtube-quality")
+(require 'mp.options').read_options(opts)
 opts.quality_strings = utils.parse_json(opts.quality_strings)
 
 local destroyer = nil
@@ -170,24 +168,49 @@ function show_menu(isvideo)
 		mp.set_osd_ass(w, h, ass.text)
     end
 
+    function bind_keys(keys, name, func, opts)
+        if not keys then
+          mp.add_forced_key_binding(keys, name, func, opts)
+          return
+        end
+        local i = 1
+        for key in keys:gmatch("[^%s]+") do
+          local prefix = i == 1 and '' or i
+          mp.add_forced_key_binding(key, name..prefix, func, opts)
+          i = i + 1
+        end
+    end
+      
+    function unbind_keys(keys, name)
+        if not keys then
+          mp.remove_key_binding(name)
+          return
+        end
+        local i = 1
+        for key in keys:gmatch("[^%s]+") do
+          local prefix = i == 1 and '' or i
+          mp.remove_key_binding(name..prefix)
+          i = i + 1
+        end
+    end
+    
     function destroy()
         timeout:kill()
         mp.set_osd_ass(0,0,"")
-        mp.remove_key_binding("move_up")
-        mp.remove_key_binding("move_down")
-        mp.remove_key_binding("select")
-        mp.remove_key_binding("escape")
-        mp.remove_key_binding("close")
+        unbind_keys(opts.up_binding, "move_up")
+        unbind_keys(opts.down_binding, "move_down")
+        unbind_keys(opts.select_binding, "select")
+        unbind_keys(opts.close_menu_binding, "close")
         destroyer = nil
     end
 
     timeout = mp.add_periodic_timer(opts.menu_timeout, destroy)
     destroyer = destroy
 
-    mp.add_forced_key_binding(opts.up_binding,     "move_up",   function() selected_move(-1) end, {repeatable=true})
-    mp.add_forced_key_binding(opts.down_binding,   "move_down", function() selected_move(1)  end, {repeatable=true})
+    bind_keys(opts.up_binding,     "move_up",   function() selected_move(-1) end, {repeatable=true})
+    bind_keys(opts.down_binding,   "move_down", function() selected_move(1)  end, {repeatable=true})
     if options[1] ~= nil then
-        mp.add_forced_key_binding(opts.select_binding, "select", function()
+        bind_keys(opts.select_binding, "select", function()
             destroy()
             if isvideo == true then
                 vfmt = options[selected].format
@@ -201,8 +224,7 @@ function show_menu(isvideo)
             reload_resume()
         end)
     end
-    mp.add_forced_key_binding(isvideo and opts.toggle_video_menu_binding or opts.toggle_audio_menu_binding, "escape", destroy)
-    mp.add_forced_key_binding(opts.close_menu_binding, "close", destroy)	--close menu using ESC
+    bind_keys(opts.close_menu_binding, "close", destroy)	--close menu using ESC
     draw_menu()
     return
 end
@@ -408,8 +430,8 @@ function download_formats()
 end
 
 -- keybind to launch menu
-mp.add_key_binding(opts.toggle_video_menu_binding, "quality-menu-video", function() show_menu(true) end)
-mp.add_key_binding(opts.toggle_audio_menu_binding, "quality-menu-audio", function() show_menu(false) end)
+mp.register_script_message("quality-menu-video", function() show_menu(true) end)
+mp.register_script_message("quality-menu-audio", function() show_menu(false) end)
 
 -- special thanks to reload.lua (https://github.com/4e6/mpv-reload/)
 function reload_resume()

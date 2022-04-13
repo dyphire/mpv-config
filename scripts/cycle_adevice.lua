@@ -1,6 +1,6 @@
 --[[
-SOURCE_ https://gist.github.com/bitingsock/ad58ee5da560ecb922fa4a867ac0ecfd
-COMMIT_ 20200802
+SOURCE_ https://github.com/hooke007/MPV_lazy/blob/main/portable_config/scripts/cycle_adevice.lua
+COMMIT_7 Dec 2021, 52e50f9
 自定义快捷键 快速切换音频输出设备
 此脚本优于在 input.conf 中使用 cycle-values audio-device 参数的方案
 示例在 input.conf 中写入两行：
@@ -59,5 +59,5 @@ local function cycle_next()
 	cycle_adevice(1, #deviceList, 1) --'s'tart at device 1, 'e'nd at last device, iterate forward 'd'elta=1
 end
 
-mp.add_key_binding(nil, "next", cycle_next)
-mp.add_key_binding(nil, "back", cycle_back)
+mp.register_script_message("next", cycle_next)
+mp.register_script_message("back", cycle_back)
