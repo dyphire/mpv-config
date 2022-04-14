@@ -174,12 +174,13 @@ function toggle_vfSub()
 end
 function remove_vfSub()
 	local vfSub = "vf remove @LUA-open_dialog"
-	mp.command(vfSub)
+	if mp.get_property("vf") ~= "" then
+		mp.msg.info("Cleanup @LUA-open_dialog.")
+		mp.command(vfSub)
+	end
 end
 
-mp.register_event("file-loaded", function()
-	if mp.get_property("vf") ~= "" then mp.command("vf remove @LUA-open_dialog") end
-end)
+mp.register_event("end-file", remove_vfSub)
 
 mp.register_script_message('import_files', import_files)
 mp.register_script_message('import_url', import_url)
