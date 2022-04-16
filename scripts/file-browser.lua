@@ -36,16 +36,19 @@ local o = {
     --add extra file extensions
     extension_whitelist = "",
 
+    --compatible list directly. A semicolon separated list of audio extensions without spaces
+    audio_extension_blacklist = "",
+
+    --add extra audio file extensions
+    audio_extension_whitelist = "",
+
+    --add extra sub file extensions
+    sub_extension_whitelist = "",
+
     --filter dot directories like .config
     --most useful on linux systems
     filter_dot_dirs = false,
     filter_dot_files = false,
-
-    --when loading a directory from the browser use the scripts
-    --parsing code to load the contents of the folder (using filters and sorting)
-    --this means that files will be added to the playlist identically
-    --to how they appear in the browser, rather than leaving it to mpv
-    custom_dir_loading = false,
 
     --this option reverses the behaviour of the alt+ENTER keybind
     --when disabled the keybind is required to enable autoload for the file
@@ -168,9 +171,9 @@ local root = nil
 --default list of compatible file extensions
 --adding an item to this list is a valid request on github
 local compatible_file_extensions = {
-    "264","265","3g2","3ga","3ga2","3gp","3gp2","3gpp","3iv","a52","aac","adt","adts","ahn","aif","aifc","aiff","amr","ape","asf","au","avc","avi","awb","ay",
-    "bmp","cue","divx","dts","dtshd","dts-hd","dv","dvr","dvr-ms","eac3","evo","evob","f4a","flac","flc","fli","flic","flv","gbs","gif","gxf","gym",
-    "h264","h265","hdmov","hdv","hes","hevc","jpeg","jpg","kss","lpcm","m1a","m1v","m2a","m2t","m2ts","m2v","m3u","m3u8","m4a","m4v","mk3d","mka","mkv",
+    "264","265","3g2","3ga","3ga2","3gp","3gp2","3gpp","3iv","a52","aac","adt","adts","ahn","aif","aifc","aiff","amr","amv","ape","asf","au","avc","avi","awb","ay",
+    "bdmv","bmp","cue","divx","dts","dtshd","dts-hd","dv","dvr","dvr-ms","eac3","evo","evob","f4a","flac","flc","fli","flic","flv","gbs","gif","gxf","gym",
+    "h264","h265","hdmov","hdv","hes","hevc","ifo","iso","jpeg","jpg","kss","lpcm","m1a","m1v","m2a","m2t","m2ts","m2v","m3u","m3u8","m4a","m4v","mk3d","mka","mkv",
     "mlp","mod","mov","mp1","mp2","mp2v","mp3","mp4","mp4v","mp4v","mpa","mpe","mpeg","mpeg2","mpeg4","mpg","mpg4","mpv","mpv2","mts","mtv","mxf","nsf",
     "nsfe","nsv","nut","oga","ogg","ogm","ogv","ogx","opus","pcm","pls","png","qt","ra","ram","rm","rmvb","sap","snd","spc","spx","svg","thd","thd+ac3",
     "tif","tiff","tod","trp","truehd","true-hd","ts","tsa","tsv","tta","tts","vfw","vgm","vgz","vob","vro","wav","weba","webm","webp","wm","wma","wmv","wtv",
@@ -248,12 +251,12 @@ end
 
 --returns the file extension of the given file
 local function get_extension(filename, def)
-    return filename:match("%.([^%./]+)$") or def
+    return string.lower(filename):match("%.([^%./]+)$") or def
 end
 
 --returns the protocol scheme of the given url, or nil if there is none
 local function get_protocol(filename, def)
-    return filename:match("^(%a%w*)://") or def
+    return string.lower(filename):match("^(%a%w*)://") or def
 end
 
 --formats strings for ass handling
@@ -323,7 +326,7 @@ end
 
 local function valid_file(file)
     if o.filter_dot_files and (file:sub(1,1) == ".") then return false end
-    if o.filter_files and not extensions[ get_extension(file, "") ] then return false end
+    if o.filter_files and not extensions[get_extension(file, "") ] then return false end
     return true
 end
 
@@ -393,12 +396,6 @@ end
 --------------------------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------------------------
 
---chooses which parser to use for the specific path starting from index
-local function choose_parser(path, index)
-    for i = index or 1, #parsers, 1 do
-        if parsers[i]:can_parse(path) then return parsers[i] end
-    end
-end
 
 --setting up functions to provide to addons
 local parser_index = {}
@@ -484,8 +481,8 @@ function parser_mt:get_index() return parser_index[self] end
 function parser_mt:get_id() return parser_ids[self] end
 
 --register file extensions which can be opened by the browser
-function API_mt.register_parseable_extension(ext) parseable_extensions[ext] = true end
-function API_mt.remove_parseable_extension(ext) parseable_extensions[ext] = nil end
+function API_mt.register_parseable_extension(ext) parseable_extensions[string.lower(ext)] = true end
+function API_mt.remove_parseable_extension(ext) parseable_extensions[string.lower(ext)] = nil end
 
 --add a compatible extension to show through the filter, only applies if run during the setup() method
 function API_mt.add_default_extension(ext) table.insert(compatible_file_extensions, ext) end
@@ -1157,22 +1154,10 @@ local function custom_loadlist_recursive(directory, flag)
 end
 
 --a wrapper for the custom_loadlist_recursive function to handle the flags
-local function custom_loadlist(directory, flag)
+local function loadlist(directory, flag)
     flag = custom_loadlist_recursive(directory, flag)
     if not flag then msg.warn(directory, "contained no valid files") end
     return flag
-end
-
---loads lists or defers the command to add-ons
-local function loadlist(path, flag)
-    local parser = choose_parser(path)
-    if not o.custom_dir_loading and parser == file_parser then
-        mp.commandv('loadlist', path, flag == "append-play" and "append" or flag)
-        if flag == "append-play" and mp.get_property_bool("core-idle") then mp.commandv("playlist-play-index", 0) end
-        return true
-    else
-        return custom_loadlist(path, flag)
-    end
 end
 
 --load playlist entries before and after the currently playing file
@@ -1515,29 +1500,44 @@ local function setup_extensions_list()
 
     --adding file extensions to the set
     for i=1, #compatible_file_extensions do
-        extensions[compatible_file_extensions[i]] = true
+        extensions[string.lower(compatible_file_extensions[i])] = true
     end
 
     --setting up subtitle extensions
     for i = 1, #subtitle_extensions do
-        extensions[subtitle_extensions[i]] = true
-        sub_extensions[subtitle_extensions[i]] = true
+        extensions[string.lower(subtitle_extensions[i])] = true
+        sub_extensions[string.lower(subtitle_extensions[i])] = true
     end
 
     --setting up audio extensions
     for i = 1, #audio_extension_list do
-        extensions[audio_extension_list[i]] = true
-        audio_extensions[audio_extension_list[i]] = true
+        extensions[string.lower(audio_extension_list[i])] = true
+        audio_extensions[string.lower(audio_extension_list[i])] = true
     end
 
     --adding extra extensions on the whitelist
     for str in string.gmatch(o.extension_whitelist, "([^"..pattern_escape(o.root_seperators).."]+)") do
-        extensions[str] = true
+        extensions[string.lower(str)] = true
     end
 
     --removing extensions that are in the blacklist
     for str in string.gmatch(o.extension_blacklist, "([^"..pattern_escape(o.root_seperators).."]+)") do
-        extensions[str] = nil
+        extensions[string.lower(str)] = nil
+    end
+
+    --adding extra audio extensions on the whitelist
+    for str in string.gmatch(o.audio_extension_whitelist, "([^"..pattern_escape(o.root_seperators).."]+)") do
+        audio_extensions[string.lower(str)] = true
+    end
+
+    --removing audio extensions that are in the blacklist
+    for str in string.gmatch(o.audio_extension_blacklist, "([^"..pattern_escape(o.root_seperators).."]+)") do
+        audio_extensions[string.lower(str)] = nil
+    end
+
+    --adding extra sub extensions on the whitelist
+    for str in string.gmatch(o.sub_extension_whitelist, "([^"..pattern_escape(o.root_seperators).."]+)") do
+        sub_extensions[string.lower(str)] = true
     end
 end
 
