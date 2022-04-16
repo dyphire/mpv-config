@@ -526,7 +526,9 @@ function cleanup()
     mp.unobserve_property(update_time_pos)
     mp.unobserve_property(osd_size_change)
     mp.unobserve_property(pause)
-    for _, label in pairs(labels) do manage_filter("remove", label) end
+    if mp.get_property("vf") ~= "" then
+        for _, label in pairs(labels) do manage_filter("remove", label) end
+    end
 end
 
 local function on_start()
