@@ -8,13 +8,13 @@ worldwide. This software is distributed without any warranty. See
 Public Domain Dedication, which applies to this software.
 自定义快捷键 在mpv中唤起一个打开文件的窗口用于快速加载文件/网址
 示例：在 input.conf 中另起写入下列内容
-w        script-binding    open_dialog/import_files   # 打开文件
-W        script-binding    open_dialog/import_url     # 载入网址
-CTRL+w   script-binding    open_dialog/append_aid     # 加载其它音轨（不切换）
-ALT+w    script-binding    open_dialog/append_sid     # 加载其它字幕（切换
-e        script-binding    open_dialog/append_vfSub   # 装载次字幕（滤镜型）
-E        script-binding    open_dialog/toggle_vfSub   # 隐藏/显示 当前的次字幕
-CTRL+e   script-binding    open_dialog/remove_vfSub   # 移除次字幕
+w        script-message-to open_dialog import_files   # 打开文件
+W        script-message-to open_dialog import_url     # 载入网址
+CTRL+w   script-message-to open_dialog append_aid     # 加载其它音轨（不切换）
+ALT+w    script-message-to open_dialog append_sid     # 加载其它字幕（切换
+e        script-message-to open_dialog append_vfSub   # 装载次字幕（滤镜型）
+E        script-message-to open_dialog toggle_vfSub   # 隐藏/显示 当前的次字幕
+CTRL+e   script-message-to open_dialog remove_vfSub   # 移除次字幕
 ]]--
 
 utils = require 'mp.utils'
@@ -164,18 +164,18 @@ function append_vfSub()
 	if was_ontop then mp.set_property_native("ontop", true) end
 	if (res.status ~= 0) then return end
 	for filename in string.gmatch(res.stdout, '[^\n]+') do
-		local vfSub = "vf append ``@LUA-open_dialog:subtitles=filename=\"" .. res.stdout .. "\"``"
+		local vfSub = "vf append ``@open_dialog-sub:subtitles=filename=\"" .. res.stdout .. "\"``"
 		mp.command(vfSub)
 	end
 end
 function toggle_vfSub()
-	local vfSub = "vf toggle @LUA-open_dialog"
+	local vfSub = "vf toggle @open_dialog-sub"
 	mp.command(vfSub)
 end
 function remove_vfSub()
-	local vfSub = "vf remove @LUA-open_dialog"
+	local vfSub = "vf remove @open_dialog-sub"
 	if mp.get_property("vf") ~= "" then
-		mp.msg.info("Cleanup @LUA-open_dialog.")
+		mp.msg.info("Cleanup @open_dialog-sub.")
 		mp.command(vfSub)
 	end
 end
