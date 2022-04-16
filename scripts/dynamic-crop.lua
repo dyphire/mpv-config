@@ -228,7 +228,6 @@ local function process_metadata(timestamp, collected)
     in_progress = true -- prevent event race
 
     local elapsed_time = timestamp - timestamps.insert
-    print_debug(collected, "detail", "Collected")
     timestamps.insert = timestamp
 
     -- init stats.buffer[whxy]
@@ -294,19 +293,20 @@ local function process_metadata(timestamp, collected)
         end
     end
 
-    -- stabilization of odd/unstable collected
+    -- stabilization of odd/unstable meta
     local stabilized
-    if options.detect_round <= 4 and stats.trusted[current.whxy] then
-        for _, table_ in pairs(stats.trusted) do
-            local in_margin = math.abs(current.w - table_.w) <= options.detect_round * 2 and
-                                  math.abs(current.h - table_.h) <= options.detect_round * 2
-            if current ~= table_ and (not stabilized and
-                (table_.time.overall > current.time.overall * 2 or table_ == applied and table_.time.overall * 2 >
-                    current.time.overall) or stabilized and table_.time.overall > stabilized.time.overall) and in_margin then
-                stabilized = table_
-            end
+    if options.detect_round <= 4 and not current.is_invalid and current.is_trusted_offsets then
+        for _, ref in pairs(stats.trusted) do
+            local in_margin = math.abs(current.w - ref.w) <= options.detect_round * 2 and math.abs(current.h - ref.h) <=
+                                  options.detect_round * 2
+            local not_stab = not stabilized and (ref.time.overall > applied.time.overall * 2 or ref == applied)
+            local longer_than_stab = stabilized and stabilized ~= applied and ref.time.overall > stabilized.time.overall
+            if in_margin and ref ~= current and (not_stab or longer_than_stab) then stabilized = ref end
         end
     end
+
+    -- debug
+    print_debug(collected, "detail", "Collected")
     if stabilized then
         current = stabilized
         print_debug(current, "detail", "\\ Stabilized")
@@ -402,9 +402,7 @@ local function process_metadata(timestamp, collected)
             math.abs(collected.h - last_collected.h) <= 2) then -- math.abs <= 2 to help stabilize odd metadata
         limit.change = 0
         -- reset limit to help with different dark color
-        if not current.is_trusted_offsets then
-            limit.current = options.detect_limit
-        end
+        if not current.is_trusted_offsets then limit.current = options.detect_limit end
     else -- decrease limit
         limit.change = -1
         if limit.current > 0 then
@@ -519,16 +517,15 @@ end
 
 function cleanup()
     if not paused then print_debug(nil, "stats") end
-    mp.msg.info("Cleanup.")
+    mp.msg.info("Cleanup ...")
     mp.unregister_event(playback_events)
     mp.unobserve_property(adjust_detect_skip)
     mp.unobserve_property(collect_metadata)
     mp.unobserve_property(update_time_pos)
     mp.unobserve_property(osd_size_change)
     mp.unobserve_property(pause)
-    if mp.get_property("vf") ~= "" then
-        for _, label in pairs(labels) do manage_filter("remove", label) end
-    end
+    for _, label in pairs(labels) do if filter_state(label) then manage_filter("remove", label) end end
+    mp.msg.info("Done.")
 end
 
 local function on_start()
