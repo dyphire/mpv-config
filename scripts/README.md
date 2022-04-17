@@ -48,7 +48,7 @@
 | contextmenu_gui（组）         | 图形化右键菜单（依赖tclkit，上游说明：https://github.com/hooke007/MPV_lazy/discussions/60; 配置文件 [contextmenu_gui.conf](../script-opts/contextmenu_gui.conf)） |
 1. 部分脚本为**个人修改版本**，主要改进功能实现或键位绑定方式。如：autosubsync（组）; contextmenu_gui（组）; autoload.lua; chapter_list.lua; chapterskip.lua; channel_mixer.lua; copy_subortime.lua; cycle_adevice.lua; editions-notification.lua; file-browser.lua; fuzzydir.lua; history-bookmark.lua; open_dialog.lua; persist_properties.lua; skiptosilence.lua; trackselect.lua; thumbnailer*.lua; ytdl_hook.lua; youtube_quality.lua
 2. 所有脚本预绑定的`mp.add_key_binding`静态键位已被 [mpv.conf](../mpv.conf) 中的`input-default-bindings=no`参数屏蔽，可查看 [input.conf](../input.conf)  的"LUA 脚本"部分示例参考绑定所需键位  
-   - 本配置绑定的快捷键及功能请参考 [快捷键.md](../快捷键.md) 文件
+   - 本配置绑定的快捷键及功能请参考 [快捷键说明.md](../快捷键说明.md) 文件
 3. 部分脚本存在动态绑定键位，可查看对应脚本及配置文件相关部分（或[快捷键.md](../快捷键.md)中相关说明）
 4. **MPV已知问题**：当 scripts 文件夹内脚本绑定的`mp.add_key_binding`总数超过一定阈值时，会导致 osc.lua 交互功能失效。本配置已针对该问题进行脚本优化
 
