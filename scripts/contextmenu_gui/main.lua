@@ -486,14 +486,14 @@ menuList = {
 
 -- 二级菜单 —— 加载
     open_menu = {
-        {COMMAND, "【外置脚本】文件", "CTRL+o", "script-message-to open_dialog import_files", "", false},
-        {COMMAND, "【外置脚本】地址", "CTRL+O", "script-message-to open_dialog import_url", "", false},
-        {COMMAND, "【外置脚本】加载最后播放文件", "CTRL+l", "script-binding simplehistory/history-load-last", "", false},
-        {COMMAND, "【外置脚本】加载最后播放文件及进度", "CTRL+L", "script-binding simplehistory/history-resume", "", false},
-        {COMMAND, "【外部脚本】打开剪贴菜单", "ALT+w", "script-binding smartcopypaste_II/open-list", "", false},
-        {COMMAND, "【外置脚本】打开书签菜单", "N", "script-binding simplebookmark/open-list", "", false},
-        {COMMAND, "【外置脚本】打开历史菜单", "`", "script-binding simplehistory/open-list", "", false},
-        {COMMAND, "【外置脚本】内置文件浏览器", "Tab", "script-message-to file_browser browse-files", "", false},
+        {COMMAND, "[外置脚本] 文件", "CTRL+o", "script-message-to open_dialog import_files", "", false},
+        {COMMAND, "[外置脚本] 地址", "CTRL+O", "script-message-to open_dialog import_url", "", false},
+        {COMMAND, "[外置脚本] 加载最后播放文件", "CTRL+l", "script-binding simplehistory/history-load-last", "", false},
+        {COMMAND, "[外置脚本] 加载最后播放文件及进度", "CTRL+L", "script-binding simplehistory/history-resume", "", false},
+        {COMMAND, "[外部脚本] 打开剪贴菜单", "ALT+w", "script-binding smartcopypaste_II/open-list", "", false},
+        {COMMAND, "[外置脚本] 打开书签菜单", "N", "script-binding simplebookmark/open-list", "", false},
+        {COMMAND, "[外置脚本] 打开历史菜单", "`", "script-binding simplehistory/open-list", "", false},
+        {COMMAND, "[外置脚本] 内置文件浏览器", "Tab", "script-message-to file_browser browse-files", "", false},
     },
 
 -- 二级菜单 —— 画面
@@ -502,18 +502,18 @@ menuList = {
         {CHECK, "窗口边框", "ALT+B", "cycle border", function() return propNative("border") end, false},
         {CHECK, "全屏", "ENTER", "cycle fullscreen", function() return propNative("fullscreen") end, false},
         {SEP},
-        {COMMAND, "【外置脚本】开/关 进度条预览", "CTRL+T", "cycle-values script-opts thumbnailer-auto_gen=no,thumbnailer-auto_show=no thumbnailer-auto_gen=yes,thumbnailer-auto_show=yes", "", false},
+        {COMMAND, "[外置脚本] 开/关 进度条预览", "CTRL+T", "cycle-values script-opts thumbnailer-auto_gen=no,thumbnailer-auto_show=no thumbnailer-auto_gen=yes,thumbnailer-auto_show=yes", "", false},
     },
 
 -- 二级菜单 —— 其它
     etc_menu = {
-        {COMMAND, "【内部脚本】状态信息（开/关）", "I", "script-binding stats/display-stats-toggle", "", false},
-        {COMMAND, "【内部脚本】状态信息-概览", "", "script-binding stats/display-page-1", "", false},
-        {COMMAND, "【内部脚本】状态信息-帧计时（可翻页）", "", "script-binding stats/display-page-2", "", false},
-        {COMMAND, "【内部脚本】状态信息-输入缓存", "", "script-binding stats/display-page-3", "", false},
-        {COMMAND, "【内部脚本】状态信息-快捷键（可翻页）", "", "script-binding stats/display-page-4", "", false},
-        {COMMAND, "【内部脚本】状态信息-内部流（可翻页）", "", "script-binding stats/display-page-0", "", false},
-        {COMMAND, "【内部脚本】控制台", "~", "script-binding console/enable", "", false},
+        {COMMAND, "[内部脚本] 状态信息（开/关）", "I", "script-binding stats/display-stats-toggle", "", false},
+        {COMMAND, "[内部脚本] 状态信息-概览", "", "script-binding stats/display-page-1", "", false},
+        {COMMAND, "[内部脚本] 状态信息-帧计时（可翻页）", "", "script-binding stats/display-page-2", "", false},
+        {COMMAND, "[内部脚本] 状态信息-输入缓存", "", "script-binding stats/display-page-3", "", false},
+        {COMMAND, "[内部脚本] 状态信息-快捷键（可翻页）", "", "script-binding stats/display-page-4", "", false},
+        {COMMAND, "[内部脚本] 状态信息-内部流（可翻页）", "", "script-binding stats/display-page-0", "", false},
+        {COMMAND, "[内部脚本] 控制台", "~", "script-binding console/enable", "", false},
     },
 
 -- 二级菜单 —— 关于
@@ -566,16 +566,16 @@ mp.register_event("file-loaded", function()
 
 -- 二级菜单 —— 加载
         open_menu = {
-            {COMMAND, "【外置脚本】文件", "CTRL+o", "script-message-to open_dialog import_files", "", false},
-            {COMMAND, "【外置脚本】地址", "CTRL+O", "script-message-to open_dialog import_url", "", false},
-            {COMMAND, "【外置脚本】打开历史菜单", "`", "script-binding simplehistory/open-list", "", false},
-            {COMMAND, "【外置脚本】内置文件浏览器", "Tab", "script-message browse-files", "", false},
+            {COMMAND, "[外置脚本] 文件", "CTRL+o", "script-message-to open_dialog import_files", "", false},
+            {COMMAND, "[外置脚本] 地址", "CTRL+O", "script-message-to open_dialog import_url", "", false},
+            {COMMAND, "[外置脚本] 打开历史菜单", "`", "script-binding simplehistory/open-list", "", false},
+            {COMMAND, "[外置脚本] 内置文件浏览器", "Tab", "script-message browse-files", "", false},
             {SEP},
-            {COMMAND, "【外置脚本】加载其他字幕（切换）", "ALT+e", "script-message-to open_dialog append_sid", "", false},
-            {COMMAND, "【外置脚本】加载其他音轨（不切换）", "ALT+E", "script-message-to open_dialog append_aid", "", false},
-            {COMMAND, "【外置脚本】装载次字幕（滤镜型）", "CTRL+e", "script-message-to open_dialog append_vfSub", "", false},
-            {COMMAND, "【外置脚本】隐藏/显示 次字幕", "CTRL+E", "script-message-to open_dialog toggle_vfSub", "", false},
-            {COMMAND, "【外置脚本】移除次字幕", "CTRL+ALT+e", "script-message-to open_dialog remove_vfSub", "", false},
+            {COMMAND, "[外置脚本] 加载其他字幕（切换）", "ALT+e", "script-message-to open_dialog append_sid", "", false},
+            {COMMAND, "[外置脚本] 加载其他音轨（不切换）", "ALT+E", "script-message-to open_dialog append_aid", "", false},
+            {COMMAND, "[外置脚本] 装载次字幕（滤镜型）", "CTRL+e", "script-message-to open_dialog append_vfSub", "", false},
+            {COMMAND, "[外置脚本] 隐藏/显示 次字幕", "CTRL+E", "script-message-to open_dialog toggle_vfSub", "", false},
+            {COMMAND, "[外置脚本] 移除次字幕", "CTRL+ALT+e", "script-message-to open_dialog remove_vfSub", "", false},
             {SEP},
             {COMMAND, "播放列表乱序重排", "", "playlist-shuffle", "", false},
             {CHECK, "列表循环", "", "cycle-values loop-playlist inf no", function() return statePlayLoop() end, false},
@@ -600,8 +600,8 @@ mp.register_event("file-loaded", function()
             {COMMAND, "倍速", "}", "set speed 2;show-text  倍速播放:${speed}", "", false},
             {COMMAND, "重置速度", "BS", "set speed 1;show-text  重置播放速度:${speed}", "", false},
             {SEP},
-            {CASCADE, "【外置脚本】删除文件", "del_menu", "", "", false},
-            {CASCADE, "【外置脚本】Youtube-dl菜单", "ytdl_menu", "", "", false},
+            {CASCADE, "[外置脚本] 删除文件", "del_menu", "", "", false},
+            {CASCADE, "[外置脚本] Youtube-dl菜单", "ytdl_menu", "", "", false},
         },
 
 -- 三级菜单 —— 删除文件
@@ -624,7 +624,7 @@ mp.register_event("file-loaded", function()
 
 -- 二级菜单 —— 导航
         navi_menu = {
-            {COMMAND, "【外置脚本】OSD高级播放列表", "F8", "script-message-to playlistmanager showplaylist", "", false},
+            {COMMAND, "[外置脚本] OSD高级播放列表", "F8", "script-message-to playlistmanager showplaylist", "", false},
             {COMMAND, "OSD轨道信息", "F9", "show-text ${track-list} 5000", "", false},
             {COMMAND, "重播", "", "seek 0 absolute", "", false},
             {COMMAND, "上个文件", "<", "playlist-prev;show-text  播放列表:${playlist-pos-1}/${playlist-count}", "", false},
@@ -634,9 +634,9 @@ mp.register_event("file-loaded", function()
             {COMMAND, "后退5秒", "RIGHT", "seek -5", "", false},
             {COMMAND, "前进5秒", "LEFT", "seek 5", "", false},
             {SEP},
-            {CASCADE, "【外置脚本】书签", "bookmarker_menu", "", "", false},
-            {COMMAND, "【外置脚本】自动跳过指定章节", "ALT+q", "script-message-to chapterskip chapter-skip;show-text 自动跳过指定章节", "", false},
-            {COMMAND, "【外置脚本】跳到下一个静音位置 ", "F4", "script-message-to skiptosilence skip-to-silence;show-text 跳到下一个静音位置", "", false},
+            {CASCADE, "[外置脚本] 书签", "bookmarker_menu", "", "", false},
+            {COMMAND, "[外置脚本] 自动跳过指定章节", "ALT+q", "script-message-to chapterskip chapter-skip;show-text 自动跳过指定章节", "", false},
+            {COMMAND, "[外置脚本] 跳到下一个静音位置 ", "F4", "script-message-to skiptosilence skip-to-silence;show-text 跳到下一个静音位置", "", false},
             {SEP},
             {CASCADE, "版本（Edition）", "edition_menu", "", "", function() return inspectEdition() end},
             {CASCADE, "章节", "chapter_menu", "", "", function() return inspectChapter() end},
@@ -682,7 +682,7 @@ mp.register_event("file-loaded", function()
             {COMMAND, "切换 hdr映射曲线 ", "h", "cycle-values tone-mapping auto mobius reinhard hable bt.2390 gamma spline bt.2446a;show-text  hdr映射曲线:${tone-mapping}", "", false},
             {COMMAND, "切换 hdr动态映射", "ALT+h", "cycle-values hdr-compute-peak yes no;show-text  hdr动态映射:${hdr-compute-peak}", "", false},
             {SEP},
-            {COMMAND, "【外置脚本】开/关 进度条预览", "CTRL+T", "cycle-values script-opts thumbnailer-auto_gen=no,thumbnailer-auto_show=no thumbnailer-auto_gen=yes,thumbnailer-auto_show=yes", "", false},
+            {COMMAND, "[外置脚本] 开/关 进度条预览", "CTRL+T", "cycle-values script-opts thumbnailer-auto_gen=no,thumbnailer-auto_show=no thumbnailer-auto_gen=yes,thumbnailer-auto_show=yes", "", false},
         },
 
 -- 三级菜单 —— 长宽比
@@ -721,8 +721,8 @@ mp.register_event("file-loaded", function()
             {CASCADE, "调色", "color_menu", "", "", false},
             {CASCADE, "截屏", "screenshot_menu", "", "", false},
             {SEP},
-            {CASCADE, "【外置脚本】剪切片段", "slicing_menu", "", "", false},
-            {CASCADE, "【外置脚本】剪切动图", "webp_menu", "", "", false},
+            {CASCADE, "[外置脚本] 剪切片段", "slicing_menu", "", "", false},
+            {CASCADE, "[外置脚本] 剪切动图", "webp_menu", "", "", false},
         },
 
         -- Use function to return list of Video Tracks
@@ -889,22 +889,22 @@ mp.register_event("file-loaded", function()
 
 -- 二级菜单 —— 其它
         etc_menu = {
-            {COMMAND, "【内部脚本】状态信息（开/关）", "I", "script-binding stats/display-stats-toggle", "", false},
-            {COMMAND, "【内部脚本】状态信息-概览", "", "script-binding stats/display-page-1", "", false},
-            {COMMAND, "【内部脚本】状态信息-帧计时（可翻页）", "", "script-binding stats/display-page-2", "", false},
-            {COMMAND, "【内部脚本】状态信息-输入缓存", "", "script-binding stats/display-page-3", "", false},
-            {COMMAND, "【内部脚本】状态信息-快捷键（可翻页）", "", "script-binding stats/display-page-4", "", false},
-            {COMMAND, "【内部脚本】状态信息-内部流（可翻页）", "", "script-binding stats/display-page-0", "", false},
-            {COMMAND, "【内部脚本】控制台", "~", "script-binding console/enable", "", false},
+            {COMMAND, "[内部脚本] 状态信息（开/关）", "I", "script-binding stats/display-stats-toggle", "", false},
+            {COMMAND, "[内部脚本] 状态信息-概览", "", "script-binding stats/display-page-1", "", false},
+            {COMMAND, "[内部脚本] 状态信息-帧计时（可翻页）", "", "script-binding stats/display-page-2", "", false},
+            {COMMAND, "[内部脚本] 状态信息-输入缓存", "", "script-binding stats/display-page-3", "", false},
+            {COMMAND, "[内部脚本] 状态信息-快捷键（可翻页）", "", "script-binding stats/display-page-4", "", false},
+            {COMMAND, "[内部脚本] 状态信息-内部流（可翻页）", "", "script-binding stats/display-page-0", "", false},
+            {COMMAND, "[内部脚本] 控制台", "~", "script-binding console/enable", "", false},
         },
 
 -- 二级菜单 —— 工具
         tool_menu = {
-            {COMMAND, "【外部脚本】匹配视频刷新率", "F10", "script-binding change_refresh/match-refresh", "", false},
-            {COMMAND, "【外部脚本】复制当前时间", "CTRL+ALT+t", "script-message-to copy_subortime copy-time", "", false},
-            {COMMAND, "【外部脚本】复制当前字幕内容", "CTRL+ALT+s", "script-message-to copy_subortime copy-subtitle", "", false},
-            {CASCADE, "【外部脚本】视频剪贴功能", "copy_menu", "", "", false},
-            {COMMAND, "【外部脚本】更新脚本着色器", "M", "script-message manager-update-all;show-text 更新脚本着色器", "", false},
+            {COMMAND, "[外部脚本] 匹配视频刷新率", "F10", "script-binding change_refresh/match-refresh", "", false},
+            {COMMAND, "[外部脚本] 复制当前时间", "CTRL+ALT+t", "script-message-to copy_subortime copy-time", "", false},
+            {COMMAND, "[外部脚本] 复制当前字幕内容", "CTRL+ALT+s", "script-message-to copy_subortime copy-subtitle", "", false},
+            {CASCADE, "[外部脚本] 视频剪贴功能", "copy_menu", "", "", false},
+            {COMMAND, "[外部脚本] 更新脚本着色器", "M", "script-message manager-update-all;show-text 更新脚本着色器", "", false},
         },
 
 -- 三级菜单 —— 视频剪贴功能
