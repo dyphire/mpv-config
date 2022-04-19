@@ -48,12 +48,11 @@ local options = {
     prevent_change_timer = 0, -- seconds
     prevent_change_mode = 2, -- [0-2], disable with 'prevent_change_timer = 0'
     resize_windowed = true,
-    fast_change_timer = 1, -- seconds, 0 = 1 frame minimum
+    fast_change_timer = 0, -- seconds, 0 = 1 frame minimum
     new_known_ratio_timer = 5, -- seconds
     new_fallback_timer = 30, -- seconds, >= 'new_known_ratio_timer', disable with 0
     ratios = "2.4 2.39 2.35 2.2 2 1.85 16/9 5/3 1.5 4/3 1.25 9/16", -- list separated by space
     segmentation = 0.5, -- %, 0 will approved only a continuous metadata (strict)
-    correction = 0.6, -- %, -- TODO auto value with trusted meta
     -- filter, see https://ffmpeg.org/ffmpeg-filters.html#cropdetect for details
     detect_limit = 26, -- is the maximum use, increase it slowly if lighter black are present
     detect_round = 2, -- even number
@@ -71,7 +70,7 @@ end
 
 -- forward declaration
 local cleanup, on_toggle
-local applied, buffer, collected_, last_collected, limit, source, stats, timestamps
+local applied, buffer, collected_, last_collected, last_current, limit, source, stats, timestamps
 -- label
 local label_prefix = mp.get_script_name()
 local labels = {
@@ -89,11 +88,6 @@ local new_known_ratio_timer = convert_sec_to_ms(options.new_known_ratio_timer)
 local new_fallback_timer = convert_sec_to_ms(options.new_fallback_timer)
 local fallback = new_fallback_timer >= new_known_ratio_timer
 local cropdetect_skip = string.format(":skip=%d", options.detect_skip)
-
-local function adjust_detect_skip(_, speed)
-    local skip = math.min(math.floor(options.detect_skip * speed), options.detect_skip * 4)
-    cropdetect_skip = string.format(":skip=%d", math.max(skip, options.detect_skip))
-end
 
 local function is_trusted_offset(offset, axis)
     for _, v in pairs(stats.trusted_offset[axis]) do if math.abs(offset - v) <= 1 then return true end end
@@ -127,7 +121,6 @@ local function insert_cropdetect_filter()
     end
     if not command() then
         cropdetect_skip = ""
-        mp.unobserve_property(adjust_detect_skip)
         if not command() then
             mp.msg.error("Does vf=help as #1 line in mvp.conf return libavfilter list with crop/cropdetect in log?")
             filter_missing = true
@@ -195,39 +188,39 @@ local function print_debug(meta, type_, label)
                 read_maj_offset[axis] = read_maj_offset[axis] .. v .. " "
             end
         end
-        mp.msg.info(string.format("Limit min/max: %s/%s", limit.min, options.detect_limit))
-        mp.msg.info(string.format("Trusted Offset - X:%s| Y:%s", read_maj_offset.x, read_maj_offset.y))
-        for whxy, table_ in pairs(stats.trusted) do
+        mp.msg
+            .info(string.format("Limit - min/max: %s/%s | change: %s", limit.min, options.detect_limit, limit.counter))
+        mp.msg.info(string.format("Trusted - unique: %s | offset: X:%sY:%s", stats.trusted_unique, read_maj_offset.x,
+                                  read_maj_offset.y))
+        for whxy, ref in pairs(stats.trusted) do
             if stats.trusted[whxy] then
-                mp.msg.info(string.format("- %-29s | offX=%3s offY=%3s | applied=%s overall=%s last_seen=%s", whxy,
-                                          table_.offset.x, table_.offset.y, table_.applied,
-                                          convert_ms_to_sec(table_.time.overall),
-                                          convert_ms_to_sec(table_.time.last_seen)))
+                mp.msg.info(string.format("\\ %-29s | offX=%3s offY=%3s | applied=%s overall=%s last_seen=%s", whxy,
+                                          ref.offset.x, ref.offset.y, ref.applied, convert_ms_to_sec(ref.time.overall),
+                                          convert_ms_to_sec(ref.time.last_seen)))
             end
         end
-        mp.msg.info("Buffer - total: " .. buffer.index_total, convert_ms_to_sec(buffer.time_total) ..
-                        "sec, unique_meta: " .. buffer.unique_meta .. " | known_ratio:", buffer.index_known_ratio,
+        mp.msg.info("Buffer - unique: " .. buffer.unique_meta .. " | total: " .. buffer.index_total,
+                    convert_ms_to_sec(buffer.time_total) .. "sec | known_ratio:", buffer.index_known_ratio,
                     convert_ms_to_sec(buffer.time_known) .. "sec")
-        if options.debug and stats.buffer then
-            for whxy, table_ in pairs(stats.buffer) do
-                mp.msg.info(string.format(
-                                "- %-29s | offX=%3s offY=%3s | time=%6ssec known_ratio=%-4s trusted_offsets=%s", whxy,
-                                table_.offset.x, table_.offset.y, convert_ms_to_sec(table_.time.buffer),
-                                table_.is_known_ratio, table_.is_trusted_offsets))
-            end
-            for pos, table_ in pairs(buffer.ordered) do
-                mp.msg.info(string.format("-- %3s %-29s %sms", pos, table_[1].whxy, table_[2]))
-            end
-        end
+        -- if options.debug and stats.buffer then
+        --     for whxy, ref in pairs(stats.buffer) do
+        --         mp.msg.info(string.format(
+        --                         "\\ %-29s | offX=%3s offY=%3s | time=%6ssec known_ratio=%-4s trusted_offsets=%s", whxy,
+        --                         ref.offset.x, ref.offset.y, convert_ms_to_sec(ref.time.buffer), ref.is_known_ratio,
+        --                         ref.is_trusted_offsets))
+        --     end
+        --     for pos, ref in pairs(buffer.ordered) do
+        --         mp.msg.info(string.format("-- %3s %-29s %sms", pos, ref[1].whxy, ref[2]))
+        --     end
+        -- end
     end
 end
-
-local function time_to_cleanup_buffer(time_1, time_2) return time_1 > time_2 * (1 + options.segmentation) end
 
 local function process_metadata(timestamp, collected)
     in_progress = true -- prevent event race
 
     local elapsed_time = timestamp - timestamps.insert
+    print_debug(collected, "detail", "Collected")
     timestamps.insert = timestamp
 
     -- init stats.buffer[whxy]
@@ -248,7 +241,10 @@ local function process_metadata(timestamp, collected)
     buffer.time_total = buffer.time_total + elapsed_time
     if buffer.index_known_ratio > 0 then buffer.time_known = buffer.time_known + elapsed_time end
 
-    -- add new offset to trusted_offset list
+    -- reset last_seen before correction
+    if stats.trusted[collected.whxy] and collected.time.last_seen < 0 then collected.time.last_seen = 0 end
+
+    -- add new offset to the trusted_offset list
     if stats.buffer[collected.whxy] and fallback and collected.time.buffer >= new_fallback_timer then
         for _, axis in pairs({"x", "y"}) do
             if not is_trusted_offset(collected.offset[axis], axis) then
@@ -258,110 +254,120 @@ local function process_metadata(timestamp, collected)
         collected.is_trusted_offsets = true
     end
 
-    -- reset last_seen before correction
-    if stats.trusted[collected.whxy] and collected.time.last_seen < 0 then collected.time.last_seen = 0 end
+    -- add collected ready to the trusted list
+    local new_ready =
+        not stats.trusted[collected.whxy] and collected.is_trusted_offsets and not collected.is_invalid and
+            (collected.is_known_ratio and collected.time.buffer >= new_known_ratio_timer or fallback and
+                not collected.is_known_ratio and collected.time.buffer >= new_fallback_timer)
+    if new_ready then
+        stats.trusted[collected.whxy] = collected
+        stats.trusted_unique = stats.trusted_unique + 1
+        collected.applied, collected.time.last_seen = 0, collected.time.buffer
+    end
 
     -- use current as main metadata that can be collected/corrected/stabilized
     local current = collected
 
     -- correction with trusted metadata for fast change in dark/ambiguous scene
-    if not current.is_invalid and not stats.trusted[current.whxy] and
-        (current.w > source.w * options.correction and current.h > source.h * options.correction) then
-        -- find closest metadata already applied
-        local closest, in_between = {}, false
-        for whxy in pairs(stats.trusted) do
-            local diff = {count = 0}
-            for _, axis in pairs({"mt", "mb", "ml", "mr"}) do
-                diff[axis] = math.abs(collected[axis] - stats.trusted[whxy][axis])
-                if diff[axis] == 0 then diff.count = diff.count + 1 end
+    local corrected = {}
+    if not current.is_invalid and not current.is_trusted_offsets then
+        -- find closest trusted metadata
+        local closest = {}
+        for _, ref in pairs(stats.trusted) do
+            local diff = {ref = ref, vs_current = 0, vs_applied = 0, closest_side = {}}
+            for _, side in pairs({"mt", "mb", "ml", "mr"}) do
+                diff[side] = math.abs(current[side] - ref[side])
+                if diff[side] > 0 then
+                    diff.vs_current = diff.vs_current + 1
+                    table.insert(diff.closest_side, diff[side])
+                elseif ref[side] ~= applied[side] then
+                    diff.vs_applied = diff.vs_applied + 1
+                end
             end
-            -- break if we have the same position between two sets of margin
-            if closest.whxy and closest.whxy ~= whxy and diff.count == closest.count and math.abs(diff.mt - diff.mb) ==
-                math.abs(closest.mt - closest.mb) and math.abs(diff.ml - diff.mr) == math.abs(closest.ml - closest.mr) then
-                in_between = true
-                break
+            table.sort(diff.closest_side, function(k1, k2) return k1 < k2 end)
+            -- print(string.format("\\ %-29s curr:%s appl:%s | %-3s %-3s %-3s %-3s", ref.whxy, diff.vs_current,
+            -- diff.vs_applied, diff.mt, diff.mb, diff.ml, diff.mr))
+            local ge_applied = ref.w >= applied.w and ref.h >= applied.h
+            local diff_2 = diff.vs_current == 2 and (diff.vs_applied == 0 and ge_applied or diff.vs_applied >= 1)
+            local diff_3_4 = diff.vs_current > 2 and ref.w >= current.w and ref.h >= current.h and ge_applied
+            local not_set = not closest.ref and (diff.vs_current == 1 or diff_2 or diff_3_4)
+            local closest_side
+            if closest.ref and diff.vs_current >= 1 and diff.vs_current == closest.vs_current then
+                for i = 1, diff.vs_current do
+                    if diff.closest_side[i] < closest.closest_side[i] then closest_side = true end
+                    if diff.closest_side[i] ~= closest.closest_side[i] then break end
+                end
             end
-            if not closest.whxy and diff.count >= 2 or closest.whxy and diff.count >= closest.count and diff.mt +
-                diff.mb <= closest.mt + closest.mb and diff.ml + diff.mr <= closest.ml + closest.mr then
-                closest.mt, closest.mb, closest.ml, closest.mr = diff.mt, diff.mb, diff.ml, diff.mr
-                closest.count, closest.whxy = diff.count, whxy
+            local set = closest.ref and (diff.vs_current < closest.vs_current or closest_side and (diff_2 or diff_3_4))
+            if not_set or set then
+                closest = diff
+                closest.diff_3_4 = diff_3_4
             end
         end
-        -- check if the corrected data is already applied
-        if closest.whxy and not in_between and closest.whxy ~= applied.whxy then
-            current = stats.trusted[closest.whxy]
+        -- replace current with corrected
+        if closest.ref then
+            corrected.ref, corrected.diff_3_4, current = closest.ref, closest.diff_3_4, closest.ref
+            print_debug(current, "detail", "\\ Corrected")
         end
     end
 
     -- stabilization of odd/unstable meta
     local stabilized
     if options.detect_round <= 4 and not current.is_invalid and current.is_trusted_offsets then
+        local margin = options.detect_round * 2
+        local applied_in_margin = math.abs(current.w - applied.w) <= margin and math.abs(current.h - applied.h) <=
+                                      margin
         for _, ref in pairs(stats.trusted) do
-            local in_margin = math.abs(current.w - ref.w) <= options.detect_round * 2 and math.abs(current.h - ref.h) <=
-                                  options.detect_round * 2
-            local not_stab = not stabilized and (ref.time.overall > applied.time.overall * 2 or ref == applied)
-            local longer_than_stab = stabilized and stabilized ~= applied and ref.time.overall > stabilized.time.overall
-            if in_margin and ref ~= current and (not_stab or longer_than_stab) then stabilized = ref end
+            local in_margin = math.abs(current.w - ref.w) <= margin and math.abs(current.h - ref.h) <= margin
+            if in_margin then
+                local gt_applied = applied_in_margin and ref ~= applied and ref.time.overall > applied.time.overall * 2
+                local applied_gt = applied_in_margin and ref == applied and ref.time.overall * 2 > current.time.overall
+                local not_stab = not applied_in_margin and ref.time.overall > current.time.overall or gt_applied or
+                                     applied_gt
+                local stab = stabilized and ref.time.overall > stabilized.time.overall
+                if ref ~= current and (not_stab or stab) then stabilized = ref end
+            end
         end
-    end
-
-    -- debug
-    print_debug(collected, "detail", "Collected")
-    if stabilized then
-        current = stabilized
-        print_debug(current, "detail", "\\ Stabilized")
-    elseif current ~= collected then
-        print_debug(current, "detail", "\\ Corrected")
+        if stabilized then
+            current = stabilized
+            print_debug(current, "detail", "\\ Stabilized")
+        end
     end
 
     -- cycle last_seen
-    for whxy, table_ in pairs(stats.trusted) do
+    for whxy, ref in pairs(stats.trusted) do
         if whxy ~= current.whxy then
-            if table_.time.last_seen > 0 then table_.time.last_seen = 0 end
-            table_.time.last_seen = table_.time.last_seen - elapsed_time
+            if ref.time.last_seen > 0 then ref.time.last_seen = 0 end
+            ref.time.last_seen = ref.time.last_seen - elapsed_time
         else
-            if table_.time.last_seen < 0 then table_.time.last_seen = 0 end
-            table_.time.last_seen = table_.time.last_seen + elapsed_time
+            if ref.time.last_seen < 0 then ref.time.last_seen = 0 end
+            ref.time.last_seen = ref.time.last_seen + elapsed_time
         end
     end
 
-    -- last check before add a new metadata as trusted
-    local new_ready = stats.buffer[collected.whxy] and not stats.trusted[collected.whxy] and
-                          (collected.is_known_ratio and collected.time.buffer >= new_known_ratio_timer or fallback and
-                              not collected.is_known_ratio and collected.time.buffer >= new_fallback_timer)
-    local detect_source = current.is_source and
-                              (current == collected and last_collected == current and limit.change == 1)
-    local confirmation = not current.is_source and
-                             (stats.trusted[current.whxy] and current.time.last_seen >= fast_change_timer or new_ready)
-    local crop_filter = not collected.is_invalid and applied.whxy ~= current.whxy and current.is_trusted_offsets and
-                            (confirmation or detect_source)
     -- apply crop
-    if crop_filter then
-        if stats.trusted[current.whxy] then
-            current.applied = current.applied + 1
-        else
-            -- add the metadata to the trusted list
-            stats.trusted[current.whxy] = current
-            current.applied, current.time.last_seen = 1, current.time.buffer
-        end
-        if not timestamps.prevent or timestamp >= timestamps.prevent then
-            osd_size_change(current.w > current.h)
-            manage_filter("append", string.format("%s:lavfi-crop=%s", labels.crop, current.whxy))
-            print_debug(string.format("- Apply: %s", current.whxy))
-            if prevent_change_timer > 0 then
-                timestamps.prevent = nil
-                if (options.prevent_change_mode == 1 and (current.w > applied.w or current.h > applied.h) or
-                    options.prevent_change_mode == 2 and (current.w < applied.w or current.h < applied.h) or
-                    options.prevent_change_mode == 0) then
-                    timestamps.prevent = timestamp + prevent_change_timer
-                end
-            end
-        end
+    local detect_source = current.is_source and limit.change == 1 and
+                              (last_collected == collected or last_current == current and limit.last_change >= 0)
+    local confirmation = not current.is_source and stats.trusted[current.whxy] and current.time.last_seen >=
+                             fast_change_timer
+    local crop_filter = applied.whxy ~= current.whxy and (confirmation or detect_source)
+    if crop_filter and (not timestamps.prevent or timestamp >= timestamps.prevent) then
+        osd_size_change(current.w > current.h)
+        manage_filter("append", string.format("%s:lavfi-crop=%s", labels.crop, current.whxy))
+        print_debug(string.format("- Apply: %s", current.whxy))
+        current.applied = current.applied + 1
         applied = current
-        if options.mode < 3 then on_toggle(true) end
+        if prevent_change_timer > 0 then
+            timestamps.prevent = nil
+            if (options.prevent_change_mode == 1 and (current.w > applied.w or current.h > applied.h) or
+                options.prevent_change_mode == 2 and (current.w < applied.w or current.h < applied.h) or
+                options.prevent_change_mode == 0) then timestamps.prevent = timestamp + prevent_change_timer end
+        end
+        if options.mode <= 2 then on_toggle(true) end
     end
 
     -- cleanup buffer
+    local function time_to_cleanup_buffer(time_1, time_2) return time_1 > time_2 * (1 + options.segmentation) end
     while time_to_cleanup_buffer(buffer.time_known, new_known_ratio_timer) do
         local position = (buffer.index_total + 1) - buffer.index_known_ratio
         buffer.time_known = buffer.time_known - buffer.ordered[position][2]
@@ -387,24 +393,25 @@ local function process_metadata(timestamp, collected)
 
     -- auto limit
     local limit_current = limit.current
-    if current.is_source then -- increase limit
+    limit.last_change = limit.change
+    if collected.is_source or not applied.is_source and corrected.ref and corrected.diff_3_4 and current.is_source then -- increase limit
         limit.change = 1
         if limit.current + limit.step * limit.up <= options.detect_limit then
             limit.current = limit.current + limit.step * limit.up
         else
             limit.current = options.detect_limit
         end
-        -- store limit.min when reaching source
-        if limit.current < limit.min then limit.min = limit_current + 1 end
-        if limit_current + 1 >= limit.min then limit.timer = timestamp end
     elseif not current.is_invalid and -- stable limit
-        (last_collected == collected or last_collected and math.abs(collected.w - last_collected.w) <= 2 and
-            math.abs(collected.h - last_collected.h) <= 2) then -- math.abs <= 2 to help stabilize odd metadata
+        (collected.is_trusted_offsets or last_collected == collected or last_current == current and corrected.ref and
+            not current.is_source) then
         limit.change = 0
         -- reset limit to help with different dark color
         if not current.is_trusted_offsets then limit.current = options.detect_limit end
     else -- decrease limit
         limit.change = -1
+        if (not collected.is_source or not collected.is_invalid) and limit_current < limit.min then
+            limit.min = limit_current
+        end
         if limit.current > 0 then
             if limit.current - limit.step >= 0 then
                 limit.current = limit.current - limit.step
@@ -414,8 +421,14 @@ local function process_metadata(timestamp, collected)
         end
     end
 
+    -- store for next process
+    last_current = current
     last_collected = collected
-    if limit_current ~= limit.current then insert_cropdetect_filter() end
+    -- apply limit change
+    if limit_current ~= limit.current then
+        limit.counter = limit.counter + 1
+        insert_cropdetect_filter()
+    end
 end
 
 local function update_time_pos(_, timestamp)
@@ -433,14 +446,14 @@ local function update_time_pos(_, timestamp)
     in_progress = false
 end
 
-local function collect_metadata(_, table_)
+local function collect_metadata(_, ref)
     -- check the new metadata for availability and change
-    if table_ and table_["lavfi.cropdetect.w"] and table_["lavfi.cropdetect.h"] then
+    if ref and ref["lavfi.cropdetect.w"] and ref["lavfi.cropdetect.h"] then
         local tmp = {
-            w = tonumber(table_["lavfi.cropdetect.w"]),
-            h = tonumber(table_["lavfi.cropdetect.h"]),
-            x = tonumber(table_["lavfi.cropdetect.x"]),
-            y = tonumber(table_["lavfi.cropdetect.y"])
+            w = tonumber(ref["lavfi.cropdetect.w"]),
+            h = tonumber(ref["lavfi.cropdetect.h"]),
+            x = tonumber(ref["lavfi.cropdetect.x"]),
+            y = tonumber(ref["lavfi.cropdetect.y"])
         }
         tmp.whxy = string.format("w=%s:h=%s:x=%s:y=%s", tmp.w, tmp.h, tmp.x, tmp.y)
         timestamps.insert = timestamps.current
@@ -517,9 +530,8 @@ end
 
 function cleanup()
     if not paused then print_debug(nil, "stats") end
-    mp.msg.info("Cleanup ...")
+    mp.msg.info("Cleanup...")
     mp.unregister_event(playback_events)
-    mp.unobserve_property(adjust_detect_skip)
     mp.unobserve_property(collect_metadata)
     mp.unobserve_property(update_time_pos)
     mp.unobserve_property(osd_size_change)
@@ -536,8 +548,16 @@ local function on_start()
     end
     -- init/re-init source, buffer, limit and other data
     buffer = {ordered = {}, time_total = 0, time_known = 0, index_total = 0, index_known_ratio = 0, unique_meta = 0}
-    limit = {current = options.detect_limit, step = 1, up = 2, min = options.detect_limit}
-    collected_, stats = {}, {trusted = {}, buffer = {}, trusted_offset = {x = {}, y = {}}}
+    limit = {
+        change = 0,
+        current = options.detect_limit,
+        step = 2,
+        up = 2,
+        min = options.detect_limit,
+        counter = 0,
+        timer = 0
+    }
+    collected_, stats = {}, {buffer = {}, trusted = {}, trusted_offset = {x = {}, y = {}}, trusted_unique = 1}
     source = {w_untouched = mp.get_property_number("width"), h_untouched = mp.get_property_number("height")}
     source.w = math.floor(source.w_untouched / options.detect_round) * options.detect_round
     source.h = math.floor(source.h_untouched / options.detect_round) * options.detect_round
@@ -554,7 +574,6 @@ local function on_start()
     mp.register_event("playback-restart", playback_events)
     mp.observe_property("pause", "bool", pause)
     mp.observe_property(string.format("vf-metadata/%s", labels.cropdetect), "native", collect_metadata)
-    mp.observe_property("speed", "number", adjust_detect_skip)
     mp.observe_property("time-pos", "number", update_time_pos)
     if options.mode % 2 == 1 then
         toggled = 3
