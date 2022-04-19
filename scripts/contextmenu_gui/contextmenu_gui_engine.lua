@@ -18,7 +18,7 @@ local opt = {
     tcltkBin = "tclsh",
     -- Default font to use for menus. A check should be done that the font used here
     -- will be accepted by the menu builder used.
-    fontFace = "微软雅黑",
+    fontFace = "黑体",
     fontSize = "10",
 }
 options.read_options(opt, "contextmenu_gui_engine")

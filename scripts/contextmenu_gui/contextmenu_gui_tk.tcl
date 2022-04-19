@@ -38,9 +38,9 @@ set RESP_CANCEL -1
 # since the styling doesn't seem to show for the tk_popup, except when checked. It's
 # important that a monospace font is used for the menu items to appear correctly.
 set boxCheck "\[V\] "
-set boxUncheck "\[  \] "
+set boxUncheck "\[ \] "
 set radioSelect "(V) "
-set radioEmpty "(  ) "
+set radioEmpty "( ) "
 set boxA "\[A\] "
 set boxB "\[B\] "
 # An empty prefix label that is spaces that count to the the same number of characters as
