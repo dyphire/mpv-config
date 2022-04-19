@@ -14,9 +14,9 @@ COMMIT_21 Sep 2020_f4c5da3e
 
 local categories = {
     prologue = "^[Pp]rologue/^[Ii]ntro",
-    opening = "^OP/ OP$/^OP:/^[Oo]pening/[Oo]pening$/^[Oo]pening:/[Oo]pening [Cc]redits",
-    ending = "^ED/ ED$/^ED:/^[Ee]nding/[Ee]nding$/^[Ee]nding:/[Ee]nding [Cc]redits",
-    credits = "^[Cc]redits/[Cc]redits$/^[Cc]redits:",
+    opening = "^OP/ OP$/^[Oo]pening/[Oo]pening$",
+    ending = "^ED/ ED$/^[Ee]nding/[Ee]nding$",
+    credits = "^[Cc]redits/[Cc]redits$",
     preview = "[Pp]review$"
 }
 
@@ -55,11 +55,7 @@ local skipped = {}
 local parsed = {}
 
 local function toggle_chapterskip()
-    if not options.enabled then
-        options.enabled = true 
-    elseif options.enabled then
-        options.enabled = false
-    end
+    options.enabled = not options.enabled
 end
 
 function chapterskip(_, current)
