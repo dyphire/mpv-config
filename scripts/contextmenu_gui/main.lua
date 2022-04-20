@@ -631,8 +631,7 @@ mp.register_event("file-loaded", function()
             {COMMAND, "下个文件", ">", "playlist-next;show-text 播放列表:${playlist-pos-1}/${playlist-count}", "", false},
             {COMMAND, "上一帧", ",", "frame-back-step;show-text 当前帧:${estimated-frame-number}", "", false},
             {COMMAND, "下一帧", ".", "frame-step;show-text 当前帧:${estimated-frame-number}", "", false},
-            {COMMAND, "后退5秒", "RIGHT", "seek -5", "", false},
-            {COMMAND, "前进5秒", "LEFT", "seek 5", "", false},
+            {CASCADE, "跳转", "seek_menu", "", "", false},
             {SEP},
             {CASCADE, "[外置脚本] 书签", "bookmarker_menu", "", "", false},
             {COMMAND, "[外置脚本] 自动跳过指定章节", "ALT+q", "script-message-to chapterskip chapter-skip;show-text 自动跳过指定章节", "", false},
@@ -646,6 +645,18 @@ mp.register_event("file-loaded", function()
         edition_menu = editionMenu(),
         chapter_menu = chapterMenu(),
 
+-- 三级菜单 —— 跳转
+        seek_menu = {
+            {COMMAND, "前进05秒", "LEFT", "seek 5", "", false},
+            {COMMAND, "后退05秒", "RIGHT", "seek -5", "", false},
+            {COMMAND, "前进60秒", "UP", "seek 60", "", false},
+            {COMMAND, "后退60秒", "DOWN", "seek -60", "", false},
+            {COMMAND, "精准前进01秒", "SHIFT+LEFT", "seek  1 exact", "", false},
+            {COMMAND, "精准后退01秒", "SHIFT+RIGHT", "seek -1 exact", "", false},
+            {COMMAND, "精准前进80秒", "SHIFT+UP", "seek  80 exact", "", false},
+            {COMMAND, "精准后退80秒", "SHIFT+DOWN", "seek -80 exact", "", false},
+        },
+        
 -- 三级菜单 —— 书签
         bookmarker_menu = {
             {COMMAND, "打开书签菜单", "N", "script-binding simplebookmark/open-list", "", false},
