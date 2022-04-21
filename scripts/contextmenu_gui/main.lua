@@ -584,8 +584,9 @@ mp.register_event("file-loaded", function()
 
 -- 二级菜单 —— 文件
         file_menu = {
-            {COMMAND, "停止", "F11", "stop", "", false},
             {CHECK, "播放/暂停", "SPACE", "cycle pause;show-text  暂停:${pause}", function() return propNative("pause") end, false},
+            {COMMAND, "停止", "F11", "stop", "", false},
+            {COMMAND, "重置播放中更改项", "R", "cycle-values reset-on-next-file all no vf,af,border,contrast,brightness,gamma,saturation,hue,video-zoom,video-rotate,video-pan-x,video-pan-y,panscan,speed,audio,sub,audio-delay,sub-pos,sub-scale,sub-delay,sub-speed,sub-visibility;show-text  播放下一个文件时重置以下选项:${reset-on-next-file}", "", false},
             {SEP},
             {COMMAND, "显示OSD时间轴", "O", "no-osd cycle-values osd-level 3 1", "", false},
             {RADIO, "开", "", "set osd-level 3", function() return stateOsdLevel(3) end, false},
@@ -631,8 +632,9 @@ mp.register_event("file-loaded", function()
             {COMMAND, "下个文件", ">", "playlist-next;show-text 播放列表:${playlist-pos-1}/${playlist-count}", "", false},
             {COMMAND, "上一帧", ",", "frame-back-step;show-text 当前帧:${estimated-frame-number}", "", false},
             {COMMAND, "下一帧", ".", "frame-step;show-text 当前帧:${estimated-frame-number}", "", false},
-            {CASCADE, "跳转", "seek_menu", "", "", false},
+            {CASCADE, "前进后退", "seek_menu", "", "", false},
             {SEP},
+            {CASCADE, "[外置脚本] 跳转", "undoredo_menu", "", "", false},
             {CASCADE, "[外置脚本] 书签", "bookmarker_menu", "", "", false},
             {COMMAND, "[外置脚本] 自动跳过指定章节", "ALT+q", "script-message-to chapterskip chapter-skip;show-text 自动跳过指定章节", "", false},
             {COMMAND, "[外置脚本] 跳到下一个静音位置 ", "F4", "script-message-to skiptosilence skip-to-silence;show-text 跳到下一个静音位置", "", false},
@@ -645,7 +647,7 @@ mp.register_event("file-loaded", function()
         edition_menu = editionMenu(),
         chapter_menu = chapterMenu(),
 
--- 三级菜单 —— 跳转
+-- 三级菜单 —— 前进后退
         seek_menu = {
             {COMMAND, "前进05秒", "LEFT", "seek 5", "", false},
             {COMMAND, "后退05秒", "RIGHT", "seek -5", "", false},
@@ -656,7 +658,14 @@ mp.register_event("file-loaded", function()
             {COMMAND, "精准前进80秒", "SHIFT+UP", "seek  80 exact", "", false},
             {COMMAND, "精准后退80秒", "SHIFT+DOWN", "seek -80 exact", "", false},
         },
-        
+ 
+-- 三级菜单 —— 跳转
+        undoredo_menu = {
+            {COMMAND, "撤消跳转", "CTRL+z", "script-binding undoredo/undo", "", false},
+            {COMMAND, "重做跳转", "CTRL+r", "script-binding undoredo/redo", "", false},
+            {COMMAND, "循环跳转", "CTRL+ALT+z", "script-binding undoredo/undoLoop", "", false},
+        },
+
 -- 三级菜单 —— 书签
         bookmarker_menu = {
             {COMMAND, "打开书签菜单", "N", "script-binding simplebookmark/open-list", "", false},
@@ -687,11 +696,11 @@ mp.register_event("file-loaded", function()
             {SEP},
             {CHECK, "自动ICC校色", "CTRL+I", "cycle icc-profile-auto;show-text  ICC自动校色:${icc-profile-auto}", function() return propNative("icc-profile-auto") end, false},
             {CHECK, "非线性色彩转换", "ALT+s", "cycle sigmoid-upscaling;show-text  非线性色彩转换:${sigmoid-upscaling}", function() return propNative("sigmoid-upscaling") end, false},
-            {COMMAND, "切换 色调映射模式", "CTRL+t", "cycle tone-mapping-mode;show-text  色调映射模式:${tone-mapping-mode}", "", false},
-            {COMMAND, "切换 色域剪切模式", "CTRL+g", "cycle gamut-mapping-mode;show-text  色域剪切方式:${gamut-mapping-mode}", "", false},
-            {COMMAND, "切换 gamma环境系数", "G", "cycle-values gamma-factor 1.1 1.2 1.0;show-text  gamma环境系数:${gamma-factor}", "", false},
-            {COMMAND, "切换 hdr映射曲线 ", "h", "cycle-values tone-mapping auto mobius reinhard hable bt.2390 gamma spline bt.2446a;show-text  hdr映射曲线:${tone-mapping}", "", false},
-            {COMMAND, "切换 hdr动态映射", "ALT+h", "cycle-values hdr-compute-peak yes no;show-text  hdr动态映射:${hdr-compute-peak}", "", false},
+            {COMMAND, "切换  gamma环境系数", "G", "cycle-values gamma-factor 1.1 1.2 1.0;show-text  gamma环境系数:${gamma-factor}", "", false},
+            {COMMAND, "切换  hdr映射曲线 ", "h", "cycle-values tone-mapping auto mobius reinhard hable bt.2390 gamma spline bt.2446a;show-text  hdr映射曲线:${tone-mapping}", "", false},
+            {COMMAND, "切换  hdr动态映射", "ALT+h", "cycle-values hdr-compute-peak yes no;show-text  hdr动态映射:${hdr-compute-peak}", "", false},
+            {COMMAND, "切换  色调映射模式", "CTRL+t", "cycle tone-mapping-mode;show-text  色调映射模式:${tone-mapping-mode}", "", false},
+            {COMMAND, "切换  色域剪切模式", "CTRL+g", "cycle gamut-mapping-mode;show-text  色域剪切方式:${gamut-mapping-mode}", "", false},
             {SEP},
             {COMMAND, "[外置脚本] 开/关 进度条预览", "CTRL+T", "cycle-values script-opts thumbnailer-auto_gen=no,thumbnailer-auto_show=no thumbnailer-auto_gen=yes,thumbnailer-auto_show=yes", "", false},
         },
@@ -720,8 +729,9 @@ mp.register_event("file-loaded", function()
             {CASCADE, "轨道", "vidtrack_menu", "", "", function() return inspectVidTrack() end},
             {SEP},
             {CASCADE, "解码模式", "hwdec_menu", "", "", false},
-            {COMMAND, "开/关 flip模式", "CTRL+f", "cycle d3d11-flip", "", false},
-            {COMMAND, "切换 帧同步模式", "CTRL+p", "cycle-values video-sync display-resample audio display-vdrop display-resample-vdrop;show-text  帧同步模式:${video-sync}", "", false},
+            {COMMAND, "开/关 flip模式", "CTRL+f", "cycle d3d11-flip;show-text flip模式:${d3d11-flip}", "", false},
+            {COMMAND, "开/关 兼容x264旧编码模式", "", "cycle vd-lavc-assume-old-x264;show-text 兼容x264旧编码模式:${vd-lavc-assume-old-x264}", "", false},
+            {COMMAND, "切换  帧同步模式", "CTRL+p", "cycle-values video-sync display-resample audio display-vdrop display-resample-vdrop;show-text 帧同步模式:${video-sync}", "", false},
             {CHECK, "抖动补偿", "ALT+i", "cycle interpolation;show-text  抖动补偿:${interpolation}", function() return propNative("interpolation") end, false},
             {COMMAND, "开/关 去黑边", "C", "script-message-to dynamic_crop toggle_crop", "", false},
             {CHECK, "去交错", "d", "cycle deinterlace;show-text  去交错:${deinterlace}", function() return propNative("deinterlace") end, false},
@@ -801,7 +811,7 @@ mp.register_event("file-loaded", function()
 -- 二级菜单 —— 音频
         audio_menu = {
             {CASCADE, "轨道", "audtrack_menu", "", "", false},
-            {COMMAND, "切换 音轨", "y", "cycle audio;show-text  音轨切换为:${audio}", "", false},
+            {COMMAND, "切换  音轨", "y", "cycle audio;show-text  音轨切换为:${audio}", "", false},
             {CHECK, "音频独占模式", "CTRL+y", "cycle audio-exclusive;show-text  音频独占模式:${audio-exclusive}", function() return propNative("audio-exclusive") end, false},
             {CHECK, "音频同步模式", "CTRL+Y", "cycle hr-seek-framedrop;show-text  音频同步模式:${hr-seek-framedrop}", function() return propNative("hr-seek-framedrop") end, false},
             {COMMAND, "多通道音轨调节各通道音", "F2", "cycle-values  af @audnorm:lavfi=[dynaudnorm=g=5:f=250:r=0.9:p=0.5] @dynnorm:lavfi=[loudnorm=I=-16:TP=-3:LRA=4] \"\"", "", false},
@@ -827,9 +837,9 @@ mp.register_event("file-loaded", function()
 -- 二级菜单 —— 字幕
         subtitle_menu = {
             {CASCADE, "轨道", "subtrack_menu", "", "", false},
-            {COMMAND, "切换 渲染样式", "u", "cycle sub-ass-override;show-text  字幕渲染样式:${sub-ass-override}", "", false},
-            {COMMAND, "切换 默认字体", "T", "cycle-values sub-font '思源黑体 Bold' '思源宋体 Bold' 思源黑体 思源宋体;show-text   使用字体:${sub-font}", "", false},
-            {COMMAND, "切换 字幕", "j", "cycle sub;show-text  字幕切换为:${sub}", "", false},
+            {COMMAND, "切换  渲染样式", "u", "cycle sub-ass-override;show-text  字幕渲染样式:${sub-ass-override}", "", false},
+            {COMMAND, "切换  默认字体", "T", "cycle-values sub-font '思源黑体 Bold' '思源宋体 Bold' 思源黑体 思源宋体;show-text   使用字体:${sub-font}", "", false},
+            {COMMAND, "切换  字幕", "j", "cycle sub;show-text  字幕切换为:${sub}", "", false},
             {COMMAND, "加载次字幕", "k", "cycle secondary-sid;show-text  加载次字幕:${secondary-sid}", "", false},
             {COMMAND, "开/关 字幕选择脚本", "Y", "script-message sub-select toggle", "", false},
             {COMMAND, "打开 字幕同步菜单", "CTRL+m", "script-message-to autosubsync autosubsync-menu", "", false},
@@ -854,9 +864,9 @@ mp.register_event("file-loaded", function()
 
 -- 三级菜单 —— 字幕兼容性
         sub_menu = {
-             {COMMAND, "切换 字体渲染方式", "F", "cycle sub-font-provider;show-text   字体渲染方式:${sub-font-provider}", "", false},
-             {COMMAND, "切换 字幕颜色转换方式", "J", "cycle sub-ass-vsfilter-color-compat;show-text  字幕颜色转换方式:${sub-ass-vsfilter-color-compat}", "", false},
-             {COMMAND, "切换 ass字幕阴影边框缩放", "X", "cycle-values sub-ass-force-style ScaledBorderAndShadow=no ScaledBorderAndShadow=yes;show-text   强制替换ass样式:${sub-ass-force-style}", "", false},
+             {COMMAND, "切换  字体渲染方式", "F", "cycle sub-font-provider;show-text   字体渲染方式:${sub-font-provider}", "", false},
+             {COMMAND, "切换  字幕颜色转换方式", "J", "cycle sub-ass-vsfilter-color-compat;show-text  字幕颜色转换方式:${sub-ass-vsfilter-color-compat}", "", false},
+             {COMMAND, "切换  ass字幕阴影边框缩放", "X", "cycle-values sub-ass-force-style ScaledBorderAndShadow=no ScaledBorderAndShadow=yes;show-text   强制替换ass样式:${sub-ass-force-style}", "", false},
              {CHECK, "vsfilter系兼容性", "V", "cycle sub-ass-vsfilter-aspect-compat;show-text   vsfilter系兼容性:${sub-ass-vsfilter-aspect-compat}", function() return propNative("sub-ass-vsfilter-aspect-compat") end, false},
              {CHECK, "blur标签缩放兼容性", "B", "cycle sub-ass-vsfilter-blur-compat;show-text   blur标签缩放兼容性:${sub-ass-vsfilter-blur-compat}", function() return propNative("sub-ass-vsfilter-blur-compat") end, false},
              {SEP},
@@ -929,29 +939,29 @@ mp.register_event("file-loaded", function()
 
 -- 二级菜单 —— 配置组
         profile_menu = {
-            {COMMAND, "切换 Normal配置", "ALT+1", "apply-profile Normal;show-text Normal", "", false},
-            {COMMAND, "切换 Normal+配置", "ALT+2", "apply-profile Normal+;show-text Normal+", "", false},
-            {COMMAND, "切换 Anime配置", "ALT+3", "apply-profile Anime;show-text Anime", "", false},
-            {COMMAND, "切换 Anime+配置", "ALT+4", "apply-profile Anime+;show-text Anime+", "", false},
-            {COMMAND, "切换 Ravu配置", "", "apply-profile ravu;show-text ravu", "", false},
-            {COMMAND, "切换 Ravu-zoom配置", "", "apply-profile ravu-zoom;show-text ravu-zoom", "", false},
-            {COMMAND, "切换 Ravu-lite配置", "", "apply-profile ravu-lite;show-text ravu-lite", "", false},
-            {COMMAND, "切换 Ravu-3x配置", "ALT+5", "apply-profile ravu-3x;show-text ravu-3x", "", false},
-            {COMMAND, "切换 ACNet配置", "ALT+6", "apply-profile ACNet;show-text ACNet", "", false},
-            {COMMAND, "切换 ACNet+配置", "", "apply-profile ACNet+;show-text ACNet+", "", false},
-            {COMMAND, "切换 Anime4K配置", "ALT+7", "apply-profile Anime4K;show-text Anime4K", "", false},
-            {COMMAND, "切换 Anime4K+配置", "", "apply-profile Anime4K+;show-text Anime4K+", "", false},
-            {COMMAND, "切换 NNEDI3配置", "ALT+8", "apply-profile NNEDI3;show-text NNEDI3", "", false},
-            {COMMAND, "切换 AMD-FSR_EASU配置", "ALT+9", "apply-profile AMD-FSR_EASU;show-text AMD-FSR_EASU", "", false},
-            {COMMAND, "切换 Blur2Sharpen配置", "ALT+0", "apply-profile Blur2Sharpen;show-text Blur2Sharpen", "", false},
-            {COMMAND, "切换 SSIM配置", "", "apply-profile SSIM;show-text SSIM", "", false},
+            {COMMAND, "切换  Normal配置", "ALT+1", "apply-profile Normal;show-text Normal", "", false},
+            {COMMAND, "切换  Normal+配置", "ALT+2", "apply-profile Normal+;show-text Normal+", "", false},
+            {COMMAND, "切换  Anime配置", "ALT+3", "apply-profile Anime;show-text Anime", "", false},
+            {COMMAND, "切换  Anime+配置", "ALT+4", "apply-profile Anime+;show-text Anime+", "", false},
+            {COMMAND, "切换  Ravu配置", "", "apply-profile ravu;show-text ravu", "", false},
+            {COMMAND, "切换  Ravu-zoom配置", "", "apply-profile ravu-zoom;show-text ravu-zoom", "", false},
+            {COMMAND, "切换  Ravu-lite配置", "", "apply-profile ravu-lite;show-text ravu-lite", "", false},
+            {COMMAND, "切换  Ravu-3x配置", "ALT+5", "apply-profile ravu-3x;show-text ravu-3x", "", false},
+            {COMMAND, "切换  ACNet配置", "ALT+6", "apply-profile ACNet;show-text ACNet", "", false},
+            {COMMAND, "切换  ACNet+配置", "", "apply-profile ACNet+;show-text ACNet+", "", false},
+            {COMMAND, "切换  Anime4K配置", "ALT+7", "apply-profile Anime4K;show-text Anime4K", "", false},
+            {COMMAND, "切换  Anime4K+配置", "", "apply-profile Anime4K+;show-text Anime4K+", "", false},
+            {COMMAND, "切换  NNEDI3配置", "ALT+8", "apply-profile NNEDI3;show-text NNEDI3", "", false},
+            {COMMAND, "切换  AMD-FSR_EASU配置", "ALT+9", "apply-profile AMD-FSR_EASU;show-text AMD-FSR_EASU", "", false},
+            {COMMAND, "切换  Blur2Sharpen配置", "ALT+0", "apply-profile Blur2Sharpen;show-text Blur2Sharpen", "", false},
+            {COMMAND, "切换  SSIM配置", "", "apply-profile SSIM;show-text SSIM", "", false},
             {SEP},
-            {COMMAND, "切换 ICC配置", "", "apply-profile ICC;show-text ICC", "", false},
-            {COMMAND, "切换 ICC+配置", "", "apply-profile ICC+;show-text ICC+", "", false},
-            {COMMAND, "切换 Target配置", "", "apply-profile Target;show-text Target", "", false},
-            {COMMAND, "切换 DeBand-low配置", "ALT+1", "apply-profile DeBand-low;show-text DeBand-low", "", false},
-            {COMMAND, "切换 DeBand-mediu配置", "ALT+d", "apply-profile DeBand-medium;show-text DeBand-medium", "", false},
-            {COMMAND, "切换 DeBand-high配置", "ALT+D", "apply-profile DeBand-high;show-text DeBand-high", "", false},
+            {COMMAND, "切换  ICC配置", "", "apply-profile ICC;show-text ICC", "", false},
+            {COMMAND, "切换  ICC+配置", "", "apply-profile ICC+;show-text ICC+", "", false},
+            {COMMAND, "切换  Target配置", "", "apply-profile Target;show-text Target", "", false},
+            {COMMAND, "切换  DeBand-low配置", "ALT+1", "apply-profile DeBand-low;show-text DeBand-low", "", false},
+            {COMMAND, "切换  DeBand-mediu配置", "ALT+d", "apply-profile DeBand-medium;show-text DeBand-medium", "", false},
+            {COMMAND, "切换  DeBand-high配置", "ALT+D", "apply-profile DeBand-high;show-text DeBand-high", "", false},
         },
 
 -- 二级菜单 —— 关于
