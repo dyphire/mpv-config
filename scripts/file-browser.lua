@@ -251,12 +251,12 @@ end
 
 --returns the file extension of the given file
 local function get_extension(filename, def)
-    return string.lower(filename):match("%.([^%./]+)$") or def
+    return filename:lower():match("%.([^%./]+)$") or def
 end
 
 --returns the protocol scheme of the given url, or nil if there is none
 local function get_protocol(filename, def)
-    return string.lower(filename):match("^(%a%w*)://") or def
+    return filename:lower():match("^(%a%w*)://") or def
 end
 
 --formats strings for ass handling
@@ -481,8 +481,8 @@ function parser_mt:get_index() return parser_index[self] end
 function parser_mt:get_id() return parser_ids[self] end
 
 --register file extensions which can be opened by the browser
-function API_mt.register_parseable_extension(ext) parseable_extensions[string.lower(ext)] = true end
-function API_mt.remove_parseable_extension(ext) parseable_extensions[string.lower(ext)] = nil end
+function API_mt.register_parseable_extension(ext) parseable_extensions[ext:lower()] = true end
+function API_mt.remove_parseable_extension(ext) parseable_extensions[ext:lower()] = nil end
 
 --add a compatible extension to show through the filter, only applies if run during the setup() method
 function API_mt.add_default_extension(ext) table.insert(compatible_file_extensions, ext) end
@@ -1500,44 +1500,44 @@ local function setup_extensions_list()
 
     --adding file extensions to the set
     for i=1, #compatible_file_extensions do
-        extensions[string.lower(compatible_file_extensions[i])] = true
+        extensions[compatible_file_extensions[i]] = true
     end
 
     --setting up subtitle extensions
     for i = 1, #subtitle_extensions do
-        extensions[string.lower(subtitle_extensions[i])] = true
-        sub_extensions[string.lower(subtitle_extensions[i])] = true
+        extensions[subtitle_extensions[i]] = true
+        sub_extensions[subtitle_extensions[i]] = true
     end
 
     --setting up audio extensions
     for i = 1, #audio_extension_list do
-        extensions[string.lower(audio_extension_list[i])] = true
-        audio_extensions[string.lower(audio_extension_list[i])] = true
+        extensions[audio_extension_list[i]] = true
+        audio_extensions[audio_extension_list[i]] = true
     end
 
     --adding extra extensions on the whitelist
-    for str in string.gmatch(o.extension_whitelist, "([^"..pattern_escape(o.root_seperators).."]+)") do
-        extensions[string.lower(str)] = true
+    for str in string.gmatch(o.extension_whitelist:lower(), "([^"..pattern_escape(o.root_seperators).."]+)") do
+        extensions[str] = true
     end
 
     --removing extensions that are in the blacklist
-    for str in string.gmatch(o.extension_blacklist, "([^"..pattern_escape(o.root_seperators).."]+)") do
-        extensions[string.lower(str)] = nil
+    for str in string.gmatch(o.extension_blacklist:lower(), "([^"..pattern_escape(o.root_seperators).."]+)") do
+        extensions[str] = nil
     end
 
     --adding extra audio extensions on the whitelist
-    for str in string.gmatch(o.audio_extension_whitelist, "([^"..pattern_escape(o.root_seperators).."]+)") do
-        audio_extensions[string.lower(str)] = true
+    for str in string.gmatch(o.audio_extension_whitelist:lower(), "([^"..pattern_escape(o.root_seperators).."]+)") do
+        audio_extensions[str] = true
     end
 
     --removing audio extensions that are in the blacklist
-    for str in string.gmatch(o.audio_extension_blacklist, "([^"..pattern_escape(o.root_seperators).."]+)") do
-        audio_extensions[string.lower(str)] = nil
+    for str in string.gmatch(o.audio_extension_blacklist:lower(), "([^"..pattern_escape(o.root_seperators).."]+)") do
+        audio_extensions[str] = nil
     end
 
     --adding extra sub extensions on the whitelist
-    for str in string.gmatch(o.sub_extension_whitelist, "([^"..pattern_escape(o.root_seperators).."]+)") do
-        sub_extensions[string.lower(str)] = true
+    for str in string.gmatch(o.sub_extension_whitelist:lower(), "([^"..pattern_escape(o.root_seperators).."]+)") do
+        sub_extensions[str] = true
     end
 end
 
