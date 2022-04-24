@@ -326,7 +326,7 @@ end
 
 local function valid_file(file)
     if o.filter_dot_files and (file:sub(1,1) == ".") then return false end
-    if o.filter_files and not extensions[get_extension(file, "") ] then return false end
+    if o.filter_files and not extensions[ get_extension(file, "") ] then return false end
     return true
 end
 
