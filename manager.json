@@ -6,12 +6,6 @@
     "branch":"local-repo-support"
   },
   {
-    "git":"https://github.com/dyphire/mpv",
-    "whitelist":"ytdl%_hook%.lua$",
-    "dest":"~~/scripts",
-    "branch":"tests"
-  },
-  {
     "git":"https://gist.github.com/CyberShadow/2f71a97fb85ed42146f6d9f522bc34ef",
     "whitelist":"%.lua$",
     "dest":"~~/scripts"
@@ -43,15 +37,52 @@
     "branch":"main"
   },
   {
-    "git":"https://github.com/snylonue/mpv_slicing_copy",
-    "whitelist":"%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
-    "git":"https://github.com/DonCanjas/mpv-webp-generator",
-    "whitelist":"mpv%-webp%.lua$",
+    "git":"https://github.com/stax76/mpv-scripts",
+    "whitelist":"delete%-current%-file%.lua$",
     "dest":"~~/scripts",
     "branch":"main"
+  },
+  {
+    "git":"https://github.com/dyphire/mpv-file-browser",
+    "whitelist":"file%-browser%.lua$",
+    "dest":"~~/scripts",
+    "branch":"dev"
+  },
+  {
+    "git":"https://github.com/dyphire/chapterskip",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts",
+    "branch":"dev"
+  },
+  {
+    "git":"https://github.com/dyphire/autosubsync-mpv",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts/autosubsync",
+    "branch":"v0.33_CM"
+  },
+  {
+    "git":"https://github.com/dyphire/mpv_slicing_copy",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts",
+    "branch":"patch-1"
+  },
+  {
+    "git":"https://github.com/dyphire/mpv-webp-generator",
+    "whitelist":"mpv%-webp%.lua$",
+    "dest":"~~/scripts",
+    "branch":"patch-1"
+  },
+  {
+    "git":"https://github.com/dyphire/mpv-locatefile-lua-script",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts",
+    "branch":"patch-1"
+  },
+  {
+    "git":"https://github.com/dyphire/mpv-youtube-quality",
+    "whitelist":"youtube%-quality%.lua$",
+    "dest":"~~/scripts",
+    "branch":"dev"
   },
   {
     "git":"https://github.com/cvzi/mpv-youtube-download",
@@ -67,11 +98,6 @@
   {
     "git":"https://github.com/Eisa01/mpv-scripts",
     "whitelist":"undoredo%.lua$|simplehistory%.lua$|simplebookmark%.lua$|smartcopypaste_*%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
-    "git":"https://github.com/zenyd/mpv-scripts",
-    "whitelist":"delete%_file%.lua$",
     "dest":"~~/scripts"
   },
   {
