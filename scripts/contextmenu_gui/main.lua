@@ -601,15 +601,9 @@ mp.register_event("file-loaded", function()
             {COMMAND, "倍速", "}", "set speed 2;show-text  倍速播放:${speed}", "", false},
             {COMMAND, "重置速度", "BS", "set speed 1;show-text  重置播放速度:${speed}", "", false},
             {SEP},
-            {CASCADE, "[外置脚本] 删除文件", "del_menu", "", "", false},
+            {COMMAND, "[外置脚本] 定位当前文件", "ALT+o", "script_message-to locatefile locate-current-file", "", false},
+            {COMMAND, "[外置脚本] 删除当前文件", "CTRL+DEL", "script-message-to delete_current_file delete_file 1 '请按1确认删除'", "", false},
             {CASCADE, "[外置脚本] Youtube-dl菜单", "ytdl_menu", "", "", false},
-        },
-
--- 三级菜单 —— 删除文件
-        del_menu = {
-            {COMMAND, "标记/取消", "CTRL+DEL", "script-message delete_file", "", false},
-            {COMMAND, "显示删除列表", "ALT+DEL", "script-message list_marks", "", false},
-            {COMMAND, "清除删除列表", "CTRL+SHIFT+DEL", "script-message clear_list", "", false},
         },
 
 -- 三级菜单 —— Youtube-dl菜单

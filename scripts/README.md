@@ -15,13 +15,14 @@
 | copy_subortime.lua | 复制当前字幕内容或播放时间 |
 | cycle_adevice.lua | 快捷键切换音频输出设备 |
 | cycle-commands.lua | 快捷键循环切换命令，使用方法见脚本内说明 |
-| delete_file.lua | 退出时删除标记文件 |
+| delete-current-file.lua | 删除当前文件 |
 | dynamic-crop.lua | 自动检测黑边并裁切（[autocrop.lua](https://github.com/mpv-player/mpv/blob/master/TOOLS/lua/autocrop.lua) 改进版；配置文件 [dynamic_crop.conf](../script-opts/dynamic_crop.conf)） |
 | display-profiles.lua | 实现mpv窗口按显示器自动切换参数及配置文件，详见脚本内说明 |
 | editions-notification.lua | 如果检测到播放文件存在多个edition则在OSD上提示 |
 | file-browser.lua | 内置文件浏览器（依赖 [user-input.lua](../scripts/user-input.lua); [user-input-module.lua](../script-modules/user-input-module.lua) ；配置文件 [file_browser.conf](../script-opts/file_browser.conf)） |
 | fuzzydir.lua | 外挂音轨/字幕路径检测增强（配置文件 [fuzzydir.conf](../script-opts/fuzzydir.conf)） |
 | history-bookmark.lua | 记录并恢复视频目录播放记录（可确认是否恢复该目录上次播放进度; 配置文件 [history_bookmark.conf](../script-opts/history_bookmark.conf)） |
+| locatefile.lua | 定位当前文件 |
 | manager.lua | 一键更新指定脚本和着色器（配置文件 [manager.json](../manager.json)） |
 | mpv-webp.lua | 剪切指定片段为 webp 动图（依赖 ffmpeg；配置文件 [webp.conf](../script-opts/webp.conf)） |
 | open_dialog.lua | 快捷键载入文件/网址/其他字幕或音轨/高级次字幕                  |
@@ -42,11 +43,11 @@
 | trackselect.lua               | 指定音频轨道优先级/黑白名单（配置文件 [trackselect.conf](../script-opts/trackselect.conf)） |
 | undoredo.lua                  | 智能跳跃记录操作                                             |
 | ytdl_hook.lua                  | 修改版ytdl_hook脚本，修复部分使用场景（依赖yt-dlp/youtube-dl; 配置文件 [ytdl_hook.conf](../script-opts/ytdl_hook.conf)） |
-| youtube_quality.lua | ytdl选择视频/音频质量的菜单脚本（依赖yt-dlp/youtube-dl; 配置文件 [youtube_quality.conf](../script-opts/youtube_quality.conf)） |
+| youtube-quality.lua | ytdl选择视频/音频质量的菜单脚本（依赖yt-dlp/youtube-dl; 配置文件 [youtube-quality.conf](../script-opts/youtube-quality.conf)） |
 | youtube-download.lua | ytdl下载视频/音频/字幕/片段的脚本（依赖yt-dlp/youtube-dl和ffmpeg; 配置文件 [youtube-download.conf](../script-opts/youtube-download.conf)） |
 | autosubsync（组）         | 字幕同步菜单（依赖ffmpeg, [ffsubsync](https://github.com/smacke/ffsubsync) or [alass](https://github.com/dyphire/alass) or both; 配置文件 [autosubsync.conf](../script-opts/autosubsync.conf)） |
 | contextmenu_gui（组）         | 图形化右键菜单（依赖tclkit，上游说明：https://github.com/hooke007/MPV_lazy/discussions/60; 配置文件 [contextmenu_gui.conf](../script-opts/contextmenu_gui.conf)） |
-1. 部分脚本为**个人修改版本**，主要改进功能实现或键位绑定方式。如：autosubsync（组）; contextmenu_gui（组）; autoload.lua; chapter_list.lua; chapterskip.lua; channel_mixer.lua; copy_subortime.lua; cycle_adevice.lua; editions-notification.lua; file-browser.lua; fuzzydir.lua; history-bookmark.lua; open_dialog.lua; persist_properties.lua; skiptosilence.lua; trackselect.lua; thumbnailer*.lua; ytdl_hook.lua; youtube_quality.lua
+1. 部分脚本为**个人修改版本**，主要改进功能实现或键位绑定方式。如：autosubsync（组）; contextmenu_gui（组）; autoload.lua; chapter_list.lua; chapterskip.lua; channel_mixer.lua; copy_subortime.lua; cycle_adevice.lua; editions-notification.lua; file-browser.lua; fuzzydir.lua; history-bookmark.lua; locatefile.lua; mpv-webp.lua; open_dialog.lua; persist_properties.lua; slicing_copy.lua; skiptosilence.lua; trackselect.lua; thumbnailer*.lua; ytdl_hook.lua; youtube-quality.lua
 2. 所有脚本预绑定的`mp.add_key_binding`静态键位已被 [mpv.conf](../mpv.conf) 中的`input-default-bindings=no`参数屏蔽，可查看 [input.conf](../input.conf)  的"LUA 脚本"部分示例参考绑定所需键位  
    - 本配置绑定的快捷键及功能请参考 [快捷键说明.md](../快捷键说明.md) 文件
 3. 部分脚本存在动态绑定键位，可查看对应脚本及配置文件相关部分（或[快捷键.md](../快捷键.md)中相关说明）

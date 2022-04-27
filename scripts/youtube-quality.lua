@@ -5,6 +5,11 @@
 --
 -- Change youtube video quality on the fly.
 --
+-- Usage:
+-- add bindings to input.conf:
+-- CTRL+f   script-message-to youtube_quality quality-menu-video
+-- ALT+f    script-message-to youtube_quality quality-menu-audio
+--
 -- Displays a menu that lets you switch to different ytdl-format settings while
 -- you're in the middle of a video (just like you were using the web player).
 --
@@ -72,7 +77,7 @@ local opts = {
     --if file was opened previously, reset to previously selected format
     reset_format = true,
 }
-(require 'mp.options').read_options(opts)
+(require 'mp.options').read_options(opts, "youtube-quality")
 opts.quality_strings = utils.parse_json(opts.quality_strings)
 
 local destroyer = nil
@@ -230,7 +235,7 @@ function show_menu(isvideo)
 end
 
 local ytdl = {
-    path = "yt-dlp",
+    path = opts.ytdl_ver,
     searched = false,
     blacklisted = {}
 }
@@ -278,7 +283,7 @@ function download_formats()
     mp.osd_message("fetching available formats with youtube-dl...", 60)
 
     if not (ytdl.searched) then
-        local ytdl_mcd = mp.find_config_file("yt-dlp")
+        local ytdl_mcd = mp.find_config_file(opts.ytdl_ver)
         if not (ytdl_mcd == nil) then
             msg.verbose("found youtube-dl at: " .. ytdl_mcd)
             ytdl.path = ytdl_mcd
