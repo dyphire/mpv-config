@@ -2188,7 +2188,8 @@ function get_clipboard()
 					if (-not $clip) {
 						$clip = Get-Clipboard -Raw -Format FileDropList
 					}
-					Write-Output $clip
+					$u8clip = [System.Text.Encoding]::UTF8.GetBytes($clip)
+					[Console]::OpenStandardOutput().Write($u8clip, 0, $u8clip.Length)
 				}]]
 			}
 			return handleres(utils.subprocess({ args =  args, cancellable = false }), args)

@@ -8,9 +8,10 @@
 
 require 'mp.options'
 local msg = require 'mp.msg'
+local utils = require "mp.utils"
 
 local options = {
-    dir = "C:/Users/%USERNAME%/Desktop/",
+    dir = "~~desktop/",
     rez = 600,
     fps = 15,
     lossless = 0,
@@ -36,7 +37,16 @@ end
 filters=string.format("fps=%s,zscale='trunc(ih*dar/2)*2:trunc(ih/2)*2':f=spline36,setsar=1/1,zscale=%s:-1:f=spline36", fps, options.rez)  
 
 -- Setup output directory
-output_directory=options.dir
+local output_directory = mp.command_native({ "expand-path", options.dir })
+  --create output_directory if it doesn't exist
+if utils.readdir(output_directory) == nil then
+    local args = { 'powershell', '-NoProfile', '-Command', 'mkdir', output_directory }
+    local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})
+    if res.status ~= 0 then
+        msg.error("Failed to create webp_dir save directory "..output_directory..". Error: "..(res.error or "unknown"))
+        return
+    end
+end
 
 start_time = -1
 end_time = -1
@@ -81,6 +91,8 @@ function make_webp_internal(burn_subtitles)
         s = string.gsub(s, '"', '"\\""')
         s = string.gsub(s, ":", [[\\:]])
         s = string.gsub(s, "'", [[\\']])
+        s = string.gsub(s, "%[", "\\%[")
+        s = string.gsub(s, "%]", "\\%]")
         return s
     end
 
@@ -132,11 +144,11 @@ function make_webp_internal(burn_subtitles)
 
     -- make the webp
     local filename = mp.get_property("filename/no-ext")
-    local file_path = output_directory .. filename
+    local file_path = output_directory .. "/" .. filename
 
     -- increment filename
     for i=0,999 do
-        local fn = string.format('%s_%03d.webp',file_path,i)
+        local fn = string.format('%s_%03d.webp', file_path, i)
         if not file_exists(fn) then
             webpname = fn
             break

@@ -2223,7 +2223,7 @@ function add_load_slot(key_index)
 					end
 					if o.keybinds_auto_resume then
 						if o.osd_messages == true then
-							mp.osd_message('Loaded slot:' .. o.keybinds_seperator .. get_slot_keybind(slotKeyIndex) .. '\n' .. fileTitle .. o.time_seperator .. format_time(seekTime))
+							mp.osd_message('Loaded slot:' .. o.keybinds_seperator .. get_slot_keybind(slotKeyIndex) .. '\n' .. fileTitle .. o.time_seperator .. format_time(seekTime, o.osd_time_format[3], o.osd_time_format[2], o.osd_time_format[1]))
 						end
 						msg.info('Loaded slot:' .. o.keybinds_seperator .. get_slot_keybind(slotKeyIndex) .. '\n' .. fileTitle .. o.time_seperator .. format_time(seekTime))						
 					else
@@ -2248,7 +2248,7 @@ function add_load_slot(key_index)
 							write_log(false, true)
 						end
 						if o.osd_messages == true then
-							mp.osd_message('Bookmarked & Added Keybind:\n' .. fileTitle .. o.time_seperator .. format_time(seekTime) .. o.keybinds_seperator .. get_slot_keybind(slotKeyIndex))
+							mp.osd_message('Bookmarked & Added Keybind:\n' .. fileTitle .. o.time_seperator .. format_time(seekTime, o.osd_time_format[3], o.osd_time_format[2], o.osd_time_format[1]) .. o.keybinds_seperator .. get_slot_keybind(slotKeyIndex))
 						end
 						msg.info('Bookmarked the below & added keybind:\n' .. fileTitle .. o.time_seperator .. format_time(seekTime) .. o.keybinds_seperator .. get_slot_keybind(slotKeyIndex))
 					else
@@ -2291,7 +2291,7 @@ function quicksave_slot(key_index)
 			else
 				write_log(false, true, true)
 				if o.osd_messages == true then
-					mp.osd_message('Bookmarked & Added Keybind:\n' .. fileTitle .. o.time_seperator .. format_time(seekTime) .. o.keybinds_seperator .. get_slot_keybind(slotKeyIndex))
+					mp.osd_message('Bookmarked & Added Keybind:\n' .. fileTitle .. o.time_seperator .. format_time(seekTime, o.osd_time_format[3], o.osd_time_format[2], o.osd_time_format[1]) .. o.keybinds_seperator .. get_slot_keybind(slotKeyIndex))
 				end
 				msg.info('Bookmarked the below & added keybind:\n' .. fileTitle .. o.time_seperator .. format_time(seekTime) .. o.keybinds_seperator .. get_slot_keybind(slotKeyIndex))
 			end
@@ -2313,7 +2313,7 @@ function bookmark_save()
 			select(0)
 		end
 		if o.osd_messages == true then
-			mp.osd_message('Bookmarked:\n' .. fileTitle .. o.time_seperator .. format_time(seekTime))
+			mp.osd_message('Bookmarked:\n' .. fileTitle .. o.time_seperator .. format_time(seekTime, o.osd_time_format[3], o.osd_time_format[2], o.osd_time_format[1]))
 		end
 		msg.info('Added the below to bookmarks\n' .. fileTitle .. o.time_seperator .. format_time(seekTime))
 	elseif filePath == nil and o.bookmark_loads_last_idle then
