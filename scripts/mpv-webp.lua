@@ -6,17 +6,25 @@
 -- Adapted from https://github.com/Scheliux/mpv-gif-generator
 -- Usage: "w" to set start frame, "W" to set end frame, "Ctrl+w" to create.
 
+--  Note:
+--     Requires FFmpeg in PATH environment variable or edit ffmpeg_path in the script options,
+--     for example, by replacing "ffmpeg" with "C:\Programs\ffmpeg\bin\ffmpeg.exe"
+--  Note: 
+--     A small circle at the top-right corner is a sign that creat is happenning now.
+
 require 'mp.options'
 local msg = require 'mp.msg'
 local utils = require "mp.utils"
 
 local options = {
+    ffmpeg_path = "ffmpeg",
     dir = "~~desktop/",
     rez = 600,
     fps = 15,
     lossless = 0,
     quality = 90,
     compression_level = 6,
+    loop = 0,
 }
 
 read_options(options, "webp")
@@ -38,7 +46,7 @@ filters=string.format("fps=%s,zscale='trunc(ih*dar/2)*2:trunc(ih/2)*2':f=spline3
 
 -- Setup output directory
 local output_directory = mp.command_native({ "expand-path", options.dir })
-  --create output_directory if it doesn't exist
+--create output_directory if it doesn't exist
 if utils.readdir(output_directory) == nil then
     local args = { 'powershell', '-NoProfile', '-Command', 'mkdir', output_directory }
     local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})
@@ -50,11 +58,6 @@ end
 
 start_time = -1
 end_time = -1
-
--- The roundabout way has to be used due to a some weird
--- behavior with %TEMP% on the subtitles= parameter in ffmpeg
--- on Windows–it needs to be quadruple backslashed
-subs = "C:/Users/%USERNAME%/AppData/Local/Temp/subs.srt"
 
 function make_webp_with_subtitles()
     make_webp_internal(true)
@@ -79,13 +82,10 @@ function make_webp_internal(burn_subtitles)
         return
     end
 
+    msg.info("Creating webP.")
     mp.osd_message("Creating webP.")
 
     -- shell escape
-    function esc(s)
-        return string.gsub(s, '"', '"\\""')
-    end
-
     function esc_for_sub(s)
         s = string.gsub(s, [[\]], [[/]])
         s = string.gsub(s, '"', '"\\""')
@@ -97,7 +97,7 @@ function make_webp_internal(burn_subtitles)
     end
 
     local pathname = mp.get_property("path", "")
-    local trim_filters = esc(filters)
+    local trim_filters = filters
 
     local position = start_time_l
     local duration = end_time_l - start_time_l
@@ -114,12 +114,19 @@ function make_webp_internal(burn_subtitles)
         while i < tracks_count do
             local type = mp.get_property(string.format("track-list/%d/type", i))
             local selected = mp.get_property(string.format("track-list/%d/selected", i))
+            local external = mp.get_property(string.format("track-list/%d/external", i))
 
             -- if it's a sub track, save it
 
             if type == "sub" then
                 local length = table_length(subs_array)
-                subs_array[length] = selected == "yes"
+                if selected == "yes" and external == "yes" then
+                    msg.info("Error: external subtitles have been selected")
+                    mp.osd_message("Error: external subtitles have been selected", 2)
+                    return
+                else
+                    subs_array[length] = selected == "yes"
+                end
             end
             i = i + 1
         end
@@ -136,7 +143,7 @@ function make_webp_internal(burn_subtitles)
                 end
             end
 
-            trim_filters = trim_filters .. string.format(",subtitles=%s:si=%s", esc_for_sub(pathname), correct_track)
+            trim_filters = trim_filters .. string.format(",subtitles='%s':si=%s", esc_for_sub(pathname), correct_track)
 
         end
 
@@ -165,9 +172,17 @@ function make_webp_internal(burn_subtitles)
         copyts = "-copyts"
     end
 
-    args = string.format('ffmpeg -ss %s %s -t %s -i "%s" -lavfi "%s" -lossless "%s" -q:v "%s" -compression_level "%s" -y "%s"', position, copyts, duration, esc(pathname), esc(trim_filters), options.lossless, options.quality, options.compression_level, esc(webpname))
-    os.execute(args)
-
+    cmd = string.format("%s -y -hide_banner -loglevel error -ss %s %s -t %s -i '%s' -lavfi %s -lossless %s -q:v %s -compression_level %s -loop %s '%s'", options.ffmpeg_path, position, copyts, duration, pathname, trim_filters, options.lossless, options.quality, options.compression_level, options.loop, webpname)
+    args =  { 'powershell', '-NoProfile', '-Command', cmd }
+    local screenx, screeny, aspect = mp.get_osd_size()
+    mp.set_osd_ass(screenx, screeny, "{\\an9}● ")
+    local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})
+    mp.set_osd_ass(screenx, screeny, "")
+    if res.status ~= 0 then
+        msg.info("Failed to creat webP.")
+        mp.osd_message("Error creating webP, check console for more info.")
+        return
+    end
     msg.info("webP created.")
     mp.osd_message("webP created.")
 end

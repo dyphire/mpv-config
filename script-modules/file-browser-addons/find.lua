@@ -14,7 +14,9 @@ local msg = require "mp.msg"
 local browser = require "file-browser"
 local input = require "user-input-module"
 
-local find = {}
+local find = {
+    version = "1.0.0"
+}
 local latest_coroutine = nil
 
 local function compare(name, query)
@@ -40,7 +42,7 @@ local function main(key, state, co)
     coroutine.yield()
 
     if not query then return msg.debug(error) end
-    if browser.get_directory() ~= state.directory then msg.warn("directory changed - find aborted") end
+    if browser.get_directory() ~= state.directory then return msg.warn("directory changed - find aborted") end
 
     if key.name == "find/find" then
         query = browser.pattern_escape(query)

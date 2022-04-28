@@ -1,53 +1,84 @@
 --[[
-    An addon for mpv-file-browser which adds support for m3u playlists
+    An addon for mpv-file-browser which uses powershell commands to parse native directories
 
-    If the first entry of a playlist isn't working it is because some playlists are created with random invisible unicode in the first line
-    Vim makes it easy to detect these
-
-    This addon requires that my API mpv-read-file be available in ~~/script-modules/
-    https://github.com/CogentRedTester/mpv-read-file
+    This is slower than the default parser for local drives, but faster for network drives
+    The drive_letters array below is used to list the drives to use this parser for
 ]]--
 
-local rf = require "read-file"
-
-local m3u = {
-    priority = 100,
-    name = "m3u"
+--list the drive letters to use here (case sensitive)
+local drive_letters = {
+    "Y", "Z"
 }
 
-local full_paths = {}
+local mp = require "mp"
+local msg = require "mp.msg"
 
-function m3u:setup()
-    self.register_parseable_extension("m3u")
-    self.register_parseable_extension("m3u8")
+local wn = {
+    priority = 109,
+    version = "1.0.0",
+    name = "powershell",
+    keybind_name = "file"
+}
+
+local drives = {}
+for _, letter in ipairs(drive_letters) do
+    drives[letter] = true
 end
 
-function m3u:can_parse(directory)
-    return directory:find("m3u8?/?$")
+local function command(args, parse_state)
+    local co = coroutine.running()
+    local cmd = nil
+    mp.command_native_async({
+        name = "subprocess",
+        playback_only = false,
+        capture_stdout = true,
+        capture_stderr = true,
+        args = args
+    }, function(_, res)
+        coroutine.resume_err(co, res)
+    end)
+    if parse_state then cmd = parse_state:yield()
+    else cmd = coroutine.yield() end
+
+    return cmd.status == 0 and cmd.stdout or nil, cmd.stderr
 end
 
-function m3u:parse(directory)
-    directory = directory:gsub("/$", "")
+function wn:can_parse(directory)
+    return not self.get_protocol(directory) and drives[ directory:sub(1,1) ]
+end
+
+function wn:parse(directory, parse_state)
     local list = {}
+    local files, err = command({"powershell", "-noprofile", "-command", [[
+        $dirs = Get-ChildItem -LiteralPath ]]..string.format("%q", directory)..[[ -Directory
+        $files = Get-ChildItem -LiteralPath ]]..string.format("%q", directory)..[[ -File
 
-    local path = full_paths[ directory ] or directory
-    local playlist = rf.get_file_handler( path )
+        foreach ($n in $dirs.Name) {
+            $n += "/"
+            $u8clip = [System.Text.Encoding]::UTF8.GetBytes($n)
+            [Console]::OpenStandardOutput().Write($u8clip, 0, $u8clip.Length)
+            Write-Host ""
+        }
 
-    --if we can't read the path then stop here
-    if not playlist then return {}, {sorted = true, filtered = true, empty_text = "Could not read filepath"} end
+        foreach ($n in $files.Name) {
+            $u8clip = [System.Text.Encoding]::UTF8.GetBytes($n)
+            [Console]::OpenStandardOutput().Write($u8clip, 0, $u8clip.Length)
+            Write-Host ""
+        }
+    ]]}, parse_state)
 
-    local parent = self.fix_path(path:match("^(.+/[^/]+)/"), true)
+    if not files then msg.debug(err) ; return nil end
 
-    local lines = playlist:read("*a")
-
-    for item in lines:gmatch("[^%c]+") do
-        item = self.fix_path(item)
-        local fullpath = self.join_path(parent, item)
-
-        local name = ( self.get_protocol(item) and item or fullpath:match("([^/]+)/?$") )
-        table.insert(list, {name = name, path = fullpath, type = "file"})
+    for str in files:gmatch("[^\n\r]+") do
+        local is_dir = str:sub(-1) == "/"
+        if is_dir and self.valid_dir(str) then
+            table.insert(list, {name = str, type = "dir"})
+        elseif self.valid_file(str) then
+            table.insert(list, {name = str, type = "file"})
+        end
     end
-    return list, {filtered = true, sorted = true}
+
+    return self.sort(list), {filtered = true, sorted = true}
 end
 
-return m3u
+return wn
