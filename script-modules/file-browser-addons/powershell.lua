@@ -12,9 +12,11 @@ local drive_letters = {
 
 local mp = require "mp"
 local msg = require "mp.msg"
+local fb = require "file-browser"
 
 local wn = {
     priority = 109,
+    version = "1.0.0",
     name = "powershell",
     keybind_name = "file"
 }
@@ -24,14 +26,16 @@ for _, letter in ipairs(drive_letters) do
     drives[letter] = true
 end
 
-local function command(args)
-    local cmd = mp.command_native({
-        name = "subprocess",
-        playback_only = false,
-        capture_stdout = true,
-        capture_stderr = true,
-        args = args
-    })
+local function command(args, parse_state)
+    local _, cmd = parse_state:yield(
+        mp.command_native_async({
+            name = "subprocess",
+            playback_only = false,
+            capture_stdout = true,
+            capture_stderr = true,
+            args = args
+        }, fb.coroutine.callback())
+    )
 
     return cmd.status == 0 and cmd.stdout or nil, cmd.stderr
 end
@@ -40,7 +44,7 @@ function wn:can_parse(directory)
     return not self.get_protocol(directory) and drives[ directory:sub(1,1) ]
 end
 
-function wn:parse(directory)
+function wn:parse(directory, parse_state)
     local list = {}
     local files, err = command({"powershell", "-noprofile", "-command", [[
         $dirs = Get-ChildItem -LiteralPath ]]..string.format("%q", directory)..[[ -Directory
@@ -58,7 +62,7 @@ function wn:parse(directory)
             [Console]::OpenStandardOutput().Write($u8clip, 0, $u8clip.Length)
             Write-Host ""
         }
-    ]]})
+    ]]}, parse_state)
 
     if not files then msg.debug(err) ; return nil end
 

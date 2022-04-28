@@ -631,7 +631,7 @@ mp.register_event("file-loaded", function()
             {CASCADE, "[外置脚本] 跳转", "undoredo_menu", "", "", false},
             {CASCADE, "[外置脚本] 书签", "bookmarker_menu", "", "", false},
             {COMMAND, "[外置脚本] 自动跳过指定章节", "ALT+q", "script-message-to chapterskip chapter-skip;show-text 自动跳过指定章节", "", false},
-            {COMMAND, "[外置脚本] 跳到下一个静音位置 ", "F4", "script-message-to skiptosilence skip-to-silence;show-text 跳到下一个静音位置", "", false},
+            {COMMAND, "[外置脚本] 跳到下一个静音位置", "F4", "script-message-to skiptosilence skip-to-silence;show-text 跳到下一个静音位置", "", false},
             {SEP},
             {CASCADE, "版本（Edition）", "edition_menu", "", "", function() return inspectEdition() end},
             {CASCADE, "章节", "chapter_menu", "", "", function() return inspectChapter() end},
@@ -822,6 +822,8 @@ mp.register_event("file-loaded", function()
             {COMMAND, "上个输出设备", "CTRL+a", "script-message-to cycle_adevice back", "", false},
             {COMMAND, "下个输出设备", "ALT+a", "script-message-to cycle_adevice next", "", false},
             {CASCADE, "声道布局", "channel_layout", "", "", false},
+            {SEP},
+            {COMMAND, "[外置脚本] 开/关 dynaudnorm混音菜单", "ALT+n", "script-message-to drcbox key_toggle_bindings", "", false},
         },
 
         -- Use function to return list of Audio Tracks
@@ -837,6 +839,7 @@ mp.register_event("file-loaded", function()
             {COMMAND, "加载次字幕", "k", "cycle secondary-sid;show-text  加载次字幕:${secondary-sid}", "", false},
             {COMMAND, "开/关 字幕选择脚本", "Y", "script-message sub-select toggle", "", false},
             {COMMAND, "打开 字幕同步菜单", "CTRL+m", "script-message-to autosubsync autosubsync-menu", "", false},
+            {COMMAND, "导出当前内封字幕", "ALT+m", "script-message-to sub_export export-selected-subtitles", "", false},
             {SEP},
             {COMMAND, "重置", "SHIFT+BS", "no-osd set sub-delay 0; no-osd set sub-pos 100; no-osd set sub-scale 1.0;show-text  重置字幕状态", "", false},
             {COMMAND, "字号 -0.1", "ALT+j", "add sub-scale -0.1;show-text  字幕缩小:${sub-scale}", "", false},

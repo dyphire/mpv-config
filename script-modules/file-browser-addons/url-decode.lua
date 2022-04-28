@@ -3,7 +3,8 @@
 ]]
 
 local urldecode = {
-    priority = 5
+    priority = 5,
+    version = "1.0.0"
 }
 
 --decodes a URL address
@@ -23,8 +24,8 @@ function urldecode:can_parse(directory)
     return self.get_protocol(directory)
 end
 
-function urldecode:parse(directory, ...)
-    local list, opts = self:defer(directory, ...)
+function urldecode:parse(directory)
+    local list, opts = self:defer(directory)
     if opts.directory and not self.get_protocol(opts.directory) then return list, opts end
 
     opts.directory_label = decodeURI(opts.directory_label or (opts.directory or directory))

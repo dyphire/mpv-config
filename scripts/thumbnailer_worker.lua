@@ -372,7 +372,7 @@ local function create_ffmpeg_command(time, output, force_accurate_seek)
 		worker_extra.index_name = add_args(args, worker_options.exec_path .. 'ffmpeg')
 		add_args(args, '-hide_banner')
 		add_args(args, '-nostats')
-		add_args(args, '-loglevel', 'error')
+		add_args(args, '-loglevel', 'fatal')
 		if not (worker_options.ffmpeg_hwaccel == 'none') then
 			add_args(args, '-hwaccel', worker_options.ffmpeg_hwaccel)
 			add_args(args, '-hwaccel_device', worker_options.ffmpeg_hwaccel_device)
