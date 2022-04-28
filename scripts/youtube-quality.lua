@@ -1,5 +1,5 @@
 -- Source https://github.com/christoph-heinrich/mpv-youtube-quality/blob/master/youtube-quality.lua
---Commit Feb 8, 2022 fab8580 
+-- Commit Feb 8, 2022 fab8580 
 
 -- youtube-quality.lua
 --

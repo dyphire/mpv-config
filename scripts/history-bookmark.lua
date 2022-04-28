@@ -16,11 +16,16 @@ local o = {
     special_protocols = [[
 	["https?://", "magnet:", "rtmp:", "smb://", "bd://", "dvd://", "cdda://"]
 	]], --add above (after a comma) any protocol to disable
+    included_dir = [[
+    []
+    ]]
+        
 }
 options.read_options(o)
 
 o.excluded_dir = utils.parse_json(o.excluded_dir)
 o.special_protocols = utils.parse_json(o.special_protocols)
+o.included_dir = utils.parse_json(o.included_dir)
 
 local cwd_root = utils.getcwd()
 
@@ -40,11 +45,22 @@ local wait_msg
 
 function need_ignore(tab, val)
 	for index, element in ipairs(tab) do
+        if string.find(val, element) then
+            return true
+        end
 		if (val:find(element) == 1) then
 			return true
 		end
 	end
 	return false
+end
+
+function tablelength(tab,val)
+  local count = 0
+  for index, element in ipairs(tab) do
+      count = count + 1
+    end
+  return count
 end
 
 function M.prompt_msg(msg, ms)
@@ -230,6 +246,11 @@ function M.exe()
     local ftype = fname:match('%.([^.]+)$')
     bookmark_path = utils.join_path(dir, BOOKMARK_NAME)
 
+    included_dir_count = tablelength(o.included_dir)
+    if included_dir_count > 0 then  
+        if not need_ignore(o.included_dir, dir) then return end
+    end
+  
     if need_ignore(o.special_protocols, path) then return end
     if need_ignore(o.excluded_dir, dir) then return end
 
