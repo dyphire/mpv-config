@@ -31,16 +31,28 @@
     "dest":"~~/scripts"
   },
   {
-    "git":"https://github.com/hooke007/MPV_lazy",
-    "whitelist":"cycle%_adevice%.lua$|thumbnailer%_worker%.lua$",
-    "dest":"~~/scripts",
-    "branch":"main"
-  },
-  {
     "git":"https://github.com/stax76/mpv-scripts",
     "whitelist":"delete%-current%-file%.lua$",
     "dest":"~~/scripts",
     "branch":"main"
+  },
+  {
+    "git":"https://github.com/DonCanjas/mpv-webp-generator",
+    "whitelist":"mpv%-webp%.lua$",
+    "dest":"~~/scripts",
+    "branch":"main"
+  },
+  {
+    "git":"https://github.com/dyphire/mpv_slicing_copy",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts",
+    "branch":"patch-1"
+  },
+  {
+    "git":"https://github.com/dyphire/mpv-locatefile-lua-script",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts",
+    "branch":"patch-1"
   },
   {
     "git":"https://github.com/dyphire/mpv-file-browser",
@@ -59,24 +71,6 @@
     "whitelist":"%.lua$",
     "dest":"~~/scripts/autosubsync",
     "branch":"v0.33_CM"
-  },
-  {
-    "git":"https://github.com/dyphire/mpv_slicing_copy",
-    "whitelist":"%.lua$",
-    "dest":"~~/scripts",
-    "branch":"patch-1"
-  },
-  {
-    "git":"https://github.com/dyphire/mpv-webp-generator",
-    "whitelist":"mpv%-webp%.lua$",
-    "dest":"~~/scripts",
-    "branch":"patch-1"
-  },
-  {
-    "git":"https://github.com/dyphire/mpv-locatefile-lua-script",
-    "whitelist":"%.lua$",
-    "dest":"~~/scripts",
-    "branch":"patch-1"
   },
   {
     "git":"https://github.com/dyphire/mpv-youtube-quality",

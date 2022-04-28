@@ -301,7 +301,7 @@ local function fix_chapters()
     --we want to do this pass separately to the threshold pass in case the end of a previous chapter falls
     --within the threshold of an actually new (named) chapter.
     for i = #chapters, 2, -1 do
-        if chapters[i].title == chapters[i-1].title then
+        if chapters[i].title == chapters[i-1].title and chapters[i].title ~= "" then
             table.remove(chapters, i)
         end
     end
