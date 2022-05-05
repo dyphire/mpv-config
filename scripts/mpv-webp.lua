@@ -152,6 +152,7 @@ function make_webp_internal(burn_subtitles)
     -- make the webp
     local filename = mp.get_property("filename/no-ext")
     local file_path = output_directory .. "/" .. filename
+    local file_path = file_path:gsub("\\", "/")
 
     -- increment filename
     for i=0,999 do
