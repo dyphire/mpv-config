@@ -1,3 +1,9 @@
+--[[
+SOURCE_ https://github.com/mpv-player/mpv/blob/master/player/lua/ytdl_hook.lua
+COMMIT_ 20220226 b15b3f6
+Modify_ https://gist.github.com/zhongfly/e95fa433ca912380f9f61e0910146d7e/0f46340621415ae93a91a7f3eb60d013c5bdf542#file-ytdl_hook_plus-lua
+]]--
+
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
 local options = require 'mp.options'
