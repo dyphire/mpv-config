@@ -31,7 +31,7 @@
 | pause-indicator.lua | 在 mpv 暂停时在屏幕中间显示暂停图标 |
 | playlistmanager.lua | 高级播放列表（配置文件 [playlistmanager.conf](../script-opts/playlistmanager.conf)） |
 | segment-linking.lua | 实现对 matroska [硬段链接](https://www.ietf.org/archive/id/draft-ietf-cellar-matroska-06.html#name-hard-linking) 的支持（依赖  [read-file.lua](../script-modules/read-file.lua)；配置文件 [segment_linking.conf](../script-opts/segment_linking.conf)） |
-| skiptosilence.lua | 跳至播放文件的下一个静音位置（另类地实现跳 op 的方法；配置文件 [skiptosilence.conf](../script-opts/skiptosilence.conf)） |
+| skiptosilence.lua | 跳至播放文件的下一个静音位置（另类地实现跳 op/ed 的方法；配置文件 [skiptosilence.conf](../script-opts/skiptosilence.conf)） |
 | slicing_copy.lua | 剪切视频片段（依赖 ffmpeg；配置文件 [slicing_copy.conf](../script-opts/slicing_copy.conf)） |
 | sub_export.lua | 导出当前内封字幕（依赖 ffmpeg，脚本支持 srt、ass 和 sup 格式的字幕；配置文件 [sub_export.conf](../script-opts/sub_export.conf)） |
 | simplebookmark.lua | 高级书签菜单（配置文件 [simplebookmark.conf](../script-opts/simplebookmark.conf)）；键位绑定均在同名配置文件中 |
@@ -43,12 +43,12 @@
 | thumbnailer_osc.lua         | 缩略图引擎搭配的 OSC 界面（配置文件 [thumbnailer_osc.conf](../script-opts/thumbnailer_osc.conf)） |
 | trackselect.lua               | 指定音频轨道优先级/黑白名单（配置文件 [trackselect.conf](../script-opts/trackselect.conf)） |
 | undoredo.lua                  | 智能跳跃记录操作                                             |
-| ytdl_hook.lua                  | 修改版ytdl_hook脚本，修复部分使用场景（依赖yt-dlp/youtube-dl; 配置文件 [ytdl_hook.conf](../script-opts/ytdl_hook.conf)） |
-| youtube-quality.lua | ytdl选择视频/音频质量的菜单脚本（依赖yt-dlp/youtube-dl; 配置文件 [youtube-quality.conf](../script-opts/youtube-quality.conf)） |
-| youtube-download.lua | ytdl下载视频/音频/字幕/片段的脚本（依赖yt-dlp/youtube-dl和ffmpeg; 配置文件 [youtube-download.conf](../script-opts/youtube-download.conf)） |
-| autosubsync（组）         | 字幕同步菜单（依赖ffmpeg, [ffsubsync](https://github.com/smacke/ffsubsync) or [alass](https://github.com/dyphire/alass) or both; 配置文件 [autosubsync.conf](../script-opts/autosubsync.conf)） |
-| contextmenu_gui（组）         | 图形化右键菜单（依赖tclkit，上游说明：https://github.com/hooke007/MPV_lazy/discussions/60; 配置文件 [contextmenu_gui.conf](../script-opts/contextmenu_gui.conf)） |
-1. 部分脚本为**个人修改版本**，主要改进功能实现或键位绑定方式。如：autosubsync（组）; contextmenu_gui（组）; autoload.lua; chapter_list.lua; chapterskip.lua; copy_subortime.lua; cycle_adevice.lua; drcbox.lua; editions-notification.lua; file-browser.lua; fuzzydir.lua; history-bookmark.lua; locatefile.lua; mpv-webp.lua; open_dialog.lua; persist_properties.lua; slicing_copy.lua; sub_export.lua; skiptosilence.lua; trackselect.lua; thumbnailer*.lua; ytdl_hook.lua; youtube-quality.lua
+| ytdl_hook_plus.lua    | 修改版 ytdl_hook 脚本，修复 http 请求头缺失（依赖yt-dlp/youtube-dl; 配置文件 [ytdl_hook.conf](../script-opts/ytdl_hook.conf)） |
+| youtube-quality.lua | ytdl 选择视频/音频质量的菜单脚本（依赖 yt-dlp/youtube-dl; 配置文件 [youtube-quality.conf](../script-opts/youtube-quality.conf)） |
+| youtube-download.lua | ytdl 下载视频/音频/字幕/片段的脚本（依赖 yt-dlp/youtube-dl和ffmpeg; 配置文件 [youtube-download.conf](../script-opts/youtube-download.conf)） |
+| autosubsync（组）         | 字幕同步菜单（依赖 ffmpeg, [ffsubsync](https://github.com/smacke/ffsubsync) or [alass](https://github.com/dyphire/alass) or both; 配置文件 [autosubsync.conf](../script-opts/autosubsync.conf)） |
+| contextmenu_gui（组）         | 图形化右键菜单（依赖 tclkit，上游说明：https://github.com/hooke007/MPV_lazy/discussions/60; 配置文件 [contextmenu_gui.conf](../script-opts/contextmenu_gui.conf)） |
+1. 部分脚本为**个人修改版本**，主要改进功能实现或键位绑定方式。如：autosubsync（组）; contextmenu_gui（组）; autoload.lua; chapter_list.lua; chapterskip.lua; copy_subortime.lua; cycle_adevice.lua; drcbox.lua; editions-notification.lua; file-browser.lua; fuzzydir.lua; history-bookmark.lua; locatefile.lua; mpv-webp.lua; open_dialog.lua; persist_properties.lua; slicing_copy.lua; sub_export.lua; skiptosilence.lua; trackselect.lua; thumbnailer*.lua; ytdl_hook_plus.lua; youtube-quality.lua
 2. 所有脚本预绑定的`mp.add_key_binding`静态键位已被 [mpv.conf](../mpv.conf) 中的`input-default-bindings=no`参数屏蔽，可查看 [input.conf](../input.conf)  的"LUA 脚本"部分示例参考绑定所需键位  
    - 本配置绑定的快捷键及功能请参考 [快捷键说明.md](../快捷键说明.md) 文件
 3. 部分脚本存在动态绑定键位，可查看对应脚本及配置文件相关部分（或[快捷键.md](../快捷键.md)中相关说明）

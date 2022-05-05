@@ -23,8 +23,8 @@ local o = {
     --number of entries to show on the screen at once
     num_entries = 20,
 
-    --directory circular scrolling
-    wrap = true,
+    --wrap the cursor around the top and bottom of the list
+    wrap = false,
 
     --only show files compatible with mpv
     filter_files = true,
@@ -298,16 +298,16 @@ if not table.pack then
 end
 
 --prints an error if a coroutine returns an error
---unlike the next function this one still returns the results of API.coroutine.resume()
+--unlike the next function this one still returns the results of coroutine.resume()
 function API.coroutine.resume_catch(...)
-    local returns = table.pack(API.coroutine.resume(...))
+    local returns = table.pack(coroutine.resume(...))
     if not returns[1] then msg.error(returns[2]) end
     return table.unpack(returns, 1, returns.n)
 end
 
 --resumes a coroutine and prints an error if it was not sucessful
 function API.coroutine.resume_err(...)
-    local success, err = API.coroutine.resume(...)
+    local success, err = coroutine.resume(...)
     if not success then msg.error(err) end
 end
 
@@ -848,7 +848,7 @@ local function parse_directory(directory, parse_state)
 
     --queue the new coroutine on the mpv event queue
     mp.add_timeout(0, function()
-        local success, err = API.coroutine.resume(new_co)
+        local success, err = coroutine.resume(new_co)
         if not success then
             msg.error(err)
             API.coroutine.resume_err(co)
@@ -1366,7 +1366,7 @@ local function run_keybind_coroutine(key)
         selection = API.copy_table(state.selection),
         parser = state.parser,
     }
-    local success, err = API.coroutine.resume(co, key, state_copy, co)
+    local success, err = coroutine.resume(co, key, state_copy, co)
     if not success then
         msg.error("error running keybind:", utils.to_string(key))
         msg.error(err)
