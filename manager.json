@@ -37,10 +37,16 @@
     "branch":"main"
   },
   {
-    "git":"https://github.com/DonCanjas/mpv-webp-generator",
-    "whitelist":"mpv%-webp%.lua$",
+    "git":"https://github.com/dyphire/mpv-scripts",
+    "whitelist":"%.lua$",
     "dest":"~~/scripts",
     "branch":"main"
+  },
+  {
+    "git":"https://github.com/dyphire/mpv-webp-generator",
+    "whitelist":"mpv%-webp%.lua$",
+    "dest":"~~/scripts",
+    "branch":"dev"
   },
   {
     "git":"https://github.com/dyphire/mpv_slicing_copy",
