@@ -4,6 +4,7 @@
 
 local mp = require 'mp'
 local msg = require 'mp.msg'
+local fb = require 'file-browser'
 
 local ftp = {
     priority = 100,
@@ -17,17 +18,16 @@ end
 --in my experience curl has been somewhat unreliable when it comes to ftp requests
 --this fuction retries the request a few times just in case
 local function execute(args)
-    local req = {status = 28}
-    local attempts = 0
-    req = mp.command_native({
-        name = "subprocess",
-        playback_only = false,
-        capture_stdout = true,
-        capture_stderr = true,
-        args = args
-    })
-    attempts = attempts + 1
-    return req
+    local _, cmd = fb.get_parse_state():yield(
+        mp.command_native({
+            name = "subprocess",
+            playback_only = false,
+            capture_stdout = true,
+            capture_stderr = true,
+            args = args
+        }, fb.coroutine.callback())
+    )
+    return cmd
 end
 
 function ftp:parse(directory)

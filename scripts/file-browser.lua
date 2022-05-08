@@ -39,18 +39,14 @@ local o = {
     --add extra file extensions
     extension_whitelist = "",
 
-    --blacklist audio_track files, it's recommended to use this rather than to edit the
-    --audio_track extensions list directly. A semicolon separated list of extensions without spaces
+    --files with these extensions will be added as additional audio tracks instead of appended to the playlist
     audio_extension_blacklist = "",
 
-    --add extra audio_track file extensions
     audio_extension_whitelist = "",
 
-    --blacklist subtitle files, it's recommended to use this rather than to edit the
-    --subtitle extensions list directly. A semicolon separated list of extensions without spaces
+    --files with these extensions will be added as additional subtitle tracks instead of appended to the playlist
     sub_extension_blacklist = "",
 
-    --add extra subtitle file extensions
     sub_extension_whitelist = "",
 
     --filter dot directories like .config
@@ -285,6 +281,7 @@ local cache = setmetatable({}, { __index = __cache })
 -----------------------------------------Utility Functions----------------------------------------------
 ---------------------------------------Part of the addon API--------------------------------------------
 --------------------------------------------------------------------------------------------------------
+
 API.coroutine = {}
 
 --implements table.pack if on lua 5.1
@@ -311,14 +308,27 @@ function API.coroutine.resume_err(...)
     if not success then msg.error(err) end
 end
 
+--in lua 5.1 there is only one return value which will be nil if run from the main thread
+--in lua 5.2 main will be true if running from the main thread
+function API.coroutine.assert(err)
+    local co, main = coroutine.running()
+    assert(not main and co, err or "error - function must be executed from within a coroutine")
+    return co
+end
+
 --creates a callback fuction to resume the current coroutine
 function API.coroutine.callback()
-    local co, main = coroutine.running()
-    assert(not main and co, "cannot create a coroutine callback for the main thread")
-
+    local co = API.coroutine.assert("cannot create a coroutine callback for the main thread")
     return function(...)
         return API.coroutine.resume_err(co, ...)
     end
+end
+
+--runs the given function in a coroutine, passing through any additional arguments
+--this is for triggering an event in a coroutine
+function API.coroutine.run(fn, ...)
+    local co = coroutine.create(fn)
+    API.coroutine.resume_err(co, ...)
 end
 
 --get the full path for the current file
@@ -793,7 +803,7 @@ end
 local function choose_and_parse(directory, index)
     msg.debug("finding parser for", directory)
     local parser, list, opts
-    local parse_state = parse_states[coroutine.running()]
+    local parse_state = API.get_parse_state()
     while list == nil and not parse_state.already_deferred and index <= #parsers do
         parser = parsers[index]
         if parser:can_parse(directory, parse_state) then
@@ -834,10 +844,7 @@ end
 --if a coroutine has already been used for a parse then create a new coroutine so that
 --the every parse operation has a unique thread ID
 local function parse_directory(directory, parse_state)
-    --in lua 5.1 there is only one return value which will be nil if run from the main thread
-    --in lua 5.2 main will be true if running from the main thread
-    local co, main = coroutine.running()
-    if main or not co then return msg.error("scan_directory must be executed from within a coroutine - aborting scan", utils.to_string(parse_state)) end
+    local co = API.coroutine.assert("scan_directory must be executed from within a coroutine - aborting scan "..utils.to_string(parse_state))
     if not parse_states[co] then return run_parse(directory, parse_state) end
 
     --if this coroutine is already is use by another parse operation then we create a new
@@ -1158,9 +1165,9 @@ local function loadfile(item, flag, autoload, directory)
         return loadlist(path, flag) end
 
     if sub_extensions[ API.get_extension(item.name, "") ] then
-        mp.commandv("sub-add", path, flag == "replace" and "cached" or "select" or "auto")
+        mp.commandv("sub-add", path, flag == "replace" and "select" or "auto")
     elseif audio_extensions[ API.get_extension(item.name, "") ] then
-        mp.commandv("audio-add", path, flag == "replace" and "auto" or "cached" or "select")
+        mp.commandv("audio-add", path, flag == "replace" and "select" or "auto")
     else
         if autoload then autoload_dir(path)
         else mp.commandv('loadfile', path, flag) end
@@ -1202,9 +1209,7 @@ end
 
 --opens the selelected file(s)
 local function open_file(flag, autoload_dir)
-    local co = coroutine.create(open_file_coroutine)
-
-    API.coroutine.resume_err(co, flag, autoload_dir)
+    API.coroutine.run(open_file_coroutine, flag, autoload_dir)
 end
 
 
@@ -1511,6 +1516,7 @@ function API.get_current_parser_keyname() return state.parser.keybind_name or st
 function API.get_selected_index() return state.selected end
 function API.get_selected_item() return API.copy_table(state.list[state.selected]) end
 function API.get_open_status() return not state.hidden end
+function API.get_parse_state(co) return parse_states[co or coroutine.running() or ""] end
 
 function API.set_empty_text(str)
     state.empty_text = str
@@ -1533,7 +1539,7 @@ function parser_API:get_id() return parsers[self].id end
 function parser_API:defer(directory)
     msg.trace("deferring to other parsers...")
     local list, opts = choose_and_parse(directory, self:get_index() + 1)
-    parse_states[coroutine.running()].already_deferred = true
+    API.get_parse_state().already_deferred = true
     return list, opts
 end
 
@@ -1720,7 +1726,6 @@ local function setup_extensions_list()
     for ext in pairs(audio_extensions) do
         extensions[ext] = true end
 
-
     --adding extra extensions on the whitelist
     for str in string.gmatch(o.extension_whitelist:lower(), "([^"..API.pattern_escape(o.root_seperators).."]+)") do
         extensions[str] = true
@@ -1834,7 +1839,6 @@ mp.register_script_message('browse-directory', browse_directory)
 
 --allows other scripts to request directory contents from file-browser
 mp.register_script_message("get-directory-contents", function(directory, response_str)
-    local co = coroutine.create(scan_directory_json)
-    API.coroutine.resume_err(co, directory, response_str)
+    API.coroutine.run(scan_directory_json, directory, response_str)
 end)
 

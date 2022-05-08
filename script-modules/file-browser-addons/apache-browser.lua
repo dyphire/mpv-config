@@ -4,6 +4,8 @@
 
 local mp = require 'mp'
 local msg = require 'mp.msg'
+local utils = require 'mp.utils'
+local fb = require "file-browser"
 
 --decodes a URL address
 --this piece of code was taken from: https://stackoverflow.com/questions/20405985/lua-decodeuri-luvit/20406960#20406960
@@ -32,28 +34,29 @@ function apache:send_error(str)
     return {}, {empty_text = "curl error: "..str}
 end
 
+local function execute(args)
+    msg.trace(utils.to_string(args))
+    local _, cmd = fb.get_parse_state():yield(
+        mp.command_native_async({
+            name = "subprocess",
+            playback_only = false,
+            capture_stdout = true,
+            capture_stderr = true,
+            args = args
+        }, fb.coroutine.callback())
+    )
+    return cmd
+end
+
 function apache:parse(directory)
     msg.verbose(directory)
-    msg.trace("curl -k -l -m 5 "..string.format("%q", directory))
 
-    local test = mp.command_native({
-        name = "subprocess",
-        playback_only = false,
-        capture_stdout = true,
-        capture_stderr = true,
-        args = {"curl", "-k", "-l", "-I", directory}
-    })
+    local test = execute({"curl", "-k", "-l", "-I", directory})
     local response = test.stdout:match("(%d%d%d [^\n\r]+)")
     if test.stdout:match("Content%-Type: ([^\r\n/]+)") ~= "text" then return nil end
     if response ~= "200 OK" then return self:send_error(response) end
 
-    local html = mp.command_native({
-        name = "subprocess",
-        playback_only = false,
-        capture_stdout = true,
-        capture_stderr = true,
-        args = {"curl", "-k", "-l", directory}
-    })
+    local html = execute({"curl", "-k", "-l", directory})
     if html.status ~= 0 then return self:send_error(tostring(html.status))
     elseif not html.stdout:find("%[PARENTDIR%]") then return nil end
 
