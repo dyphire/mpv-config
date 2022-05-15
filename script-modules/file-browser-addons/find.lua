@@ -11,11 +11,11 @@
 ]]--
 
 local msg = require "mp.msg"
-local browser = require "file-browser"
+local fb = require "file-browser"
 local input = require "user-input-module"
 
 local find = {
-    version = "1.0.0"
+    version = "1.1.0"
 }
 local latest_coroutine = nil
 
@@ -29,23 +29,20 @@ end
 
 local function main(key, state, co)
     if not state.list then return end
-    local query, error
 
     local text
     if key.name == "find/find" then text = "Find: enter search string"
     else text = "Find: enter advanced search string" end
 
-    input.get_user_input(function(input, err)
-        query, error = input, err
-        coroutine.resume(co)
-    end, { text = text, id = "find", replace = true })
-    coroutine.yield()
+    local query, error = coroutine.yield(
+        input.get_user_input( fb.coroutine.callback(), { text = text, id = "find", replace = true } )
+    )
 
     if not query then return msg.debug(error) end
-    if browser.get_directory() ~= state.directory then return msg.warn("directory changed - find aborted") end
+    if fb.get_directory() ~= state.directory then return msg.warn("directory changed - find aborted") end
 
     if key.name == "find/find" then
-        query = browser.pattern_escape(query)
+        query = fb.pattern_escape(query)
     end
 
     local results = {}
@@ -64,11 +61,11 @@ local function main(key, state, co)
     --keep cycling through the search results if any are found
     while (true) do
         for _, index in ipairs(results) do
-            browser.set_selected_index(index)
+            fb.set_selected_index(index)
             latest_coroutine = co
             coroutine.yield()
 
-            if browser.get_directory() ~= state.directory then
+            if fb.get_directory() ~= state.directory then
                 latest_coroutine = nil
                 return
             end
@@ -78,7 +75,7 @@ end
 
 local function step_find()
     if not latest_coroutine then return false end
-    coroutine.resume(latest_coroutine)
+    fb.coroutine.resume_err(latest_coroutine)
 end
 
 find.keybinds = {

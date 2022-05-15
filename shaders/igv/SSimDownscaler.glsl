@@ -97,7 +97,9 @@ vec4 hook() {
 //!COMPONENTS 4
 //!DESC SSimDownscaler mean & R
 
-#define sigma_nsq   49. / (255.*255.)
+#define oversharp   0.0
+
+#define sigma_nsq   10. / (255.*255.)
 #define locality    2.0
 
 #define offset      vec2(0,0)
@@ -147,9 +149,9 @@ vec4 hook() {
     }
     avg /= W;
 
-    float Sl = Luma(max(avg[1] - avg[0] * avg[0], 0.)) + sigma_nsq;
-    float Sh = Luma(max(avg[2] - avg[0] * avg[0], 0.)) + sigma_nsq;
-    return vec4(avg[0], sqrt(Sh / Sl));
+    float Sl = Luma(max(avg[1] - avg[0] * avg[0], 0.));
+    float Sh = Luma(max(avg[2] - avg[0] * avg[0], 0.));
+    return vec4(avg[0], mix(sqrt((Sh + sigma_nsq) / (Sl + sigma_nsq)) * (1. + oversharp), clamp(Sh / Sl, 0., 1.), int(Sl > Sh)));
 }
 
 //!HOOK POSTKERNEL
@@ -157,8 +159,6 @@ vec4 hook() {
 //!BIND MR
 //!WHEN NATIVE_CROPPED.h POSTKERNEL.h >
 //!DESC SSimDownscaler final pass
-
-#define oversharp   0.0
 
 #define locality    2.0
 
@@ -183,7 +183,6 @@ mat3x3 ScaleH(vec2 pos) {
         float w = Kernel(rel);
 
         vec4 MR = MR_tex(pos);
-        MR.a *= (1.0 + oversharp);
         avg += w * mat3x3(MR.a*MR.rgb, MR.rgb, MR.aaa);
         W += w;
     }
