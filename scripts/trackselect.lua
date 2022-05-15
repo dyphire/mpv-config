@@ -48,7 +48,7 @@ local options = {
     hook = true,
 
     -- Mimic mpv's track list fingerprint to preserve user-selected tracks across files
-    fingerprint = true,
+    fingerprint = false,
 
     -- Override user's explicit track selection
     force = false,
