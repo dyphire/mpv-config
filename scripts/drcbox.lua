@@ -7,7 +7,6 @@ Copyright 2022 dyphire      ( https://github.com/dyphire )
 License: dyphire
 
 -- Source https://gist.github.com/richardpl/0c8011dc23d7ac7b7831b2e6d680114f
--- Commit Feb 8, 2022 fab8580 
 
 Needs mpv with very recent FFmpeg build.
 

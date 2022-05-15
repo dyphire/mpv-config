@@ -34,7 +34,7 @@ end
 
 local dir = {
     priority = 109,
-    version = "1.0.1",
+    version = "1.1.0",
     name = "cmd-dir",
     keybind_name = "file"
 }

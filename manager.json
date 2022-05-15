@@ -6,11 +6,6 @@
     "branch":"local-repo-support"
   },
   {
-    "git":"https://gist.github.com/CyberShadow/2f71a97fb85ed42146f6d9f522bc34ef",
-    "whitelist":"%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
     "git":"https://github.com/occivink/mpv-scripts",
     "whitelist":"blacklist%-extensions%.lua$",
     "dest":"~~/scripts"
@@ -37,6 +32,11 @@
     "branch":"main"
   },
   {
+    "git":"https://github.com/snylonue/mpv_slicing_copy",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
     "git":"https://github.com/dyphire/mpv-scripts",
     "whitelist":"%.lua$",
     "dest":"~~/scripts",
@@ -49,22 +49,10 @@
     "branch":"dev"
   },
   {
-    "git":"https://github.com/dyphire/mpv_slicing_copy",
-    "whitelist":"%.lua$",
-    "dest":"~~/scripts",
-    "branch":"patch-1"
-  },
-  {
     "git":"https://github.com/dyphire/mpv-locatefile-lua-script",
     "whitelist":"%.lua$",
     "dest":"~~/scripts",
     "branch":"patch-1"
-  },
-  {
-    "git":"https://github.com/dyphire/mpv-file-browser",
-    "whitelist":"file%-browser%.lua$",
-    "dest":"~~/scripts",
-    "branch":"dev"
   },
   {
     "git":"https://github.com/dyphire/chapterskip",
@@ -98,6 +86,11 @@
   {
     "git":"https://github.com/Eisa01/mpv-scripts",
     "whitelist":"undoredo%.lua$|simplehistory%.lua$|simplebookmark%.lua$|smartcopypaste_*%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/CogentRedTester/mpv-file-browser",
+    "whitelist":"file%-browser%.lua$",
     "dest":"~~/scripts"
   },
   {

@@ -22,7 +22,8 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 // THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// MOD from adaptive-sharpen.glsl
+// Adaptive sharpen - version 2021-10-17
+// Tuned for use post-resize
 
 //!HOOK LUMA
 //!BIND HOOKED
@@ -30,11 +31,8 @@
 
 //--------------------------------------- Settings ------------------------------------------------
 
-#define curve_height    1.0                  // Main control of sharpening strength [>0]
+#define curve_height    0.5                  // Main control of sharpening strength [>0]
                                              // 0.3 <-> 2.0 is a reasonable range of values
-
-#define linear_laplace  true                 // Enable when applying this shader at native resolution or
-                                             // after a super-resolution. Also could be useful for anime
 
 #define overshoot_ctrl  false                // Allow for higher overshoot if the current edge pixel
                                              // is surrounded by similar edge pixels
@@ -43,11 +41,9 @@
 
 #define curveslope      0.5                  // Sharpening curve slope, high edge values
 
-#define L_overshoot     0.003                // Max light overshoot before compression [>0.001]
 #define L_compr_low     0.167                // Light compression, default (0.167=~6x)
 #define L_compr_high    0.334                // Light compression, surrounded by edges (0.334=~3x)
 
-#define D_overshoot     0.003                // Max dark overshoot before compression [>0.001]
 #define D_compr_low     0.250                // Dark compression, default (0.250=4x)
 #define D_compr_high    0.500                // Dark compression, surrounded by edges (0.500=2x)
 
@@ -73,7 +69,9 @@
 #define sat(x)         ( clamp(x, 0.0, 1.0) )
 #define dxdy(val)      ( length(fwidth(val)) ) // =~1/2.5 hq edge without c_comp
 
-#define b_diff(pix)    ( abs(blur-c[pix]) )
+#define CtL(RGB)       ( sat(dot(RGB, vec3(0.2126, 0.7152, 0.0722))) )
+
+#define b_diff(pix)    ( (blur-c[pix])*(blur-c[pix]) )
 
 vec4 hook() {
 
@@ -133,8 +131,8 @@ vec4 hook() {
         cs = mix(cs, vec2(L_compr_high, D_compr_high), sat(2.4002*sbe - 2.282));
     }
 
-    // ...
-    float luma[25] = float[](c[0].x,  c[1].x,  c[2].x,  c[3].x,  c[4].x,  c[5].x,  c[6].x,
+    // RGB to luma
+    float luma[25] = float[](c[0].x, c[1].x, c[2].x, c[3].x, c[4].x, c[5].x, c[6].x,
                              c[7].x,  c[8].x,  c[9].x,  c[10].x, c[11].x, c[12].x,
                              c[13].x, c[14].x, c[15].x, c[16].x, c[17].x, c[18].x,
                              c[19].x, c[20].x, c[21].x, c[22].x, c[23].x, c[24].x);
@@ -177,20 +175,17 @@ vec4 hook() {
 
     for (int pix = 0; pix < 12; ++pix)
     {
-        float lowthr = clamp((20.*4.5*c_comp*e[pix + 1] - 0.221), 0.01, 1.0);
+        float lowthr = sat((20.*4.5*c_comp*e[pix + 1] - 0.221));
 
-        neg_laplace += (linear_laplace ? luma[pix+1] * luma[pix+1] : luma[pix+1]) * weights[pix] * lowthr;
+        neg_laplace += luma[pix+1] * luma[pix+1] * weights[pix] * lowthr;
         weightsum   += weights[pix] * lowthr;
         lowthrsum   += lowthr / 12.0;
     }
 
-    neg_laplace = neg_laplace / weightsum;
-
-    if (linear_laplace)
-        neg_laplace = sqrt(neg_laplace);
+    neg_laplace = sqrt(neg_laplace / weightsum);
 
     // Compute sharpening magnitude function
-    float sharpen_val = curve_height/(curve_height*curveslope*pow(edge, 3.5) + 0.625);
+    float sharpen_val = curve_height/(curve_height*curveslope*edge + 0.625);
 
     // Calculate sharpening diff and scale
     float sharpdiff = (c0_Y - neg_laplace)*(lowthrsum*sharpen_val + 0.01);
@@ -216,40 +211,16 @@ vec4 hook() {
         luma[i2-1] = min(temp, luma[i2-1]);
     }
 
-    for (int i1 = 1; i1 < 24-1; i1 += 2)
-    {
-        temp = luma[i1];
-        luma[i1]   = min(luma[i1], luma[i1+1]);
-        luma[i1+1] = max(temp, luma[i1+1]);
-    }
-
-    for (int i2 = 24-1; i2 > 1; i2 -= 2)
-    {
-        temp = luma[1];
-        luma[1]    = min(luma[1], luma[i2]);
-        luma[i2]   = max(temp, luma[i2]);
-
-        temp = luma[24-1];
-        luma[24-1] = max(luma[24-1], luma[i2-1]);
-        luma[i2-1] = min(temp, luma[i2-1]);
-    }
-
-    float nmax = (max(luma[23], c0_Y)*3.0 + luma[24])/4.0;
-    float nmin = (min(luma[1],  c0_Y)*3.0 + luma[0])/4.0;
-
-    float min_dist  = min(abs(nmax - c0_Y), abs(c0_Y - nmin));
-    vec2 pn_scale = vec2(L_overshoot, D_overshoot) + min_dist;
-
-    pn_scale = min(pn_scale, scale_lim*(1.0 - scale_cs) + pn_scale*scale_cs);
+    float min_dist  = min(abs(luma[24] - c0_Y), abs(c0_Y - luma[0]));
+    min_dist = min(min_dist, scale_lim*(1.0 - scale_cs) + min_dist*scale_cs);
 
     // Soft limited anti-ringing with tanh, wpmean to control compression slope
-    sharpdiff = wpmean(max(sharpdiff, 0.0), soft_lim( max(sharpdiff, 0.0), pn_scale.x ), cs.x )
-              - wpmean(min(sharpdiff, 0.0), soft_lim( min(sharpdiff, 0.0), pn_scale.y ), cs.y );
-    /*
+    sharpdiff = wpmean(max(sharpdiff, 0.0), soft_lim( max(sharpdiff, 0.0), min_dist ), cs.x )
+              - wpmean(min(sharpdiff, 0.0), soft_lim( min(sharpdiff, 0.0), min_dist ), cs.y );
+    
     float sharpdiff_lim = sat(c0_Y + sharpdiff) - c0_Y;
-    float satmul = (c0_Y + max(sharpdiff_lim*0.9, sharpdiff_lim)*0.3 + 0.03)/(c0_Y + 0.03);
+    /*float satmul = (c0_Y + max(sharpdiff_lim*0.9, sharpdiff_lim)*0.3 + 0.03)/(c0_Y + 0.03);
     vec3 res = c0_Y + sharpdiff_lim + (c[0] - c0_Y)*satmul;
     */
-    return vec4(sharpdiff + c[0], HOOKED_texOff(0).a);
+    return vec4(sharpdiff_lim + c[0], HOOKED_texOff(0).a);
 }
-
