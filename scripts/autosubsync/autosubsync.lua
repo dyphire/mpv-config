@@ -105,11 +105,26 @@ local function subprocess(args)
     }
 end
 
+local url_decode = function(url)
+    local function hex_to_char(x)
+        return string.char(tonumber(x, 16))
+    end
+    if url ~= nil then
+        url = url:gsub("^file://", "")
+        url = url:gsub("+", " ")
+        url = url:gsub("%%(%x%x)", hex_to_char)
+        return url
+    else
+        return
+    end
+end
+
 local function get_loaded_tracks(track_type)
     local result = {}
     local track_list = mp.get_property_native('track-list')
     for _, track in pairs(track_list) do
         if track.type == track_type then
+            track['external-filename'] = track.external and url_decode(track['external-filename'])
             table.insert(result, track)
         end
     end
@@ -120,6 +135,7 @@ local function get_active_track(track_type)
     local track_list = mp.get_property_native('track-list')
     for num, track in ipairs(track_list) do
         if track.type == track_type and track.selected == true then
+            track['external-filename'] = track.external and url_decode(track['external-filename'])
             return num, track
         end
     end
@@ -180,7 +196,7 @@ local function sync_subtitles(ref_sub_path)
     if sub_track == nil then
         return
     end
-    local subtitle_path = sub_track.external and sub_track['external-filename']:gsub("^file://", "") or extract_to_file(sub_track)
+    local subtitle_path = sub_track.external and sub_track['external-filename'] or extract_to_file(sub_track)
     local engine_name = engine_selector:get_engine_name()
     local engine_path = config[engine_name .. '_path']
 
@@ -499,4 +515,4 @@ end
 -- Entry point
 
 init()
-mp.register_script_message("autosubsync-menu", function() ref_selector:open() end)
+mp.add_key_binding("n", "autosubsync-menu", function() ref_selector:open() end)

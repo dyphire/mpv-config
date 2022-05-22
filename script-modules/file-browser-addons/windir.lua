@@ -80,12 +80,14 @@ function dir:parse(directory, parse_state)
         name = name.."/"
         if fb.valid_dir(name) then
             table.insert(list, { name = name, type = "dir" })
+            msg.trace(name)
         end
     end
 
     for name in files:gmatch("[^\n\r]+") do
         if fb.valid_file(name) then
             table.insert(list, { name = name, type = "file" })
+            msg.trace(name)
         end
     end
 
