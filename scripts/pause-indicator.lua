@@ -10,8 +10,9 @@ ov.data = [[{\an5\p1\alpha&H79\1c&H0000&\3a&Hff}]] ..
           [[{\alpha&H10\1c&Hffffff&\3a&Hff} m-45 -25 l 2 2 l -45 28{\p0}]]
 
 mp.observe_property('pause', 'bool', function(_, paused)
+    idle = mp.get_property_native("idle-active")
     mp.add_timeout(0.1, function()
-        if paused then ov:update()
+        if paused and not idle then ov:update()
         else ov:remove() end
     end)
 end)
