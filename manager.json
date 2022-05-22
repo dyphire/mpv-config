@@ -105,7 +105,7 @@
   },
   {
     "git":"https://github.com/CogentRedTester/mpv-scripts",
-    "whitelist":"cycle%-commands%.lua$|display%-profiles%.lua$|editions%-notification%.lua$|onedrive%-hook%.lua$|ordered%-chapters%-playlist%.lua$|pause%-indicator%.lua$",
+    "whitelist":"cycle%-commands%.lua$|display%-profiles%.lua$|editions%-notification%.lua$|onedrive%-hook%.lua$|ordered%-chapters%-playlist%.lua$",
     "dest":"~~/scripts"
   },
   {
@@ -141,7 +141,7 @@
   },
   {
     "git":"https://github.com/CogentRedTester/mpv-file-browser",
-    "whitelist":"favourites%.lua$|powershell%.lua$|apache%-browser%.lua$|home%-label%.lua$|url%-decode%.lua$|m3u%-browser%.lua$|ftp%-browser%.lua$",
+    "whitelist":"favourites%.lua$|windir%.lua$|apache%-browser%.lua$|home%-label%.lua$|url%-decode%.lua$|m3u%-browser%.lua$|ftp%-browser%.lua$",
     "dest":"~~/script-modules/file-browser-addons"
   },
   {
