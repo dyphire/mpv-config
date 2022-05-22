@@ -39,15 +39,11 @@ local o = {
     --add extra file extensions
     extension_whitelist = "",
 
-    --files with these extensions will be added as additional audio tracks instead of appended to the playlist
-    audio_extension_blacklist = "",
-
-    audio_extension_whitelist = "",
+    --files with these extensions will be added as additional audio tracks for the current file instead of appended to the playlist
+    audio_extensions = "mka,dts,dtshd,dts-hd,truehd,true-hd",
 
     --files with these extensions will be added as additional subtitle tracks instead of appended to the playlist
-    sub_extension_blacklist = "",
-
-    sub_extension_whitelist = "",
+    subtitle_extensions = "etf,etf8,utf-8,idx,sub,srt,rt,ssa,ass,mks,vtt,sup,scc,smi,lrc,pgs",
 
     --filter dot directories like .config
     --most useful on linux systems
@@ -113,6 +109,7 @@ local o = {
 }
 
 opt.read_options(o, 'file_browser')
+utils.shared_script_property_set("file_browser-open", "no")
 
 
 
@@ -223,16 +220,6 @@ local compatible_file_extensions = {
     "nsfe","nsv","nut","oga","ogg","ogm","ogv","ogx","opus","pcm","pls","png","qt","ra","ram","rm","rmvb","sap","snd","spc","spx","svg","thd","thd+ac3",
     "tif","tiff","tod","trp","truehd","true-hd","ts","tsa","tsv","tta","tts","vfw","vgm","vgz","vob","vro","wav","weba","webm","webp","wm","wma","wmv","wtv",
     "wv","x264","x265","xvid","y4m","yuv"
-}
-
---creating a set of subtitle extensions for custom subtitle loading behaviour
-local subtitle_extension_list = {
-    "etf","etf8","utf-8","idx","sub","srt","rt","ssa","ass","mks","vtt","sup","scc","smi","lrc","pgs"
-}
-
---creating a set of audio extensions for custom audio loading behaviour
-local audio_extension_list = {
-    "mka","dts","dtshd","dts-hd","truehd","true-hd"
 }
 
 --------------------------------------------------------------------------------------------------------
@@ -719,12 +706,9 @@ local function drag_select(direction, original_pos, new_pos)
 
     local setting = state.selection[state.multiselect_start]
     for i = original_pos, new_pos, direction > 0 and 1 or -1 do
-        if i == state.multiselect_start then
-            --do nothing
-
         --if we're moving the cursor away from the starting point then set the selection
         --otherwise restore the original selection
-        elseif i > state.multiselect_start then
+        if i > state.multiselect_start then
             if new_pos > original_pos then
                 state.selection[i] = setting
             else
@@ -738,13 +722,13 @@ local function drag_select(direction, original_pos, new_pos)
             end
         end
     end
-
-    update_ass()
 end
 
 --moves the selector up and down the list by the entered amount
 local function scroll(n, wrap)
     local num_items = #state.list
+    if num_items == 0 then return end
+
     local original_pos = state.selected
 
     if original_pos + n > num_items then
@@ -1036,6 +1020,7 @@ local function open()
         mp.add_forced_key_binding(v[1], 'dynamic/'..v[2], v[3], v[4])
     end
 
+    utils.shared_script_property_set("file_browser-open", "yes")
     state.hidden = false
     if state.directory == nil then
         local path = mp.get_property('path')
@@ -1045,7 +1030,6 @@ local function open()
     end
 
     if state.flag_update then update_current_directory(nil, mp.get_property('path')) end
-    state.hidden = false
     if not state.flag_update then ass:update()
     else state.flag_update = false ; update_ass() end
 end
@@ -1056,6 +1040,7 @@ local function close()
         mp.remove_key_binding('dynamic/'..v[2])
     end
 
+    utils.shared_script_property_set("file_browser-open", "no")
     state.hidden = true
     ass:remove()
 end
@@ -1114,39 +1099,43 @@ local function custom_loadlist_recursive(directory, flag, prev_dirs)
     if list == nil then
         msg.warn("Could not parse", directory, "appending to playlist anyway")
         mp.commandv("loadfile", directory, flag)
-        flag = "append"
+        flag = "append-play"
         return true
     end
 
     directory = opts.directory or directory
     if directory == "" then return end
 
+    --this item appending logic is very sensitive as it impacts how multiselected items are added to the playlist
+    local item_appended = false
     for _, item in ipairs(list) do
         if not sub_extensions[ API.get_extension(item.name, "") ]
         and not audio_extensions[ API.get_extension(item.name, "") ]
         then
             if item.type == "dir" or parseable_extensions[API.get_extension(item.name, "")] then
                 if custom_loadlist_recursive( API.get_new_directory(item, directory) , flag, prev_dirs) then
-                    flag = "append"
+                    flag = "append-play"
+                    item_appended = true
                 end
             else
                 local path = API.get_full_path(item, directory)
 
                 msg.verbose("Appending", path, "to the playlist")
                 mp.commandv("loadfile", path, flag)
-                flag = "append"
+                flag = "append-play"
+                item_appended = true
             end
         end
     end
-    return flag == "append"
+    return item_appended
 end
 
 
 --a wrapper for the custom_loadlist_recursive function to handle the flags
 local function loadlist(directory, flag)
-    flag = custom_loadlist_recursive(directory, flag, {})
-    if not flag then msg.warn(directory, "contained no valid files") end
-    return flag
+    local item_appended = custom_loadlist_recursive(directory, flag, {})
+    if not item_appended then msg.warn(directory, "contained no valid files") end
+    return item_appended
 end
 
 --load playlist entries before and after the currently playing file
@@ -1200,6 +1189,11 @@ local function open_file_coroutine(flag, autoload)
     if flag == 'replace' then close() end
     local directory = state.directory
 
+    --we want to set the idle option to yes to ensure that if the first item
+    --fails to load then the player has a chance to attempt to load further items (for async append operations)
+    local idle = mp.get_property("idle", "once")
+    mp.set_property("idle", "yes")
+
     --handles multi-selection behaviour
     if next(state.selection) then
         local selection = API.sort_keys(state.selection)
@@ -1212,7 +1206,7 @@ local function open_file_coroutine(flag, autoload)
         --the currently selected file will be loaded according to the flag
         --the flag variable will be switched to append once a file is loaded
         for i=1, #selection do
-            if loadfile(selection[i], flag, autoload, directory) then flag = "append" end
+            if loadfile(selection[i], flag, autoload, directory) then flag = "append-play" end
         end
 
     elseif flag == 'replace' then
@@ -1222,6 +1216,8 @@ local function open_file_coroutine(flag, autoload)
     else
         loadfile(state.list[state.selected], flag, false, directory)
     end
+
+    if mp.get_property("idle") == "yes" then mp.set_property("idle", idle) end
 end
 
 --opens the selelected file(s)
@@ -1717,36 +1713,22 @@ end
 
 --sets up the compatible extensions list
 local function setup_extensions_list()
-    if not o.filter_files then return end
-
-    --adding file extensions to the set
-    for i=1, #compatible_file_extensions do
-        extensions[compatible_file_extensions[i]] = true
+    --setting up subtitle extensions
+    for ext in API.iterate_opt(o.subtitle_extensions:lower()) do
+        sub_extensions[ext] = true
+        extensions[ext] = true
     end
 
-    --setting up subtitle extensions
-    for i = 1, #subtitle_extension_list do
-        sub_extensions[subtitle_extension_list[i]] = true end
-    for str in API.iterate_opt(o.sub_extension_whitelist:lower()) do
-        sub_extensions[str] = true end
-    for str in API.iterate_opt(o.sub_extension_blacklist:lower()) do
-        sub_extensions[str] = nil end
-
-    --adding subtitle extensions to the main extension list
-    for ext in pairs(sub_extensions) do
-        extensions[ext] = true end
-
     --setting up audio extensions
-    for i = 1, #audio_extension_list do
-        audio_extensions[audio_extension_list[i]] = true end
-    for str in API.iterate_opt(o.audio_extension_whitelist:lower()) do
-        audio_extensions[str] = true end
-    for str in API.iterate_opt(o.audio_extension_blacklist:lower()) do
-        audio_extensions[str] = nil end
+    for ext in API.iterate_opt(o.audio_extensions:lower()) do
+        audio_extensions[ext] = true
+        extensions[ext] = true
+    end
 
-    --adding audio extensions to the main extension list
-    for ext in pairs(audio_extensions) do
-        extensions[ext] = true end
+    --adding file extensions to the set
+    for _, ext in ipairs(compatible_file_extensions) do
+        extensions[ext] = true
+    end
 
     --adding extra extensions on the whitelist
     for str in API.iterate_opt(o.extension_whitelist:lower()) do

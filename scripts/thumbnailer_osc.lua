@@ -82,6 +82,8 @@ local user_opts = {
 
     -- 以下为thumbnailer_osc的独占选项
 
+    showlogo = true,                    -- 显示logo
+    showtext = true,                    -- 显示logo下方文字
     wctitle = "${media-title}",         -- 无边框的上方标题
     sub_title = " ",                    -- bottombox布局的右侧子标题
     sub_title2 = "对比[${contrast}]  亮度[${brightness}]  伽马[${gamma}]  饱和[${saturation}]  色相[${hue}]", -- bottombox布局的临时右侧子标题
@@ -3417,23 +3419,28 @@ function tick()
 
         local ass = assdraw.ass_new()
         -- mpv logo
-        for i, line in ipairs(logo_lines) do
-            ass:new_event()
-            ass:append(line_prefix .. line)
+        if user_opts.showlogo then
+            for i, line in ipairs(logo_lines) do
+                ass:new_event()
+                ass:append(line_prefix .. line)
+            end
         end
 
         -- Santa hat
-        if is_december and not user_opts.greenandgrumpy then
+        if is_december and user_opts.showlogo and not user_opts.greenandgrumpy then
             for i, line in ipairs(santa_hat_lines) do
                 ass:new_event()
                 ass:append(line_prefix .. line)
             end
         end
 
-        ass:new_event()
-        ass:pos(320, icon_y+100)
-        ass:an(8)
-        ass:append(" ")
+        if user_opts.showtext then
+            ass:new_event()
+            ass:pos(320, icon_y+65)
+            ass:an(8)
+            ass:append("拖入文件/目录/网址进行播放")
+        end
+        
         set_osd(640, 360, ass.text)
 
         if state.showhide_enabled then
