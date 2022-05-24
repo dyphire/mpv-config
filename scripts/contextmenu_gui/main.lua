@@ -163,7 +163,21 @@ local function vidTrackMenu()
             local vidTrackNum = vidTrackCount[i]
             local vidTrackID = propNative("track-list/" .. vidTrackNum .. "/id")
             local vidTrackTitle = propNative("track-list/" .. vidTrackNum .. "/title")
-            if not (vidTrackTitle) then vidTrackTitle = "视频轨 " .. i end
+            local vidTrackCodec = propNative("track-list/" .. vidTrackNum .. "/codec"):upper()
+            local vidTrackImage = propNative("track-list/" .. vidTrackNum .. "/image")
+            local vidTrackwh = propNative("track-list/" .. vidTrackNum .. "/demux-w") .. "x" .. propNative("track-list/" .. vidTrackNum .. "/demux-h") 
+            local vidTrackFps = string.format("%.3f", propNative("track-list/" .. vidTrackNum .. "/demux-fps"))
+            local vidTrackDefault = propNative("track-list/" .. vidTrackNum .. "/default")
+            local vidTrackForced = propNative("track-list/" .. vidTrackNum .. "/forced")
+            local vidTrackExternal = propNative("track-list/" .. vidTrackNum .. "/external")
+            if vidTrackTitle and not vidTrackImage then vidTrackTitle = vidTrackTitle .. "[" .. vidTrackCodec .. "]" .. "," .. vidTrackwh .. "," .. vidTrackFps .. " FPS"
+            elseif vidTrackTitle then vidTrackTitle = vidTrackTitle .. "[" .. vidTrackCodec .. "]" .. "," .. vidTrackwh
+            elseif vidTrackImage then vidTrackTitle = "[" .. vidTrackCodec .. "]" .. "," .. vidTrackwh
+            elseif vidTrackFps then vidTrackTitle = "[" .. vidTrackCodec .. "]" .. "," .. vidTrackwh .. "," .. vidTrackFps .. " FPS"
+            else vidTrackTitle = "视频轨 " .. i end
+            if vidTrackDefault then  vidTrackTitle = vidTrackTitle .. "," .. "Default" end
+            if vidTrackForced then  vidTrackTitle = vidTrackTitle .. "," .. "Forced" end
+            if vidTrackExternal then  vidTrackTitle = vidTrackTitle .. "," .. "External" end
 
             local vidTrackCommand = "set vid " .. vidTrackID
             table.insert(vidTrackMenuVal, {RADIO, vidTrackTitle, "", vidTrackCommand, function() return checkTrack(vidTrackNum) end, false})
@@ -180,7 +194,8 @@ end
 -- the contextmenu_gui_lang.lua file (require "langcodes" above).
 function getLang(trackLang)
     trackLang = string.upper(trackLang)
-    if (string.len(trackLang) == 2) then trackLang = langcodes.iso639_1(trackLang)
+    if (string.len(trackLang) == 2) and trackLang == "SC" then trackLang = "sc"  --修复中文字幕常见语言标识的误识别
+    elseif (string.len(trackLang) == 2) then trackLang = langcodes.iso639_1(trackLang)
     elseif (string.len(trackLang) == 3) then trackLang = langcodes.iso639_2(trackLang) end
     return trackLang
 end
@@ -191,6 +206,17 @@ function noneCheck(checkType)
         if (trackID == false) then checkVal = true end
     end
     return checkVal
+end
+
+function esc_for_title(s)
+    s = string.gsub(s, '^%-', '')
+    s = string.gsub(s, '^%_', '')
+    s = string.gsub(s, '^%.', '')
+    s = string.gsub(s, '^.*%].', '')
+    s = string.gsub(s, '^.*%).', '')
+    s = string.gsub(s, '%.%w+$', '')
+    s = string.gsub(s, '^.*%.', '')
+    return s
 end
 
 -- 音频轨子菜单
@@ -207,12 +233,27 @@ local function audTrackMenu()
             local audTrackID = propNative("track-list/" .. audTrackNum .. "/id")
             local audTrackTitle = propNative("track-list/" .. audTrackNum .. "/title")
             local audTrackLang = propNative("track-list/" .. audTrackNum .. "/lang")
+            local audTrackCodec = propNative("track-list/" .. audTrackNum .. "/codec"):upper()
+            -- local audTrackBitrate = propNative("track-list/" .. audTrackNum .. "/demux-bitrate") / 1000  -- 此属性似乎不可用
+            local audTrackSamplerate = propNative("track-list/" .. audTrackNum .. "/demux-samplerate") / 1000
+            local audTrackChannels = propNative("track-list/" .. audTrackNum .. "/demux-channel-count")
+            local audTrackDefault = propNative("track-list/" .. audTrackNum .. "/default")
+            local audTrackForced = propNative("track-list/" .. audTrackNum .. "/forced")
+            local audTrackExternal = propNative("track-list/" .. audTrackNum .. "/external")
+            local filename = propNative("filename/no-ext")
             -- Convert ISO 639-1/2 codes
             if not (audTrackLang == nil) then audTrackLang = getLang(audTrackLang) and getLang(audTrackLang) or audTrackLang end
+            if audTrackTitle then audTrackTitle = audTrackTitle:gsub(filename, '') end
+            if audTrackExternal then audTrackTitle = esc_for_title(audTrackTitle) end
 
-            if (audTrackTitle) then audTrackTitle = audTrackTitle .. ((audTrackLang ~= nil) and " (" .. audTrackLang .. ")" or "")
-            elseif (audTrackLang) then audTrackTitle = audTrackLang
-            else audTrackTitle = "Audio Track " .. i end
+            if audTrackTitle and audTrackLang then audTrackTitle = audTrackTitle .. "," .. audTrackLang .. "[" .. audTrackCodec .. "]" .. "," .. audTrackChannels .. " channels" .. "," .. audTrackSamplerate .. " kHz"
+            elseif audTrackTitle then audTrackTitle = audTrackTitle .. "[" .. audTrackCodec .. "]" .. "," .. audTrackChannels .. " channels" .. "," .. audTrackSamplerate .. " kHz"
+            elseif audTrackLang then audTrackTitle = audTrackLang .. "[" .. audTrackCodec .. "]" .. "," .. audTrackChannels .. " channels" .. "," .. audTrackSamplerate .. " kHz"
+            elseif audTrackChannels then audTrackTitle = "[" .. audTrackCodec .. "]" .. "," .. audTrackChannels .. " channels" .. "," .. audTrackSamplerate .. " kHz"
+            else audTrackTitle = "音频轨 " .. i end
+            if audTrackDefault then  audTrackTitle = audTrackTitle .. "," .. "Default" end
+            if audTrackForced then  audTrackTitle = audTrackTitle .. "," .. "Forced" end
+            if audTrackExternal then  audTrackTitle = audTrackTitle .. "," .. "External" end
 
             local audTrackCommand = "set aid " .. audTrackID
             if (i == 1) then
@@ -244,12 +285,24 @@ local function subTrackMenu()
             local subTrackID = propNative("track-list/" .. subTrackNum .. "/id")
             local subTrackTitle = propNative("track-list/" .. subTrackNum .. "/title")
             local subTrackLang = propNative("track-list/" .. subTrackNum .. "/lang")
+            local subTrackCodec = propNative("track-list/" .. subTrackNum .. "/codec"):upper()
+            local subTrackDefault = propNative("track-list/" .. subTrackNum .. "/default")
+            local subTrackForced = propNative("track-list/" .. subTrackNum .. "/forced")
+            local subTrackExternal = propNative("track-list/" .. subTrackNum .. "/external")
+            local filename = propNative("filename/no-ext")
             -- Convert ISO 639-1/2 codes
             if not (subTrackLang == nil) then subTrackLang = getLang(subTrackLang) and getLang(subTrackLang) or subTrackLang end
+            if subTrackTitle then subTrackTitle = subTrackTitle:gsub(filename, '') end
+            if subTrackExternal then subTrackTitle = esc_for_title(subTrackTitle) end
 
-            if (subTrackTitle) then subTrackTitle = subTrackTitle .. ((subTrackLang ~= nil) and " (" .. subTrackLang .. ")" or "")
-            elseif (subTrackLang) then subTrackTitle = subTrackLang
-            else subTrackTitle = "Subtitle Track " .. i end
+            if subTrackTitle and subTrackLang then subTrackTitle = subTrackTitle .. "," .. subTrackLang .. "[" .. subTrackCodec .. "]" 
+            elseif subTrackTitle then subTrackTitle = subTrackTitle .. "[" .. subTrackCodec .. "]"
+            elseif subTrackLang then subTrackTitle = subTrackLang .. "[" .. subTrackCodec .. "]"
+            elseif subTrackCodec then subTrackTitle = "[" .. subTrackCodec .. "]"
+            else subTrackTitle = "字幕轨 " .. i end
+            if subTrackDefault then  subTrackTitle = subTrackTitle .. "," .. "Default" end
+            if subTrackForced then  subTrackTitle = subTrackTitle .. "," .. "Forced" end
+            if subTrackExternal then  subTrackTitle = subTrackTitle .. "," .. "External" end
 
             local subTrackCommand = "set sid " .. subTrackID
             if (i == 1) then
@@ -805,6 +858,7 @@ mp.register_event("file-loaded", function()
 -- 二级菜单 —— 音频
         audio_menu = {
             {CASCADE, "轨道", "audtrack_menu", "", "", false},
+            {SEP},
             {COMMAND, "切换  音轨", "y", "cycle audio;show-text 音轨切换为:${audio}", "", false},
             {CHECK, "音频规格化", "", "cycle audio-normalize-downmix;show-text 音频规格化:${audio-normalize-downmix}", function() return propNative("audio-normalize-downmix") end, false},
             {CHECK, "音频独占模式", "CTRL+y", "cycle audio-exclusive;show-text 音频独占模式:${audio-exclusive}", function() return propNative("audio-exclusive") end, false},
@@ -834,6 +888,7 @@ mp.register_event("file-loaded", function()
 -- 二级菜单 —— 字幕
         subtitle_menu = {
             {CASCADE, "轨道", "subtrack_menu", "", "", false},
+            {SEP},
             {COMMAND, "切换  渲染样式", "u", "cycle sub-ass-override;show-text 字幕渲染样式:${sub-ass-override}", "", false},
             {COMMAND, "切换  默认字体", "T", "cycle-values sub-font '思源黑体 Bold' '思源宋体 Bold' 思源黑体 思源宋体;show-text 使用字体:${sub-font}", "", false},
             {COMMAND, "切换  字幕", "j", "cycle sub;show-text 字幕切换为:${sub}", "", false},
