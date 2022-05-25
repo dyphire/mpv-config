@@ -1,17 +1,20 @@
 
--- On Linux the app trash-cli must be installed first.
+--[[
 
--- This script deletes the file that is currently playing
--- via keyboard shortcut, the file is moved to the recycle bin.
+This script deletes the file that is currently playing
+via keyboard shortcut, the file is moved to the recycle bin.
 
--- Usage:
--- add bindings to input.conf:
--- 0   script-message-to delete_current_file delete_file 1   "Press 1 to delete file"
--- KP0 script-message-to delete_current_file delete_file KP1 "Press 1 to delete file"
+On Linux the app trash-cli must be installed first.
 
--- Press 0 to initiate the delete operation,
--- then the script will ask to confirm by pressing 1.
--- You may customize the the init and confirm keys and the confirm message.
+Usage:
+Add bindings to input.conf:
+KP0 script-message-to delete_current_file delete_file KP1 "Press 1 to delete file"
+
+Press KP0 to initiate the delete operation,
+then the script will ask to confirm by pressing KP1.
+You may customize the the init and confirm keys and the confirm message.
+
+]]
 
 key_bindings = {}
 
@@ -116,4 +119,5 @@ function client_message(event)
     end
 end
 
+-- register_script_message unfortunately supports only 1 argument
 mp.register_event("client-message", client_message)

@@ -284,18 +284,34 @@ if not table.pack then
     end
 end
 
+--prints an error message and a stack trace
+--accepts an error object and optionally a coroutine
+--can be passed directly to xpcall
+function API.traceback(errmsg, co)
+    if co then
+        msg.warn(debug.traceback(co))
+    else
+        msg.warn(debug.traceback("", 2))
+    end
+    msg.error(errmsg)
+end
+
 --prints an error if a coroutine returns an error
 --unlike the next function this one still returns the results of coroutine.resume()
 function API.coroutine.resume_catch(...)
     local returns = table.pack(coroutine.resume(...))
-    if not returns[1] and returns[2] ~= ABORT_ERROR then msg.error(returns[2]) end
+    if not returns[1] and returns[2] ~= ABORT_ERROR then
+        API.traceback(returns[2], select(1, ...))
+    end
     return table.unpack(returns, 1, returns.n)
 end
 
 --resumes a coroutine and prints an error if it was not sucessful
 function API.coroutine.resume_err(...)
     local success, err = coroutine.resume(...)
-    if not success and err ~= ABORT_ERROR then msg.error(err) end
+    if not success and err ~= ABORT_ERROR then
+        API.traceback(err, select(1, ...))
+    end
     return success
 end
 
@@ -457,6 +473,43 @@ function API.sort_keys(t, include_item)
 
     table.sort(keys, function(a,b) return a.index < b.index end)
     return keys
+end
+
+local invalid_types = {
+    userdata = true,
+    thread = true,
+    boolean = true,
+    ["function"] = true
+}
+
+--recursively removes elements of the table which would cause
+--utils.format_json to throw an error
+local function json_safe_recursive(t)
+    if type(t) ~= "table" then return t end
+
+    local invalid_types = setmetatable({}, { __index = invalid_types })
+    if t[1] then invalid_types.string = true
+    else invalid_types.number = true end
+
+    for key, value in pairs(t) do
+        local ktype = type(key)
+        local vtype = type(value)
+
+        if invalid_types[ktype] or invalid_types[vtype] or ktype == "table" then
+            t[key] = nil
+        else
+            t[key] = json_safe_recursive(t[key])
+        end
+    end
+    return t
+end
+
+--formats a table into a json string but ensures there are no invalid datatypes inside the table first
+function API.format_json_safe(t)
+    json_safe_recursive(t)
+    local success, result, err = pcall(utils.format_json, t)
+    if success then return result, err
+    else return nil, result end
 end
 
 --copies a table without leaving any references to the original
@@ -858,7 +911,7 @@ local function parse_directory(directory, parse_state)
     mp.add_timeout(0, function()
         local success, err = coroutine.resume(new_co)
         if not success then
-            msg.error(err)
+            API.traceback(err, new_co)
             API.coroutine.resume_err(co)
         end
     end)
@@ -1391,7 +1444,7 @@ local function run_keybind_coroutine(key)
     local success, err = coroutine.resume(co, key, state_copy, co)
     if not success then
         msg.error("error running keybind:", utils.to_string(key))
-        msg.error(err)
+        API.traceback(err, co)
     end
 end
 
@@ -1642,9 +1695,8 @@ local function load_addon(path)
         if not chunk then return msg.error(err) end
     end
 
-    local success, result = pcall(chunk)
-    if not success then return msg.error(result) end
-    return result
+    local success, result = xpcall(chunk, API.traceback)
+    return success and result or nil
 end
 
 --setup an internal or external parser
@@ -1674,7 +1726,7 @@ local function setup_addon(file, path)
     if file:sub(-4) ~= ".lua" then return msg.verbose(path, "is not a lua file - aborting addon setup") end
 
     local addon_parsers = load_addon(path)
-    if not addon_parsers then return msg.error("addon", path, "did not return a table") end
+    if not addon_parsers or type(addon_parsers) ~= "table" then return msg.error("addon", path, "did not return a table") end
 
     --if the table contains a priority key then we assume it isn't an array of parsers
     if not addon_parsers[1] then addon_parsers = {addon_parsers} end
@@ -1701,9 +1753,8 @@ local function setup_addons()
     --we want to run the setup functions for each addon
     for index, parser in ipairs(parsers) do
         if parser.setup then
-            local success, err = pcall(function() parser:setup() end)
+            local success = xpcall(function() parser:setup() end, API.traceback)
             if not success then
-                msg.error(err)
                 msg.error("parser", parser:get_id(), "threw an error in the setup method - removing from list of parsers")
                 table.remove(parsers, index)
             end
@@ -1782,36 +1833,24 @@ local function scan_directory_json(directory, response_str)
     msg.verbose(("recieved %q from 'get-directory-contents' script message - returning result to %q"):format(directory, response_str))
 
     local list, opts = parse_directory(directory, { source = "script-message" } )
-    list.API_VERSION, opts.API_VERSION = API_VERSION, API_VERSION
+    opts.API_VERSION = API_VERSION
 
-    --removes invalid json types from the parser object
-    if opts.parser then
-        opts.parser = API.copy_table(opts.parser)
-        for key, value in pairs(opts.parser) do
-            if type(value) == "function" then
-                opts.parser[key] = nil
-            end
-        end
-    end
-
-    local err, err2
-    list, err = utils.format_json(list)
+    local err
+    list, err = API.format_json_safe(list)
     if not list then msg.error(err) end
 
-    opts, err2 = utils.format_json(opts)
-    if not opts then msg.error(err2) end
+    opts, err = API.format_json_safe(opts)
+    if not opts then msg.error(err) end
 
     mp.commandv("script-message", response_str, list or "", opts or "")
 end
 
-local input = nil
-
-if pcall(function() input = require "user-input-module" end) then
+pcall(function()
+    local input = require "user-input-module"
     mp.add_key_binding("Alt+o", "browse-directory/get-user-input", function()
         input.get_user_input(browse_directory, {request_text = "open directory:"})
     end)
-end
-
+end)
 
 
 

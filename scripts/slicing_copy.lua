@@ -4,6 +4,9 @@ local options = require "mp.options"
 
 local cut_pos = nil
 local copy_audio = true
+local ext_map = {
+    ["mpegts"] = "ts",
+}
 local o = {
     ffmpeg_path = "ffmpeg",
     target_dir = "~~/cutfragments",
@@ -19,7 +22,7 @@ file, _ = utils.file_info(mp.command_native({ "expand-path", o.target_dir }))
 if not file then
     --create target_dir if it doesn't exist
     local savepath = mp.command_native({ "expand-path", o.target_dir })
-    local is_windows = package.config:sub(1,1) == "\\"
+    local is_windows = package.config:sub(1, 1) == "\\"
     local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', savepath }
     local unix_args = { 'mkdir', savepath }
     local args = is_windows and windows_args or unix_args
@@ -77,6 +80,15 @@ local function file_format()
     return filename:sub(name:len() + 2)
 end
 
+local function get_ext()
+    local fmt = file_format()
+    if ext_map[fmt] ~= nil then
+        return ext_map[fmt]
+    else
+        return fmt
+    end
+end
+
 local function timestamp(duration)
     local hours = math.floor(duration / 3600)
     local minutes = math.floor(duration % 3600 / 60)
@@ -95,8 +107,8 @@ end
 
 local function get_outname(shift, endpos)
     local name = mp.get_property("filename/no-ext")
-    local fmt = file_format()
-    name = string.format("%s_%s-%s.%s", name, timestamp(shift), timestamp(endpos), fmt)
+    local ext = get_ext()
+    name = string.format("%s_%s-%s.%s", name, timestamp(shift), timestamp(endpos), ext)
     return name:gsub(":", "-")
 end
 
