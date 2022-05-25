@@ -67,10 +67,9 @@
     "branch":"v0.33_CM"
   },
   {
-    "git":"https://github.com/dyphire/mpv-youtube-quality",
+    "git":"https://github.com/christoph-heinrich/mpv-youtube-quality",
     "whitelist":"youtube%-quality%.lua$",
-    "dest":"~~/scripts",
-    "branch":"dev"
+    "dest":"~~/scripts"
   },
   {
     "git":"https://github.com/cvzi/mpv-youtube-download",
