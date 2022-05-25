@@ -1,6 +1,3 @@
--- Source https://github.com/christoph-heinrich/mpv-youtube-quality/blob/master/youtube-quality.lua
--- Commit Feb 8, 2022 fab8580 
-
 -- youtube-quality.lua
 --
 -- Change youtube video quality on the fly.
@@ -76,162 +73,33 @@ local opts = {
     --reset youtube-dl format to the original format string when changing files (e.g. going to the next playlist entry)
     --if file was opened previously, reset to previously selected format
     reset_format = true,
+
+    --show the video format menu after opening a file
+    start_with_menu = true,
 }
 (require 'mp.options').read_options(opts, "youtube-quality")
 opts.quality_strings = utils.parse_json(opts.quality_strings)
 
-local destroyer = nil
-function show_menu(isvideo)
-    local selected = 1
-    local active = 0
-    local num_options = 0
-    local options = {}
-    local vfmt = nil
-    local afmt = nil
-    local voptions = nil
-    local aoptions = nil
-    local url = nil
+-- special thanks to reload.lua (https://github.com/4e6/mpv-reload/)
+local function reload_resume()
+    local playlist_pos = mp.get_property_number("playlist-pos")
+    local reload_duration = mp.get_property_native("duration")
+    local time_pos = mp.get_property("time-pos")
 
-    if destroyer ~= nil then
-        destroyer()
-    end
+    mp.set_property_number("playlist-pos", playlist_pos)
 
-    voptions, aoptions , vfmt, afmt, url = download_formats()
-    if voptions == nil then
-        return
-    end
-
-    options = isvideo and voptions or aoptions
-
-    function format_string(vfmt, afmt)
-        if vfmt ~= nil and afmt ~= nil then
-            return vfmt.."+"..afmt
-        elseif vfmt ~= nil then
-            return vfmt
-        elseif afmt ~= nil then
-            return afmt
-        else
-            return ""
+    -- Tries to determine live stream vs. pre-recorded VOD. VOD has non-zero
+    -- duration property. When reloading VOD, to keep the current time position
+    -- we should provide offset from the start. Stream doesn't have fixed start.
+    -- Decent choice would be to reload stream from it's current 'live' position.
+    -- That's the reason we don't pass the offset when reloading streams.
+    if reload_duration and reload_duration > 0 then
+        local function seeker()
+            mp.commandv("seek", time_pos, "absolute")
+            mp.unregister_event(seeker)
         end
+        mp.register_event("file-loaded", seeker)
     end
-
-    msg.verbose("current ytdl-format: "..format_string(vfmt, afmt))
-
-    --set the cursor to the currently format
-    for i,v in ipairs(options) do
-        if v.format == (isvideo and vfmt or afmt) then
-            active = i
-            selected = active
-            break
-        end
-    end
-
-    local function table_size(t)
-        s = 0
-        for i,v in ipairs(t) do
-            s = s+1
-        end
-        return s
-    end
-
-    num_options = table_size(options)
-
-    function selected_move(amt)
-        selected = selected + amt
-        if selected < 1 then selected = num_options
-        elseif selected > num_options then selected = 1 end
-        timeout:kill()
-        timeout:resume()
-        draw_menu()
-    end
-
-    function choose_prefix(i)
-        if     i == selected and i == active then return opts.selected_and_active
-        elseif i == selected then return opts.selected_and_inactive end
-
-        if     i ~= selected and i == active then return opts.unselected_and_active
-        elseif i ~= selected then return opts.unselected_and_inactive end
-        return "> " --shouldn't get here.
-    end
-
-    function draw_menu()
-        local ass = assdraw.ass_new()
-
-        ass:pos(opts.text_padding_x, opts.text_padding_y)
-        ass:append(opts.style_ass_tags)
-
-        if options[1] ~= nil then
-            for i,v in ipairs(options) do
-                ass:append(choose_prefix(i)..v.label.."\\N")
-            end
-        else
-            ass:append("no formats found")
-        end
-
-		local w, h = mp.get_osd_size()
-		if opts.scale_playlist_by_window then w,h = 0, 0 end
-		mp.set_osd_ass(w, h, ass.text)
-    end
-
-    function bind_keys(keys, name, func, opts)
-        if not keys then
-          mp.add_forced_key_binding(keys, name, func, opts)
-          return
-        end
-        local i = 1
-        for key in keys:gmatch("[^%s]+") do
-          local prefix = i == 1 and '' or i
-          mp.add_forced_key_binding(key, name..prefix, func, opts)
-          i = i + 1
-        end
-    end
-      
-    function unbind_keys(keys, name)
-        if not keys then
-          mp.remove_key_binding(name)
-          return
-        end
-        local i = 1
-        for key in keys:gmatch("[^%s]+") do
-          local prefix = i == 1 and '' or i
-          mp.remove_key_binding(name..prefix)
-          i = i + 1
-        end
-    end
-    
-    function destroy()
-        timeout:kill()
-        mp.set_osd_ass(0,0,"")
-        unbind_keys(opts.up_binding, "move_up")
-        unbind_keys(opts.down_binding, "move_down")
-        unbind_keys(opts.select_binding, "select")
-        unbind_keys(opts.close_menu_binding, "close")
-        destroyer = nil
-    end
-
-    timeout = mp.add_periodic_timer(opts.menu_timeout, destroy)
-    destroyer = destroy
-
-    bind_keys(opts.up_binding,     "move_up",   function() selected_move(-1) end, {repeatable=true})
-    bind_keys(opts.down_binding,   "move_down", function() selected_move(1)  end, {repeatable=true})
-    if options[1] ~= nil then
-        bind_keys(opts.select_binding, "select", function()
-            destroy()
-            if isvideo == true then
-                vfmt = options[selected].format
-                url_data[url].vfmt = vfmt
-            else
-                afmt = options[selected].format
-                url_data[url].afmt = afmt
-            end
-            mp.set_property("ytdl-raw-options", "")		--reset youtube-dl raw options before changing format
-            mp.set_property("ytdl-format", format_string(vfmt, afmt))
-            reload_resume()
-        end)
-    end
-    bind_keys(opts.close_menu_binding, "close", destroy)	--close menu using ESC
-    draw_menu()
-    return
 end
 
 local ytdl = {
@@ -241,13 +109,13 @@ local ytdl = {
 }
 
 url_data={}
-function download_formats()
+local function download_formats()
 
-    function get_url()
+    local function get_url()
         local path = mp.get_property("path")
         path = string.gsub(path, "ytdl://", "") -- Strip possible ytdl:// prefix.
 
-        function is_url(s)
+        local function is_url(s)
             -- adapted the regex from https://stackoverflow.com/questions/3809401/what-is-a-good-regular-expression-to-match-a-url
             return nil ~= string.match(path, "^[%w]-://[-a-zA-Z0-9@:%._\\+~#=]+%.[a-zA-Z0-9()][a-zA-Z0-9()]?[a-zA-Z0-9()]?[a-zA-Z0-9()]?[a-zA-Z0-9()]?[a-zA-Z0-9()]?[-a-zA-Z0-9()@:%_\\+.~#?&/=]*")
         end
@@ -261,7 +129,7 @@ function download_formats()
     end
 
     if url_data[url] ~= nil then
-        data = url_data[url]
+        local data = url_data[url]
         return data.voptions, data.aoptions, data.vfmt, data.afmt, url
     end
 
@@ -324,7 +192,7 @@ function download_formats()
 
     msg.verbose("youtube-dl succeeded!")
 
-    function string_split (inputstr, sep)
+    local function string_split (inputstr, sep)
         if sep == nil then
             sep = "%s"
         end
@@ -340,7 +208,7 @@ function download_formats()
     vfmt = formats_split[1]
     afmt = formats_split[2]
 
-    function scale_filesize(size)
+    local function scale_filesize(size)
         size = tonumber(size)
         if size == nil then
             return "unknown"
@@ -359,7 +227,7 @@ function download_formats()
         end
     end
 
-    function scale_bitrate(br)
+    local function scale_bitrate(br)
         br = tonumber(br)
         if br == nil then
             return "unknown"
@@ -434,35 +302,175 @@ function download_formats()
     return vres, ares , vfmt, afmt, url
 end
 
--- keybind to launch menu
-mp.register_script_message("quality-menu-video", function() show_menu(true) end)
-mp.register_script_message("quality-menu-audio", function() show_menu(false) end)
+local destroyer = nil
+local function show_menu(isvideo)
+    local selected = 1
+    local active = 0
+    local num_options = 0
+    local options = {}
+    local vfmt = nil
+    local afmt = nil
+    local voptions = nil
+    local aoptions = nil
+    local url = nil
 
--- special thanks to reload.lua (https://github.com/4e6/mpv-reload/)
-function reload_resume()
-    local playlist_pos = mp.get_property_number("playlist-pos")
-    local reload_duration = mp.get_property_native("duration")
-    local time_pos = mp.get_property("time-pos")
-
-    mp.set_property_number("playlist-pos", playlist_pos)
-
-    -- Tries to determine live stream vs. pre-recorded VOD. VOD has non-zero
-    -- duration property. When reloading VOD, to keep the current time position
-    -- we should provide offset from the start. Stream doesn't have fixed start.
-    -- Decent choice would be to reload stream from it's current 'live' position.
-    -- That's the reason we don't pass the offset when reloading streams.
-    if reload_duration and reload_duration > 0 then
-        local function seeker()
-            mp.commandv("seek", time_pos, "absolute")
-            mp.unregister_event(seeker)
-        end
-        mp.register_event("file-loaded", seeker)
+    if destroyer ~= nil then
+        destroyer()
     end
+
+    voptions, aoptions , vfmt, afmt, url = download_formats()
+    if voptions == nil then
+        return
+    end
+
+    options = isvideo and voptions or aoptions
+
+    local function format_string(vfmt, afmt)
+        if vfmt ~= nil and afmt ~= nil then
+            return vfmt.."+"..afmt
+        elseif vfmt ~= nil then
+            return vfmt
+        elseif afmt ~= nil then
+            return afmt
+        else
+            return ""
+        end
+    end
+
+    msg.verbose("current ytdl-format: "..format_string(vfmt, afmt))
+
+    --set the cursor to the currently format
+    for i,v in ipairs(options) do
+        if v.format == (isvideo and vfmt or afmt) then
+            active = i
+            selected = active
+            break
+        end
+    end
+
+    local function table_size(t)
+        s = 0
+        for i,v in ipairs(t) do
+            s = s+1
+        end
+        return s
+    end
+
+    num_options = table_size(options)
+
+    local function choose_prefix(i)
+        if     i == selected and i == active then return opts.selected_and_active
+        elseif i == selected then return opts.selected_and_inactive end
+
+        if     i ~= selected and i == active then return opts.unselected_and_active
+        elseif i ~= selected then return opts.unselected_and_inactive end
+        return "> " --shouldn't get here.
+    end
+
+    local function draw_menu()
+        local ass = assdraw.ass_new()
+
+        ass:pos(opts.text_padding_x, opts.text_padding_y)
+        ass:append(opts.style_ass_tags)
+
+        if options[1] ~= nil then
+            for i,v in ipairs(options) do
+                ass:append(choose_prefix(i)..v.label.."\\N")
+            end
+        else
+            ass:append("no formats found")
+        end
+
+		local w, h = mp.get_osd_size()
+		if opts.scale_playlist_by_window then w,h = 0, 0 end
+		mp.set_osd_ass(w, h, ass.text)
+    end
+
+    local function selected_move(amt)
+        selected = selected + amt
+        if selected < 1 then selected = num_options
+        elseif selected > num_options then selected = 1 end
+        timeout:kill()
+        timeout:resume()
+        draw_menu()
+    end
+
+    local function bind_keys(keys, name, func, opts)
+        if not keys then
+          mp.add_forced_key_binding(keys, name, func, opts)
+          return
+        end
+        local i = 1
+        for key in keys:gmatch("[^%s]+") do
+          local prefix = i == 1 and '' or i
+          mp.add_forced_key_binding(key, name..prefix, func, opts)
+          i = i + 1
+        end
+    end
+      
+    local function unbind_keys(keys, name)
+        if not keys then
+          mp.remove_key_binding(name)
+          return
+        end
+        local i = 1
+        for key in keys:gmatch("[^%s]+") do
+          local prefix = i == 1 and '' or i
+          mp.remove_key_binding(name..prefix)
+          i = i + 1
+        end
+    end
+    
+    local function destroy()
+        timeout:kill()
+        mp.set_osd_ass(0,0,"")
+        unbind_keys(opts.up_binding, "move_up")
+        unbind_keys(opts.down_binding, "move_down")
+        unbind_keys(opts.select_binding, "select")
+        unbind_keys(opts.close_menu_binding, "close")
+        destroyer = nil
+    end
+
+    timeout = mp.add_periodic_timer(opts.menu_timeout, destroy)
+    destroyer = destroy
+
+    bind_keys(opts.up_binding,     "move_up",   function() selected_move(-1) end, {repeatable=true})
+    bind_keys(opts.down_binding,   "move_down", function() selected_move(1)  end, {repeatable=true})
+    if options[1] ~= nil then
+        bind_keys(opts.select_binding, "select", function()
+            destroy()
+            if isvideo == true then
+                vfmt = options[selected].format
+                url_data[url].vfmt = vfmt
+            else
+                afmt = options[selected].format
+                url_data[url].afmt = afmt
+            end
+            mp.set_property("ytdl-raw-options", "")		--reset youtube-dl raw options before changing format
+            mp.set_property("ytdl-format", format_string(vfmt, afmt))
+            reload_resume()
+        end)
+    end
+    bind_keys(opts.close_menu_binding, "close", destroy)	--close menu using ESC
+    draw_menu()
+    return
 end
+
+local function video_formats_toggle()
+    show_menu(true)
+end
+
+local function audio_formats_toggle()
+    show_menu(false)
+end
+
+-- keybind to launch menu
+mp.register_script_message("video_formats_toggle", video_formats_toggle)
+mp.register_script_message("audio_formats_toggle", audio_formats_toggle)
 
 local original_format = mp.get_property("ytdl-format")
 local path = nil
-function file_start()
+local function file_start()
     local new_path = mp.get_property("path")
     if opts.reset_format and path ~= nil and new_path ~= path then
         local data = url_data[new_path]
@@ -474,7 +482,11 @@ function file_start()
             mp.set_property("ytdl-format", original_format)
         end
     end
+    if opts.start_with_menu and new_path ~= path then
+        video_formats_toggle()
+    else
+        download_formats()
+    end
     path = new_path
-    download_formats()
 end
 mp.register_event("start-file", file_start)
