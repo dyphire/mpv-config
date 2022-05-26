@@ -29,9 +29,9 @@ o = {
     max_search_depth = 3, --determines the max depth of recursive search, should be >= 1
     excluded_dir = [[
         []
-        ]], --excluded directories for cloud mount disks on Windows, example: ["X:", "Z:", "F:\\Download\\"]. !!the option only for Windows
+        ]], --excluded directories for cloud mount disks on Windows, example: ["X:", "Z:", "F:\\Download\\", "Download"]. !!the option only for Windows
     special_protocols = [[
-	["https?://", "magnet:", "rtmp:", "smb://", "bd://", "dvd://", "cdda://"]
+	["https?://", "^magnet:", "^rtmp:", "smb://", "bd://", "dvd://", "cdda://"]
 	]], --add above (after a comma) any protocol to disable
 }
 options.read_options(o)
@@ -44,6 +44,9 @@ local default_sub_paths = mp.get_property_native("options/sub-file-paths")
 
 function need_ignore(tab, val)
 	for index, element in ipairs(tab) do
+        if string.find(val, element) then
+            return true
+        end
 		if (val:find(element) == 1) then
 			return true
 		end
