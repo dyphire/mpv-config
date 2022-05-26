@@ -27,7 +27,7 @@ local o = {
 options.read_options(o)
 ------------------------
 
-function export_selected_subtitles()
+local function export_selected_subtitles()
     local i = 0
     local tracks_count = mp.get_property_number("track-list/count")
     while i < tracks_count do
