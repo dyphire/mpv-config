@@ -43,7 +43,7 @@ local bookmark_path
 
 local wait_msg
 
-function need_ignore(tab, val)
+local function need_ignore(tab, val)
 	for index, element in ipairs(tab) do
         if string.find(val, element) then
             return true

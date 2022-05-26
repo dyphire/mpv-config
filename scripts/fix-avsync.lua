@@ -7,7 +7,7 @@
 local mp = require "mp"
 local msg = require "mp.msg"
 
-function fix_avsync()
+local function fix_avsync()
   local paused = mp.get_property_native("pause")
   msg.info("fix A/V sync.")
   mp.command("no-osd frame-step")
@@ -18,7 +18,7 @@ function fix_avsync()
   end)
 end
 
-function fix_speedout()
+local function fix_speedout()
   local afs = mp.get_property_native("af")
   for _, af in pairs(afs) do
     if af["name"] ~= nil and af["name"] ~= "" then
