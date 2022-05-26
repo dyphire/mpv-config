@@ -42,7 +42,7 @@ o.special_protocols = utils.parse_json(o.special_protocols)
 local default_audio_paths = mp.get_property_native("options/audio-file-paths")
 local default_sub_paths = mp.get_property_native("options/sub-file-paths")
 
-function need_ignore(tab, val)
+local function need_ignore(tab, val)
 	for index, element in ipairs(tab) do
         if string.find(val, element) then
             return true

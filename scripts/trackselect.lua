@@ -79,7 +79,7 @@ mp.options.read_options(options, "trackselect")
 
 options.special_protocols = utils.parse_json(options.special_protocols)
 
-function need_ignore(tab, val)
+local function need_ignore(tab, val)
 	for index, element in ipairs(tab) do
         if string.find(val, element) then
             return true
