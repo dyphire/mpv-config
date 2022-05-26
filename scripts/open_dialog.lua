@@ -19,7 +19,7 @@ CTRL+e   script-message-to open_dialog remove_vfSub   # 移除次字幕
 
 utils = require 'mp.utils'
 
-function import_files()
+local function import_files()
 	local was_ontop = mp.get_property_native("ontop")
 	if was_ontop then mp.set_property_native("ontop", false) end
 	local res = utils.subprocess({
@@ -52,7 +52,7 @@ function import_files()
 end
 
 
-function import_url()
+local function import_url()
 	local was_ontop = mp.get_property_native("ontop")
 	if was_ontop then mp.set_property_native("ontop", false) end
 	local res = utils.subprocess({
@@ -76,7 +76,7 @@ function import_url()
 end
 
 
-function append_aid()
+local function append_aid()
 	local was_ontop = mp.get_property_native("ontop")
 	if was_ontop then mp.set_property_native("ontop", false) end
 	local res = utils.subprocess({
@@ -107,7 +107,7 @@ function append_aid()
 end
 
 
-function append_sid()
+local function append_sid()
 	local was_ontop = mp.get_property_native("ontop")
 	if was_ontop then mp.set_property_native("ontop", false) end
 	local res = utils.subprocess({
@@ -138,7 +138,7 @@ function append_sid()
 end
 
 
-function append_vfSub()
+local function append_vfSub()
 	local was_ontop = mp.get_property_native("ontop")
 	if was_ontop then mp.set_property_native("ontop", false) end
 	local res = utils.subprocess({
@@ -177,12 +177,12 @@ local function filter_state(label, key, value)
     return false
 end
 
-function toggle_vfSub()
+local function toggle_vfSub()
 	local vfSub = "vf toggle @open_dialog-sub"
 	if filter_state("open_dialog-sub") then mp.command(vfSub) end
 end
 
-function remove_vfSub()
+local function remove_vfSub()
 	local vfSub = "vf remove @open_dialog-sub"
 	if filter_state("open_dialog-sub") then
 		mp.msg.info("Cleanup @open_dialog-sub.")
