@@ -58,8 +58,8 @@ local options = {
 
     --add above (after a comma) any protocol to disable
     special_protocols = [[
-        ["https?://", "magnet:", "rtmp:", "smb://", "bd://", "dvd://", "cdda://"]
-        ]], 
+	["https?://", "^magnet:", "^rtmp:", "smb://", "bd://", "dvd://", "cdda://"]
+	]],
 }
 
 for _type, track in pairs(defaults) do
@@ -75,11 +75,15 @@ local last = {}
 local fingerprint = ""
 
 mp.options = require "mp.options"
+mp.options.read_options(options, "trackselect")
 
 options.special_protocols = utils.parse_json(options.special_protocols)
 
 function need_ignore(tab, val)
 	for index, element in ipairs(tab) do
+        if string.find(val, element) then
+            return true
+        end
 		if (val:find(element) == 1) then
 			return true
 		end
@@ -148,7 +152,6 @@ function track_layout_hash(tracklist)
 end
 
 function trackselect()
-    mp.options.read_options(options, "trackselect")
     local fpath = mp.get_property('path')
     if not options.enabled then return end
     if need_ignore(options.special_protocols, fpath) then return end
