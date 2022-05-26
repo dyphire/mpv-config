@@ -12,9 +12,9 @@ local o = {
     save_period = 30,
     excluded_dir = [[
         []
-        ]], --excluded directories for shared, #windows: ["X:", "Z:", "F:\\Download\\"]
+        ]], --excluded directories for shared, #windows: ["X:", "Z:", "F:\\Download\\", "Download"]
     special_protocols = [[
-	["https?://", "magnet:", "rtmp:", "smb://", "bd://", "dvd://", "cdda://"]
+	["https?://", "^magnet:", "^rtmp:", "smb://", "bd://", "dvd://", "cdda://"]
 	]], --add above (after a comma) any protocol to disable
     included_dir = [[
     []
