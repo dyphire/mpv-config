@@ -478,24 +478,38 @@ end
 local invalid_types = {
     userdata = true,
     thread = true,
-    boolean = true,
     ["function"] = true
 }
+
+local invalid_key_types = {
+    boolean = true,
+    table = true,
+    ["nil"] = true
+}
+setmetatable(invalid_key_types, { __index = invalid_types })
 
 --recursively removes elements of the table which would cause
 --utils.format_json to throw an error
 local function json_safe_recursive(t)
     if type(t) ~= "table" then return t end
 
-    local invalid_types = setmetatable({}, { __index = invalid_types })
-    if t[1] then invalid_types.string = true
-    else invalid_types.number = true end
+    local invalid_ktypes = setmetatable({}, { __index = invalid_key_types })
+    local arr_length = #t
+    if arr_length > 0 then
+        invalid_ktypes.string = true
+        setmetatable(t, { type = "ARRAY" })
+    else
+        invalid_ktypes.number = true
+        setmetatable(t, { type = "MAP" })
+    end
 
     for key, value in pairs(t) do
         local ktype = type(key)
         local vtype = type(value)
 
-        if invalid_types[ktype] or invalid_types[vtype] or ktype == "table" then
+        if invalid_ktypes[ktype] or invalid_types[vtype] then
+            t[key] = nil
+        elseif ktype == "number" and key > arr_length then
             t[key] = nil
         else
             t[key] = json_safe_recursive(t[key])
@@ -506,7 +520,8 @@ end
 
 --formats a table into a json string but ensures there are no invalid datatypes inside the table first
 function API.format_json_safe(t)
-    json_safe_recursive(t)
+    --operate on a copy of the table to prevent any data loss in the original table
+    t = json_safe_recursive(API.copy_table(t))
     local success, result, err = pcall(utils.format_json, t)
     if success then return result, err
     else return nil, result end

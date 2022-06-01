@@ -661,8 +661,9 @@ mp.register_event("file-loaded", function()
 
 -- 三级菜单 —— Youtube-dl菜单
         ytdl_menu = {
-            {COMMAND, "开/关 ytdl视频选择菜单", "CTRL+F", "script-message-to youtube_quality video_formats_toggle", "", false},
-            {COMMAND, "开/关 ytdl音频选择菜单", "ALT+F", "script-message-to youtube_quality audio_formats_toggle", "", false},
+            {COMMAND, "开/关 ytdl视频选择菜单", "CTRL+F", "script-message-to quality_menu video_formats_toggle", "", false},
+            {COMMAND, "开/关 ytdl音频选择菜单", "ALT+F", "script-message-to quality_menu audio_formats_toggle", "", false},
+            {COMMAND, "重新加载", "CTRL+ALT+f", "script-message-to quality_menu reload", "", false},
             {COMMAND, "下载ytdl视频", "ALT+V", "script-message-to youtube_download download-video", "", false},
             {COMMAND, "下载ytdl音频", "ALT+Y", "script-message-to youtube_download download-audio", "", false},
             {COMMAND, "下载ytdl字幕", "ALT+Z", "script-message-to youtube_download download-subtitle", "", false},

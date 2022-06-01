@@ -1,16 +1,16 @@
--- youtube-quality.lua
+-- quality-menu.lua
 --
--- Change youtube video quality on the fly.
+-- Change the stream video and audio quality on the fly.
 --
 -- Usage:
 -- add bindings to input.conf:
--- CTRL+f   script-message-to youtube_quality quality-menu-video
--- ALT+f    script-message-to youtube_quality quality-menu-audio
+-- CTRL+f   script-message-to quality_menu video_formats_toggle
+-- ALT+f    script-message-to quality_menu audio_formats_toggle
 --
 -- Displays a menu that lets you switch to different ytdl-format settings while
 -- you're in the middle of a video (just like you were using the web player).
 --
--- Bound to ctrl-f by default.
+-- Bound to ctrl+f and alt+f by default.
 
 local mp = require 'mp'
 local utils = require 'mp.utils'
@@ -22,7 +22,7 @@ local opts = {
     up_binding = "UP WHEEL_UP",
     down_binding = "DOWN WHEEL_DOWN",
     select_binding = "ENTER MBTN_LEFT",
-    close_menu_binding = "ESC MBTN_RIGHT",
+    close_menu_binding = "ESC MBTN_RIGHT CTRL+f ALT+f",
 
     --youtube-dl version(could be youtube-dl or yt-dlp, or something else)
     ytdl_ver = "yt-dlp",
@@ -33,8 +33,8 @@ local opts = {
     unselected_and_active   = "▷ - ",
     unselected_and_inactive = "○ - ",
 
-	--font size scales by window, if false requires larger font and padding sizes
-	scale_playlist_by_window=false,
+    --font size scales by window, if false requires larger font and padding sizes
+    scale_playlist_by_window=true,
 
     --playlist ass style overrides inside curly brackets, \keyvalue is one field, extra \ for escape in lua
     --example {\\fnUbuntu\\fs10\\b0\\bord1} equals: font=Ubuntu, size=10, bold=no, border=1
@@ -43,14 +43,15 @@ local opts = {
     --these styles will be used for the whole playlist. More specific styling will need to be hacked in
     --
     --(a monospaced font is recommended but not required)
-    style_ass_tags = "{\\fnmonospace}",
+    style_ass_tags = "{\\fnmonospace\\fs10\\bord1}",
 
     --paddings for top left corner
     text_padding_x = 5,
     text_padding_y = 5,
 
-    --other
-    menu_timeout = 10,
+    --how many seconds until the quality menu times out
+    --setting this to 0 deactivates the timeout
+    menu_timeout = 6,
 
     --use youtube-dl to fetch a list of available formats (overrides quality_strings)
     fetch_formats = true,
@@ -70,14 +71,14 @@ local opts = {
     ]
     ]],
 
-    --reset youtube-dl format to the original format string when changing files (e.g. going to the next playlist entry)
+    --reset ytdl-format to the original format string when changing files (e.g. going to the next playlist entry)
     --if file was opened previously, reset to previously selected format
     reset_format = true,
 
     --show the video format menu after opening a file
     start_with_menu = true,
 }
-(require 'mp.options').read_options(opts, "youtube-quality")
+(require 'mp.options').read_options(opts, "quality-menu")
 opts.quality_strings = utils.parse_json(opts.quality_strings)
 
 -- special thanks to reload.lua (https://github.com/4e6/mpv-reload/)
@@ -99,6 +100,18 @@ local function reload_resume()
             mp.unregister_event(seeker)
         end
         mp.register_event("file-loaded", seeker)
+    end
+end
+
+local function format_string(vfmt, afmt)
+    if vfmt ~= nil and afmt ~= nil then
+        return vfmt.."+"..afmt
+    elseif vfmt ~= nil then
+        return vfmt
+    elseif afmt ~= nil then
+        return afmt
+    else
+        return ""
     end
 end
 
@@ -160,29 +173,30 @@ local function download_formats()
     end
 
     local function exec(args)
-        local ret = utils.subprocess({args = args})
-        return ret.status, ret.stdout, ret
+        local res, err = mp.command_native({name = "subprocess", args = args, capture_stdout = true, capture_stderr = true})
+        return res.status, res.stdout, res.stderr
     end
 
-	local ytdl_format = mp.get_property("ytdl-format")
-	local command = nil
-	if (ytdl_format == nil or ytdl_format == "") then
-		command = {ytdl.path, "--no-warnings", "--no-playlist", "-j", url}
-	else
-		command = {ytdl.path, "--no-warnings", "--no-playlist", "-j", "-f", ytdl_format, url}
-	end
-	
-	msg.verbose("calling youtube-dl with command: " .. table.concat(command, " "))
+    local ytdl_format = mp.get_property("ytdl-format")
+    local command = nil
+    if (ytdl_format == nil or ytdl_format == "") then
+        command = {ytdl.path, "--no-warnings", "--no-playlist", "-j", url}
+    else
+        command = {ytdl.path, "--no-warnings", "--no-playlist", "-j", "-f", ytdl_format, url}
+    end
 
-    local es, json, result = exec(command)
+    msg.verbose("calling youtube-dl with command: " .. table.concat(command, " "))
 
-    if (es < 0) or (json == nil) or (json == "") then
+    local es, stdout, stderr = exec(command)
+
+    if (es < 0) or (stdout == nil) or (stdout == "") then
         mp.osd_message("fetching formats failed...", 1)
         msg.error("failed to get format list: " .. es)
+        msg.error("stderr: " .. stderr)
         return
     end
 
-    local json, err = utils.parse_json(json)
+    local json, err = utils.parse_json(stdout)
 
     if (json == nil) then
         mp.osd_message("fetching formats failed...", 1)
@@ -313,6 +327,7 @@ local function show_menu(isvideo)
     local voptions = nil
     local aoptions = nil
     local url = nil
+    local timeout = nil
 
     if destroyer ~= nil then
         destroyer()
@@ -324,18 +339,6 @@ local function show_menu(isvideo)
     end
 
     options = isvideo and voptions or aoptions
-
-    local function format_string(vfmt, afmt)
-        if vfmt ~= nil and afmt ~= nil then
-            return vfmt.."+"..afmt
-        elseif vfmt ~= nil then
-            return vfmt
-        elseif afmt ~= nil then
-            return afmt
-        else
-            return ""
-        end
-    end
 
     msg.verbose("current ytdl-format: "..format_string(vfmt, afmt))
 
@@ -355,8 +358,6 @@ local function show_menu(isvideo)
         end
         return s
     end
-
-    num_options = table_size(options)
 
     local function choose_prefix(i)
         if     i == selected and i == active then return opts.selected_and_active
@@ -381,17 +382,21 @@ local function show_menu(isvideo)
             ass:append("no formats found")
         end
 
-		local w, h = mp.get_osd_size()
-		if opts.scale_playlist_by_window then w,h = 0, 0 end
-		mp.set_osd_ass(w, h, ass.text)
+        local w, h = mp.get_osd_size()
+        if opts.scale_playlist_by_window then w,h = 0, 0 end
+        mp.set_osd_ass(w, h, ass.text)
     end
+
+    num_options = table_size(options)
 
     local function selected_move(amt)
         selected = selected + amt
         if selected < 1 then selected = num_options
         elseif selected > num_options then selected = 1 end
-        timeout:kill()
-        timeout:resume()
+        if timeout ~= nil then
+            timeout:kill()
+            timeout:resume()
+        end
         draw_menu()
     end
 
@@ -422,7 +427,9 @@ local function show_menu(isvideo)
     end
     
     local function destroy()
-        timeout:kill()
+        if timeout ~= nil then
+            timeout:kill()
+        end
         mp.set_osd_ass(0,0,"")
         unbind_keys(opts.up_binding, "move_up")
         unbind_keys(opts.down_binding, "move_down")
@@ -430,8 +437,10 @@ local function show_menu(isvideo)
         unbind_keys(opts.close_menu_binding, "close")
         destroyer = nil
     end
-
-    timeout = mp.add_periodic_timer(opts.menu_timeout, destroy)
+    
+    if opts.menu_timeout > 0 then
+        timeout = mp.add_periodic_timer(opts.menu_timeout, destroy)
+    end
     destroyer = destroy
 
     bind_keys(opts.up_binding,     "move_up",   function() selected_move(-1) end, {repeatable=true})
@@ -439,6 +448,8 @@ local function show_menu(isvideo)
     if options[1] ~= nil then
         bind_keys(opts.select_binding, "select", function()
             destroy()
+            if selected == active then return end
+            
             if isvideo == true then
                 vfmt = options[selected].format
                 url_data[url].vfmt = vfmt
@@ -446,12 +457,12 @@ local function show_menu(isvideo)
                 afmt = options[selected].format
                 url_data[url].afmt = afmt
             end
-            mp.set_property("ytdl-raw-options", "")		--reset youtube-dl raw options before changing format
+            mp.set_property("ytdl-raw-options", "")    --reset youtube-dl raw options before changing format
             mp.set_property("ytdl-format", format_string(vfmt, afmt))
             reload_resume()
         end)
     end
-    bind_keys(opts.close_menu_binding, "close", destroy)	--close menu using ESC
+    bind_keys(opts.close_menu_binding, "close", destroy)    --close menu using ESC
     draw_menu()
     return
 end
@@ -465,8 +476,9 @@ local function audio_formats_toggle()
 end
 
 -- keybind to launch menu
-mp.register_script_message("video_formats_toggle", video_formats_toggle)
-mp.register_script_message("audio_formats_toggle", audio_formats_toggle)
+mp.add_key_binding(nil, "video_formats_toggle", video_formats_toggle)
+mp.add_key_binding(nil, "audio_formats_toggle", audio_formats_toggle)
+mp.add_key_binding(nil, "reload", reload_resume)
 
 local original_format = mp.get_property("ytdl-format")
 local path = nil
