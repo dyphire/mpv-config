@@ -105,8 +105,8 @@ vec4 hook() {
 
 #define M(i,j)      Mx[min(i,j)*N + max(i,j) - (min(i,j)*(min(i,j)+1))/2]
 
-#define C(i,j)      (inversesqrt(1.0 + (X[i].y + X[j].y) / Var) * exp(-0.5 * (sqr(X[i].x - X[j].x) / (localVar + X[i].y + X[j].y + sigma_nsq) + sqr((coords[i] - coords[j]) / radius))) + (X[i].x - y) * (X[j].x - y) / (Var + sigma_nsq))
-#define c(i)        (inversesqrt(1.0 + X[i].y / Var) * exp(-0.5 * (sqr(X[i].x - y) / (localVar + X[i].y + sigma_nsq) + sqr((coords[i] - offset) / radius))))
+#define C(i,j)      (inversesqrt(1.0 + (X[i].y + X[j].y) / Var) * exp(-0.5 * (sqr(X[i].x - X[j].x) / (localVar + X[i].y + X[j].y) + sqr((coords[i] - coords[j]) / radius))) /*+ (X[i].x - y) * (X[j].x - y) / Var*/)  // commented out part works well only on test patterns
+#define c(i)        (inversesqrt(1.0 + X[i].y / Var) * exp(-0.5 * (sqr(X[i].x - y) / (localVar + X[i].y) + sqr((coords[i] - offset) / radius))))
 
 #define getnsum(i)  X[i] = vec4(LOWRES_Y_tex(LOWRES_Y_pt*(pos+coords[i]+vec2(0.5))).xy, \
                                 CHROMA_tex(CHROMA_pt*(pos+coords[i]+vec2(0.5))).xy); \
@@ -133,7 +133,7 @@ vec4 hook() {
     I9(getnsum, 0)
 
     total.xyz /= total.w;
-    float localVar = max(total.y - total.x * total.x, 1e-6);
+    float localVar = abs(total.y - total.x * total.x) + sigma_nsq;
     float Var = localVar + total.z;
     float radius = 1.0;
 

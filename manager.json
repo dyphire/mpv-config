@@ -67,8 +67,8 @@
     "branch":"v0.33_CM"
   },
   {
-    "git":"https://github.com/christoph-heinrich/mpv-youtube-quality",
-    "whitelist":"youtube%-quality%.lua$",
+    "git":"https://github.com/christoph-heinrich/mpv-quality-menu",
+    "whitelist":"qualityu%-menu%.lua$",
     "dest":"~~/scripts"
   },
   {
