@@ -65,6 +65,7 @@ local user_opts = {
     showonstart = true,         -- show OSC on startup or when the next file in
                                 -- playlist starts playing
     showonseek = false,         -- show OSC when seeking
+    movesub = true,             -- move subtitles when the OSC is visible
     titlefont = "",             -- font used for the title above OSC and
                                 -- in the window controls bar
     blur_intensity = 150,       -- adjust the strength of the OSC blur
@@ -517,6 +518,8 @@ mp.register_script_message(message.debug, function()
 end)
 
 
+
+
 -----------------
 -- modernx.lua --
 -----------------
@@ -527,6 +530,9 @@ local osc_param = { -- calculated by osc_init()
     display_aspect = 1,
     unscaled_y = 0,
     areas = {},
+    video_margins = {
+        l = 0, r = 0, t = 0, b = 0,         -- left/right/top/bottom
+    },
 }
 
 local osc_styles = {
@@ -534,7 +540,6 @@ local osc_styles = {
     seekbarBg = "{\\blur0\\bord0\\1c&H" .. user_opts.seekbarbg_color .. "&}",
     seekbarFg = "{\\blur1\\bord1\\1c&H" .. user_opts.seekbarfg_color .. "&}",
 
-    elementDown = "{\\1c&H999999&}",
     bigButtons = "{\\blur0\\bord0\\1c&HFFFFFF&\\3c&HFFFFFF&\\fs28\\fnmodernx-osc-icon}",
     mediumButtons = "{\\blur0\\bord0\\1c&HFFFFFF&\\3c&HFFFFFF&\\fs24\\fnmodernx-osc-icon}",
     smallButtons = "{\\blur0\\bord0\\1c&HFFFFFF&\\3c&HFFFFFF&\\fs24\\fnmodernx-osc-icon}",
@@ -543,9 +548,39 @@ local osc_styles = {
     tooltip = "{\\blur1\\bord" .. user_opts.tooltipborder .. "\\1c&HFFFFFF&\\3c&H000000&\\fs20}",
     vidTitle = "{\\blur1\\bord0.5\\1c&HFFFFFF&\\3c&H0\\fs32\\q2\\fn" .. user_opts.titlefont .. "}",
 
-    wcButtons = "{\\1c&HFFFFFF\\fs20\\fnmodernx-osc-icon}",
-    wcTitle = "{\\1c&HFFFFFF\\fs24\\q2\\fn" .. user_opts.titlefont .. "}",
+    wcButtons = "{\\1c&HFFFFFF&\\fs20\\fnmodernx-osc-icon}",
+    wcTitle = "{\\1c&HFFFFFF&\\fs24\\q2\\fn" .. user_opts.titlefont .. "}",
     wcBar = "{\\1c&H" .. user_opts.osc_color .. "}",
+
+    elementDown = "{\\1c&H999999&}",
+    elementHover = "{\\blur5\\1c&HFFFFFF&}"
+}
+
+local osc_icons = {
+    close = "\xEE\xA4\x80",
+    minimize = "\xEE\xA4\x81",
+    restore = "\xEE\xA4\x82",
+    maximize = "\xEE\xA4\x83",
+
+    volume_mute = "\xEE\xA4\x84",
+    volume_low = "\xEE\xA4\x85",
+    volume_med = "\xEE\xA4\x86",
+    volume_high = "\xEE\xA4\x87",
+
+    audio = "\xEE\xA4\x88",
+    subtitle = "\xEE\xA4\x89",
+    info = "\xEE\xA4\x90",
+    fullscreen_exit = "\xEE\xA4\x91",
+    fullscreen = "\xEE\xA4\x92",
+
+    playlist_prev = "\xEE\xA4\x93",
+    playlist_next = "\xEE\xA4\x94",
+    chapter_prev = "\xEE\xA4\x95",
+    chapter_next = "\xEE\xA4\x96",
+    play = "\xEE\xA4\x97",
+    pause = "\xEE\xA4\x98",
+    skipback = "\xEE\xA4\x99",
+    skipforward = "\xEE\xA4\xA0",
 }
 
 -- internal states, do not touch
@@ -562,6 +597,7 @@ local state = {
     tc_ms = user_opts.timems,               -- Should the timecodes display their time with milliseconds
     mp_screen_sizeX, mp_screen_sizeY,       -- last screen-resolution, to detect resolution changes to issue reINITs
     initREQ = false,                        -- is a re-init request pending?
+    marginsREQ = false,                     -- is a margins update pending?
     last_mouseX, last_mouseY,               -- last mouse position, to detect significant mouse movement
     mouse_in_window = false,
     message_text,
@@ -581,6 +617,7 @@ local state = {
     osd = mp.create_osd_overlay("ass-events"),
     chapter_list = {},                      -- sorted by time
     lastvisibility = user_opts.visibility,  -- save last visibility on pause if showonpause
+    subpos = 100,                           -- last value of sub-pos set by the user
 }
 
 local window_control_box_width = 80
@@ -791,6 +828,11 @@ function ass_draw_rr_h_ccw(ass, x0, y0, x1, y1, r1, hexagon, r2)
     end
 end
 
+function round(number, decimals)
+    local power = 10^(decimals or 1)
+    return math.floor(number * power + 0.5) / power
+end
+
 
 --
 -- Tracklist Management
@@ -826,7 +868,7 @@ end
 -- return a nice list of tracks of the given type (video, audio, sub)
 function get_tracklist(type)
     local msg = "Available " .. nicetypes[type] .. " Tracks: "
-    if #tracks_osc[type] == 0 then
+    if not tracks_osc or #tracks_osc[type] == 0 then
         msg = msg .. "none"
     else
         for n = 1, #tracks_osc[type] do
@@ -1045,6 +1087,28 @@ function get_chapter(possec)
     end
 end
 
+function observe_subpos(visible, pos)
+    if not visible then
+        mp.observe_property("sub-pos", "number", observe_subpos)
+    elseif visible == "sub-pos" then
+        state.subpos = pos
+    else
+        mp.unobserve_property(observe_subpos)
+    end
+end
+
+function update_subpos(is_visible)
+    -- source: https://github.com/Zren/mpv-osc-tethys/commit/5173241
+    local max_subpos = 78  -- as the starting point for decrementing
+    local osc_height = math.max(150, user_opts.blur_intensity)
+    local new_subpos = max_subpos - (osc_height - 150) / 12.5
+
+    if (state.subpos > new_subpos) then
+        local final_pos = is_visible and new_subpos or state.subpos
+        mp.set_property_number("sub-pos", round(final_pos, 0))
+    end
+end
+
 function render_elements(master_ass)
 
     -- when the slider is dragged or hovered and we have a target chapter name
@@ -1236,6 +1300,16 @@ function render_elements(master_ass)
                     elem_ass:append(tooltiplabel)
                 end
             end
+
+            -- add hover effect
+            -- source: https://github.com/Zren/mpvz/issues/13
+            local button_lo = element.layout.button
+            if mouse_hit(element) and element.hoverable and element.enabled then
+                local shadow_ass = assdraw.ass_new()
+                shadow_ass:merge(style_ass)
+                shadow_ass:append(button_lo.hoverstyle .. buttontext)
+                elem_ass:merge(shadow_ass)
+            end
         end
 
         master_ass:merge(elem_ass)
@@ -1377,12 +1451,12 @@ function new_element(name, type)
     elements[name].enabled = true
     elements[name].softrepeat = false
     elements[name].styledown = (type == "button")
+    elements[name].hoverable = (type == "button")
     elements[name].state = {}
 
     if (type == "slider") then
         elements[name].slider = {min = {value = 0}, max = {value = 100}}
     end
-
 
     return elements[name]
 end
@@ -1399,6 +1473,7 @@ function add_layout(name)
         if (elements[name].type == "button") then
             elements[name].layout.button = {
                 maxchars = nil,
+                hoverstyle = osc_styles.elementHover,
             }
         elseif (elements[name].type == "slider") then
             -- slider defaults
@@ -1463,11 +1538,11 @@ function window_controls()
 
     local button_y = wc_geo.y - (wc_geo.h / 2)
     local first_geo =
-        {x = controlbox_left - 5, y = button_y, an = 4, w = 25, h = 25}
+        {x = controlbox_left - 5, y = button_y, an = 4, w = 30, h = 30}
     local second_geo =
-        {x = controlbox_left + 25, y = button_y, an = 4, w = 25, h = 25}
+        {x = controlbox_left + 25, y = button_y, an = 4, w = 30, h = 30}
     local third_geo =
-        {x = controlbox_left + 55, y = button_y, an = 4, w = 25, h = 25}
+        {x = controlbox_left + 55, y = button_y, an = 4, w = 30, h = 30}
 
     -- Window control buttons use symbols in the custom mpv osd font
     -- because the official unicode codepoints are sufficiently
@@ -1477,16 +1552,17 @@ function window_controls()
 
     -- Close: 🗙
     ne = new_element("close", "button")
-    ne.content = "\xEE\xA4\x80"
+    ne.content = osc_icons.close
     ne.eventresponder["mbtn_left_up"] =
         function () mp.commandv("quit") end
     lo = add_layout("close")
     lo.geometry = alignment == "left" and first_geo or third_geo
     lo.style = osc_styles.wcButtons
+    lo.button.hoverstyle = "{\\c&H2311E8&}"
 
     -- Minimize: 🗕
     ne = new_element("minimize", "button")
-    ne.content = "\xEE\xA4\x81"
+    ne.content = osc_icons.minimize
     ne.eventresponder["mbtn_left_up"] =
         function () mp.commandv("cycle", "window-minimized") end
     lo = add_layout("minimize")
@@ -1496,9 +1572,9 @@ function window_controls()
     -- Maximize: 🗖 /🗗
     ne = new_element("maximize", "button")
     if state.maximized or state.fullscreen then
-        ne.content = "\xEE\xA4\x82"
+        ne.content = osc_icons.restore
     else
-        ne.content = "\xEE\xA4\x83"
+        ne.content = osc_icons.maximize
     end
     ne.eventresponder["mbtn_left_up"] =
         function ()
@@ -1528,6 +1604,7 @@ function window_controls()
         title = title:gsub("\\n", " "):gsub("\\$", ""):gsub("{","\\{")
         return not (title == "") and title or "mpv"
     end
+    ne.hoverable = false
     local left_pad = 5
     local right_pad = 10
     lo = add_layout("wctitle")
@@ -1553,6 +1630,10 @@ function layout()
         h = 180
     }
 
+    -- update bottom margin
+    osc_param.video_margins.b =
+        math.max(180, user_opts.blur_intensity) / osc_param.playresy
+
     -- origin of the controllers, bottom left corner
     local posX = 0
     local posY = osc_param.playresy
@@ -1562,7 +1643,7 @@ function layout()
     local refY = posY
 
     -- padding to decrease when player window is tall or small
-    local min = ((osc_param.display_aspect > 0) and (osc_param.playresx < 480))
+    local min = round(osc_param.display_aspect) <= 0.6
     local pad = min and -10 or 0
 
     osc_param.areas = {} -- delete areas
@@ -1622,7 +1703,7 @@ function layout()
     lo.geometry = {x = refX - 120, y = refY - 40, an = 5, w = 30, h = 24}
     lo.style = osc_styles.mediumButtons
 
-    lo = add_layout('skipback')
+    lo = add_layout("skipback")
     lo.geometry = {x = refX - 60 - pad, y = refY - 40, an = 5, w = 30, h = 24}
     lo.style = osc_styles.mediumButtons
 
@@ -1630,7 +1711,7 @@ function layout()
     lo.geometry = {x = refX, y = refY - 40, an = 5, w = 45, h = 45}
     lo.style = osc_styles.bigButtons
 
-    lo = add_layout('skipfrwd')
+    lo = add_layout("skipfrwd")
     lo.geometry = {x = refX + 60 + pad, y = refY - 40, an = 5, w = 30, h = 24}
     lo.style = osc_styles.mediumButtons
 
@@ -1760,6 +1841,7 @@ function osc_init()
     ne = new_element("title", "button")
 
     ne.visible = user_opts.showtitle
+    ne.hoverable = false
     ne.content = function ()
         local title = state.forced_title or
                       mp.command_native({"expand-text", user_opts.title})
@@ -1787,8 +1869,8 @@ function osc_init()
     -- prev
     ne = new_element("pl_prev", "button")
 
-    ne.content = "\xEE\xA4\x93"
-    ne.visible = (osc_param.playresx >= 480)
+    ne.content = osc_icons.playlist_prev
+    ne.visible = (round(osc_param.display_aspect) > 1.1)
     ne.enabled = (pl_pos > 1) or (loop ~= "no")
     ne.eventresponder["mbtn_left_up"] =
         function ()
@@ -1805,8 +1887,8 @@ function osc_init()
     -- next
     ne = new_element("pl_next", "button")
 
-    ne.content = "\xEE\xA4\x94"
-    ne.visible = (osc_param.playresx >= 480)
+    ne.content = osc_icons.playlist_next
+    ne.visible = (round(osc_param.display_aspect) > 1.1)
     ne.enabled = (have_pl and (pl_pos < pl_count)) or (loop ~= "no")
     ne.eventresponder["mbtn_left_up"] =
         function ()
@@ -1829,9 +1911,9 @@ function osc_init()
 
     ne.content = function ()
         if mp.get_property("pause") == "yes" then
-            return ("\xEE\xA4\x97")
+            return (osc_icons.play)
         else
-            return ("\xEE\xA4\x98")
+            return (osc_icons.pause)
         end
     end
     ne.eventresponder["mbtn_left_up"] =
@@ -1841,7 +1923,7 @@ function osc_init()
     ne = new_element("skipback", "button")
 
     ne.softrepeat = true
-    ne.content = "\xEE\xA4\x99"
+    ne.content = osc_icons.skipback
     ne.eventresponder["mbtn_left_down"] =
         function () mp.commandv("seek", -5, "relative", "keyframes") end
     ne.eventresponder["shift+mbtn_left_down"] =
@@ -1853,7 +1935,7 @@ function osc_init()
     ne = new_element("skipfrwd", "button")
 
     ne.softrepeat = true
-    ne.content = "\xEE\xA4\xA0"
+    ne.content = osc_icons.skipforward
     ne.eventresponder["mbtn_left_down"] =
         function () mp.commandv("seek", 10, "relative", "keyframes") end
     ne.eventresponder["shift+mbtn_left_down"] =
@@ -1865,8 +1947,8 @@ function osc_init()
     ne = new_element("ch_prev", "button")
 
     ne.enabled = have_ch
-    ne.content = "\xEE\xA4\x95"
-    ne.visible = (osc_param.playresx >= 480)
+    ne.content = osc_icons.chapter_prev
+    ne.visible = (round(osc_param.display_aspect) > 0.9)
     ne.eventresponder["mbtn_left_up"] =
         function ()
             mp.commandv("add", "chapter", -1)
@@ -1883,8 +1965,8 @@ function osc_init()
     ne = new_element("ch_next", "button")
 
     ne.enabled = have_ch
-    ne.content = "\xEE\xA4\x96"
-    ne.visible = (osc_param.playresx >= 480)
+    ne.content = osc_icons.chapter_next
+    ne.visible = (round(osc_param.display_aspect) > 0.9)
     ne.eventresponder["mbtn_left_up"] =
         function ()
             mp.commandv("add", "chapter", 1)
@@ -1903,8 +1985,8 @@ function osc_init()
     ne = new_element("cy_audio", "button")
 
     ne.enabled = (#tracks_osc.audio > 0)
-    ne.off = (get_track('audio') == 0)
-    ne.content = "\xEE\xA4\x88"
+    ne.off = (get_track("audio") == 0)
+    ne.content = osc_icons.audio
     ne.tooltip_style = osc_styles.tooltip
     ne.tooltipF = function ()
         local msg = "OFF"
@@ -1928,8 +2010,8 @@ function osc_init()
     ne = new_element("cy_sub", "button")
 
     ne.enabled = (#tracks_osc.sub > 0)
-    ne.off = (get_track('audio') == 0)
-    ne.content = "\xEE\xA4\x89"
+    ne.off = (get_track("sub") == 0)
+    ne.content = osc_icons.subtitle
     ne.tooltip_style = osc_styles.tooltip
     ne.tooltipF = function ()
         local msg = "OFF"
@@ -1954,9 +2036,9 @@ function osc_init()
 
     ne.content = function ()
         if (state.fullscreen) then
-            return ("\xEE\xA4\x91")
+            return (osc_icons.fullscreen_exit)
         else
-            return ("\xEE\xA4\x92")
+            return (osc_icons.fullscreen)
         end
     end
     ne.eventresponder["mbtn_left_up"] =
@@ -1965,8 +2047,8 @@ function osc_init()
     -- tog_info
     ne = new_element("tog_info", "button")
 
-    ne.content = "\xEE\xA4\x90"
-    ne.visible = (osc_param.playresx >= 480)
+    ne.content = osc_icons.info
+    ne.visible = (round(osc_param.display_aspect) > 0.6)
     ne.eventresponder["mbtn_left_up"] =
         function () mp.commandv("script-binding", "stats/display-stats-toggle") end
 
@@ -2087,7 +2169,8 @@ function osc_init()
     -- cache
     ne = new_element("cache", "button")
 
-    ne.visible = (osc_param.playresx >= 480)
+    ne.visible = (round(osc_param.display_aspect) > 1.3)
+    ne.hoverable = false
     ne.content = function ()
         local cache_state = state.cache_state
         if not (cache_state and cache_state["seekable-ranges"] and
@@ -2115,9 +2198,11 @@ function osc_init()
     ne.content = function()
         local volume = mp.get_property_number("volume", 0)
         local mute = mp.get_property_native("mute")
-        local volicon = {"\xEE\xA4\x85", "\xEE\xA4\x86", "\xEE\xA4\x87"}
+        local volicon = {
+            osc_icons.volume_low, osc_icons.volume_med, osc_icons.volume_high
+        }
         if volume == 0 or mute then
-            return "\xEE\xA4\x84"
+            return osc_icons.volume_mute
         else
             return volicon[math.min(3,math.ceil(volume / (100/3)))]
         end
@@ -2143,6 +2228,20 @@ function osc_init()
     prepare_elements()
 end
 
+function update_margins()
+    local margins = osc_param.video_margins
+
+    -- Don't use margins if it's visible only temporarily.
+    if (not state.osc_visible) or
+       (state.fullscreen and not user_opts.showfullscreen) or
+       (not state.fullscreen and not user_opts.showwindowed)
+    then
+        margins = {l = 0, r = 0, t = 0, b = 0}
+    end
+
+    utils.shared_script_property_set("osc-margins",
+        string.format("%f,%f,%f,%f", margins.l, margins.r, margins.t, margins.b))
+end
 
 --
 -- Other important stuff
@@ -2183,6 +2282,12 @@ end
 function osc_visible(visible)
     if state.osc_visible ~= visible then
         state.osc_visible = visible
+
+        if user_opts.movesub then
+            observe_subpos(visible)
+            update_subpos(visible)
+        end
+        update_margins()
     end
     request_tick()
 end
@@ -2527,6 +2632,11 @@ local santa_hat_lines = {
 
 -- called by mpv on every frame
 function tick()
+    if state.marginsREQ == true then
+        update_margins()
+        state.marginsREQ = false
+    end
+
     if (not state.enabled) then return end
 
     if (state.idle) then
@@ -2653,6 +2763,7 @@ mp.observe_property("chapter-list", "native", function(_, list)
     update_duration_watch()
     request_init()
 end)
+mp.observe_property("sub-pos", "number", observe_subpos)
 
 mp.register_script_message("osc-message", show_message)
 mp.register_script_message("osc-chapterlist", function(dur)
@@ -2672,6 +2783,7 @@ end)
 mp.observe_property("fullscreen", "bool",
     function(name, val)
         state.fullscreen = val
+        state.marginsREQ = true
         request_init_resize()
     end
 )
@@ -2794,12 +2906,13 @@ function visibility_mode(mode, no_osd)
     end
 
     -- Reset the input state on a mode change. The input state will be
-    -- recalcuated on the next render cycle, except in 'never' mode where it
+    -- recalculated on the next render cycle, except in 'never' mode where it
     -- will just stay disabled.
     mp.disable_key_bindings("input")
     mp.disable_key_bindings("window-controls")
     state.input_enabled = false
 
+    update_margins()
     request_tick()
 end
 
