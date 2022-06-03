@@ -9,7 +9,10 @@ local msg = require 'mp.msg'         -- this is for debugging
 local M = {}
 
 local o = {
+    enabled = true,
     save_period = 30,
+    history_dir = "/:var%APPDATA%/mpv/historybookmarks", -- change to '~~/historybookmarks' for mpv portable_config directory, or OR write any variable using '/:var' then the variable '/:var%APPDATA%' you can use path also, such as: '/:var%APPDATA%/mpv/historybookmarks' OR '/:var%HOME%/mpv/historybookmarks' OR specify the absolute path
+    bookmark_ext = ".mpv.history",
     excluded_dir = [[
         []
         ]], --excluded directories for shared, #windows: ["X:", "Z:", "F:\\Download\\", "Download"]
@@ -19,7 +22,6 @@ local o = {
     included_dir = [[
     []
     ]]
-        
 }
 options.read_options(o)
 
@@ -38,10 +40,28 @@ local pl_list = {}
 local pl_idx = 1
 local current_idx = 1
 
-local BOOKMARK_NAME = ".mpv.history"
 local bookmark_path
 
 local wait_msg
+
+if o.history_dir:match('/:var%%(.*)%%') then
+	local os_variable = o.history_dir:match('/:var%%(.*)%%')
+	o.history_dir = o.history_dir:gsub('/:var%%(.*)%%', os.getenv(os_variable))
+elseif o.history_dir:match('^~~') then
+    o.history_dir = mp.command_native({ "expand-path", o.history_dir })
+end
+--create o.history_dir if it doesn't exist
+if utils.readdir(o.history_dir) == nil then
+    local is_windows = package.config:sub(1, 1) == "\\"
+    local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', o.history_dir }
+    local unix_args = { 'mkdir', o.history_dir }
+    local args = is_windows and windows_args or unix_args
+    local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})
+    if res.status ~= 0 then
+        msg.error("Failed to create history_dir save directory "..o.history_dir..". Error: "..(res.error or "unknown"))
+        return
+    end
+end
 
 local function need_ignore(tab, val)
 	for index, element in ipairs(tab) do
@@ -244,8 +264,13 @@ function M.exe()
     local path = mp.get_property('path')
     local dir, fname = utils.split_path(path)
     local ftype = fname:match('%.([^.]+)$')
-    bookmark_path = utils.join_path(dir, BOOKMARK_NAME)
+    local fpath = dir:gsub("\\", "/")
+    fpath = string.sub(fpath, 1, -2)
+    history_name = fpath:gsub("^.*%/", "")
+    bookmark_name = history_name .. o.bookmark_ext
+    bookmark_path = o.history_dir .. "/" .. bookmark_name
 
+    if not o.enabled then return end
     included_dir_count = tablelength(o.included_dir)
     if included_dir_count > 0 then  
         if not need_ignore(o.included_dir, dir) then return end
