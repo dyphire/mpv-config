@@ -4,6 +4,8 @@ local options = require 'mp.options'
 local o = { save_interval = 60 }
 options.read_options(o)
 
+local can_delete = true
+
 local function save()
 	if mp.get_property_bool("save-position-on-quit") then
 		mp.command("write-watch-later-config")
@@ -32,8 +34,6 @@ local function delete_watch_later(event)
 			print("Deleting state (eof-reached)")
 			mp.commandv("delete-watch-later-config", path)
 			mp.set_property("save-position-on-quit", "no")
-		else
-			mp.set_property("save-position-on-quit", "yes")
 		end
 	end
 
@@ -53,9 +53,6 @@ local function delete_watch_later(event)
 	mp.register_event("end-file", end_file)
 end
 
-mp.set_property("save-position-on-quit", "yes")
-
-can_delete = true
 mp.register_script_message("skip-delete-state", function() can_delete = false end)
 
 timer = mp.add_periodic_timer(o.save_interval, save)
