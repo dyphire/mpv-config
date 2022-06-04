@@ -11,7 +11,7 @@ local M = {}
 local o = {
     enabled = true,
     save_period = 30,
-    history_dir = "/:var%APPDATA%/mpv/historybookmarks", -- change to '~~/historybookmarks' for mpv portable_config directory, or OR write any variable using '/:var' then the variable '/:var%APPDATA%' you can use path also, such as: '/:var%APPDATA%/mpv/historybookmarks' OR '/:var%HOME%/mpv/historybookmarks' OR specify the absolute path
+    history_dir = "~~/historybookmarks", -- change to '~~/historybookmarks' for mpv portable_config directory, or OR write any variable using '/:var' then the variable '/:var%APPDATA%' you can use path also, such as: '/:var%APPDATA%/mpv/historybookmarks' OR '/:var%HOME%/mpv/historybookmarks' OR specify the absolute path
     bookmark_ext = ".mpv.history",
     excluded_dir = [[
         []
@@ -265,6 +265,7 @@ function M.exe()
     local dir, fname = utils.split_path(path)
     local ftype = fname:match('%.([^.]+)$')
     local fpath = dir:gsub("\\", "/")
+    local playlist_count = mp.get_property_number('playlist-count')
     fpath = string.sub(fpath, 1, -2)
     history_name = fpath:gsub("^.*%/", "")
     bookmark_name = history_name .. o.bookmark_ext
@@ -278,6 +279,8 @@ function M.exe()
   
     if need_ignore(o.special_protocols, path) then return end
     if need_ignore(o.excluded_dir, dir) then return end
+
+    if playlist_count ~= nil and playlist_count == 1 then return end
 
     msg.info('folder -- ' .. dir)
     msg.info('playing -- ' .. fname)
