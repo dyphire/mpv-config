@@ -170,6 +170,10 @@ local function vidTrackMenu()
             local vidTrackDefault = propNative("track-list/" .. vidTrackNum .. "/default")
             local vidTrackForced = propNative("track-list/" .. vidTrackNum .. "/forced")
             local vidTrackExternal = propNative("track-list/" .. vidTrackNum .. "/external")
+            if vidTrackCodec:match("MPEG2") then vidTrackCodec = "MPEG2"
+            elseif vidTrackCodec:match("DVVIDEO") then vidTrackCodec = "DV"
+            end
+
             if vidTrackTitle and not vidTrackImage then vidTrackTitle = vidTrackTitle .. "[" .. vidTrackCodec .. "]" .. "," .. vidTrackwh .. "," .. vidTrackFps .. " FPS"
             elseif vidTrackTitle then vidTrackTitle = vidTrackTitle .. "[" .. vidTrackCodec .. "]" .. "," .. vidTrackwh
             elseif vidTrackImage then vidTrackTitle = "[" .. vidTrackCodec .. "]" .. "," .. vidTrackwh
@@ -245,11 +249,12 @@ local function audTrackMenu()
             if not (audTrackLang == nil) then audTrackLang = getLang(audTrackLang) and getLang(audTrackLang) or audTrackLang end
             if audTrackTitle then audTrackTitle = audTrackTitle:gsub(filename, '') end
             if audTrackExternal then audTrackTitle = esc_for_title(audTrackTitle) end
+            if audTrackCodec:match("PCM") then audTrackCodec = "PCM" end
 
-            if audTrackTitle and audTrackLang then audTrackTitle = audTrackTitle .. "," .. audTrackLang .. "[" .. audTrackCodec .. "]" .. "," .. audTrackChannels .. " channels" .. "," .. audTrackSamplerate .. " kHz"
-            elseif audTrackTitle then audTrackTitle = audTrackTitle .. "[" .. audTrackCodec .. "]" .. "," .. audTrackChannels .. " channels" .. "," .. audTrackSamplerate .. " kHz"
-            elseif audTrackLang then audTrackTitle = audTrackLang .. "[" .. audTrackCodec .. "]" .. "," .. audTrackChannels .. " channels" .. "," .. audTrackSamplerate .. " kHz"
-            elseif audTrackChannels then audTrackTitle = "[" .. audTrackCodec .. "]" .. "," .. audTrackChannels .. " channels" .. "," .. audTrackSamplerate .. " kHz"
+            if audTrackTitle and audTrackLang then audTrackTitle = audTrackTitle .. "," .. audTrackLang .. "[" .. audTrackCodec .. "]" .. "," .. audTrackChannels .. " ch" .. "," .. audTrackSamplerate .. " kHz"
+            elseif audTrackTitle then audTrackTitle = audTrackTitle .. "[" .. audTrackCodec .. "]" .. "," .. audTrackChannels .. " ch" .. "," .. audTrackSamplerate .. " kHz"
+            elseif audTrackLang then audTrackTitle = audTrackLang .. "[" .. audTrackCodec .. "]" .. "," .. audTrackChannels .. " ch" .. "," .. audTrackSamplerate .. " kHz"
+            elseif audTrackChannels then audTrackTitle = "[" .. audTrackCodec .. "]" .. "," .. audTrackChannels .. " ch" .. "," .. audTrackSamplerate .. " kHz"
             else audTrackTitle = "音频轨 " .. i end
             if audTrackDefault then  audTrackTitle = audTrackTitle .. "," .. "Default" end
             if audTrackForced then  audTrackTitle = audTrackTitle .. "," .. "Forced" end
@@ -294,6 +299,12 @@ local function subTrackMenu()
             if not (subTrackLang == nil) then subTrackLang = getLang(subTrackLang) and getLang(subTrackLang) or subTrackLang end
             if subTrackTitle then subTrackTitle = subTrackTitle:gsub(filename, '') end
             if subTrackExternal then subTrackTitle = esc_for_title(subTrackTitle) end
+            if subTrackCodec:match("PGS") then subTrackCodec = "PGS"
+            elseif subTrackCodec:match("SUBRIP") then subTrackCodec = "SRT"
+            elseif subTrackCodec:match("VTT") then subTrackCodec = "VTT"
+            elseif subTrackCodec:match("DVB_SUB") then subTrackCodec = "DVB"
+            elseif subTrackCodec:match("DVD_SUB") then subTrackCodec = "VOB"
+            end
 
             if subTrackTitle and subTrackLang then subTrackTitle = subTrackTitle .. "," .. subTrackLang .. "[" .. subTrackCodec .. "]" 
             elseif subTrackTitle then subTrackTitle = subTrackTitle .. "[" .. subTrackCodec .. "]"
