@@ -38,6 +38,7 @@ local utils   = require 'mp.utils'
 local user_opts = {
     showwindowed = true,                -- show OSC when windowed?
     showfullscreen = true,              -- show OSC when fullscreen?
+    idlescreen = true,                  -- show mpv logo on idle
     scalewindowed = 1,                  -- scaling of the controller when windowed
     scalefullscreen = 1,                -- scaling of the controller when fullscreen
     scaleforcedwindow = 2,              -- scaling when rendered on a forced window
@@ -82,8 +83,6 @@ local user_opts = {
 
     -- 以下为thumbnailer_osc的独占选项
 
-    showlogo = true,                    -- 显示logo
-    showtext = true,                    -- 显示logo下方文字
     wctitle = "${media-title}",         -- 无边框的上方标题
     sub_title = " ",                    -- bottombox布局的右侧子标题
     sub_title2 = "对比[${contrast}]  亮度[${brightness}]  伽马[${gamma}]  饱和[${saturation}]  色相[${hue}]", -- bottombox布局的临时右侧子标题
@@ -2908,9 +2907,10 @@ function osc_init()
         end
         local min = math.floor(dmx_cache / 60)
         local sec = math.floor(dmx_cache % 60) -- don't round e.g. 59.9 to 60
-        return "缓冲" .. (min > 0 and
+        local cache_speed = string.format("%.2f",(mp.get_property_native("cache-speed") / 1048576))
+        return "缓冲:" .. (min > 0 and
             string.format("%sm%02.0fs", min, sec) or
-            string.format("%3.0fs", sec))
+            string.format("%3.0fs", sec)) .. (cache_speed ~= nil and (" 速度: " .. cache_speed .. " MB/s") or "")
     end
 
     -- volume
@@ -3419,7 +3419,7 @@ function tick()
 
         local ass = assdraw.ass_new()
         -- mpv logo
-        if user_opts.showlogo then
+        if user_opts.idlescreen then
             for i, line in ipairs(logo_lines) do
                 ass:new_event()
                 ass:append(line_prefix .. line)
@@ -3427,20 +3427,19 @@ function tick()
         end
 
         -- Santa hat
-        if is_december and user_opts.showlogo and not user_opts.greenandgrumpy then
+        if is_december and user_opts.idlescreen and not user_opts.greenandgrumpy then
             for i, line in ipairs(santa_hat_lines) do
                 ass:new_event()
                 ass:append(line_prefix .. line)
             end
         end
 
-        if user_opts.showtext then
+        if user_opts.idlescreen then
             ass:new_event()
             ass:pos(320, icon_y+65)
             ass:an(8)
             ass:append("拖入文件/目录/网址进行播放")
         end
-        
         set_osd(640, 360, ass.text)
 
         if state.showhide_enabled then
@@ -3691,9 +3690,35 @@ function visibility_mode(mode, no_osd)
     request_tick()
 end
 
+function idlescreen_visibility(mode, no_osd)
+    if mode == "cycle" then
+        if user_opts.idlescreen then
+            mode = "no"
+        else
+            mode = "yes"
+        end
+    end
+
+    if mode == "yes" then
+        user_opts.idlescreen = true
+    else
+        user_opts.idlescreen = false
+    end
+
+    utils.shared_script_property_set("osc-idlescreen", mode)
+
+    if not no_osd and tonumber(mp.get_property("osd-level")) >= 1 then
+        mp.osd_message("OSC logo visibility: " .. tostring(mode))
+    end
+
+    request_tick()
+end
+
 visibility_mode(user_opts.visibility, true)
 mp.register_script_message("osc-visibility", visibility_mode)
 mp.add_key_binding(nil, "visibility", function() visibility_mode("cycle") end)
+
+mp.register_script_message("osc-idlescreen", idlescreen_visibility)
 
 set_virt_mouse_area(0, 0, 0, 0, "input")
 set_virt_mouse_area(0, 0, 0, 0, "window-controls")
