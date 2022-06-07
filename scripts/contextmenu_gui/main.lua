@@ -179,8 +179,8 @@ local function vidTrackMenu()
             elseif vidTrackImage then vidTrackTitle = "[" .. vidTrackCodec .. "]" .. "," .. vidTrackwh
             elseif vidTrackFps then vidTrackTitle = "[" .. vidTrackCodec .. "]" .. "," .. vidTrackwh .. "," .. vidTrackFps .. " FPS"
             else vidTrackTitle = "视频轨 " .. i end
-            if vidTrackDefault then  vidTrackTitle = vidTrackTitle .. "," .. "Default" end
             if vidTrackForced then  vidTrackTitle = vidTrackTitle .. "," .. "Forced" end
+            if vidTrackDefault then  vidTrackTitle = vidTrackTitle .. "," .. "Default" end
             if vidTrackExternal then  vidTrackTitle = vidTrackTitle .. "," .. "External" end
 
             local vidTrackCommand = "set vid " .. vidTrackID
@@ -256,8 +256,8 @@ local function audTrackMenu()
             elseif audTrackLang then audTrackTitle = audTrackLang .. "[" .. audTrackCodec .. "]" .. "," .. audTrackChannels .. " ch" .. "," .. audTrackSamplerate .. " kHz"
             elseif audTrackChannels then audTrackTitle = "[" .. audTrackCodec .. "]" .. "," .. audTrackChannels .. " ch" .. "," .. audTrackSamplerate .. " kHz"
             else audTrackTitle = "音频轨 " .. i end
-            if audTrackDefault then  audTrackTitle = audTrackTitle .. "," .. "Default" end
             if audTrackForced then  audTrackTitle = audTrackTitle .. "," .. "Forced" end
+            if audTrackDefault then  audTrackTitle = audTrackTitle .. "," .. "Default" end
             if audTrackExternal then  audTrackTitle = audTrackTitle .. "," .. "External" end
 
             local audTrackCommand = "set aid " .. audTrackID
@@ -311,8 +311,8 @@ local function subTrackMenu()
             elseif subTrackLang then subTrackTitle = subTrackLang .. "[" .. subTrackCodec .. "]"
             elseif subTrackCodec then subTrackTitle = "[" .. subTrackCodec .. "]"
             else subTrackTitle = "字幕轨 " .. i end
-            if subTrackDefault then  subTrackTitle = subTrackTitle .. "," .. "Default" end
             if subTrackForced then  subTrackTitle = subTrackTitle .. "," .. "Forced" end
+            if subTrackDefault then  subTrackTitle = subTrackTitle .. "," .. "Default" end
             if subTrackExternal then  subTrackTitle = subTrackTitle .. "," .. "External" end
 
             local subTrackCommand = "set sid " .. subTrackID
@@ -601,7 +601,7 @@ end)
 -- A prime example is the chapter-list or track-list values, which are unavailable until
 -- the file has been loaded.
 
-mp.register_event("file-loaded", function()
+local function playmenuList()
     menuList = {
         file_loaded_menu = true,
 
@@ -652,10 +652,6 @@ mp.register_event("file-loaded", function()
             {COMMAND, "停止", "F11", "stop", "", false},
             {COMMAND, "重置播放中更改项", "R", "cycle-values reset-on-next-file all no vf,af,border,contrast,brightness,gamma,saturation,hue,video-zoom,video-rotate,video-pan-x,video-pan-y,panscan,speed,audio,sub,audio-delay,sub-pos,sub-scale,sub-delay,sub-speed,sub-visibility;show-text 播放下一个文件时重置以下选项:${reset-on-next-file}", "", false},
             {SEP},
-            {COMMAND, "显示OSD时间轴", "O", "no-osd cycle-values osd-level 3 1", "", false},
-            {RADIO, "开", "", "set osd-level 3", function() return stateOsdLevel(3) end, false},
-            {RADIO, "关", "", "set osd-level 1", function() return stateOsdLevel(1) end, false},  
-            {SEP},
             {AB, "A-B循环", "l", "ab-loop", function() return stateABLoop() end, false},
             {CHECK, "循环播放", "L", "cycle-values loop-file inf no;show-text 循环播放:${loop-file}", function() return stateFileLoop() end, false},
             {SEP},
@@ -684,8 +680,16 @@ mp.register_event("file-loaded", function()
 
 -- 二级菜单 —— 导航
         navi_menu = {
+            {CHECK, "显示OSD时间轴", "O", "no-osd cycle-values osd-level 3 1", function() return stateOsdLevel(3) end, false},
+--            {COMMAND, "显示OSD时间轴", "O", "no-osd cycle-values osd-level 3 1", "", false},
+--            {RADIO, " 开", "", "set osd-level 3", function() return stateOsdLevel(3) end, false},
+--            {RADIO, " 关", "", "set osd-level 1", function() return stateOsdLevel(1) end, false},  
             {COMMAND, "[外置脚本] OSD高级播放列表", "F8", "script-message-to playlistmanager showplaylist", "", false},
             {COMMAND, "OSD轨道信息", "F9", "show-text ${track-list} 5000", "", false},
+            {SEP},
+            {CASCADE, "版本（Edition）", "edition_menu", "", "", function() return inspectEdition() end},
+            {CASCADE, "章节", "chapter_menu", "", "", function() return inspectChapter() end},
+            {SEP},
             {COMMAND, "重播", "", "seek 0 absolute", "", false},
             {COMMAND, "上个文件", "<", "playlist-prev;show-text 播放列表:${playlist-pos-1}/${playlist-count}", "", false},
             {COMMAND, "下个文件", ">", "playlist-next;show-text 播放列表:${playlist-pos-1}/${playlist-count}", "", false},
@@ -697,9 +701,6 @@ mp.register_event("file-loaded", function()
             {CASCADE, "[外置脚本] 书签", "bookmarker_menu", "", "", false},
             {COMMAND, "[外置脚本] 自动跳过指定章节", "ALT+q", "script-message-to chapterskip chapter-skip;show-text 自动跳过指定章节", "", false},
             {COMMAND, "[外置脚本] 跳到下一个静音位置", "F4", "script-message-to skiptosilence skip-to-silence;show-text 跳到下一个静音位置", "", false},
-            {SEP},
-            {CASCADE, "版本（Edition）", "edition_menu", "", "", function() return inspectEdition() end},
-            {CASCADE, "章节", "chapter_menu", "", "", function() return inspectChapter() end},
         },
 
         -- Use functions returning tables, since we don't need these menus if there aren't any editions or any chapters to seek through.
@@ -755,11 +756,11 @@ mp.register_event("file-loaded", function()
             {SEP},
             {CHECK, "自动ICC校色", "CTRL+I", "cycle icc-profile-auto;show-text ICC自动校色:${icc-profile-auto}", function() return propNative("icc-profile-auto") end, false},
             {CHECK, "非线性色彩转换", "ALT+s", "cycle sigmoid-upscaling;show-text 非线性色彩转换:${sigmoid-upscaling}", function() return propNative("sigmoid-upscaling") end, false},
-            {COMMAND, "切换  gamma环境系数", "G", "cycle-values gamma-factor 1.1 1.2 1.0;show-text gamma环境系数:${gamma-factor}", "", false},
-            {COMMAND, "切换  hdr映射曲线 ", "h", "cycle-values tone-mapping auto mobius reinhard hable bt.2390 gamma spline bt.2446a;show-text hdr映射曲线:${tone-mapping}", "", false},
-            {COMMAND, "切换  hdr动态映射", "ALT+h", "cycle-values hdr-compute-peak yes no;show-text hdr动态映射:${hdr-compute-peak}", "", false},
-            {COMMAND, "切换  色调映射模式", "CTRL+t", "cycle tone-mapping-mode;show-text 色调映射模式:${tone-mapping-mode}", "", false},
-            {COMMAND, "切换  色域剪切模式", "CTRL+g", "cycle gamut-mapping-mode;show-text 色域剪切方式:${gamut-mapping-mode}", "", false},
+            {COMMAND, "切换 gamma环境系数", "G", "cycle-values gamma-factor 1.1 1.2 1.0;show-text gamma环境系数:${gamma-factor}", "", false},
+            {COMMAND, "切换 hdr映射曲线 ", "h", "cycle-values tone-mapping auto mobius reinhard hable bt.2390 gamma spline bt.2446a;show-text hdr映射曲线:${tone-mapping}", "", false},
+            {COMMAND, "切换 hdr动态映射", "ALT+h", "cycle-values hdr-compute-peak yes no;show-text hdr动态映射:${hdr-compute-peak}", "", false},
+            {COMMAND, "切换 色调映射模式", "CTRL+t", "cycle tone-mapping-mode;show-text 色调映射模式:${tone-mapping-mode}", "", false},
+            {COMMAND, "切换 色域剪切模式", "CTRL+g", "cycle gamut-mapping-mode;show-text 色域剪切方式:${gamut-mapping-mode}", "", false},
             {SEP},
             {COMMAND, "[外置脚本] 开/关 进度条预览", "CTRL+T", "cycle-values script-opts thumbnailer-auto_gen=no,thumbnailer-auto_show=no thumbnailer-auto_gen=yes,thumbnailer-auto_show=yes", "", false},
         },
@@ -871,7 +872,7 @@ mp.register_event("file-loaded", function()
         audio_menu = {
             {CASCADE, "轨道", "audtrack_menu", "", "", false},
             {SEP},
-            {COMMAND, "切换  音轨", "y", "cycle audio;show-text 音轨切换为:${audio}", "", false},
+            {COMMAND, "切换 音轨", "y", "cycle audio;show-text 音轨切换为:${audio}", "", false},
             {CHECK, "音频规格化", "", "cycle audio-normalize-downmix;show-text 音频规格化:${audio-normalize-downmix}", function() return propNative("audio-normalize-downmix") end, false},
             {CHECK, "音频独占模式", "CTRL+y", "cycle audio-exclusive;show-text 音频独占模式:${audio-exclusive}", function() return propNative("audio-exclusive") end, false},
             {CHECK, "音频同步模式", "CTRL+Y", "cycle hr-seek-framedrop;show-text 音频同步模式:${hr-seek-framedrop}", function() return propNative("hr-seek-framedrop") end, false},
@@ -901,13 +902,12 @@ mp.register_event("file-loaded", function()
         subtitle_menu = {
             {CASCADE, "轨道", "subtrack_menu", "", "", false},
             {SEP},
-            {COMMAND, "切换  渲染样式", "u", "cycle sub-ass-override;show-text 字幕渲染样式:${sub-ass-override}", "", false},
-            {COMMAND, "切换  默认字体", "T", "cycle-values sub-font '思源黑体 Bold' '思源宋体 Bold' 思源黑体 思源宋体;show-text 使用字体:${sub-font}", "", false},
-            {COMMAND, "切换  字幕", "j", "cycle sub;show-text 字幕切换为:${sub}", "", false},
+            {COMMAND, "切换 字幕", "j", "cycle sub;show-text 字幕切换为:${sub}", "", false},
+            {COMMAND, "切换 渲染样式", "u", "cycle sub-ass-override;show-text 字幕渲染样式:${sub-ass-override}", "", false},
+            {COMMAND, "切换 默认字体", "T", "cycle-values sub-font '思源黑体 Bold' '思源宋体 Bold' 思源黑体 思源宋体;show-text 使用字体:${sub-font}", "", false},
             {COMMAND, "加载次字幕", "k", "cycle secondary-sid;show-text 加载次字幕:${secondary-sid}", "", false},
-            {COMMAND, "开/关 字幕选择脚本", "Y", "script-message sub-select toggle", "", false},
-            {COMMAND, "打开 字幕同步菜单", "CTRL+m", "script-message-to autosubsync autosubsync-menu", "", false},
-            {COMMAND, "导出当前内封字幕", "ALT+m", "script-message-to sub_export export-selected-subtitles", "", false},
+            {SEP},
+            {CASCADE, "字幕兼容性", "sub_menu", "", "", false},
             {SEP},
             {COMMAND, "重置", "SHIFT+BS", "no-osd set sub-delay 0; no-osd set sub-pos 100; no-osd set sub-scale 1.0;show-text 重置字幕状态", "", false},
             {COMMAND, "字号 -0.1", "ALT+j", "add sub-scale -0.1;show-text 字幕缩小:${sub-scale}", "", false},
@@ -916,12 +916,14 @@ mp.register_event("file-loaded", function()
             {COMMAND, "延迟 +0.1", "x", "add sub-delay  0.1;show-text 字幕预载:${sub-delay}", "", false},
             {COMMAND, "上移", "r", "add sub-pos -1;show-text 字幕上移:${sub-pos}", "", false},
             {COMMAND, "下移", "t", "add sub-pos  11;show-text 字幕下移:${sub-pos}", "", false},
+--            {SEP},
+--            {COMMAND, "字幕纵向位置", "", "cycle-values sub-align-y top bottom", "", false},
+--            {RADIO, " 顶部", "", "set sub-align-y top", function() return stateSubAlign("top") end, false},
+--            {RADIO, " 底部", "", "set sub-align-y bottom", function() return stateSubAlign("bottom") end, false},
             {SEP},
-            {COMMAND, "字幕纵向位置", "", "cycle-values sub-align-y top bottom", "", false},
-            {RADIO, "顶部", "", "set sub-align-y top", function() return stateSubAlign("top") end, false},
-            {RADIO, "底部", "", "set sub-align-y bottom", function() return stateSubAlign("bottom") end, false},
-            {SEP},
-            {CASCADE, "字幕兼容性", "sub_menu", "", "", false},
+            {COMMAND, "[外部脚本] 打开  字幕同步菜单", "CTRL+m", "script-message-to autosubsync autosubsync-menu", "", false},
+            {COMMAND, "[外部脚本] 开/关 字幕选择脚本", "Y", "script-message sub-select toggle", "", false},
+            {COMMAND, "[外部脚本] 导出当前内封字幕", "ALT+m", "script-message-to sub_export export-selected-subtitles", "", false},
         },
 
         -- Use function to return list of Subtitle Tracks
@@ -929,11 +931,11 @@ mp.register_event("file-loaded", function()
 
 -- 三级菜单 —— 字幕兼容性
         sub_menu = {
-             {COMMAND, "切换  字体渲染方式", "F", "cycle sub-font-provider;show-text 字体渲染方式:${sub-font-provider}", "", false},
-             {COMMAND, "切换  字幕颜色转换方式", "J", "cycle sub-ass-vsfilter-color-compat;show-text 字幕颜色转换方式:${sub-ass-vsfilter-color-compat}", "", false},
-             {COMMAND, "切换  ass字幕阴影边框缩放", "X", "cycle-values sub-ass-force-style ScaledBorderAndShadow=no ScaledBorderAndShadow=yes;show-text 强制替换ass样式:${sub-ass-force-style}", "", false},
              {CHECK, "vsfilter系兼容性", "V", "cycle sub-ass-vsfilter-aspect-compat;show-text vsfilter系兼容性:${sub-ass-vsfilter-aspect-compat}", function() return propNative("sub-ass-vsfilter-aspect-compat") end, false},
              {CHECK, "blur标签缩放兼容性", "B", "cycle sub-ass-vsfilter-blur-compat;show-text blur标签缩放兼容性:${sub-ass-vsfilter-blur-compat}", function() return propNative("sub-ass-vsfilter-blur-compat") end, false},
+             {COMMAND, "切换 字体渲染方式", "F", "cycle sub-font-provider;show-text 字体渲染方式:${sub-font-provider}", "", false},
+             {COMMAND, "切换 字幕颜色转换方式", "J", "cycle sub-ass-vsfilter-color-compat;show-text 字幕颜色转换方式:${sub-ass-vsfilter-color-compat}", "", false},
+             {COMMAND, "切换 ass字幕阴影边框缩放", "X", "cycle-values sub-ass-force-style ScaledBorderAndShadow=no ScaledBorderAndShadow=yes;show-text 强制替换ass样式:${sub-ass-force-style}", "", false},
              {SEP},
              {CHECK, "ass字幕输出到黑边", "H", "cycle sub-ass-force-margins;show-text ass字幕输出黑边:${sub-ass-force-margins}", function() return propNative("sub-ass-force-margins") end, false},
              {CHECK, "srt字幕输出到黑边", "Z", "cycle sub-use-margins;show-text srt字幕输出黑边:${sub-use-margins}", function() return propNative("sub-use-margins") end, false},
@@ -1004,30 +1006,30 @@ mp.register_event("file-loaded", function()
 
 -- 二级菜单 —— 配置组
         profile_menu = {
-            {COMMAND, "切换  指定配置组", "CTRL+P", "script-message cycle-commands \"apply-profile Anime4K;show-text 配置组：Anime4K\" \"apply-profile ravu-3x;show-text 配置组：ravu-3x\" \"apply-profile Normal;show-text 配置组：Normal\" \"apply-profile AMD-FSR_EASU;show-text 配置组：AMD-FSR_EASU\" \"apply-profile NNEDI3;show-text 配置组：NNEDI3\"", "", false},
+            {COMMAND, "[外部脚本] 切换 指定配置组", "CTRL+P", "script-message cycle-commands \"apply-profile Anime4K;show-text 配置组：Anime4K\" \"apply-profile ravu-3x;show-text 配置组：ravu-3x\" \"apply-profile Normal;show-text 配置组：Normal\" \"apply-profile AMD-FSR_EASU;show-text 配置组：AMD-FSR_EASU\" \"apply-profile NNEDI3;show-text 配置组：NNEDI3\"", "", false},
             {SEP},
-            {COMMAND, "切换  Normal配置", "ALT+1", "apply-profile Normal;show-text 配置组：Normal", "", false},
-            {COMMAND, "切换  Normal+配置", "ALT+2", "apply-profile Normal+;show-text 配置组：Normal+", "", false},
-            {COMMAND, "切换  Anime配置", "ALT+3", "apply-profile Anime;show-text 配置组：Anime", "", false},
-            {COMMAND, "切换  Anime+配置", "ALT+4", "apply-profile Anime+;show-text 配置组：Anime+", "", false},
-            {COMMAND, "切换  Ravu-lite配置", "", "apply-profile ravu-lite;show-text 配置组：ravu-lite", "", false},
-            {COMMAND, "切换  Ravu-3x配置", "ALT+5", "apply-profile ravu-3x;show-text 配置组：ravu-3x", "", false},
-            {COMMAND, "切换  ACNet配置", "ALT+6", "apply-profile ACNet;show-text 配置组：ACNet", "", false},
-            {COMMAND, "切换  ACNet+配置", "", "apply-profile ACNet+;show-text 配置组：ACNet+", "", false},
-            {COMMAND, "切换  Anime4K配置", "ALT+7", "apply-profile Anime4K;show-text 配置组：Anime4K", "", false},
-            {COMMAND, "切换  Anime4K+配置", "", "apply-profile Anime4K+;show-text 配置组：Anime4K+", "", false},
-            {COMMAND, "切换  NNEDI3配置", "ALT+8", "apply-profile NNEDI3;show-text 配置组：NNEDI3", "", false},
-            {COMMAND, "切换  NNEDI3+配置", "", "apply-profile NNEDI3+;show-text 配置组：NNEDI3+", "", false},
-            {COMMAND, "切换  AMD-FSR_EASU配置", "ALT+9", "apply-profile AMD-FSR_EASU;show-text 配置组：AMD-FSR_EASU", "", false},
-            {COMMAND, "切换  Blur2Sharpen配置", "ALT+0", "apply-profile Blur2Sharpen;show-text 配置组：Blur2Sharpen", "", false},
-            {COMMAND, "切换  SSIM配置", "", "apply-profile SSIM;show-text 配置组：SSIM", "", false},
+            {COMMAND, "切换 Normal配置", "ALT+1", "apply-profile Normal;show-text 配置组：Normal", "", false},
+            {COMMAND, "切换 Normal+配置", "ALT+2", "apply-profile Normal+;show-text 配置组：Normal+", "", false},
+            {COMMAND, "切换 Anime配置", "ALT+3", "apply-profile Anime;show-text 配置组：Anime", "", false},
+            {COMMAND, "切换 Anime+配置", "ALT+4", "apply-profile Anime+;show-text 配置组：Anime+", "", false},
+            {COMMAND, "切换 Ravu-lite配置", "", "apply-profile ravu-lite;show-text 配置组：ravu-lite", "", false},
+            {COMMAND, "切换 Ravu-3x配置", "ALT+5", "apply-profile ravu-3x;show-text 配置组：ravu-3x", "", false},
+            {COMMAND, "切换 ACNet配置", "ALT+6", "apply-profile ACNet;show-text 配置组：ACNet", "", false},
+            {COMMAND, "切换 ACNet+配置", "", "apply-profile ACNet+;show-text 配置组：ACNet+", "", false},
+            {COMMAND, "切换 Anime4K配置", "ALT+7", "apply-profile Anime4K;show-text 配置组：Anime4K", "", false},
+            {COMMAND, "切换 Anime4K+配置", "", "apply-profile Anime4K+;show-text 配置组：Anime4K+", "", false},
+            {COMMAND, "切换 NNEDI3配置", "ALT+8", "apply-profile NNEDI3;show-text 配置组：NNEDI3", "", false},
+            {COMMAND, "切换 NNEDI3+配置", "", "apply-profile NNEDI3+;show-text 配置组：NNEDI3+", "", false},
+            {COMMAND, "切换 AMD-FSR_EASU配置", "ALT+9", "apply-profile AMD-FSR_EASU;show-text 配置组：AMD-FSR_EASU", "", false},
+            {COMMAND, "切换 Blur2Sharpen配置", "ALT+0", "apply-profile Blur2Sharpen;show-text 配置组：Blur2Sharpen", "", false},
+            {COMMAND, "切换 SSIM配置", "", "apply-profile SSIM;show-text 配置组：SSIM", "", false},
             {SEP},
-            {COMMAND, "切换  ICC配置", "", "apply-profile ICC;show-text 配置组：ICC", "", false},
-            {COMMAND, "切换  ICC+配置", "", "apply-profile ICC+;show-text 配置组：ICC+", "", false},
-            {COMMAND, "切换  Target配置", "", "apply-profile Target;show-text 配置组：Target", "", false},
-            {COMMAND, "切换  DeBand-low配置", "ALT+1", "apply-profile DeBand-low;show-text 配置组：DeBand-low", "", false},
-            {COMMAND, "切换  DeBand-mediu配置", "ALT+d", "apply-profile DeBand-medium;show-text 配置组：DeBand-medium", "", false},
-            {COMMAND, "切换  DeBand-high配置", "ALT+D", "apply-profile DeBand-high;show-text 配置组：DeBand-high", "", false},
+            {COMMAND, "切换 ICC配置", "", "apply-profile ICC;show-text 配置组：ICC", "", false},
+            {COMMAND, "切换 ICC+配置", "", "apply-profile ICC+;show-text 配置组：ICC+", "", false},
+            {COMMAND, "切换 Target配置", "", "apply-profile Target;show-text 配置组：Target", "", false},
+            {COMMAND, "切换 DeBand-low配置", "ALT+1", "apply-profile DeBand-low;show-text 配置组：DeBand-low", "", false},
+            {COMMAND, "切换 DeBand-mediu配置", "ALT+d", "apply-profile DeBand-medium;show-text 配置组：DeBand-medium", "", false},
+            {COMMAND, "切换 DeBand-high配置", "ALT+D", "apply-profile DeBand-high;show-text 配置组：DeBand-high", "", false},
         },
 
 -- 二级菜单 —— 关于
@@ -1072,6 +1074,12 @@ mp.register_event("file-loaded", function()
         
         ::keyjump::
     end
+end
+
+mp.register_event("file-loaded", playmenuList)
+mp.observe_property("track-list/count", "number", function()
+    local track_count = mp.get_property_number("track-list/count")
+    if track_count ~= nil and track_count > 0 then playmenuList() end
 end)
 
 --[[ ************ 菜单内容 ************ ]]--
