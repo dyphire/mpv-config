@@ -11,7 +11,7 @@ Add bindings to input.conf:
 KP0 script-message-to delete_current_file delete_file KP1 "Press 1 to delete file"
 
 Press KP0 to initiate the delete operation,
-then the script will ask to confirm by pressing KP1.
+the script will ask to confirm by pressing KP1.
 You may customize the the init and confirm keys and the confirm message.
 
 ]]
@@ -119,5 +119,4 @@ function client_message(event)
     end
 end
 
--- register_script_message unfortunately supports only 1 argument
 mp.register_event("client-message", client_message)

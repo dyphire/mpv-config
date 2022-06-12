@@ -17,26 +17,6 @@ local o = {
 
 options.read_options(o)
 
-o.target_dir = o.target_dir:gsub('"', "")
-file, _ = utils.file_info(mp.command_native({ "expand-path", o.target_dir }))
-if not file then
-    --create target_dir if it doesn't exist
-    local savepath = mp.command_native({ "expand-path", o.target_dir })
-    local is_windows = package.config:sub(1, 1) == "\\"
-    local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', savepath }
-    local unix_args = { 'mkdir', savepath }
-    local args = is_windows and windows_args or unix_args
-    local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})
-    if res.status ~= 0 then
-      msg.error("Failed to create target_dir save directory "..savepath..". Error: "..(res.error or "unknown"))
-      return
-    end
-elseif not file.is_dir then
-    osd("target_dir is a file")
-    msg.warn(string.format("target_dir `%s` is a file", o.target_dir))
-end
-o.target_dir = mp.command_native({ "expand-path", o.target_dir })
-
 Command = { }
 
 function Command:new(name)
@@ -180,6 +160,26 @@ local function clear_toggle_mark()
     cut_pos = nil
     info("Cleared cut fragment")
 end
+
+o.target_dir = o.target_dir:gsub('"', "")
+local file, _ = utils.file_info(mp.command_native({ "expand-path", o.target_dir }))
+if not file then
+    --create target_dir if it doesn't exist
+    local savepath = mp.command_native({ "expand-path", o.target_dir })
+    local is_windows = package.config:sub(1, 1) == "\\"
+    local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', savepath }
+    local unix_args = { 'mkdir', savepath }
+    local args = is_windows and windows_args or unix_args
+    local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})
+    if res.status ~= 0 then
+      msg.error("Failed to create target_dir save directory "..savepath..". Error: "..(res.error or "unknown"))
+      return
+    end
+elseif not file.is_dir then
+    osd("target_dir is a file")
+    msg.warn(string.format("target_dir `%s` is a file", o.target_dir))
+end
+o.target_dir = mp.command_native({ "expand-path", o.target_dir })
 
 mp.add_key_binding("c", "slicing_mark", toggle_mark)
 mp.add_key_binding("a", "slicing_audio", toggle_audio)
