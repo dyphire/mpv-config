@@ -69,7 +69,11 @@
 #define sat(x)         ( clamp(x, 0.0, 1.0) )
 #define dxdy(val)      ( length(fwidth(val)) ) // =~1/2.5 hq edge without c_comp
 
+#ifdef LUMA_tex
+#define CtL(RGB)       RGB.x
+#else
 #define CtL(RGB)       ( sat(dot(RGB, vec3(0.2126, 0.7152, 0.0722))) )
+#endif
 
 #define b_diff(pix)    ( (blur-c[pix])*(blur-c[pix]) )
 

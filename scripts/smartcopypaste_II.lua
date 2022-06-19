@@ -287,6 +287,8 @@ o.open_list_keybind = utils.parse_json(o.open_list_keybind)
 o.list_filter_jump_keybind = utils.parse_json(o.list_filter_jump_keybind)
 o.list_ignored_keybind = utils.parse_json(o.list_ignored_keybind)
 
+utils.shared_script_property_set("menu-open", "no")
+
 if string.lower(o.log_path) == '/:dir%mpvconf%' then
 	o.log_path = mp.find_config_file('.')
 elseif string.lower(o.log_path) == '/:dir%script%' then
@@ -1044,6 +1046,7 @@ function display_list(filter, sort, action)
 	
 	if not search_active then get_page_properties(filter) else update_search_results('','') end
 	draw_list()
+	utils.shared_script_property_set("menu-open", "yes")
 	list_drawn = true
 	if not search_active then get_list_keybinds() end
 end
@@ -1705,6 +1708,7 @@ function unbind_list_keys()
 end
 
 function list_close_and_trash_collection()
+	utils.shared_script_property_set("menu-open", "no")
 	unbind_list_keys()
 	unbind_search_keys()
 	mp.set_osd_ass(0, 0, "")
