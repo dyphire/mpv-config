@@ -552,12 +552,13 @@ menuList = {
     open_menu = {
         {COMMAND, "[外置脚本] 文件", "CTRL+o", "script-message-to open_dialog import_files", "", false},
         {COMMAND, "[外置脚本] 地址", "CTRL+O", "script-message-to open_dialog import_url", "", false},
+        {COMMAND, "[外置脚本] 内置文件浏览器", "Tab", "script-message-to file_browser browse-files;script-message-to file_browser dynamic/reload;show-text ''", "", false},
         {COMMAND, "[外置脚本] 加载最后播放文件", "CTRL+l", "script-binding simplehistory/history-load-last", "", false},
         {COMMAND, "[外置脚本] 加载最后播放文件及进度", "CTRL+L", "script-binding simplehistory/history-resume", "", false},
-        {COMMAND, "[外部脚本] 打开剪贴菜单", "ALT+w", "script-binding smartcopypaste_II/open-list", "", false},
-        {COMMAND, "[外置脚本] 打开书签菜单", "N", "script-binding simplebookmark/open-list", "", false},
-        {COMMAND, "[外置脚本] 打开历史菜单", "`", "script-binding simplehistory/open-list", "", false},
-        {COMMAND, "[外置脚本] 内置文件浏览器", "Tab", "script-message-to file_browser browse-files", "", false},
+        {COMMAND, "[外置脚本] 开/关 隐身历史", "ALT+l", "script-binding simplehistory/history-incognito-mode", "", false},
+        {COMMAND, "[外置脚本] 打开  历史菜单", "`", "script-binding simplehistory/open-list;show-text ''", "", false},
+        {COMMAND, "[外置脚本] 打开  书签菜单", "N", "script-binding simplebookmark/open-list;show-text ''", "", false},
+        {COMMAND, "[外部脚本] 打开  剪贴菜单", "ALT+w", "script-binding smartcopypaste_II/open-list;show-text ''", "", false},
     },
 
 -- 二级菜单 —— 画面
@@ -632,8 +633,11 @@ local function playmenuList()
         open_menu = {
             {COMMAND, "[外置脚本] 文件", "CTRL+o", "script-message-to open_dialog import_files", "", false},
             {COMMAND, "[外置脚本] 地址", "CTRL+O", "script-message-to open_dialog import_url", "", false},
-            {COMMAND, "[外置脚本] 打开历史菜单", "`", "script-binding simplehistory/open-list", "", false},
-            {COMMAND, "[外置脚本] 内置文件浏览器", "Tab", "script-message browse-files", "", false},
+            {CASCADE, "[外置脚本] 书签", "bookmarker_menu", "", "", false},
+            {CASCADE, "[外部脚本] 剪贴", "copy_menu", "", "", false},
+            {COMMAND, "[外置脚本] 内置文件浏览器", "Tab", "script-message-to file_browser browse-files;script-message-to file_browser dynamic/reload;show-text ''", "", false},
+            {COMMAND, "[外置脚本] 开/关 隐身历史", "ALT+l", "script-binding simplehistory/history-incognito-mode", "", false},
+            {COMMAND, "[外置脚本] 打开  历史菜单", "`", "script-binding simplehistory/open-list;show-text ''", "", false},
             {SEP},
             {COMMAND, "[外置脚本] 加载其他字幕（切换）", "ALT+e", "script-message-to open_dialog append_sid", "", false},
             {COMMAND, "[外置脚本] 加载其他音轨（不切换）", "ALT+E", "script-message-to open_dialog append_aid", "", false},
@@ -644,6 +648,21 @@ local function playmenuList()
             {COMMAND, "播放列表乱序重排", "", "playlist-shuffle", "", false},
             {CHECK, "列表循环", "", "cycle-values loop-playlist inf no", function() return statePlayLoop() end, false},
             {CHECK, "随机播放", "", "cycle shuffle", function() return propNative("shuffle") end, false},
+        },
+
+-- 三级菜单 —— 书签
+        bookmarker_menu = {
+            {COMMAND, "打开书签菜单", "N", "script-binding simplebookmark/open-list;show-text ''", "", false},
+            {COMMAND, "添加进度书签", "CTRL+n", "script-binding simplebookmark/bookmark-save", "", false},
+            {COMMAND, "添加文件书签", "ALT+n", "script-binding simplebookmark/bookmark-fileonly", "", false},
+        },
+-- 三级菜单 —— 剪贴
+        copy_menu = {
+            {COMMAND, "打开剪贴菜单", "ALT+w", "script-binding smartcopypaste_II/open-list;show-text ''", "", false},
+            {COMMAND, "复制文件路径", "CTRL+ALT+c", "script-binding smartcopypaste_II/copy-specific", "", false},
+            {COMMAND, "复制文件路径及进度", "CTRL+c", "script-binding smartcopypaste_II/copy", "", false},
+            {COMMAND, "跳转到复制内容", "CTRL+v", "script-binding smartcopypaste_II/paste", "", false},
+            {COMMAND, "复制内容添加至播放列表", "CTRL+ALT+v", "script-binding smartcopypaste_II/paste-specific", "", false},
         },
 
 -- 二级菜单 —— 文件
@@ -668,8 +687,8 @@ local function playmenuList()
 
 -- 三级菜单 —— Youtube-dl菜单
         ytdl_menu = {
-            {COMMAND, "开/关 ytdl视频选择菜单", "CTRL+F", "script-message-to quality_menu video_formats_toggle", "", false},
-            {COMMAND, "开/关 ytdl音频选择菜单", "ALT+F", "script-message-to quality_menu audio_formats_toggle", "", false},
+            {COMMAND, "开/关 ytdl视频选择菜单", "CTRL+F", "script-message-to quality_menu video_formats_toggle;show-text ''", "", false},
+            {COMMAND, "开/关 ytdl音频选择菜单", "ALT+F", "script-message-to quality_menu audio_formats_toggle;show-text ''", "", false},
             {COMMAND, "重新加载", "CTRL+ALT+f", "script-message-to quality_menu reload", "", false},
             {COMMAND, "下载ytdl视频", "ALT+V", "script-message-to youtube_download download-video", "", false},
             {COMMAND, "下载ytdl音频", "ALT+Y", "script-message-to youtube_download download-audio", "", false},
@@ -698,7 +717,6 @@ local function playmenuList()
             {CASCADE, "前进后退", "seek_menu", "", "", false},
             {SEP},
             {CASCADE, "[外置脚本] 跳转", "undoredo_menu", "", "", false},
-            {CASCADE, "[外置脚本] 书签", "bookmarker_menu", "", "", false},
             {COMMAND, "[外置脚本] 自动跳过指定章节", "ALT+q", "script-message-to chapterskip chapter-skip;show-text 自动跳过指定章节", "", false},
             {COMMAND, "[外置脚本] 跳到下一个静音位置", "F4", "script-message-to skiptosilence skip-to-silence;show-text 跳到下一个静音位置", "", false},
         },
@@ -724,13 +742,6 @@ local function playmenuList()
             {COMMAND, "撤消跳转", "CTRL+z", "script-binding undoredo/undo", "", false},
             {COMMAND, "重做跳转", "CTRL+r", "script-binding undoredo/redo", "", false},
             {COMMAND, "循环跳转", "CTRL+ALT+z", "script-binding undoredo/undoLoop", "", false},
-        },
-
--- 三级菜单 —— 书签
-        bookmarker_menu = {
-            {COMMAND, "打开书签菜单", "N", "script-binding simplebookmark/open-list", "", false},
-            {COMMAND, "添加进度书签", "CTRL+n", "script-binding simplebookmark/bookmark-save", "", false},
-            {COMMAND, "添加文件书签", "ALT+n", "script-binding simplebookmark/bookmark-fileonly", "", false},
         },
 
 -- 二级菜单 —— 画面
@@ -991,17 +1002,7 @@ local function playmenuList()
             {COMMAND, "[外部脚本] 匹配视频刷新率", "F10", "script-binding change_refresh/match-refresh", "", false},
             {COMMAND, "[外部脚本] 复制当前时间", "CTRL+ALT+t", "script-message-to copy_subortime copy-time", "", false},
             {COMMAND, "[外部脚本] 复制当前字幕内容", "CTRL+ALT+s", "script-message-to copy_subortime copy-subtitle", "", false},
-            {CASCADE, "[外部脚本] 视频剪贴功能", "copy_menu", "", "", false},
             {COMMAND, "[外部脚本] 更新脚本着色器", "M", "script-message manager-update-all;show-text 更新脚本着色器", "", false},
-        },
-
--- 三级菜单 —— 视频剪贴功能
-        copy_menu = {
-            {COMMAND, "打开剪贴菜单", "ALT+w", "script-binding smartcopypaste_II/open-list", "", false},
-            {COMMAND, "复制视频路径", "CTRL+ALT+c", "script-binding smartcopypaste_II/copy-specific", "", false},
-            {COMMAND, "复制视频路径及进度", "CTRL+c", "script-binding smartcopypaste_II/copy", "", false},
-            {COMMAND, "跳转到复制的视频", "CTRL+v", "script-binding smartcopypaste_II/paste", "", false},
-            {COMMAND, "复制内容添加至播放列表", "CTRL+ALT+v", "script-binding smartcopypaste_II/paste-specific", "", false},
         },
 
 -- 二级菜单 —— 配置组
@@ -1027,6 +1028,8 @@ local function playmenuList()
             {COMMAND, "切换 ICC配置", "", "apply-profile ICC;show-text 配置组：ICC", "", false},
             {COMMAND, "切换 ICC+配置", "", "apply-profile ICC+;show-text 配置组：ICC+", "", false},
             {COMMAND, "切换 Target配置", "", "apply-profile Target;show-text 配置组：Target", "", false},
+            {COMMAND, "切换 Tscale配置", "", "apply-profile Tscale;show-text 配置组：Tscale", "", false},
+            {COMMAND, "切换 Tscale-box配置", "", "apply-profile Tscale-box;show-text 配置组：Tscale-box", "", false},
             {COMMAND, "切换 DeBand-low配置", "ALT+1", "apply-profile DeBand-low;show-text 配置组：DeBand-low", "", false},
             {COMMAND, "切换 DeBand-mediu配置", "ALT+d", "apply-profile DeBand-medium;show-text 配置组：DeBand-medium", "", false},
             {COMMAND, "切换 DeBand-high配置", "ALT+D", "apply-profile DeBand-high;show-text 配置组：DeBand-high", "", false},
