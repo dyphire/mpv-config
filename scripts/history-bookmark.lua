@@ -11,14 +11,20 @@ local M = {}
 local o = {
     enabled = true,
     save_period = 30,
-    history_dir = "~~/historybookmarks", -- change to '~~/historybookmarks' for mpv portable_config directory, or OR write any variable using '/:var' then the variable '/:var%APPDATA%' you can use path also, such as: '/:var%APPDATA%/mpv/historybookmarks' OR '/:var%HOME%/mpv/historybookmarks' OR specify the absolute path
+    -- change to '~~/historybookmarks' for sub path of mpv portable_config directory
+    -- OR write any variable using '/:var', such as: '/:var%APPDATA%/mpv/historybookmarks' or '/:var%HOME%/mpv/historybookmarks'
+    -- OR specify the absolute path
+    history_dir = "~~/historybookmarks",
+    -- specifies the extension of the history-bookmark file
     bookmark_ext = ".mpv.history",
+    -- excluded directories for shared, #windows: ["X:", "Z:", "F:\\Download\\", "Download"]
     excluded_dir = [[
         []
-        ]], --excluded directories for shared, #windows: ["X:", "Z:", "F:\\Download\\", "Download"]
+        ]],
+    -- add above (after a comma) any protocol to disable
     special_protocols = [[
 	["https?://", "^magnet:", "^rtmp:", "smb://", "bd://", "dvd://", "cdda://"]
-	]], --add above (after a comma) any protocol to disable
+	]],
     included_dir = [[
     []
     ]]
@@ -170,7 +176,6 @@ function M.create_playlist(dir, ftype)
         --     record, it means we are watching another playlist
         if file:match('%' .. ftype .. '$') ~= nil then
             table.insert(pl_list, file)
-            msg.info('Adding ' .. file)
         end
     end
 end

@@ -69,7 +69,11 @@
 #define sat(x)         ( clamp(x, 0.0, 1.0) )
 #define dxdy(val)      ( length(fwidth(val)) ) // =~1/2.5 hq edge without c_comp
 
+#ifdef LUMA_tex
+#define CtL(RGB)       RGB.x
+#else
 #define CtL(RGB)       ( sat(dot(RGB, vec3(0.2126, 0.7152, 0.0722))) )
+#endif
 
 #define b_diff(pix)    ( (blur-c[pix])*(blur-c[pix]) )
 
@@ -132,10 +136,10 @@ vec4 hook() {
     }
 
     // RGB to luma
-    float luma[25] = float[](c[0].x, c[1].x, c[2].x, c[3].x, c[4].x, c[5].x, c[6].x,
-                             c[7].x,  c[8].x,  c[9].x,  c[10].x, c[11].x, c[12].x,
-                             c[13].x, c[14].x, c[15].x, c[16].x, c[17].x, c[18].x,
-                             c[19].x, c[20].x, c[21].x, c[22].x, c[23].x, c[24].x);
+    float luma[25] = float[](CtL(c[0]), CtL(c[1]), CtL(c[2]), CtL(c[3]), CtL(c[4]), CtL(c[5]), CtL(c[6]),
+                             CtL(c[7]),  CtL(c[8]),  CtL(c[9]),  CtL(c[10]), CtL(c[11]), CtL(c[12]),
+                             CtL(c[13]), CtL(c[14]), CtL(c[15]), CtL(c[16]), CtL(c[17]), CtL(c[18]),
+                             CtL(c[19]), CtL(c[20]), CtL(c[21]), CtL(c[22]), CtL(c[23]), CtL(c[24]));
 
     float c0_Y = luma[0];
 

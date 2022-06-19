@@ -74,6 +74,9 @@ local opts = {
     --reset ytdl-format to the original format string when changing files (e.g. going to the next playlist entry)
     --if file was opened previously, reset to previously selected format
     reset_format = true,
+    
+    --automatically fetch available formats when opening a file
+    fetch_on_start = true,
 
     --show the video format menu after opening a file
     start_with_menu = true,
@@ -496,7 +499,7 @@ local function file_start()
     end
     if opts.start_with_menu and new_path ~= path then
         video_formats_toggle()
-    else
+    elseif fetch_on_start then
         download_formats()
     end
     path = new_path
