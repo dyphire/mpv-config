@@ -1317,7 +1317,7 @@ state.keybinds = {
     {'Shift+HOME', 'goto_root', goto_root, {}},
     {'Ctrl+r', 'reload', function() cache:clear(); update() end, {}},
     {'s', 'select_mode', toggle_select_mode, {}},
-    {'S', 'select', toggle_selection, {}},
+    {'S', 'select_item', toggle_selection, {}},
     {'Ctrl+a', 'select_all', select_all, {}}
 }
 
