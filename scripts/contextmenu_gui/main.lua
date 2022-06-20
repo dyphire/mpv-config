@@ -564,7 +564,7 @@ menuList = {
 -- 二级菜单 —— 画面
     output_menu = {
         {CHECK, "窗口置顶", "ALT+t", "cycle ontop", function() return propNative("ontop") end, false},
-        {CHECK, "窗口边框", "ALT+B", "cycle border", function() return propNative("border") end, false},
+        {CHECK, "窗口边框", "CTRL+B", "cycle border", function() return propNative("border") end, false},
         {CHECK, "全屏", "ENTER", "cycle fullscreen", function() return propNative("fullscreen") end, false},
         {SEP},
         {COMMAND, "[外置脚本] 开/关 进度条预览", "CTRL+T", "cycle-values script-opts thumbnailer-auto_gen=no,thumbnailer-auto_show=no thumbnailer-auto_gen=yes,thumbnailer-auto_show=yes", "", false},
@@ -635,6 +635,7 @@ local function playmenuList()
             {COMMAND, "[外置脚本] 地址", "CTRL+O", "script-message-to open_dialog import_url", "", false},
             {CASCADE, "[外置脚本] 书签", "bookmarker_menu", "", "", false},
             {CASCADE, "[外部脚本] 剪贴", "copy_menu", "", "", false},
+            {CASCADE, "[外部脚本] 章节制作", "chaptercreat_menu", "", "", false},
             {COMMAND, "[外置脚本] 内置文件浏览器", "Tab", "script-message-to file_browser browse-files;script-message-to file_browser dynamic/reload;show-text ''", "", false},
             {COMMAND, "[外置脚本] 开/关 隐身历史", "ALT+l", "script-binding simplehistory/history-incognito-mode", "", false},
             {COMMAND, "[外置脚本] 打开  历史菜单", "`", "script-binding simplehistory/open-list;show-text ''", "", false},
@@ -664,7 +665,12 @@ local function playmenuList()
             {COMMAND, "跳转到复制内容", "CTRL+v", "script-binding smartcopypaste_II/paste", "", false},
             {COMMAND, "复制内容添加至播放列表", "CTRL+ALT+v", "script-binding smartcopypaste_II/paste-specific", "", false},
         },
-
+-- 三级菜单 —— 章节制作
+        chaptercreat_menu = {
+            {COMMAND, "标记章节时间", "ALT+C", "script-message create_chapter", "", false},
+            {COMMAND, "创建外部章节文件", "ALT+B", "script-message write_chapter", "", false},
+            {COMMAND, "创建xml外部章节文件", "CTRL+ALT+b", "script-message write_chapter_xml", "", false},
+        },
 -- 二级菜单 —— 文件
         file_menu = {
             {CHECK, "播放/暂停", "SPACE", "cycle pause;show-text 暂停:${pause}", function() return propNative("pause") end, false},
@@ -750,7 +756,7 @@ local function playmenuList()
 --            {COMMAND, "窗口置顶", "", "cycle ontop", "", false},
 --            {RADIO, "关", "", "set ontop yes", function() return stateOnTop(false) end, false},
 --            {RADIO, "开", "", "set ontop no", function() return stateOnTop(true) end, false},
-            {CHECK, "窗口边框", "ALT+B", "cycle border", function() return propNative("border") end, false},
+            {CHECK, "窗口边框", "CTRL+B", "cycle border", function() return propNative("border") end, false},
             {CHECK, "最大化", "ALT+b", "cycle window-maximized", function() return propNative("window-maximized") end, false},
             {CHECK, "全屏", "ENTER", "cycle fullscreen", function() return propNative("fullscreen") end, false},
             {CASCADE, "长宽比", "aspect_menu", "", "", false},
