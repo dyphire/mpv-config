@@ -72,10 +72,10 @@
 #ifdef LUMA_tex
 #define CtL(RGB)       RGB.x
 #else
-#define CtL(RGB)       ( sat(dot(RGB, vec3(0.2126, 0.7152, 0.0722))) )
+#define CtL(RGB)       ( sqrt(dot(sat(RGB)*sat(RGB), vec3(0.2126, 0.7152, 0.0722))) )
 #endif
 
-#define b_diff(pix)    ( (blur-c[pix])*(blur-c[pix]) )
+#define b_diff(pix)    ( (blur-luma[pix])*(blur-luma[pix]) )
 
 vec4 hook() {
 
@@ -96,11 +96,19 @@ vec4 hook() {
                           dxdy(c[5]),  dxdy(c[6]),  dxdy(c[7]),  dxdy(c[8]),  dxdy(c[9]),
                           dxdy(c[10]), dxdy(c[11]), dxdy(c[12]));
 
-    // Blur, gauss 3x3
-    vec3  blur   = sat((2.0 * (c[2]+c[4]+c[5]+c[7]) + (c[1]+c[3]+c[6]+c[8]) + 4.0 * c[0]) / 16.0);
+    // RGB to luma
+    float luma[25] = float[](CtL(c[0]), CtL(c[1]), CtL(c[2]), CtL(c[3]), CtL(c[4]), CtL(c[5]), CtL(c[6]),
+                             CtL(c[7]),  CtL(c[8]),  CtL(c[9]),  CtL(c[10]), CtL(c[11]), CtL(c[12]),
+                             CtL(c[13]), CtL(c[14]), CtL(c[15]), CtL(c[16]), CtL(c[17]), CtL(c[18]),
+                             CtL(c[19]), CtL(c[20]), CtL(c[21]), CtL(c[22]), CtL(c[23]), CtL(c[24]));
 
-    // Contrast compression, center = 0.5, scaled to 1/3
-    float c_comp = sat(0.266666681f + 0.9*exp2(dot(blur, vec3(-7.4/3.0))));
+    float c0_Y = luma[0];
+
+    // Blur, gauss 3x3
+    float  blur   = (2.0 * (luma[2]+luma[4]+luma[5]+luma[7]) + (luma[1]+luma[3]+luma[6]+luma[8]) + 4.0 * luma[0]) / 16.0;
+
+    // Contrast compression, center = 0.5
+    float c_comp = sat(0.266666681f + 0.9*exp2(blur * blur * -7.4));
 
     // Edge detection
     // Relative matrix weights
@@ -109,10 +117,10 @@ vec4 hook() {
     // [  1,  5,  6,  5,  1  ]
     // [      4,  5,  4      ]
     // [          1          ]
-    float edge = length( 1.38*b_diff(0)
-                       + 1.15*(b_diff(2) + b_diff(4) + b_diff(5) + b_diff(7))
-                       + 0.92*(b_diff(1) + b_diff(3) + b_diff(6) + b_diff(8))
-                       + 0.23*(b_diff(9) + b_diff(10) + b_diff(11) + b_diff(12)) ) * c_comp;
+    float edge = ( 1.38*b_diff(0)
+                 + 1.15*(b_diff(2) + b_diff(4) + b_diff(5) + b_diff(7))
+                 + 0.92*(b_diff(1) + b_diff(3) + b_diff(6) + b_diff(8))
+                 + 0.23*(b_diff(9) + b_diff(10) + b_diff(11) + b_diff(12)) ) * c_comp;
 
     vec2 cs = vec2(L_compr_low,  D_compr_low);
 
@@ -134,14 +142,6 @@ vec4 hook() {
 
         cs = mix(cs, vec2(L_compr_high, D_compr_high), sat(2.4002*sbe - 2.282));
     }
-
-    // RGB to luma
-    float luma[25] = float[](CtL(c[0]), CtL(c[1]), CtL(c[2]), CtL(c[3]), CtL(c[4]), CtL(c[5]), CtL(c[6]),
-                             CtL(c[7]),  CtL(c[8]),  CtL(c[9]),  CtL(c[10]), CtL(c[11]), CtL(c[12]),
-                             CtL(c[13]), CtL(c[14]), CtL(c[15]), CtL(c[16]), CtL(c[17]), CtL(c[18]),
-                             CtL(c[19]), CtL(c[20]), CtL(c[21]), CtL(c[22]), CtL(c[23]), CtL(c[24]));
-
-    float c0_Y = luma[0];
 
     // Precalculated default squared kernel weights
     const vec3 w1 = vec3(0.5,           1.0, 1.41421356237); // 0.25, 1.0, 2.0
