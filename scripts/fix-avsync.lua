@@ -28,9 +28,12 @@ local function fix_speedout()
   end
 end
 
-local function on_start()
+mp.register_event("file-loaded", function()
   mp.observe_property("aid", "string", fix_avsync)
   mp.observe_property("speed", "number", fix_speedout)
-end
+end)
 
-mp.register_event("file-loaded", on_start)
+mp.register_event("end-file", function()
+  mp.unobserve_property(fix_avsync)
+  mp.unobserve_property(fix_speedout)
+end)
