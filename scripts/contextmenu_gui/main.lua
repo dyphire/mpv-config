@@ -52,10 +52,47 @@ local function round(num, numDecimalPlaces)
     return tonumber(string.format("%." .. (numDecimalPlaces or 0) .. "f", num))
 end
 
+-- 播放列表子菜单
+local function inspectPlaylist()
+    local playlistDisable = false
+    if propNative("playlist/count") == nil or  propNative("playlist/count") < 1 then playlistDisable = true end
+    return playlistDisable
+end
+
+local function checkplaylist(playlistNum)
+    local playlistState, playlistCur = false, propNative("playlist-pos")
+    if (playlistNum == playlistCur) then playlistState = true end
+    return playlistState
+end
+
+local function playlistMenu()
+    local playlistCount = propNative("playlist/count")
+    local playlistMenuVal = {}
+
+    if playlistCount ~= nil and not (playlistCount == 0) then
+        for playlistNum=0, (playlistCount - 1), 1 do
+            local playlistTitle = propNative("playlist/" .. playlistNum .. "/title")
+            local playlistFilename = propNative("playlist/" .. playlistNum .. "/filename")
+            if playlistFilename:match("://") then table.insert(playlistMenuVal, {COMMAND, "不支持串流文件", "", "", "", true})
+            else
+                local playlistFilename = playlistFilename:gsub("\\", "/")
+                local playlistFilename = playlistFilename:gsub("^.*/", "")
+                if string.len(playlistFilename) > 80 then playlistFilename = string.sub(playlistFilename, 1, 80) .. "..." end
+                if not (playlistTitle) then playlistTitle = playlistFilename end
+
+                local playlistCommand = "set playlist-pos " .. playlistNum
+                table.insert(playlistMenuVal, {RADIO, playlistTitle, "", playlistCommand, function() return checkplaylist(playlistNum) end, false})
+            end
+        end
+    end
+
+    return playlistMenuVal
+end
+
 -- 版本（Edition）子菜单
 local function inspectEdition()
     local editionDisable = false
-    if (propNative("edition-list/count") ~= nil and propNative("edition-list/count") < 1) then editionDisable = true end
+    if propNative("edition-list/count") == nil or propNative("edition-list/count") < 1 then editionDisable = true end
     return editionDisable
 end
 
@@ -69,7 +106,7 @@ local function editionMenu()
     local editionCount = propNative("edition-list/count")
     local editionMenuVal = {}
 
-    if not (editionCount == 0) then
+    if editionCount ~= nil and not (editionCount == 0) then
         for editionNum=0, (editionCount - 1), 1 do
             local editionTitle = propNative("edition-list/" .. editionNum .. "/title")
             if not (editionTitle) then editionTitle = "Edition " .. (editionNum + 1) end
@@ -77,8 +114,6 @@ local function editionMenu()
             local editionCommand = "set edition " .. editionNum
             table.insert(editionMenuVal, {RADIO, editionTitle, "", editionCommand, function() return checkEdition(editionNum) end, false})
         end
-    else
-        table.insert(editionMenuVal, {COMMAND, "No Editions", "", "", "", true})
     end
 
     return editionMenuVal
@@ -87,7 +122,7 @@ end
 -- 章节子菜单
 local function inspectChapter()
     local chapterDisable = false
-    if (propNative("chapter-list/count") ~= nil and propNative("chapter-list/count") < 1) then chapterDisable = true end
+    if propNative("chapter-list/count") == nil or propNative("chapter-list/count") < 1 then chapterDisable = true end
     return chapterDisable
 end
 
@@ -105,7 +140,7 @@ local function chapterMenu()
         {COMMAND, "上一章节", "PGDWN", "add chapter -1", "", false},
         {COMMAND, "下一章节", "PGUP", "add chapter 1", "", false},
     }
-    if not (chapterCount == 0) then
+    if chapterCount ~= nil and not (chapterCount == 0) then
         for chapterNum=0, (chapterCount - 1), 1 do
             local chapterTitle = propNative("chapter-list/" .. chapterNum .. "/title")
             if not (chapterTitle) then chapterTitle = "章节 " .. (chapterNum + 1) end
@@ -224,6 +259,12 @@ function esc_for_title(s)
 end
 
 -- 音频轨子菜单
+local function inspectAudTrack()
+    local audTrackDisable, audTracks = false, trackCount("audio")
+    if (#audTracks < 1) then audTrackDisable = true end
+    return audTrackDisable
+end
+
 local function audTrackMenu()
     local audTrackMenuVal, audTrackCount = {}, trackCount("audio")
 
@@ -272,10 +313,16 @@ local function audTrackMenu()
     return audTrackMenuVal
 end
 
+-- 字幕轨子菜单
+local function inspectSubTrack()
+    local subTrackDisable, subTracks = false, trackCount("sub")
+    if (#subTracks < 1) then subTrackDisable = true end
+    return subTrackDisable
+end
+
 -- Subtitle label
 local function subVisLabel() return propNative("sub-visibility") and "隐藏" or "取消隐藏" end
 
--- 字幕轨子菜单
 local function subTrackMenu()
     local subTrackMenuVal, subTrackCount = {}, trackCount("sub")
 
@@ -533,6 +580,7 @@ local menuList = {}
 
 -- This is to be shown when nothing is open yet and is a small subset of the greater menu that
 -- will be overwritten when the full menu is created.
+
 menuList = {
     file_loaded_menu = false,
 
@@ -566,19 +614,13 @@ menuList = {
         {CHECK, "窗口置顶", "ALT+t", "cycle ontop", function() return propNative("ontop") end, false},
         {CHECK, "窗口边框", "CTRL+B", "cycle border", function() return propNative("border") end, false},
         {CHECK, "全屏", "ENTER", "cycle fullscreen", function() return propNative("fullscreen") end, false},
-        {SEP},
-        {COMMAND, "[外置脚本] 开/关 进度条预览", "CTRL+T", "cycle-values script-opts thumbnailer-auto_gen=no,thumbnailer-auto_show=no thumbnailer-auto_gen=yes,thumbnailer-auto_show=yes", "", false},
     },
 
 -- 二级菜单 —— 其它
     etc_menu = {
-        {COMMAND, "[内部脚本] 状态信息（开/关）", "I", "script-binding stats/display-stats-toggle", "", false},
-        {COMMAND, "[内部脚本] 状态信息-概览", "", "script-binding stats/display-page-1", "", false},
-        {COMMAND, "[内部脚本] 状态信息-帧计时（可翻页）", "", "script-binding stats/display-page-2", "", false},
-        {COMMAND, "[内部脚本] 状态信息-输入缓存", "", "script-binding stats/display-page-3", "", false},
-        {COMMAND, "[内部脚本] 状态信息-快捷键（可翻页）", "", "script-binding stats/display-page-4", "", false},
-        {COMMAND, "[内部脚本] 状态信息-内部流（可翻页）", "", "script-binding stats/display-page-0", "", false},
         {COMMAND, "[内部脚本] 控制台", "~", "script-binding console/enable", "", false},
+        {COMMAND, "[外置脚本] 开/关 进度条预览", "CTRL+T", "cycle-values script-opts thumbnailer-auto_gen=no,thumbnailer-auto_show=no thumbnailer-auto_gen=yes,thumbnailer-auto_show=yes", "", false},
+        {COMMAND, "[外部脚本] 更新  脚本着色器", "M", "script-message manager-update-all;show-text 更新脚本着色器", "", false},
     },
 
 -- 二级菜单 —— 关于
@@ -593,9 +635,6 @@ menuList = {
 -- If mpv enters a stopped state, change the change the menu back to the "no file loaded" menu
 -- so that it will still popup.
 menuListBase = menuList
-mp.register_event("end-file", function()
-    menuList = menuListBase
-end)
 
 -- DO NOT create the "playing" menu tables until AFTER the file has loaded as we're unable to
 -- dynamically create some menus if it tries to build the table before the file is loaded.
@@ -645,10 +684,6 @@ local function playmenuList()
             {COMMAND, "[外置脚本] 装载次字幕（滤镜型）", "CTRL+e", "script-message-to open_dialog append_vfSub", "", false},
             {COMMAND, "[外置脚本] 隐藏/显示 次字幕", "CTRL+E", "script-message-to open_dialog toggle_vfSub", "", false},
             {COMMAND, "[外置脚本] 移除次字幕", "CTRL+ALT+e", "script-message-to open_dialog remove_vfSub", "", false},
-            {SEP},
-            {COMMAND, "播放列表乱序重排", "", "playlist-shuffle", "", false},
-            {CHECK, "列表循环", "", "cycle-values loop-playlist inf no", function() return statePlayLoop() end, false},
-            {CHECK, "随机播放", "", "cycle shuffle", function() return propNative("shuffle") end, false},
         },
 
 -- 三级菜单 —— 书签
@@ -709,11 +744,19 @@ local function playmenuList()
 --            {COMMAND, "显示OSD时间轴", "O", "no-osd cycle-values osd-level 3 1", "", false},
 --            {RADIO, " 开", "", "set osd-level 3", function() return stateOsdLevel(3) end, false},
 --            {RADIO, " 关", "", "set osd-level 1", function() return stateOsdLevel(1) end, false},  
-            {COMMAND, "[外置脚本] OSD高级播放列表", "F8", "script-message-to playlistmanager showplaylist", "", false},
             {COMMAND, "OSD轨道信息", "F9", "show-text ${track-list} 5000", "", false},
             {SEP},
             {CASCADE, "版本（Edition）", "edition_menu", "", "", function() return inspectEdition() end},
             {CASCADE, "章节", "chapter_menu", "", "", function() return inspectChapter() end},
+            {COMMAND, "[外置脚本] OSD高级章节列表", "F7", "script-message-to chapter_list toggle-chapter-browser", "", false},
+            {SEP},
+            {CASCADE, "播放列表", "playlist_menu", "", "", function() return inspectPlaylist() end},
+            {CHECK, "列表循环", "", "cycle-values loop-playlist inf no", function() return statePlayLoop() end, false},
+            {CHECK, "随机播放", "", "cycle shuffle", function() return propNative("shuffle") end, false},
+            {COMMAND, "清除播放列表", "", "playlist-clear", "", false},
+            {COMMAND, "播放列表乱序重排", "", "playlist-shuffle", "", false},
+            {COMMAND, "播放列表恢复排序", "", "playlist-unshuffle", "", false},
+            {COMMAND, "[外置脚本] OSD高级播放列表", "F8", "script-message-to playlistmanager showplaylist", "", false},
             {SEP},
             {COMMAND, "重播", "", "seek 0 absolute", "", false},
             {COMMAND, "上个文件", "<", "playlist-prev;show-text 播放列表:${playlist-pos-1}/${playlist-count}", "", false},
@@ -728,6 +771,7 @@ local function playmenuList()
         },
 
         -- Use functions returning tables, since we don't need these menus if there aren't any editions or any chapters to seek through.
+        playlist_menu = playlistMenu(),
         edition_menu = editionMenu(),
         chapter_menu = chapterMenu(),
 
@@ -887,7 +931,7 @@ local function playmenuList()
 
 -- 二级菜单 —— 音频
         audio_menu = {
-            {CASCADE, "轨道", "audtrack_menu", "", "", false},
+            {CASCADE, "轨道", "audtrack_menu", "", "", function() return inspectAudTrack() end},
             {SEP},
             {COMMAND, "切换 音轨", "y", "cycle audio;show-text 音轨切换为:${audio}", "", false},
             {CHECK, "音频规格化", "", "cycle audio-normalize-downmix;show-text 音频规格化:${audio-normalize-downmix}", function() return propNative("audio-normalize-downmix") end, false},
@@ -917,7 +961,7 @@ local function playmenuList()
 
 -- 二级菜单 —— 字幕
         subtitle_menu = {
-            {CASCADE, "轨道", "subtrack_menu", "", "", false},
+            {CASCADE, "轨道", "subtrack_menu", "", "", function() return inspectSubTrack() end},
             {SEP},
             {COMMAND, "切换 字幕", "j", "cycle sub;show-text 字幕切换为:${sub}", "", false},
             {COMMAND, "切换 渲染样式", "u", "cycle sub-ass-override;show-text 字幕渲染样式:${sub-ass-override}", "", false},
@@ -1085,10 +1129,22 @@ local function playmenuList()
     end
 end
 
-mp.register_event("file-loaded", playmenuList)
-mp.observe_property("track-list/count", "number", function()
-    local track_count = mp.get_property_number("track-list/count")
-    if track_count ~= nil and track_count > 0 then playmenuList() end
+mp.add_hook("on_preloaded", 100, playmenuList)
+
+local function observe_change()
+    mp.observe_property("track-list/count", "number", playmenuList)
+    mp.observe_property("chapter-list/count", "number", playmenuList)
+    mp.observe_property("playlist/count", "number", playmenuList)
+    mp.observe_property("playlist-shuffle", nil, playmenuList)
+    mp.observe_property("playlist-unshuffle", nil, playmenuList)
+    mp.observe_property("playlist-move", nil, playmenuList)
+end
+
+mp.register_event("file-loaded", observe_change)
+
+mp.register_event("end-file", function()
+    mp.unobserve_property(playmenuList)
+    menuList = menuListBase
 end)
 
 --[[ ************ 菜单内容 ************ ]]--
