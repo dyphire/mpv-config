@@ -703,7 +703,7 @@ local function playmenuList()
 -- 三级菜单 —— 章节制作
         chaptercreat_menu = {
             {COMMAND, "标记章节时间", "ALT+C", "script-message create_chapter", "", false},
-            {COMMAND, "创建外部章节文件", "ALT+B", "script-message write_chapter", "", false},
+            {COMMAND, "创建chp外部章节文件", "ALT+B", "script-message write_chapter", "", false},
             {COMMAND, "创建xml外部章节文件", "CTRL+ALT+b", "script-message write_chapter_xml", "", false},
         },
 -- 二级菜单 —— 文件
@@ -748,7 +748,7 @@ local function playmenuList()
             {SEP},
             {CASCADE, "版本（Edition）", "edition_menu", "", "", function() return inspectEdition() end},
             {CASCADE, "章节", "chapter_menu", "", "", function() return inspectChapter() end},
-            {COMMAND, "[外置脚本] OSD高级章节列表", "F7", "script-message-to chapter_list toggle-chapter-browser", "", false},
+            {COMMAND, "[外置脚本] OSD高级章节列表", "F7", "script-message-to chapter_list toggle-chapter-browser;show-text ''", "", false},
             {SEP},
             {CASCADE, "播放列表", "playlist_menu", "", "", function() return inspectPlaylist() end},
             {CHECK, "列表循环", "", "cycle-values loop-playlist inf no", function() return statePlayLoop() end, false},
@@ -756,7 +756,7 @@ local function playmenuList()
             {COMMAND, "清除播放列表", "", "playlist-clear", "", false},
             {COMMAND, "播放列表乱序重排", "", "playlist-shuffle", "", false},
             {COMMAND, "播放列表恢复排序", "", "playlist-unshuffle", "", false},
-            {COMMAND, "[外置脚本] OSD高级播放列表", "F8", "script-message-to playlistmanager showplaylist", "", false},
+            {COMMAND, "[外置脚本] OSD高级播放列表", "F8", "script-message-to playlistmanager showplaylist;show-text ''", "", false},
             {SEP},
             {COMMAND, "重播", "", "seek 0 absolute", "", false},
             {COMMAND, "上个文件", "<", "playlist-prev;show-text 播放列表:${playlist-pos-1}/${playlist-count}", "", false},
