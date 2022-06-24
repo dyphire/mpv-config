@@ -10,7 +10,7 @@
 | blacklist-extensions.lua         | mpv 直接拖放目录时的文件加载类型的黑/白名单 |
 | change-refresh.lua   | 更改刷新率（依赖[nircmd](https://www.nirsoft.net/utils/nircmd.html) ，配置文件 [changerefresh.conf](../script-opts/changerefresh.conf)） |
 | chapter_make_read.lua | 标记/制作/自动读取加载外部章节文件（配置文件 [chapter_make_read.conf](../script-opts/chapter_make_read.conf)）  |
-| chapter_list.lua | 章节列表（依赖 [scroll-list.lua](../script-modules/scroll-list.lua)） |
+| chapter-list.lua | 章节列表（依赖 [scroll-list.lua](../script-modules/scroll-list.lua)） |
 | chapterskip.lua | 跳过指定章节（配置文件 [chapterskip.conf](../script-opts/chapterskip.conf)） |
 | copy_subortime.lua | 复制当前字幕内容或播放时间 |
 | cycle_adevice.lua | 快捷键切换音频输出设备 |
@@ -50,7 +50,7 @@
 | youtube-download.lua | ytdl 下载视频/音频/字幕/片段的脚本（依赖 yt-dlp/youtube-dl和ffmpeg; 配置文件 [youtube-download.conf](../script-opts/youtube-download.conf)） |
 | autosubsync（组）         | 字幕同步菜单（依赖 ffmpeg, [ffsubsync](https://github.com/smacke/ffsubsync) or [alass](https://github.com/dyphire/alass) or both; 配置文件 [autosubsync.conf](../script-opts/autosubsync.conf)） |
 | contextmenu_gui（组）         | 图形化右键菜单（依赖 tclkit，上游说明：https://github.com/hooke007/MPV_lazy/discussions/60; 配置文件 [contextmenu_gui.conf](../script-opts/contextmenu_gui.conf)） |
-1. 部分脚本为**个人修改版本**，主要改进功能实现或键位绑定方式。如：autosubsync（组）; contextmenu_gui（组）; autoload.lua; auto-save-state.lua; chapter_make_read.lua; chapter_list.lua; chapterskip.lua; copy_subortime.lua; cycle_adevice.lua; drcbox.lua; editions-notification.lua; fix-avsync.lua; file-browser.lua; fuzzydir.lua; history-bookmark.lua; locatefile.lua; mpv-webp.lua; open_dialog.lua; persist_properties.lua; pause-indicator.lua; quality-menu.lua; slicing_copy.lua; sub_export.lua; simplebookmark.lua; simplehistory.lua; smartcopypaste_II.lua; skiptosilence.lua; trackselect.lua; thumbnailer*.lua
+1. 部分脚本为**个人修改版本**，主要改进功能实现或键位绑定方式。如：autosubsync（组）; contextmenu_gui（组）; autoload.lua; auto-save-state.lua; chapter_make_read.lua; chapter-list.lua; chapterskip.lua; copy_subortime.lua; cycle_adevice.lua; drcbox.lua; editions-notification.lua; fix-avsync.lua; file-browser.lua; fuzzydir.lua; history-bookmark.lua; locatefile.lua; mpv-webp.lua; open_dialog.lua; persist_properties.lua; pause-indicator.lua; quality-menu.lua; slicing_copy.lua; sub_export.lua; simplebookmark.lua; simplehistory.lua; smartcopypaste_II.lua; skiptosilence.lua; trackselect.lua; thumbnailer*.lua
 2. 所有脚本预绑定的`mp.add_key_binding`静态键位已被 [mpv.conf](../mpv.conf) 中的`input-default-bindings=no`参数屏蔽，可查看 [input.conf](../input.conf)  的"LUA 脚本"部分示例参考绑定所需键位  
    - 本配置绑定的快捷键及功能请参考 [快捷键说明.md](../快捷键说明.md) 文件
 3. 部分脚本存在动态绑定键位，可查看对应脚本及配置文件相关部分（或[快捷键.md](../快捷键.md)中相关说明）
