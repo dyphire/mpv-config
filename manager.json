@@ -61,6 +61,12 @@
     "branch":"dev"
   },
   {
+    "git":"https://github.com/dyphire/mpv-scroll-list",
+    "whitelist":"chapter%-list%.lua$",
+    "dest":"~~/scripts",
+    "branch":"dev"
+  },
+  {
     "git":"https://github.com/dyphire/autosubsync-mpv",
     "whitelist":"%.lua$",
     "dest":"~~/scripts/autosubsync",
@@ -129,9 +135,10 @@
     "dest":"~~/script-modules"
   },
   {
-    "git":"https://github.com/CogentRedTester/mpv-scroll-list",
+    "git":"https://github.com/dyphire/mpv-scroll-list",
     "whitelist":"scroll%-list%.lua$",
-    "dest":"~~/script-modules"
+    "dest":"~~/script-modules",
+    "branch":"dev"
   },
   {
     "git":"https://github.com/CogentRedTester/mpv-read-file",

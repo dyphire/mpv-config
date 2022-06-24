@@ -1,5 +1,5 @@
 --[[
-  * chapter_make_read.lua v.2022-06-21
+  * chapter_make_read.lua v.2022-06-24
   *
   * AUTHORS: dyphire
   * License: MIT
@@ -56,36 +56,25 @@ end
 local function read_chapter_table()
 	local line_pos = 0
 	return read_chapter(function(line)
-        local tt, h, m, s, t, n, l
+        local h, m, s, t, n, l
         if line:match("^%d+:%d+:%d+") ~= nil then
-            h = line:match("^%d%d?:")
-            h = h:gsub(":", "")
-            m = line:match(":%d+:")
-            m = m:gsub(":", "")
-            s = line:gsub("^%d+:%d+:", "")
-            s = s:match("^%d+.%d*[,%s]?")
-            s = s:gsub("[,%s]$", "")
+            h, m, s = line:match("^(%d+):(%d+):(%d+.%d*)")
             t = h*3600 + m*60 + s
             if line:match("^%d+:%d+:%d+.%d*[,%s].*") ~= nil then
-                n = line:match("[,%s].*")
-                n = n:gsub("^,", "")
-                n = n:gsub("%s:%s%a?%a?:", "")
-                n = n:gsub("^%s*(.-)%s*$", "%1")
+                n = line:match("^%d+:%d+:%d+.%d*[,%s](.*)")
+                n = n:gsub(":%s%a?%a?:", "")
+                    :gsub("^%s*(.-)%s*$", "%1")
             end
             l = line
             line_pos = line_pos + 1
         elseif line:match("^CHAPTER%d+=%d+:%d+:%d+") ~= nil then
-            tt = line:gsub("^CHAPTER%d+=", "")
-            h = tt:match("^%d%d?:")
-            h = h:gsub(":", "")
-            m = tt:match(":%d+:")
-            m = m:gsub(":", "")
-            s = tt:gsub("^%d+:%d+:", "")
+            h, m, s = line:match("^CHAPTER%d+=(%d+):(%d+):(%d+.%d*)")
             t = h*3600 + m*60 + s
             l = line
             line_pos = line_pos + 1
         elseif line:match("^CHAPTER%d+NAME=.*") ~= nil then
             n = line:gsub("^CHAPTER%d+NAME=", "")
+            n = n:gsub("^%s*(.-)%s*$", "%1")
             l = line
             line_pos = line_pos + 1
         else return end
