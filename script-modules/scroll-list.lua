@@ -43,6 +43,14 @@ function scroll_list.ass_escape(str, replace_newline)
     return str
 end
 
+function scroll_list:parse_header(string)
+    if #self.list > 0 then
+        string = string:gsub("%%cursor%%", self.selected)
+		:gsub("%%total%%", #self.list)
+    else string = string:gsub("%[.*%]", "") end
+    return string
+end
+
 --appends the entered text to the overlay
 function scroll_list:append(text)
         if text == nil then return end
@@ -64,7 +72,7 @@ end
 --prints the header to the overlay
 function scroll_list:format_header()
     self:append(self.header_style)
-    self:append(self.header)
+    self:append(self:parse_header(self.header))
     self:newline()
 end
 
@@ -234,7 +242,7 @@ function scroll_list:new()
         hidden = true,
         flag_update = true,
 
-        header = "header \\N ----------------------------------------------",
+        header = "header [%cursor%/%total%]\\N ----------------------------------------------",
         list = {},
         selected = 1,
 
