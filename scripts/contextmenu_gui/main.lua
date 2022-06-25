@@ -619,6 +619,7 @@ menuList = {
 -- 二级菜单 —— 其它
     etc_menu = {
         {COMMAND, "[内部脚本] 控制台", "~", "script-binding console/enable", "", false},
+        {COMMAND, "[外置脚本] OSD高级音频设备菜单", "F6", "script-message-to adevice_list toggle-adevice-browser;show-text ''", "", false},
         {COMMAND, "[外置脚本] 开/关 进度条预览", "CTRL+T", "cycle-values script-opts thumbnailer-auto_gen=no,thumbnailer-auto_show=no thumbnailer-auto_gen=yes,thumbnailer-auto_show=yes", "", false},
         {COMMAND, "[外部脚本] 更新  脚本着色器", "M", "script-message manager-update-all;show-text 更新脚本着色器", "", false},
     },
@@ -748,7 +749,7 @@ local function playmenuList()
             {SEP},
             {CASCADE, "版本（Edition）", "edition_menu", "", "", function() return inspectEdition() end},
             {CASCADE, "章节", "chapter_menu", "", "", function() return inspectChapter() end},
-            {COMMAND, "[外置脚本] OSD高级章节列表", "F7", "script-message-to chapter_list toggle-chapter-browser;show-text ''", "", false},
+            {COMMAND, "[外置脚本] OSD高级章节菜单", "F7", "script-message-to chapter_list toggle-chapter-browser;show-text ''", "", false},
             {SEP},
             {CASCADE, "播放列表", "playlist_menu", "", "", function() return inspectPlaylist() end},
             {CHECK, "列表循环", "", "cycle-values loop-playlist inf no", function() return statePlayLoop() end, false},
@@ -947,11 +948,9 @@ local function playmenuList()
             {COMMAND, "延迟 +0.1", "CTRL+.", "add audio-delay +0.1;show-text 音频预载:${audio-delay}", "", false},
             {COMMAND, "重置偏移", ";", "set audio-delay 0;show-text 重置音频延迟:${audio-delay}", "", false},
             {SEP},
-            {COMMAND, "音频设备列表", "F6", "show-text ${audio-device-list} 5000", "", false},
-            {COMMAND, "上个输出设备", "CTRL+a", "script-message-to cycle_adevice back", "", false},
-            {COMMAND, "下个输出设备", "ALT+a", "script-message-to cycle_adevice next", "", false},
             {CASCADE, "声道布局", "channel_layout", "", "", false},
             {SEP},
+            {COMMAND, "[外置脚本] OSD高级音频设备菜单", "F6", "script-message-to adevice_list toggle-adevice-browser;show-text ''", "", false},
             {COMMAND, "[外置脚本] 开/关 dynaudnorm混音菜单", "ALT+n", "script-message-to drcbox key_toggle_bindings", "", false},
         },
 
