@@ -1,4 +1,4 @@
--- copy-time (Windows version)
+-- copy-subortime (Windows version)
 
 -- Copies current timecode in HH:MM:SS.MS format to clipboard
 
@@ -6,6 +6,10 @@
 -- Script adapted by Alex Rogers (https://github.com/linguisticmind)
 -- Modified from https://github.com/Arieleg/mpv-copyTime
 -- Released under GNU GPL 3.0
+
+-- Usage, add bindings to input.conf:
+-- key    script-message-to copy_subortime copy-time
+-- key    script-message-to copy_subortime copy-subtitle
 
 require "mp"
 
