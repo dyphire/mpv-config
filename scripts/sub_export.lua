@@ -3,7 +3,7 @@
 --
 -- Usage:
 -- add bindings to input.conf:
--- X   script-message-to sub_export export-selected-subtitles
+-- key   script-message-to sub_export export-selected-subtitles
 --
 --  Note:
 --     Requires FFmpeg in PATH environment variable or edit ffmpeg_path in the script options,
