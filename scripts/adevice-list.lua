@@ -1,5 +1,5 @@
 --[[
-    * adevice-list.lua v.2022-06-25
+    * adevice-list.lua v.2022-06-29
     *
     * AUTHORS: dyphire
     * License: MIT
@@ -17,8 +17,14 @@ local mp = require 'mp'
 local opts = require("mp.options")
 
 local o = {
+    -- header of the list
+    -- %cursor% and %total% to be used to display the cursor position and the total number of lists
     header = "Adevice List [%cursor%/%total%]\\N ------------------------------------",
+    -- wrap the cursor around the top and bottom of the list
     wrap = true,
+    -- reset cursor navigation when menu is not visible
+    reset_cursor_on_close = true,
+    -- set dynamic keybinds to bind when the list is open
     key_scroll_down = "DOWN WHEEL_DOWN",
     key_scroll_up = "UP WHEEL_UP",
     key_open_adevice = "ENTER MBTN_LEFT",
@@ -61,6 +67,24 @@ local function adevice_list()
     list:update()
 end
 
+local function reset_cursor()
+    local adeviceList = mp.get_property_native('audio-device-list', {})
+        local i = list.selected
+        if current_name ~= nil and i > 0 then
+            if string.match(adeviceList[i].name, current_name) == nil then
+                list.selected = 0
+            end
+        end
+        for s = 1, #adeviceList do
+            if current_name ~= nil then
+                if adeviceList[s].name == current_name then list.selected = s end
+            end
+        end
+        if o.reset_cursor_on_close and list.selected > 0 then
+            list:update()
+        end
+end
+
 --dynamic keybinds to bind when the list is open
 list.keybinds = {}
 
@@ -75,17 +99,18 @@ end
 add_keys(o.key_scroll_down, 'scroll_down', function() list:scroll_down() end, {repeatable = true})
 add_keys(o.key_scroll_up, 'scroll_up', function() list:scroll_up() end, {repeatable = true})
 add_keys(o.key_open_adevice, 'open_adevice', open_adevice, {})
-add_keys(o.key_close_browser, 'close_browser', function() list:close() end, {})
+add_keys(o.key_close_browser, 'close_browser', function()
+    list:close()
+    reset_cursor()
+end, {})
 
 mp.observe_property('audio-device', 'string', adevice_list)
 mp.observe_property('audio-device-list', 'string', function()
-    local adeviceList = mp.get_property_native('audio-device-list', {})
-    local i = list.selected
-    if string.match(adeviceList[i].name, current_name) == nil then list.selected = 0 end
-    for s = 1, #adeviceList do
-        if adeviceList[s].name == current_name then list.selected = s end
-    end
+    reset_cursor()
     adevice_list()
 end)
 
-mp.register_script_message("toggle-adevice-browser", function() list:toggle() end)
+mp.register_script_message("toggle-adevice-browser", function()
+    list:toggle()
+    reset_cursor()
+end)
