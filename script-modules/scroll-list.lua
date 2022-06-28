@@ -191,7 +191,7 @@ function scroll_list:open()
 end
 
 --modifiable function that closes the list
-function scroll_list:close ()
+function scroll_list:close()
     self:remove_keybinds()
     self:close_list()
 end
