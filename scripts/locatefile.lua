@@ -134,13 +134,12 @@ function locate_current_file()
       end
       path = normalize(path)
       cmd = cmd:gsub("$path", path)
-      windows_args = { 'powershell', '-NoProfile', '-Command', cmd }
-      unix_args = { cmd }
-      args = is_windows() and windows_args or unix_args
     end
     msg.debug("Command to be executed: '" .. cmd .. "'")
     mp.osd_message('Browse \n' .. path)
-    mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})
+    if is_windows() then
+      mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = { 'powershell', '-NoProfile', '-Command', cmd }})
+    else os.execute(cmd) end
   else
     msg.debug("'path' property was empty, no media has been loaded.")
   end

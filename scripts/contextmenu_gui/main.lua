@@ -109,7 +109,7 @@ local function editionMenu()
     if editionCount ~= nil and not (editionCount == 0) then
         for editionNum=0, (editionCount - 1), 1 do
             local editionTitle = propNative("edition-list/" .. editionNum .. "/title")
-            if not (editionTitle) then editionTitle = "Edition " .. (editionNum + 1) end
+            if not (editionTitle) then editionTitle = "Edition " .. string.format("%02.f", editionNum + 1) end
 
             local editionCommand = "set edition " .. editionNum
             table.insert(editionMenuVal, {RADIO, editionTitle, "", editionCommand, function() return checkEdition(editionNum) end, false})
@@ -143,7 +143,12 @@ local function chapterMenu()
     if chapterCount ~= nil and not (chapterCount == 0) then
         for chapterNum=0, (chapterCount - 1), 1 do
             local chapterTitle = propNative("chapter-list/" .. chapterNum .. "/title")
-            if not (chapterTitle) then chapterTitle = "章节 " .. (chapterNum + 1) end
+            local chapterTime = propNative("chapter-list/" .. chapterNum .. "/time")
+            if chapterTitle == "" then chapterTitle = "章节 " .. string.format("%02.f", chapterNum + 1) end
+            if chapterTime < 0 then chapterTime = 0
+            else chapterTime = math.floor(chapterTime) end
+            chapterTime = string.format("[%02d:%02d:%02d]", math.floor(chapterTime/60/60), math.floor(chapterTime/60)%60, chapterTime%60)
+            chapterTitle = chapterTime ..'   '.. chapterTitle
 
             local chapterCommand = "set chapter " .. chapterNum
             if (chapterNum == 0) then table.insert(chapterMenuVal, {SEP}) end
@@ -183,6 +188,37 @@ local function checkTrack(trackNum)
     return trackState
 end
 
+-- Convert ISO 639-1/639-2 codes to be full length language names. The full length names
+-- are obtained by using the property accessor with the iso639_1/_2 tables stored in
+-- the contextmenu_gui_lang.lua file (require "langcodes" above).
+local function getLang(trackLang)
+    trackLang = string.upper(trackLang)
+    if (string.len(trackLang) == 2) and trackLang == "SC" then trackLang = "sc"  --修复中文字幕常见语言标识的误识别
+    elseif (string.len(trackLang) == 2) then trackLang = langcodes.iso639_1(trackLang)
+    elseif (string.len(trackLang) == 3) then trackLang = langcodes.iso639_2(trackLang) end
+    return trackLang
+end
+
+local function noneCheck(checkType)
+    local checkVal, trackID = false, propNative(checkType)
+    if (type(trackID) == "boolean") then
+        if (trackID == false) then checkVal = true end
+    end
+    return checkVal
+end
+
+local function esc_for_title(string)
+    string = string:gsub('^%-', '')
+    :gsub('^%_', '')
+    :gsub('^%.', '')
+    :gsub('^.*%].', '')
+    :gsub('^.*%).', '')
+    :gsub('%.%w+$', '')
+    :gsub('^.*%s', '')
+    :gsub('^.*%.', '')
+    return string
+end
+
 -- 视频轨子菜单
 local function inspectVidTrack()
     local vidTrackDisable, vidTracks = false, trackCount("video")
@@ -205,6 +241,10 @@ local function vidTrackMenu()
             local vidTrackDefault = propNative("track-list/" .. vidTrackNum .. "/default")
             local vidTrackForced = propNative("track-list/" .. vidTrackNum .. "/forced")
             local vidTrackExternal = propNative("track-list/" .. vidTrackNum .. "/external")
+            local filename = propNative("filename/no-ext")
+
+            if vidTrackTitle then vidTrackTitle = vidTrackTitle:gsub(filename, '') end
+            if vidTrackExternal then vidTrackTitle = esc_for_title(vidTrackTitle) end
             if vidTrackCodec:match("MPEG2") then vidTrackCodec = "MPEG2"
             elseif vidTrackCodec:match("DVVIDEO") then vidTrackCodec = "DV"
             end
@@ -226,36 +266,6 @@ local function vidTrackMenu()
     end
 
     return vidTrackMenuVal
-end
-
--- Convert ISO 639-1/639-2 codes to be full length language names. The full length names
--- are obtained by using the property accessor with the iso639_1/_2 tables stored in
--- the contextmenu_gui_lang.lua file (require "langcodes" above).
-function getLang(trackLang)
-    trackLang = string.upper(trackLang)
-    if (string.len(trackLang) == 2) and trackLang == "SC" then trackLang = "sc"  --修复中文字幕常见语言标识的误识别
-    elseif (string.len(trackLang) == 2) then trackLang = langcodes.iso639_1(trackLang)
-    elseif (string.len(trackLang) == 3) then trackLang = langcodes.iso639_2(trackLang) end
-    return trackLang
-end
-
-function noneCheck(checkType)
-    local checkVal, trackID = false, propNative(checkType)
-    if (type(trackID) == "boolean") then
-        if (trackID == false) then checkVal = true end
-    end
-    return checkVal
-end
-
-function esc_for_title(s)
-    s = string.gsub(s, '^%-', '')
-    s = string.gsub(s, '^%_', '')
-    s = string.gsub(s, '^%.', '')
-    s = string.gsub(s, '^.*%].', '')
-    s = string.gsub(s, '^.*%).', '')
-    s = string.gsub(s, '%.%w+$', '')
-    s = string.gsub(s, '^.*%.', '')
-    return s
 end
 
 -- 音频轨子菜单
@@ -710,7 +720,7 @@ local function playmenuList()
 -- 二级菜单 —— 文件
         file_menu = {
             {CHECK, "播放/暂停", "SPACE", "cycle pause;show-text 暂停:${pause}", function() return propNative("pause") end, false},
-            {COMMAND, "停止", "F11", "stop", "", false},
+            {COMMAND, "停止", "SHIFT+F11", "stop", "", false},
             {COMMAND, "重置播放中更改项", "R", "cycle-values reset-on-next-file all no vf,af,border,contrast,brightness,gamma,saturation,hue,video-zoom,video-rotate,video-pan-x,video-pan-y,panscan,speed,audio,sub,audio-delay,sub-pos,sub-scale,sub-delay,sub-speed,sub-visibility;show-text 播放下一个文件时重置以下选项:${reset-on-next-file}", "", false},
             {SEP},
             {AB, "A-B循环", "l", "ab-loop", function() return stateABLoop() end, false},
@@ -745,11 +755,11 @@ local function playmenuList()
 --            {COMMAND, "显示OSD时间轴", "O", "no-osd cycle-values osd-level 3 1", "", false},
 --            {RADIO, " 开", "", "set osd-level 3", function() return stateOsdLevel(3) end, false},
 --            {RADIO, " 关", "", "set osd-level 1", function() return stateOsdLevel(1) end, false},  
-            {COMMAND, "OSD轨道信息", "F9", "show-text ${track-list} 5000", "", false},
+            {COMMAND, "OSD轨道信息", "", "show-text ${track-list} 5000", "", false},
+            {CASCADE, "OSD交互菜单", "advosd_menu", "", "", false},
             {SEP},
             {CASCADE, "版本（Edition）", "edition_menu", "", "", function() return inspectEdition() end},
             {CASCADE, "章节", "chapter_menu", "", "", function() return inspectChapter() end},
-            {COMMAND, "[外置脚本] OSD高级章节菜单", "F7", "script-message-to chapter_list toggle-chapter-browser;show-text ''", "", false},
             {SEP},
             {CASCADE, "播放列表", "playlist_menu", "", "", function() return inspectPlaylist() end},
             {CHECK, "列表循环", "", "cycle-values loop-playlist inf no", function() return statePlayLoop() end, false},
@@ -757,7 +767,6 @@ local function playmenuList()
             {COMMAND, "清除播放列表", "", "playlist-clear", "", false},
             {COMMAND, "播放列表乱序重排", "", "playlist-shuffle", "", false},
             {COMMAND, "播放列表恢复排序", "", "playlist-unshuffle", "", false},
-            {COMMAND, "[外置脚本] OSD高级播放列表", "F8", "script-message-to playlistmanager showplaylist;show-text ''", "", false},
             {SEP},
             {COMMAND, "重播", "", "seek 0 absolute", "", false},
             {COMMAND, "上个文件", "<", "playlist-prev;show-text 播放列表:${playlist-pos-1}/${playlist-count}", "", false},
@@ -775,6 +784,16 @@ local function playmenuList()
         playlist_menu = playlistMenu(),
         edition_menu = editionMenu(),
         chapter_menu = chapterMenu(),
+
+-- 三级菜单 —— OSD交互菜单
+        advosd_menu = {
+            {COMMAND, "[外置脚本] 播放列表", "F7", "script-message-to playlistmanager showplaylist;show-text ''", "", false},
+            {COMMAND, "[外置脚本] 章节列表", "F8", "script-message-to chapter_list toggle-chapter-browser;show-text ''", "", false},
+            {COMMAND, "[外置脚本] 视频轨列表", "F9", "script-message-to track_menu toggle-vidtrack-browser;show-text ''", "", false},
+            {COMMAND, "[外置脚本] 音频轨列表", "F10", "script-message-to track_menu toggle-audtrack-browser;show-text ''", "", false},
+            {COMMAND, "[外置脚本] 字幕轨列表", "F11", "script-message-to track_menu toggle-subtrack-browser;show-text ''", "", false},
+            {COMMAND, "[外置脚本] Edition列表", "F12", "script-message-to editions_notification_menu toggle-edition-browser;show-text ''", "", false},
+        },
 
 -- 三级菜单 —— 前进后退
         seek_menu = {
@@ -950,7 +969,7 @@ local function playmenuList()
             {SEP},
             {CASCADE, "声道布局", "channel_layout", "", "", false},
             {SEP},
-            {COMMAND, "[外置脚本] OSD高级音频设备菜单", "F6", "script-message-to adevice_list toggle-adevice-browser;show-text ''", "", false},
+            {COMMAND, "[外置脚本] 开/关 交互式音频设备菜单", "F6", "script-message-to adevice_list toggle-adevice-browser;show-text ''", "", false},
             {COMMAND, "[外置脚本] 开/关 dynaudnorm混音菜单", "ALT+n", "script-message-to drcbox key_toggle_bindings", "", false},
         },
 
@@ -1048,7 +1067,7 @@ local function playmenuList()
 
 -- 二级菜单 —— 工具
         tool_menu = {
-            {COMMAND, "[外部脚本] 匹配视频刷新率", "F10", "script-binding change_refresh/match-refresh", "", false},
+            {COMMAND, "[外部脚本] 匹配视频刷新率", "CTRL+F10", "script-binding change_refresh/match-refresh", "", false},
             {COMMAND, "[外部脚本] 复制当前时间", "CTRL+ALT+t", "script-message-to copy_subortime copy-time", "", false},
             {COMMAND, "[外部脚本] 复制当前字幕内容", "CTRL+ALT+s", "script-message-to copy_subortime copy-subtitle", "", false},
             {COMMAND, "[外部脚本] 更新脚本着色器", "M", "script-message manager-update-all;show-text 更新脚本着色器", "", false},

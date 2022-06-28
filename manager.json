@@ -61,12 +61,6 @@
     "branch":"dev"
   },
   {
-    "git":"https://github.com/dyphire/mpv-scroll-list",
-    "whitelist":"chapter%-list%.lua$",
-    "dest":"~~/scripts",
-    "branch":"dev"
-  },
-  {
     "git":"https://github.com/dyphire/autosubsync-mpv",
     "whitelist":"%.lua$",
     "dest":"~~/scripts/autosubsync",

@@ -791,23 +791,23 @@ local function enable_select_mode()
 end
 
 --calculates what drag behaviour is required for that specific movement
-local function drag_select(direction, original_pos, new_pos)
+local function drag_select(movement, original_pos, new_pos)
     if original_pos - new_pos == 0 then return end
 
     local setting = state.selection[state.multiselect_start]
-    for i = original_pos, new_pos, direction > 0 and 1 or -1 do
+    for i = original_pos, new_pos, movement > 0 and 1 or -1 do
         --if we're moving the cursor away from the starting point then set the selection
         --otherwise restore the original selection
         if i > state.multiselect_start then
             if new_pos > original_pos then
                 state.selection[i] = setting
-            else
+            elseif i ~= new_pos then
                 state.selection[i] = state.initial_selection[i]
             end
         elseif i < state.multiselect_start then
             if new_pos < original_pos then
                 state.selection[i] = setting
-            else
+            elseif i ~= new_pos then
                 state.selection[i] = state.initial_selection[i]
             end
         end

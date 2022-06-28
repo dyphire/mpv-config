@@ -6,15 +6,16 @@ and related and neighboring rights to this software to the public domain
 worldwide. This software is distributed without any warranty. See
 <https://creativecommons.org/publicdomain/zero/1.0/> for a copy of the CC0
 Public Domain Dedication, which applies to this software.
-自定义快捷键 在mpv中唤起一个打开文件的窗口用于快速加载文件/网址
-示例：在 input.conf 中另起写入下列内容
-w        script-message-to open_dialog import_files   # 打开文件
-W        script-message-to open_dialog import_url     # 载入网址
-CTRL+w   script-message-to open_dialog append_aid     # 加载其它音轨（不切换）
-ALT+w    script-message-to open_dialog append_sid     # 加载其它字幕（切换
-e        script-message-to open_dialog append_vfSub   # 装载次字幕（滤镜型）
-E        script-message-to open_dialog toggle_vfSub   # 隐藏/显示 当前的次字幕
-CTRL+e   script-message-to open_dialog remove_vfSub   # 移除次字幕
+
+The script calls up a window in mpv to quickly load the file/URL.
+Usage, add bindings to input.conf:
+key        script-message-to open_dialog import_files
+key        script-message-to open_dialog import_url
+key        script-message-to open_dialog append_aid
+key        script-message-to open_dialog append_sid
+key        script-message-to open_dialog append_vfSub
+key        script-message-to open_dialog toggle_vfSub
+key        script-message-to open_dialog remove_vfSub
 ]]--
 
 utils = require 'mp.utils'
