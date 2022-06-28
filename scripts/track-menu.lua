@@ -20,8 +20,12 @@ local opts = require("mp.options")
 local propNative = mp.get_property_native
 
 local o = {
+    -- header of the list
+    -- %cursor% and %total% to be used to display the cursor position and the total number of lists
     header = "Track List [%cursor%/%total%]\\N ------------------------------------",
+    -- wrap the cursor around the top and bottom of the list
     wrap = true,
+    -- set dynamic keybinds to bind when the list is open
     key_scroll_down = "DOWN WHEEL_DOWN",
     key_scroll_up = "UP WHEEL_UP",
     key_select_track = "ENTER MBTN_LEFT",
