@@ -18,9 +18,16 @@ local mp = require 'mp'
 local opts = require("mp.options")
 
 local o = {
+    -- set the delay for displaying OSD information in seconds
     timeout = 3,
+    -- header of the list
+    -- %cursor% and %total% to be used to display the cursor position and the total number of lists
     header = "Edition List [%cursor%/%total%]\\N ------------------------------------",
+    -- wrap the cursor around the top and bottom of the list
     wrap = true,
+    -- reset cursor navigation when menu is not visible
+    reset_cursor_on_close = true,
+    -- set dynamic keybinds to bind when the list is open
     key_scroll_down = "DOWN WHEEL_DOWN",
     key_scroll_up = "UP WHEEL_UP",
     key_select_edition = "ENTER MBTN_LEFT",
@@ -116,6 +123,15 @@ mp.observe_property('current-edition', 'number', function(_, curr_edition)
     list:update()
 end)
 
+local function reset_cursor()
+    if o.reset_cursor_on_close then
+        if mp.get_property('editions') then
+            list.selected = mp.get_property_number('current-edition') + 1
+            list:update()
+        end
+    end
+end
+
 --dynamic keybinds to bind when the list is open
 list.keybinds = {}
 
@@ -130,9 +146,15 @@ end
 add_keys(o.key_scroll_down, 'scroll_down', function() list:scroll_down() end, {repeatable = true})
 add_keys(o.key_scroll_up, 'scroll_up', function() list:scroll_up() end, {repeatable = true})
 add_keys(o.key_select_edition, 'select_edition', select_edition, {})
-add_keys(o.key_close_browser, 'close_browser', function() list:close() end, {})
+add_keys(o.key_close_browser, 'close_browser', function()
+    list:close()
+    reset_cursor()
+end, {})
 
-mp.register_script_message("toggle-edition-browser", function() list:toggle() end)
+mp.register_script_message("toggle-edition-browser", function()
+    list:toggle()
+    reset_cursor()
+end)
 
 mp.observe_property('current-edition', nil, editionChanged)
 
