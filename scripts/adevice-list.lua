@@ -5,7 +5,9 @@
     * License: MIT
     * link: https://github.com/dyphire/mpv-scripts
 
-    This script implements an interractive audio-device list
+    This script implements an interractive audio-device list, usage:
+    -- add bindings to input.conf:
+    -- key script-message-to adevice_list toggle-adevice-browser
 
     This script needs to be used with scroll-list.lua
     https://github.com/dyphire/mpv-scroll-list

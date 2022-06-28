@@ -164,7 +164,10 @@ local settings = {
 
   -- what to show when playlist is truncated
   playlist_sliced_prefix = "...",
-  playlist_sliced_suffix = "..."
+  playlist_sliced_suffix = "...",
+
+  -- reset cursor navigation when playlist is not visible
+  reset_cursor_on_close = true
 
 }
 local opts = require("mp.options")
@@ -498,6 +501,10 @@ end
 function unselectfile()
   selection=nil
   showplaylist()
+end
+
+function resetcursor()
+  cursor = mp.get_property_number('playlist-pos', 1)
 end
 
 function removefile()
@@ -913,6 +920,9 @@ function remove_keybinds()
   keybindstimer:kill()
   mp.set_osd_ass(0, 0, "")
   playlist_visible = false
+  if settings.reset_cursor_on_close then
+    resetcursor()
+  end
   if settings.dynamic_binds then
     unbind_keys(settings.key_moveup, 'moveup')
     unbind_keys(settings.key_movedown, 'movedown')

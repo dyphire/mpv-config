@@ -1,8 +1,10 @@
 --[[
-    This script implements an interractive chapter list
+    This script implements an interractive chapter list, usage:
+    -- add bindings to input.conf:
+    -- key script-message-to chapter_list toggle-chapter-browser
 
     This script was written as an example for the mpv-scroll-list api
-    https://github.com/CogentRedTester/mpv-scroll-list
+    https://github.com/dyphire/mpv-scroll-list
 ]]
 
 local mp = require 'mp'
@@ -45,10 +47,12 @@ mp.observe_property('chapter', 'number', function(_, curr_chapter)
         end
 
         local time = chapter_list[i].time
+        local title = chapter_list[i].title
+        if title == "" then title = "Chapter " .. string.format("%02.f", i) end
         if time < 0 then time = 0
         else time = math.floor(time) end
         item.ass = string.format("[%02d:%02d:%02d]", math.floor(time/60/60), math.floor(time/60)%60, time%60)
-        item.ass = item.ass..'\\h\\h\\h'..list.ass_escape(chapter_list[i].title)
+        item.ass = item.ass..'\\h\\h\\h'..list.ass_escape(title)
         list.list[i] = item
     end
     list:update()

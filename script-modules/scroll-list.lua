@@ -43,6 +43,8 @@ function scroll_list.ass_escape(str, replace_newline)
     return str
 end
 
+-- escape header specifies the format
+-- display the cursor position and the total number of lists in the header
 function scroll_list:parse_header(string)
     if #self.list > 0 then
         string = string:gsub("%%cursor%%", self.selected)
