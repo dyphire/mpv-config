@@ -1,12 +1,12 @@
 --[[
-    * track-menu.lua v.2022-06-26
+    * track-menu.lua v.2022-07-01
     *
     * AUTHORS: dyphire
     * License: MIT
     * link: https://github.com/dyphire/mpv-scripts
 
-    This script implements an interractive track list, usage:
-    -- add bindings to input.conf:
+    This script implements an interractive track list
+    Usage: add bindings to input.conf
     -- key script-message-to track_menu toggle-vidtrack-browser
     -- key script-message-to track_menu toggle-audtrack-browser
     -- key script-message-to track_menu toggle-subtrack-browser
@@ -20,8 +20,16 @@ local opts = require("mp.options")
 local propNative = mp.get_property_native
 
 local o = {
+    -- header of the list
+    -- %cursor% and %total% to be used to display the cursor position and the total number of lists
     header = "Track List [%cursor%/%total%]\\N ------------------------------------",
+    -- wrap the cursor around the top and bottom of the list
     wrap = true,
+    -- set dynamic keybinds to bind when the list is open
+    key_move_begin = "HOME",
+    key_move_end = "END",
+    key_move_pageup = "PGUP",
+    key_move_pagedown = "PGDWN",
     key_scroll_down = "DOWN WHEEL_DOWN",
     key_scroll_up = "UP WHEEL_UP",
     key_select_track = "ENTER MBTN_LEFT",
@@ -36,6 +44,16 @@ local list = dofile(mp.command_native({"expand-path", "~~/script-modules/scroll-
 --modifying the list settings
 list.header = o.header
 list.wrap = o.wrap
+
+--escape header specifies the format
+--display the cursor position and the total number of lists in the header
+function list:format_header_string(string)
+    if #list.list > 0 then
+        string = string:gsub("%%cursor%%", list.selected)
+		:gsub("%%total%%", #list.list)
+    else string = string:gsub("%[.*%]", "") end
+    return string
+end
 
 local function esc_for_title(string)
     string = string:gsub('^%-', '')
@@ -69,21 +87,20 @@ local function checkTrack(trackNum)
     return trackState
 end
 
---jump to the selected audio-device
+--open to the selected track
 local function select_track()
     if list.list[list.selected] then
-        local i = list.selected
-        if list.list[i].ass:match("Vid " .. string.format("%02.f", i) .. ": ") then
+        if list.list[list.selected].ass:match("Vid " .. string.format("%02.f", list.selected) .. ": ") then
             mp.set_property_number('vid', list.selected)
-        elseif list.list[i].ass:match("Aud " .. string.format("%02.f", i) .. ": ") then
+        elseif list.list[list.selected].ass:match("Aud " .. string.format("%02.f", list.selected) .. ": ") then
             mp.set_property_number('aid', list.selected)
-        elseif list.list[i].ass:match("Sub " .. string.format("%02.f", i) .. ": ") then
+        elseif list.list[list.selected].ass:match("Sub " .. string.format("%02.f", list.selected) .. ": ") then
             mp.set_property_number('sid', list.selected)
         end
     end
 end
 
--- Video track-list menu
+--Video track-list menu
 local function vidtrack_list()
     list.header = "Video: " .. o.header
     list.list = {}
@@ -131,7 +148,7 @@ local function vidtrack_list()
     list:update()
 end
 
--- Audio track-list menu
+--Audio track-list menu
 local function audtrack_list()
     list.header = "Audio: " .. o.header
     list.list = {}
@@ -178,7 +195,7 @@ local function audtrack_list()
     list:update()
 end
 
--- Subtitle track-list menu
+--Subtitle track-list menu
 local function subtrack_list()
     list.header = "Subtitle: " .. o.header
     list.list = {}
@@ -240,6 +257,10 @@ end
 
 add_keys(o.key_scroll_down, 'scroll_down', function() list:scroll_down() end, {repeatable = true})
 add_keys(o.key_scroll_up, 'scroll_up', function() list:scroll_up() end, {repeatable = true})
+add_keys(o.key_move_pageup, 'move_pageup', function() list:move_pageup() end, {})
+add_keys(o.key_move_pagedown, 'move_pagedown', function() list:move_pagedown() end, {})
+add_keys(o.key_move_begin, 'move_begin', function() list:move_begin() end, {})
+add_keys(o.key_move_end, 'move_end', function() list:move_end() end, {})
 add_keys(o.key_select_track, 'select_track', select_track, {})
 add_keys(o.key_close_browser, 'close_browser', function() list:close() end, {})
 

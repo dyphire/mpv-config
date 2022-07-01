@@ -34,7 +34,7 @@ local o = {
     concurrent_recursion = false,
 
     --maximum number of recursions that can run concurrently
-    max_concurrency = 100,
+    max_concurrency = 16,
 
     --enable custom keybinds
     custom_keybinds = false,
