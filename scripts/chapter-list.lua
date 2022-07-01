@@ -1,6 +1,6 @@
 --[[
-    This script implements an interractive chapter list, usage:
-    -- add bindings to input.conf:
+    This script implements an interractive chapter list
+    Usage: add bindings to input.conf
     -- key script-message-to chapter_list toggle-chapter-browser
 
     This script was written as an example for the mpv-scroll-list api
@@ -16,9 +16,13 @@ local o = {
     header = "Chapter List [%cursor%/%total%]\\N ------------------------------------",
     -- wrap the cursor around the top and bottom of the list
     wrap = true,
-    -- reset cursor navigation when menu is not visible
+    -- reset cursor navigation when open the list
     reset_cursor_on_close = true,
     -- set dynamic keybinds to bind when the list is open
+    key_move_begin = "HOME",
+    key_move_end = "END",
+    key_move_pageup = "PGUP",
+    key_move_pagedown = "PGDWN",
     key_scroll_down = "DOWN WHEEL_DOWN",
     key_scroll_up = "UP WHEEL_UP",
     key_open_chapter = "ENTER MBTN_LEFT",
@@ -31,14 +35,18 @@ opts.read_options(o)
 local list = dofile(mp.command_native({"expand-path", "~~/script-modules/scroll-list.lua"}))
 
 --modifying the list settings
+local original_open = list.open
 list.header = o.header
 list.wrap = o.wrap
 
---jump to the selected chapter
-local function open_chapter()
-    if list.list[list.selected] then
-        mp.set_property_number('chapter', list.selected - 1)
-    end
+--escape header specifies the format
+--display the cursor position and the total number of lists in the header
+function list:format_header_string(string)
+    if #list.list > 0 then
+        string = string:gsub("%%cursor%%", list.selected)
+		:gsub("%%total%%", #list.list)
+    else string = string:gsub("%[.*%]", "") end
+    return string
 end
 
 --update the list when the current chapter changes
@@ -64,6 +72,14 @@ mp.observe_property('chapter', 'number', function(_, curr_chapter)
     list:update()
 end)
 
+--jump to the selected chapter
+local function open_chapter()
+    if list.list[list.selected] then
+        mp.set_property_number('chapter', list.selected - 1)
+    end
+end
+
+--reset cursor navigation when open the list
 local function reset_cursor()
     if o.reset_cursor_on_close then
         if mp.get_property('chapter') then
@@ -71,6 +87,11 @@ local function reset_cursor()
             list:update()
         end
     end
+end
+
+function list:open()
+    reset_cursor()
+    original_open(self)
 end
 
 --dynamic keybinds to bind when the list is open
@@ -86,13 +107,11 @@ end
 
 add_keys(o.key_scroll_down, 'scroll_down', function() list:scroll_down() end, {repeatable = true})
 add_keys(o.key_scroll_up, 'scroll_up', function() list:scroll_up() end, {repeatable = true})
+add_keys(o.key_move_pageup, 'move_pageup', function() list:move_pageup() end, {})
+add_keys(o.key_move_pagedown, 'move_pagedown', function() list:move_pagedown() end, {})
+add_keys(o.key_move_begin, 'move_begin', function() list:move_begin() end, {})
+add_keys(o.key_move_end, 'move_end', function() list:move_end() end, {})
 add_keys(o.key_open_chapter, 'open_chapter', open_chapter, {})
-add_keys(o.key_close_browser, 'close_browser', function()
-    list:close()
-    reset_cursor()
-end, {})
+add_keys(o.key_close_browser, 'close_browser', function() list:close() end, {})
 
-mp.register_script_message("toggle-chapter-browser", function()
-    list:toggle()
-    reset_cursor()
-end)
+mp.register_script_message("toggle-chapter-browser", function() list:toggle() end)
