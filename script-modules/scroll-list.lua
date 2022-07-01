@@ -43,13 +43,8 @@ function scroll_list.ass_escape(str, replace_newline)
     return str
 end
 
--- escape header specifies the format
--- display the cursor position and the total number of lists in the header
-function scroll_list:parse_header(string)
-    if #self.list > 0 then
-        string = string:gsub("%%cursor%%", self.selected)
-		:gsub("%%total%%", #self.list)
-    else string = string:gsub("%[.*%]", "") end
+--format and return the header string
+function scroll_list:format_header_string(string)
     return string
 end
 
@@ -74,7 +69,7 @@ end
 --prints the header to the overlay
 function scroll_list:format_header()
     self:append(self.header_style)
-    self:append(self:parse_header(self.header))
+    self:append(self:format_header_string(self.header))
     self:newline()
 end
 
@@ -152,6 +147,40 @@ function scroll_list:scroll_up()
         self.selected = self.selected - 1
         self:update_ass()
     elseif self.wrap then
+        self.selected = #self.list
+        self:update_ass()
+    end
+end
+
+--moves the selector to the list next page
+function scroll_list:move_pagedown()
+    if #self.list > self.num_entries then
+        self.selected = self.selected + self.num_entries
+        if self.selected > #self.list then self.selected = #self.list end
+        self:update_ass()
+    end
+end
+
+--moves the selector to the list previous page
+function scroll_list:move_pageup()
+    if #self.list > self.num_entries then
+        self.selected = self.selected - self.num_entries
+        if self.selected < 1 then self.selected = 1 end
+        self:update_ass()
+    end
+end
+
+--moves the selector to the list begin
+function scroll_list:move_begin()
+    if #self.list > 1 then
+        self.selected = 1
+        self:update_ass()
+    end
+end
+
+--moves the selector to the list end
+function scroll_list:move_end()
+    if #self.list > 1 then
         self.selected = #self.list
         self:update_ass()
     end
@@ -244,13 +273,17 @@ function scroll_list:new()
         hidden = true,
         flag_update = true,
 
-        header = "header [%cursor%/%total%]\\N ----------------------------------------------",
+        header = "header \\N ----------------------------------------------",
         list = {},
         selected = 1,
 
         keybinds = {
             {'DOWN', 'scroll_down', function() vars:scroll_down() end, {repeatable = true}},
             {'UP', 'scroll_up', function() vars:scroll_up() end, {repeatable = true}},
+            {'PGDWN', 'move_pagedown', function() vars:move_pagedown() end, {}},
+            {'PGUP', 'move_pageup', function() vars:move_pageup() end, {}},
+            {'HOME', 'move_begin', function() vars:move_begin() end, {}},
+            {'END', 'move_end', function() vars:move_end() end, {}},
             {'ESC', 'close_browser', function() vars:close() end, {}}
         }
     }
