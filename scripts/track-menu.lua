@@ -1,5 +1,5 @@
 --[[
-    * track-menu.lua v.2022-07-01
+    * track-menu.lua v.2022-07-03
     *
     * AUTHORS: dyphire
     * License: MIT
@@ -160,8 +160,8 @@ local function audtrack_list()
             local audTrackTitle = propNative("track-list/" .. audTrackNum .. "/title")
             local audTrackLang = propNative("track-list/" .. audTrackNum .. "/lang")
             local audTrackCodec = propNative("track-list/" .. audTrackNum .. "/codec"):upper()
-            -- local audTrackBitrate = propNative("track-list/" .. audTrackNum .. "/demux-bitrate") / 1000
-            local audTrackSamplerate = propNative("track-list/" .. audTrackNum .. "/demux-samplerate") / 1000
+            -- local audTrackBitrate = propNative("track-list/" .. audTrackNum .. "/demux-bitrate")/1000
+            local audTrackSamplerate = string.format("%.1f", propNative("track-list/" .. audTrackNum .. "/demux-samplerate")/1000)
             local audTrackChannels = propNative("track-list/" .. audTrackNum .. "/demux-channel-count")
             local audTrackDefault = propNative("track-list/" .. audTrackNum .. "/default")
             local audTrackForced = propNative("track-list/" .. audTrackNum .. "/forced")
