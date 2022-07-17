@@ -11,10 +11,12 @@ local M = {}
 local o = {
     enabled = true,
     save_period = 30,
-    -- change to '~~/historybookmarks' for sub path of mpv portable_config directory
+    -- Set '/:dir%mpvconf%/historybookmarks' to use mpv config directory
+    -- OR change to '/:dir%script%/historybookmarks' for placing it in the same directory of script
+    -- OR change to '~~/historybookmarks' for sub path of mpv portable_config directory
     -- OR write any variable using '/:var', such as: '/:var%APPDATA%/mpv/historybookmarks' or '/:var%HOME%/mpv/historybookmarks'
     -- OR specify the absolute path
-    history_dir = "~~/historybookmarks",
+    history_dir = "/:dir%mpvconf%/historybookmarks",
     -- specifies the extension of the history-bookmark file
     bookmark_ext = ".mpv.history",
     -- excluded directories for shared, #windows: ["X:", "Z:", "F:\\Download\\", "Download"]
@@ -50,17 +52,22 @@ local bookmark_path
 
 local wait_msg
 
-if o.history_dir:match('/:var%%(.*)%%') then
-	local os_variable = o.history_dir:match('/:var%%(.*)%%')
-	o.history_dir = o.history_dir:gsub('/:var%%(.*)%%', os.getenv(os_variable))
+if o.history_dir:match('^/:dir%%mpvconf%%') then
+    o.history_dir = o.history_dir:gsub('/:dir%%mpvconf%%', mp.find_config_file('.'))
+elseif o.history_dir:match('^/:dir%%script%%') then
+    o.history_dir = o.history_dir:gsub('/:dir%%script%%', mp.find_config_file('scripts'))
+elseif o.history_dir:match('/:var%%(.*)%%') then
+    local os_variable = o.history_dir:match('/:var%%(.*)%%')
+    o.history_dir = o.history_dir:gsub('/:var%%(.*)%%', os.getenv(os_variable))
 elseif o.history_dir:match('^~~') then
     o.history_dir = mp.command_native({ "expand-path", o.history_dir })
 end
+
 --create o.history_dir if it doesn't exist
 if utils.readdir(o.history_dir) == nil then
     local is_windows = package.config:sub(1, 1) == "\\"
     local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', o.history_dir }
-    local unix_args = { 'mkdir', o.history_dir }
+    local unix_args = { 'mkdir', '-p', o.history_dir }
     local args = is_windows and windows_args or unix_args
     local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})
     if res.status ~= 0 then

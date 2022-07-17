@@ -40,7 +40,7 @@ o = {
     videos = true,
     audio = true,
     sameseries = false,
-    max_entries = 500,
+    max_entries = 5000,
     ignore_hidden = true
 }
 options.read_options(o)

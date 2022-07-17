@@ -2,6 +2,7 @@
 SOURCE_ https://github.com/mpv-player/mpv/blob/master/player/lua/ytdl_hook.lua
 COMMIT_ 20220226 b15b3f6
 Modify_ https://gist.github.com/zhongfly/e95fa433ca912380f9f61e0910146d7e/0f46340621415ae93a91a7f3eb60d013c5bdf542#file-ytdl_hook_plus-lua
+Modify_ https://github.com/dyphire/mpv-scripts
 ]]--
 
 local utils = require 'mp.utils'
@@ -395,7 +396,7 @@ local function formats_to_edl(json, formats, use_all_formats)
     }
 
     local default_formats = {}
-    local requested_formats = json["requested_formats"]
+    local requested_formats = json["requested_formats"] or json["requested_downloads"]
     if use_all_formats and requested_formats then
         for _, track in ipairs(requested_formats) do
             local id = track["format_id"]
@@ -403,10 +404,6 @@ local function formats_to_edl(json, formats, use_all_formats)
                 default_formats[id] = true
             end
         end
-    end
-
-    if requested_formats then
-		set_http_headers(requested_formats[1].http_headers)
     end
 
     local duration = as_integer(json["duration"])
@@ -419,7 +416,8 @@ local function formats_to_edl(json, formats, use_all_formats)
                    (not track["abr"]) and (not track["vbr"])
     end
 
-    for index, track in ipairs(formats) do
+    for index = #formats, 1, -1 do
+        local track = formats[index]
         local edl_track = nil
         edl_track = edl_track_joined(track.fragments,
             track.protocol, json.is_live,
@@ -536,6 +534,10 @@ local function add_single_video(json)
     local max_bitrate = 0
     local requested_formats = json["requested_formats"]
     local all_formats = json["formats"]
+    local has_requested_formats = requested_formats and #requested_formats > 0
+    local http_headers = has_requested_formats
+                         and requested_formats[1].http_headers
+                         or json.http_headers
 
     if o.use_manifests and valid_manifest(json) then
         -- prefer manifest_url if present
@@ -565,7 +567,6 @@ local function add_single_video(json)
     if streamurl == ""  then
         -- possibly DASH/split tracks
         local res = nil
-        local has_requested_formats = requested_formats and #requested_formats > 0
 
         -- Not having requested_formats usually hints to HLS master playlist
         -- usage, which we don't want to split off, at least not yet.
@@ -602,13 +603,14 @@ local function add_single_video(json)
         end
         -- normal video or single track
         streamurl = edl_track or json.url
-        set_http_headers(json.http_headers)
     end
 
     if streamurl == "" then
         msg.error("No URL found in JSON data.")
         return
     end
+
+    set_http_headers(http_headers)
 
     msg.verbose("format selection: " .. format_info)
     msg.debug("streamurl: " .. streamurl)
@@ -837,6 +839,7 @@ function run_ytdl_hook(url)
         end
 
         ytdl.searched = true
+        mp.commandv('script-message', 'ytdl_path', ytdl.path)
     end
 
     if aborted then
@@ -844,6 +847,7 @@ function run_ytdl_hook(url)
     end
 
     local parse_err = nil
+    local json_string = json
 
     if (es ~= 0) or (json == "") then
         json = nil
@@ -956,6 +960,8 @@ function run_ytdl_hook(url)
         elseif self_redirecting_url and #json.entries == 1 then
             msg.verbose("Playlist with single entry detected.")
             add_single_video(json.entries[1])
+            local json_string = utils.format_json(json.entries[1])
+            mp.commandv('script-message', 'ytdl_json', url, json_string)
         else
             local playlist_index = parse_yt_playlist(url, json)
             local playlist = {"#EXTM3U"}
@@ -1002,6 +1008,7 @@ function run_ytdl_hook(url)
 
     else -- probably a video
         add_single_video(json)
+        mp.commandv('script-message', 'ytdl_json', url, json_string)
     end
     msg.debug('script running time: '..os.clock()-start_time..' seconds')
 end

@@ -16,9 +16,20 @@ local playlist_name = ".ordered-chapters.m3u"
 local mp = require 'mp'
 local utils = require 'mp.utils'
 
+--returns the file extension of the given file
+function get_extension(filename, def)
+    return string.lower(filename):match("%.([^%./\\]+)$") or def
+end
+
+--returns the protocol scheme of the given url, or nil if there is none
+function get_protocol(filename, def)
+    return string.lower(filename):match("^(%a[%w+-.]*)://") or def
+end
+
 local function main()
     local path = mp.get_property('stream-open-filename')
-    if path:sub(1, 6) == "edl://" then return end
+    if get_protocol(path) == "edl" then return end
+    if get_extension(path) ~= "mkv" then return end
     if utils.file_info(path) then return end
 
     path = path:gsub('\\', '/')
