@@ -168,7 +168,7 @@ if not file then
     local savepath = mp.command_native({ "expand-path", o.target_dir })
     local is_windows = package.config:sub(1, 1) == "\\"
     local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', savepath }
-    local unix_args = { 'mkdir', savepath }
+    local unix_args = { 'mkdir', '-p', savepath }
     local args = is_windows and windows_args or unix_args
     local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})
     if res.status ~= 0 then

@@ -59,13 +59,17 @@ local opts = {
     -- Or "C:/Users/Username/cookies.txt"
     cookies = "",
 
-    -- Filename or full path
-    -- Same as youtube-dl -o FILETEMPLATE
+    -- Set '/:dir%mpvconf%' to use mpv config directory to download
+    -- OR change to '/:dir%script%' for placing it in the same directory of script
+    -- OR change to '~~/ytdl/download' for sub-path of mpv portable_config directory
+    -- OR write any variable using '/:var', such as: '/:var%APPDATA%/mpv/ytdl/download' or '/:var%HOME%/mpv/ytdl/download'
+    -- OR specify the absolute path, such as: "C:\\Users\\UserName\\Downloads"
+    -- OR leave empty "" to use the current working directory
+    download_path = "/:dir%mpvconf%/ytdl/download",
+
+    -- Filename format to download file
     -- see https://github.com/ytdl-org/youtube-dl/blob/master/README.md#output-template
-    -- A relative path or a file name is relative to the path mpv was launched from
-    -- On Windows you need to use a double blackslash or a single fordwardslash
-    -- For example "C:\\Users\\Username\\Downloads\\%(title)s.%(ext)s"
-    -- Or "C:/Users/Username/Downloads/%(title)s.%(ext)s"
+    -- For example: "%(title)s.%(ext)s"
     filename = "%(title)s.%(ext)s",
 
     -- Subtitle language
@@ -94,6 +98,14 @@ local opts = {
     download_audio_config_file = "",
     download_subtitle_config_file = "",
     download_video_embed_subtitle_config_file= "",
+
+    -- Open a new "Windows Terminal" window/tab for download
+    -- This allows you to monitor the download progress
+    -- Currently only works on Windows with the new wt terminal
+    -- If open_new_terminal_autoclose is true, then the terminal window
+    -- will close after the download, even if there were errors
+    open_new_terminal = false,
+    open_new_terminal_autoclose = false,
 }
 
 local function exec(args, capture_stdout, capture_stderr)
@@ -187,12 +199,28 @@ if not not_empty(opts.youtube_dl_exe) then
     detect_executable()
 end
 
-if opts.filename:find("/") == nil and opts.filename:find("\\") == nil then
-  local cwd = utils.getcwd()
-  local win_programs = "C:\\Program Files"
-  if cwd:sub(1, #win_programs) == win_programs then
-     msg.warn("The mpv working directory ('" ..cwd .."') is probably not writable! Set 'filename' to a folder in the script config or run mpv in a different working directory.")
-  end
+if opts.download_path:match('^/:dir%%mpvconf%%') then
+    opts.download_path = opts.download_path:gsub('/:dir%%mpvconf%%', mp.find_config_file('.'))
+elseif opts.download_path:match('^/:dir%%script%%') then
+    opts.download_path = opts.download_path:gsub('/:dir%%script%%', mp.find_config_file('scripts'))
+elseif opts.download_path:match('^/:var%%(.*)%%') then
+    local os_variable = opts.download_path:match('/:var%%(.*)%%')
+    opts.download_path = opts.download_path:gsub('/:var%%(.*)%%', os.getenv(os_variable))
+elseif opts.download_path:match('^~~') then
+    opts.download_path = mp.command_native({ "expand-path", opts.download_path })
+end
+
+--create opts.download_path if it doesn't exist
+if not_empty(opts.download_path) and utils.readdir(opts.download_path) == nil then
+    local is_windows = package.config:sub(1, 1) == "\\"
+    local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', opts.download_path }
+    local unix_args = { 'mkdir', '-p', opts.download_path }
+    local args = is_windows and windows_args or unix_args
+    local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})
+    if res.status ~= 0 then
+        msg.error("Failed to create youtube-download save directory "..opts.download_path..". Error: "..(res.error or "unknown"))
+        return
+    end
 end
 
 local DOWNLOAD = {
@@ -275,12 +303,8 @@ local function download(download_type, config_file)
         mp.osd_message("Video download started", 2)
     end
 
-    if opts.filename:find("/") == nil and opts.filename:find("\\") == nil then
-      local cwd = utils.getcwd()
-      local win_programs = "C:\\Program Files"
-      if cwd:sub(1, #win_programs) == win_programs then
-         mp.osd_message("Working directory '" ..cwd .."' may not be writable!\nSet 'filename' in script config or change working directory", 10)
-      end
+    if not_empty(opts.download_path) then
+        opts.filename = opts.download_path .. "/" .. opts.filename
     end
 
     -- Compose command line arguments
@@ -565,11 +589,17 @@ local function download(download_type, config_file)
 
     -- Callback
     local function download_ended(success, ret, error)
+        process_id = nil
+        if opts.open_new_terminal then
+            is_downloading = false
+            -- Hide download indicator
+            mp.set_osd_ass(0, 0, "")
+            return
+        end
+
         local stdout = ret.stdout
         local stderr = ret.stderr
         local status = ret.status
-
-        process_id = nil
 
         if status == 0 and range_mode_file_name ~= nil then
             mp.set_osd_ass(0, 0, "{\\an9}{\\fs12}⌛🔨")
@@ -725,6 +755,47 @@ local function download(download_type, config_file)
 
     -- Start download
     msg.debug("exec (async): " .. table.concat(command, " "))
+
+    if opts.open_new_terminal then
+        mp.osd_message(table.concat(command, " "), 3)
+
+        -- Check working directory is writable (in case the filename does not specify a directory)
+        local cwd = utils.getcwd()
+        local win_programs = "C:\\Program Files"
+        local win_win = "C:\\Windows"
+        if cwd:lower():sub(1, #win_programs) == win_programs:lower() or cwd:lower():sub(1, #win_win) == win_win:lower() then
+           msg.debug("The mpv working directory ('" ..cwd .."') is probably not writable. Trying %USERPROFILE%...")
+           local user_profile = os.getenv("USERPROFILE")
+           if  user_profile ~= nil then
+                cwd = user_profile
+           else
+                msg.warn("open_new_terminal is enabled, but %USERPROFILE% is not defined")
+                mp.osd_message("open_new_terminal is enabled, but %USERPROFILE% is not defined", 3)
+           end
+        end
+
+        -- Escape restricted characters on Windows
+        restricted = "&<>|"
+        for key, value in ipairs(command) do
+            command[key] = value:gsub("["..  restricted .. "]", "^%0")
+        end
+
+        -- Prepend command with wt.exe
+        table.insert(command, 1, "wt")
+        table.insert(command, 2, "-w")
+        table.insert(command, 3, "ytdlp")
+        table.insert(command, 4, "new-tab")
+        table.insert(command, 5, "-d")
+        table.insert(command, 6, cwd)
+        table.insert(command, 7, "cmd")
+        if opts.open_new_terminal_autoclose then
+            table.insert(command, 8, "/C")
+        else
+            table.insert(command, 8, "/K")
+        end
+        msg.debug("exec (async): " .. table.concat(command, " "))
+    end
+
     process_id = exec_async(command, true, true, download_ended)
 
 end

@@ -733,7 +733,7 @@ local function playmenuList()
             {COMMAND, "重置速度", "BS", "set speed 1;show-text 重置播放速度:${speed}", "", false},
             {SEP},
             {COMMAND, "[外置脚本] 定位当前文件", "ALT+o", "script_message-to locatefile locate-current-file", "", false},
-            {COMMAND, "[外置脚本] 删除当前文件", "CTRL+DEL", "script-message-to delete_current_file delete_file 1 '请按1确认删除'", "", false},
+            {COMMAND, "[外置脚本] 删除当前文件", "CTRL+DEL", "script-message-to delete_current_file delete-file 1 '请按1确认删除'", "", false},
             {CASCADE, "[外置脚本] Youtube-dl菜单", "ytdl_menu", "", "", false},
         },
 

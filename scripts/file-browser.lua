@@ -57,6 +57,10 @@ local o = {
     filter_dot_dirs = false,
     filter_dot_files = false,
 
+    --substitude forward slashes for backslashes when appending a local file to the playlist
+    --potentially useful on windows systems
+    substitute_backslash = false,
+
     --this option reverses the behaviour of the alt+ENTER keybind
     --when disabled the keybind is required to enable autoload for the file
     --when enabled the keybind disables autoload for the file
@@ -92,6 +96,7 @@ local o = {
 
     --style settings
     font_bold_header = true,
+    font_opacity_selection_marker = "99",
 
     font_size_header = 35,
     font_size_body = 25,
@@ -171,7 +176,10 @@ local style = {
 
     --icon styles
     cursor = ([[{\fn%s\c&H%s&}]]):format(o.font_name_cursor, o.font_colour_cursor),
-    folder = ([[{\fn%s}]]):format(o.font_name_folder)
+    cursor_select = ([[{\fn%s\c&H%s&}]]):format(o.font_name_cursor, o.font_colour_multiselect),
+    cursor_deselect = ([[{\fn%s\c&H%s&}]]):format(o.font_name_cursor, o.font_colour_selected),
+    folder = ([[{\fn%s}]]):format(o.font_name_folder),
+    selection_marker = ([[{\alpha&H%s}]]):format(o.font_opacity_selection_marker),
 }
 
 local state = {
@@ -188,7 +196,7 @@ local state = {
     co = nil,
 
     multiselect_start = nil,
-    initial_selection = {},
+    initial_selection = nil,
     selection = {}
 }
 
@@ -362,18 +370,18 @@ end
 function API.get_new_directory(item, directory)
     if item.path and item.redirect ~= false then return item.path, true end
     if directory == "" then return item.name end
-    if directory:sub(-1) == "/" then return directory..item.name end
+    if string.sub(directory, -1) == "/" then return directory..item.name end
     return directory.."/"..item.name
 end
 
 --returns the file extension of the given file
 function API.get_extension(filename, def)
-    return filename:lower():match("%.([^%./]+)$") or def
+    return string.lower(filename):match("%.([^%./]+)$") or def
 end
 
 --returns the protocol scheme of the given url, or nil if there is none
 function API.get_protocol(filename, def)
-    return filename:lower():match("^(%a[%w+-.]*)://") or def
+    return string.lower(filename):match("^(%a[%w+-.]*)://") or def
 end
 
 --formats strings for ass handling
@@ -382,7 +390,7 @@ function API.ass_escape(str, replace_newline)
     if replace_newline == true then replace_newline = "\\\239\187\191n" end
 
     --escape the invalid single characters
-    str = str:gsub('[\\{}\n]', {
+    str = string.gsub(str, '[\\{}\n]', {
         -- There is no escape for '\' in ASS (I think?) but '\' is used verbatim if
         -- it isn't followed by a recognised character, so add a zero-width
         -- non-breaking space
@@ -406,12 +414,12 @@ end
 
 --escape lua pattern characters
 function API.pattern_escape(str)
-    return str:gsub("([%^%$%(%)%%%.%[%]%*%+%-])", "%%%1")
+    return string.gsub(str, "([%^%$%(%)%%%.%[%]%*%+%-])", "%%%1")
 end
 
 --standardises filepaths across systems
 function API.fix_path(str, is_directory)
-    str = str:gsub([[\]],[[/]])
+    str = string.gsub(str, [[\]],[[/]])
     str = str:gsub([[/./]], [[/]])
     if is_directory and str:sub(-1) ~= '/' then str = str..'/' end
     return str
@@ -437,12 +445,12 @@ function API.sort(t)
 end
 
 function API.valid_dir(dir)
-    if o.filter_dot_dirs and dir:sub(1,1) == "." then return false end
+    if o.filter_dot_dirs and string.sub(dir, 1, 1) == "." then return false end
     return true
 end
 
 function API.valid_file(file)
-    if o.filter_dot_files and (file:sub(1,1) == ".") then return false end
+    if o.filter_dot_files and (string.sub(file, 1, 1) == ".") then return false end
     if o.filter_files and not extensions[ API.get_extension(file, "") ] then return false end
     return true
 end
@@ -738,10 +746,15 @@ local function update_ass()
         append(style.body)
 
         --handles custom styles for different entries
-        if i == state.selected then
-            append(style.cursor)
-            append((state.multiselect_start and style.multiselect or "")..o.cursor_icon)
-            append("\\h"..style.body)
+        if i == state.selected or i == state.multiselect_start then
+            if not (i == state.selected) then append(style.selection_marker) end
+
+            if not state.multiselect_start then append(style.cursor)
+            else
+                if state.selection[state.multiselect_start] then append(style.cursor_select)
+                else append(style.cursor_deselect) end
+            end
+            append(o.cursor_icon.."\\h"..style.body)
         else
             append(o.indent_icon.."\\h"..style.body)
         end
@@ -777,25 +790,21 @@ end
 --disables multiselect
 local function disable_select_mode()
     state.multiselect_start = nil
-    state.initial_selection = {}
+    state.initial_selection = nil
 end
 
 --enables multiselect
 local function enable_select_mode()
     state.multiselect_start = state.selected
-
-    --saving a copy of the original state
-    for key, value in pairs(state.selection) do
-        state.initial_selection[key] = value
-    end
+    state.initial_selection = API.copy_table(state.selection)
 end
 
 --calculates what drag behaviour is required for that specific movement
-local function drag_select(movement, original_pos, new_pos)
-    if original_pos - new_pos == 0 then return end
+local function drag_select(original_pos, new_pos)
+    if original_pos == new_pos then return end
 
     local setting = state.selection[state.multiselect_start]
-    for i = original_pos, new_pos, movement > 0 and 1 or -1 do
+    for i = original_pos, new_pos, (new_pos > original_pos and 1 or -1) do
         --if we're moving the cursor away from the starting point then set the selection
         --otherwise restore the original selection
         if i > state.multiselect_start then
@@ -829,15 +838,14 @@ local function scroll(n, wrap)
         state.selected = original_pos + n
     end
 
-    if state.multiselect_start then drag_select(n, original_pos, state.selected) end
+    if state.multiselect_start then drag_select(original_pos, state.selected) end
     update_ass()
 end
 
 --toggles the selection
 local function toggle_selection()
-    if state.list[state.selected] then
-        state.selection[state.selected] = not state.selection[state.selected] or nil
-    end
+    if not state.list[state.selected] then return end
+    state.selection[state.selected] = not state.selection[state.selected] or nil
     update_ass()
 end
 
@@ -1178,6 +1186,10 @@ end
 --adds a file to the playlist and changes the flag to `append-play` in preparation
 --for future items
 local function loadfile(file, opts)
+    if o.substitute_backslash and not API.get_protocol(file) then
+        file = file:gsub("/", "\\")
+    end
+
     if opts.flag == "replace" then msg.verbose("Playling file", file)
     else msg.verbose("Appending", file, "to the playlist") end
 
@@ -1414,28 +1426,25 @@ end
 ------------------------------------------------------------------------------------------
 
 state.keybinds = {
-    {'ENTER', 'play', function() open_file('replace', false) end, {}},
-    {'Shift+ENTER', 'play_append', function() open_file('append-play', false) end, {}},
-    {'Alt+ENTER', 'play_autoload', function() open_file('replace', true) end, {}},
-    {'ESC', 'close', escape, {}},
-    {'RIGHT', 'down_dir', down_dir, {}},
-    {'LEFT', 'up_dir', up_dir, {}},
-    {'DOWN', 'scroll_down', function() scroll(1, o.wrap) end, {repeatable = true}},
-    {'UP', 'scroll_up', function() scroll(-1, o.wrap) end, {repeatable = true}},
-    {'PGDWN', 'page_down', function() scroll(o.num_entries) end, {repeatable = true}},
-    {'PGUP', 'page_up', function() scroll(-o.num_entries) end, {repeatable = true}},
-    {'Shift+PGDWN', 'list_bottom', function() scroll(#state.list) end, {}},
-    {'Shift+PGUP', 'list_top', function() scroll(-#state.list) end, {}},
-    {'HOME', 'goto_current', goto_current_dir, {}},
-    {'Shift+HOME', 'goto_root', goto_root, {}},
-    {'Ctrl+r', 'reload', function() cache:clear(); update() end, {}},
-    {'s', 'select_mode', toggle_select_mode, {}},
-    {'S', 'select_item', toggle_selection, {}},
-    {'Ctrl+a', 'select_all', select_all, {}}
+    {'ENTER',       'play',         function() open_file('replace', false) end},
+    {'Shift+ENTER', 'play_append',  function() open_file('append-play', false) end},
+    {'Alt+ENTER',   'play_autoload',function() open_file('replace', true) end},
+    {'ESC',         'close',        escape},
+    {'RIGHT',       'down_dir',     down_dir},
+    {'LEFT',        'up_dir',       up_dir},
+    {'DOWN',        'scroll_down',  function() scroll(1, o.wrap) end,           {repeatable = true}},
+    {'UP',          'scroll_up',    function() scroll(-1, o.wrap) end,          {repeatable = true}},
+    {'PGDWN',       'page_down',    function() scroll(o.num_entries) end,       {repeatable = true}},
+    {'PGUP',        'page_up',      function() scroll(-o.num_entries) end,      {repeatable = true}},
+    {'Shift+PGDWN', 'list_bottom',  function() scroll(math.huge) end},
+    {'Shift+PGUP',  'list_top',     function() scroll(-math.huge) end},
+    {'HOME',        'goto_current', goto_current_dir},
+    {'Shift+HOME',  'goto_root',    goto_root},
+    {'Ctrl+r',      'reload',       function() cache:clear(); update() end},
+    {'s',           'select_mode',  toggle_select_mode},
+    {'S',           'select_item',  toggle_selection},
+    {'Ctrl+a',      'select_all',   select_all}
 }
-
---characters used for custom keybind codes
-local CUSTOM_KEYBIND_CODES = "%fFnNpPdDrR"
 
 --a map of key-keybinds - only saves the latest keybind if multiple have the same key code
 local top_level_keys = {}
@@ -1451,6 +1460,28 @@ local function create_item_string(cmd, items, funct)
     return str
 end
 
+--characters used for custom keybind codes
+local CUSTOM_KEYBIND_CODES = "%fFnNpPdDrR"
+local code_fns
+code_fns = {
+    ["%%"] = "%",
+    ["%f"] = function(cmd, items, s)
+        return create_item_string(cmd, items, function(item) return item and API.get_full_path(item, s.directory) or "" end)
+    end,
+    ["%n"] = function(cmd, items)
+        return create_item_string(cmd, items, function(item) return item and (item.label or item.name) or "" end)
+    end,
+    ["%p"] = function(_, _, s)
+        return s.directory or ""
+    end,
+    ["%d"] = function(_, _, s)
+        return (s.directory_label or s.directory):match("([^/]+)/?$") or ""
+    end,
+    ["%r"] = function(_, _, s)
+        return s.parser.keybind_name or s.parser.name or ""
+    end,
+}
+
 --iterates through the command table and substitutes special
 --character codes for the correct strings used for custom functions
 local function format_command_table(cmd, items, state)
@@ -1459,19 +1490,18 @@ local function format_command_table(cmd, items, state)
         copy[i] = {}
 
         for j = 1, #cmd.command[i] do
-            copy[i][j] = cmd.command[i][j]:gsub("%%["..CUSTOM_KEYBIND_CODES.."]", {
-                ["%%"] = "%",
-                ["%f"] = create_item_string(cmd, items, function(item) return item and API.get_full_path(item, state.directory) or "" end),
-                ["%F"] = create_item_string(cmd, items, function(item) return string.format("%q", item and API.get_full_path(item, state.directory) or "") end),
-                ["%n"] = create_item_string(cmd, items, function(item) return item and (item.label or item.name) or "" end),
-                ["%N"] = create_item_string(cmd, items, function(item) return string.format("%q", item and (item.label or item.name) or "") end),
-                ["%p"] = state.directory or "",
-                ["%P"] = string.format("%q", state.directory or ""),
-                ["%d"] = (state.directory_label or state.directory):match("([^/]+)/?$") or "",
-                ["%D"] = string.format("%q", (state.directory_label or state.directory):match("([^/]+)/$") or ""),
-                ["%r"] = state.parser.keybind_name or state.parser.name or "",
-                ["%R"] = string.format("%q", state.parser.keybind_name or state.parser.name or "")
-            })
+            copy[i][j] = cmd.command[i][j]:gsub("%%["..CUSTOM_KEYBIND_CODES.."]", function(code)
+                if type(code_fns[code]) == "string" then return code_fns[code] end
+
+                --encapsulates the string if using an uppercase code
+                if not code_fns[code] then
+                    local lower = code_fns[code:lower()]
+                    if not lower then return end
+                    return string.format("%q", lower(cmd, items, state))
+                end
+
+                return code_fns[code](cmd, items, state)
+            end)
         end
     end
     return copy
@@ -1677,10 +1707,10 @@ end
 
 --register file extensions which can be opened by the browser
 function API.register_parseable_extension(ext)
-    parseable_extensions[ext:lower()] = true
+    parseable_extensions[string.lower(ext)] = true
 end
 function API.remove_parseable_extension(ext)
-    parseable_extensions[ext:lower()] = nil
+    parseable_extensions[string.lower(ext)] = nil
 end
 
 --add a compatible extension to show through the filter, only applies if run during the setup() method
@@ -1807,10 +1837,36 @@ local function set_parser_id(parser)
     parsers[parser] = { id = name }
 end
 
+local function redirect_table(t)
+    return setmetatable({}, { __index = t })
+end
+
 --loads an addon in a separate environment
 local function load_addon(path)
-    local addon_environment = setmetatable({}, { __index = _G })
+    local name_sqbr = string.format("[%s]", path:match("/([^/]*)%.lua$"))
+    local addon_environment = redirect_table(_G)
     addon_environment._G = addon_environment
+
+    --gives each addon custom debug messages
+    addon_environment.package = redirect_table(addon_environment.package)
+    addon_environment.package.loaded = redirect_table(addon_environment.package.loaded)
+    local msg_module = {
+        log = function(level, ...) msg.log(level, name_sqbr, ...) end,
+        fatal = function(...) return msg.fatal(name_sqbr, ...) end,
+        error = function(...) return msg.error(name_sqbr, ...) end,
+        warn = function(...) return msg.warn(name_sqbr, ...) end,
+        info = function(...) return msg.info(name_sqbr, ...) end,
+        verbose = function(...) return msg.verbose(name_sqbr, ...) end,
+        debug = function(...) return msg.debug(name_sqbr, ...) end,
+        trace = function(...) return msg.trace(name_sqbr, ...) end,
+    }
+    addon_environment.print = msg_module.info
+
+    addon_environment.require = function(module)
+        if module == "mp.msg" then return msg_module end
+        return require(module)
+    end
+
     local chunk, err
     if setfenv then
         --since I stupidly named a function loadfile I need to specify the global one
