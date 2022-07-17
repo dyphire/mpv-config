@@ -830,19 +830,34 @@ function dosort(a,b)
   end
 end
 
+-- fast sort algo from https://github.com/zsugabubus/dotfiles/blob/master/.config/mpv/scripts/playlist-filtersort.lua
 function sortplaylist(startover)
-  local length = mp.get_property_number('playlist-count', 0)
-  if length < 2 then return end
-  --use insertion sort on playlist to make it easy to order files with playlist-move
-  for outer=1, length-1, 1 do
-    local outerfile = get_name_from_index(outer, true)
-    local inner = outer - 1
-    while inner >= 0 and dosort(outerfile, get_name_from_index(inner, true)) do
-      inner = inner - 1
-    end
-    inner = inner + 1
-    if outer ~= inner then
-      mp.commandv('playlist-move', outer, inner)
+  local playlist = mp.get_property_native('playlist')
+  if #playlist < 2 then return end
+
+  local order = {}
+  for i=1, #playlist do
+		order[i] = i
+    playlist[i].string = get_name_from_index(i - 1, true)
+	end
+
+  table.sort(order, function(a, b)
+    return dosort(playlist[a].string, playlist[b].string)
+  end)
+
+  for i=1, #playlist do
+    playlist[order[i]].new_pos = i
+  end
+
+  for i=1, #playlist do
+    while true do
+      local j = playlist[i].new_pos
+      if i == j then
+        break
+      end
+      mp.commandv('playlist-move', (i)     - 1, (j + 1) - 1)
+      mp.commandv('playlist-move', (j - 1) - 1, (i)     - 1)
+      playlist[j], playlist[i] = playlist[i], playlist[j]
     end
   end
   cursor = mp.get_property_number('playlist-pos', 0)

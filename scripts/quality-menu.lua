@@ -4,13 +4,11 @@
 --
 -- Usage:
 -- add bindings to input.conf:
--- CTRL+f   script-message-to quality_menu video_formats_toggle
--- ALT+f    script-message-to quality_menu audio_formats_toggle
+-- Ctrl+f   script-message-to quality_menu video_formats_toggle
+-- Alt+f    script-message-to quality_menu audio_formats_toggle
 --
 -- Displays a menu that lets you switch to different ytdl-format settings while
 -- you're in the middle of a video (just like you were using the web player).
---
--- Bound to ctrl+f and alt+f by default.
 
 local mp = require 'mp'
 local utils = require 'mp.utils'
@@ -22,10 +20,7 @@ local opts = {
     up_binding = "UP WHEEL_UP",
     down_binding = "DOWN WHEEL_DOWN",
     select_binding = "ENTER MBTN_LEFT",
-    close_menu_binding = "ESC MBTN_RIGHT CTRL+f ALT+f",
-
-    --youtube-dl version(could be youtube-dl or yt-dlp, or something else)
-    ytdl_ver = "yt-dlp",
+    close_menu_binding = "ESC MBTN_RIGHT Ctrl+f Alt+f",
 
     --formatting / cursors
     selected_and_active     = "▶  - ",
@@ -53,9 +48,6 @@ local opts = {
     --setting this to 0 deactivates the timeout
     menu_timeout = 6,
 
-    --use youtube-dl to fetch a list of available formats (overrides quality_strings)
-    fetch_formats = true,
-
     --default menu entries
     quality_strings=[[
     [
@@ -74,12 +66,37 @@ local opts = {
     --reset ytdl-format to the original format string when changing files (e.g. going to the next playlist entry)
     --if file was opened previously, reset to previously selected format
     reset_format = true,
-    
-    --automatically fetch available formats when opening a file
-    fetch_on_start = true,
 
     --show the video format menu after opening a file
     start_with_menu = true,
+
+    --sort formats instead of keeping the order from yt-dlp/youtube-dl
+    sort_formats = false,
+
+    --hide columns that are identical for all formats
+    hide_identical_columns = true,
+
+    --which columns are shown in which order
+    --comma separated list, prefix column with "-" to align left
+    --
+    --columns that might be useful are:
+    --resolution, width, height, fps, dynamic_range, tbr, vbr, abr, asr,
+    --filesize, filesize_approx, vcodec, acodec, ext, video_ext, audio_ext,
+    --language, format, format_note, quality
+    --
+    --columns that are derived from the above, but with special treatment:
+    --frame_rate, bitrate_total, bitrate_video, bitrate_audio,
+    --codec_video, codec_audio, audio_sample_rate
+    --
+    --If those still aren't enough or you're just curious, run:
+    --yt-dlp -j <url>
+    --This outputs unformatted JSON.
+    --Format it and look under "formats" to see what's available.
+    --
+    --Not all videos have all columns available.
+    --Be careful, misspelled columns simply won't be displayed, there is no error.
+    columns_video = '-resolution,frame_rate,dynamic_range,language,bitrate_total,size,codec_video,codec_audio',
+    columns_audio = 'audio_sample_rate,bitrate_total,size,language,codec_audio',
 }
 (require 'mp.options').read_options(opts, "quality-menu")
 opts.quality_strings = utils.parse_json(opts.quality_strings)
@@ -106,26 +123,226 @@ local function reload_resume()
     end
 end
 
-local function format_string(vfmt, afmt)
-    if vfmt ~= nil and afmt ~= nil then
-        return vfmt.."+"..afmt
-    elseif vfmt ~= nil then
-        return vfmt
-    elseif afmt ~= nil then
-        return afmt
-    else
-        return ""
-    end
-end
-
 local ytdl = {
     path = opts.ytdl_ver,
     searched = false,
     blacklisted = {}
 }
 
-url_data={}
-local function download_formats()
+local function process_json(json)
+    local function string_split (inputstr, sep)
+        if sep == nil then
+            sep = "%s"
+        end
+        local t={}
+        for str in string.gmatch(inputstr, "([^"..sep.."]+)") do
+            table.insert(t, str)
+        end
+        return t
+    end
+
+    local original_format=json.format_id
+    local formats_split = string_split(original_format, "+")
+    local vfmt = formats_split[1]
+    local afmt = formats_split[2]
+
+    local video_formats = {}
+    local audio_formats = {}
+    for i = #json.formats, 1, -1 do
+        local format = json.formats[i]
+        local is_video = not (format.vcodec == "none") and format.resolution and format.resolution ~= "audio only"
+        local is_audio = not (format.acodec == "none") and format.resolution and format.resolution == "audio only"
+        if is_video then
+            video_formats[#video_formats+1] = format
+        elseif is_audio and not is_video then
+            audio_formats[#audio_formats+1] = format
+        end
+    end
+
+    if opts.sort_formats then
+        table.sort(video_formats,
+        function(a, b)
+            local size_a = a.filesize or a.filesize_approx
+            local size_b = b.filesize or b.filesize_approx
+            if a.height and b.height and a.height ~= b.height then
+                return a.height > b.height
+            elseif a.fps and b.fps and a.fps ~= b.fps then
+                return a.fps > b.fps
+            elseif a.tbr and b.tbr and a.tbr ~= b.tbr then
+                return a.tbr > b.tbr
+            elseif size_a and size_b and size_a ~= size_b then
+                return size_a > size_b
+            elseif a.format_id and b.format_id and a.format_id ~= b.format_id then
+                return a.format_id > b.format_id
+            end
+        end)
+
+        table.sort(audio_formats,
+        function(a, b)
+            local size_a = a.filesize or a.filesize_approx
+            local size_b = b.filesize or b.filesize_approx
+            if a.asr and b.asr and a.asr ~= b.asr then
+                return a.asr > b.asr
+            elseif a.tbr and b.tbr and a.tbr ~= b.tbr then
+                return a.tbr > b.tbr
+            elseif size_a and size_b and size_a ~= size_b then
+                return size_a > size_b
+            elseif a.format_id and b.format_id and a.format_id ~= b.format_id then
+                return a.format_id > b.format_id
+            end
+        end)
+    end
+
+    local function scale_filesize(size)
+        if size == nil then
+            return ""
+        end
+        size = tonumber(size)
+
+        local counter = 0
+        while size > 1024 do
+            size = size / 1024
+            counter = counter+1
+        end
+
+        if counter >= 3 then return string.format("%.1fGiB", size)
+        elseif counter >= 2 then return string.format("%.1fMiB", size)
+        elseif counter >= 1 then return string.format("%.1fKiB", size)
+        else return string.format("%.1fB  ", size)
+        end
+    end
+
+    local function scale_bitrate(br)
+        if br == nil then
+            return ""
+        end
+        br = tonumber(br)
+
+        local counter = 0
+        while br > 1000 do
+            br = br / 1000
+            counter = counter+1
+        end
+
+        if counter >= 2 then return string.format("%.1fGbps", br)
+        elseif counter >= 1 then return string.format("%.1fMbps", br)
+        else return string.format("%.1fKbps", br)
+        end
+    end
+
+    local function populate_special_fields(format)
+        if format.filesize == nil and format.filesize_approx then
+            format.size = "~"..scale_filesize(format.filesize_approx)
+        else
+            format.size = scale_filesize(format.filesize)
+        end
+
+        format.frame_rate = format.fps and format.fps.."fps" or ""
+        format.bitrate_total = scale_bitrate(format.tbr)
+        format.bitrate_video = scale_bitrate(format.vbr)
+        format.bitrate_audio = scale_bitrate(format.abr)
+        format.codec_video = format.vcodec == nil and "unknown" or format.vcodec == "none" and "" or format.vcodec
+        format.codec_audio = format.acodec == nil and "unknown" or format.acodec == "none" and "" or format.acodec
+        format.audio_sample_rate = format.asr and tostring(format.asr) .. "Hz" or ""
+    end
+
+    for _,format in ipairs(video_formats) do
+        populate_special_fields(format)
+    end
+
+    for _,format in ipairs(audio_formats) do
+        populate_special_fields(format)
+    end
+
+    local function format_table(formats, columns)
+        local function calc_shown_columns()
+            local display_col = {}
+            local column_widths = {}
+            local column_values = {}
+            local column_align_left = {}
+
+            for i, prop in ipairs(columns) do
+                if string.sub(prop, 1, 1) == "-" then
+                    columns[i] = string.sub(prop, 2)
+                    column_align_left[i] = true
+                end
+            end
+
+            for _,format in pairs(formats) do
+                for col, prop in ipairs(columns) do
+                    local label = tostring(format[prop] or "")
+                    format[prop] = label
+
+                    if not column_widths[col] or column_widths[col] < label:len() then
+                        column_widths[col] = label:len()
+                    end
+
+                    column_values[col] = column_values[col] or label
+                    display_col[col] = display_col[col] or (column_values[col] ~= label)
+                end
+            end
+            local show_columns={}
+            for i, width in ipairs(column_widths) do
+                if width > 0 and not opts.hide_identical_columns or display_col[i] then
+                    show_columns[#show_columns+1] = {
+                        prop=columns[i],
+                        width=width,
+                        align_left=column_align_left[i]
+                    }
+                end
+            end
+            return show_columns
+        end
+
+        local show_columns = calc_shown_columns()
+
+        local spacing = 2
+        for i=2, #show_columns do
+            -- lua errors out with width > 99 ("invalid conversion specification")
+            show_columns[i].width = math.min(show_columns[i].width + spacing, 99)
+        end
+
+        local res = {}
+        for _,f in ipairs(formats) do
+            local row = ''
+            for _,column in ipairs(show_columns) do
+                local width = column.width * (column.align_left and -1 or 1)
+                row = row .. string.format('%' .. width .. 's', f[column.prop] or "")
+            end
+            res[#res+1] = {label=row, format=f.format_id}
+        end
+        return res
+    end
+    local columns_video = string_split(opts.columns_video, ',')
+    local columns_audio = string_split(opts.columns_audio, ',')
+    local vres = format_table(video_formats, columns_video)
+    local ares = format_table(audio_formats, columns_audio)
+    return vres, ares , vfmt, afmt
+end
+
+local url_data={}
+local function process_json_string(url, json)
+    local json, err = utils.parse_json(json)
+
+    if (json == nil) then
+        mp.osd_message("fetching formats failed...", 2)
+        msg.error("failed to parse JSON data: " .. err)
+        return
+    end
+
+    msg.verbose("youtube-dl succeeded!")
+
+    if json.formats == nil then
+        return
+    end
+
+    local vres, ares , vfmt, afmt = process_json(json)
+    url_data[url] = {voptions=vres, aoptions=ares, vfmt=vfmt, afmt=afmt}
+    return vres, ares , vfmt, afmt
+end
+
+local queue_video_menu = false
+local function get_formats()
 
     local function get_url()
         local path = mp.get_property("path")
@@ -144,207 +361,61 @@ local function download_formats()
         return
     end
 
-    if url_data[url] ~= nil then
+    if url_data[url] then
         local data = url_data[url]
         return data.voptions, data.aoptions, data.vfmt, data.afmt, url
     end
 
-    local vres = {}
-    local ares = {}
-    local vfmt = nil
-    local afmt = nil
-
     if opts.fetch_formats == false then
+        local vres = {}
         for i,v in ipairs(opts.quality_strings) do
             for k,v2 in pairs(v) do
                 vres[i] = {label = k, format=v2}
             end
         end
-        url_data[url] = {voptions=vres, aoptions=ares, vfmt=nil, afmt=nil}
-        return vres, ares , vfmt, afmt, url
+        url_data[url] = {voptions=vres, aoptions={}, vfmt=nil, afmt=nil}
+        return vres, {}, nil, nil, url
     end
 
-    mp.osd_message("fetching available formats with youtube-dl...", 60)
+    queue_video_menu = true
+end
 
-    if not (ytdl.searched) then
-        local ytdl_mcd = mp.find_config_file(opts.ytdl_ver)
-        if not (ytdl_mcd == nil) then
-            msg.verbose("found youtube-dl at: " .. ytdl_mcd)
-            ytdl.path = ytdl_mcd
-        end
-        ytdl.searched = true
-    end
-
-    local function exec(args)
-        local res, err = mp.command_native({name = "subprocess", args = args, capture_stdout = true, capture_stderr = true})
-        return res.status, res.stdout, res.stderr
-    end
-
-    local ytdl_format = mp.get_property("ytdl-format")
-    local command = nil
-    if (ytdl_format == nil or ytdl_format == "") then
-        command = {ytdl.path, "--no-warnings", "--no-playlist", "-j", url}
+local function format_string(vfmt, afmt)
+    if vfmt and afmt then
+        return vfmt.."+"..afmt
+    elseif vfmt then
+        return vfmt
+    elseif afmt then
+        return afmt
     else
-        command = {ytdl.path, "--no-warnings", "--no-playlist", "-j", "-f", ytdl_format, url}
+        return ""
     end
-
-    msg.verbose("calling youtube-dl with command: " .. table.concat(command, " "))
-
-    local es, stdout, stderr = exec(command)
-
-    if (es < 0) or (stdout == nil) or (stdout == "") then
-        mp.osd_message("fetching formats failed...", 1)
-        msg.error("failed to get format list: " .. es)
-        msg.error("stderr: " .. stderr)
-        return
-    end
-
-    local json, err = utils.parse_json(stdout)
-
-    if (json == nil) then
-        mp.osd_message("fetching formats failed...", 1)
-        msg.error("failed to parse JSON data: " .. err)
-        return
-    end
-
-    msg.verbose("youtube-dl succeeded!")
-
-    local function string_split (inputstr, sep)
-        if sep == nil then
-            sep = "%s"
-        end
-        local t={}
-        for str in string.gmatch(inputstr, "([^"..sep.."]+)") do
-            table.insert(t, str)
-        end
-        return t
-    end
-
-    local original_format=json.format_id
-    local formats_split = string_split(original_format, "+")
-    vfmt = formats_split[1]
-    afmt = formats_split[2]
-
-    local function scale_filesize(size)
-        size = tonumber(size)
-        if size == nil then
-            return "unknown"
-        end
-
-        counter = 0
-        while size > 1024 do
-            size = size / 1024
-            counter = counter+1
-        end
-
-        if counter >= 3 then return string.format("%.1fGiB", size)
-        elseif counter >= 2 then return string.format("%.1fMiB", size)
-        elseif counter >= 1 then return string.format("%.1fKiB", size)
-        else return string.format("%.1fB  ", size)
-        end
-    end
-
-    local function scale_bitrate(br)
-        br = tonumber(br)
-        if br == nil then
-            return "unknown"
-        end
-
-        counter = 0
-        while br > 1000 do
-            br = br / 1000
-            counter = counter+1
-        end
-
-        if counter >= 2 then return string.format("%.1fGbps", br)
-        elseif counter >= 1 then return string.format("%.1fMbps", br)
-        else return string.format("%.1fKbps", br)
-        end
-    end
-
-    if json.formats ~= nil then
-        for i,f in ipairs(json.formats) do
-            if f.vcodec ~= "none" then
-                local fps = f.fps and f.fps.."fps" or ""
-                local resolution = string.format("%sx%s", f.width, f.height)
-                local size = nil
-                if f.filesize == nil and f.filesize_approx then
-                    size = "~"..scale_filesize(f.filesize_approx)
-                else
-                    size = scale_filesize(f.filesize)
-                end
-                local tbr = scale_bitrate(f.tbr)
-                local vcodec = f.vcodec == nil and "unknown" or f.vcodec
-                local acodec = f.acodec == nil and " + unknown" or f.acodec ~= "none" and " + "..f.acodec or ""
-                local l = string.format("%-9s %-5s %9s %9s (%-4s / %s%s)", resolution, fps, tbr, size, f.ext, vcodec, acodec)
-                table.insert(vres, {label=l, format=f.format_id, width=f.width, size=f.filesize, fps=f.fps, tbr=f.tbr })
-            elseif f.acodec ~= "none" then
-                local size = scale_filesize(f.filesize)
-                local tbr = scale_bitrate(f.tbr)
-                local l = string.format("%6sHz %9s %9s (%-4s / %s)", f.asr, tbr, size, f.ext, f.acodec)
-                table.insert(ares, {label=l, format=f.format_id, size=f.filesize, asr=f.asr, tbr=f.tbr })
-            end
-        end
-
-        table.sort(vres,
-        function(a, b)
-            if a.width ~= nil and b.width ~= nil and a.width ~= b.width then
-                return a.width > b.width
-            elseif a.fps ~= nil and b.fps ~= nil and a.fps ~= b.fps then
-                return a.fps > b.fps
-            elseif a.tbr ~= nil and b.tbr ~= nil and a.tbr ~= b.tbr then
-                return a.tbr > b.tbr
-            elseif a.size ~= nil and b.size ~= nil and a.size ~= b.size then
-                return a.size > b.size
-            elseif a.format ~= nil and b.format ~= nil and a.format ~= b.format then
-                return a.format > b.format
-            end
-        end)
-        table.sort(ares,
-        function(a, b)
-            if a.asr ~= nil and b.asr ~= nil and a.asr ~= b.asr then
-                return a.asr > b.asr
-            elseif a.tbr ~= nil and b.tbr ~= nil and a.tbr ~= b.tbr then
-                return a.tbr > b.tbr
-            elseif a.size ~= nil and b.size ~= nil and a.size ~= b.size then
-                return a.size > b.size
-            elseif a.format ~= nil and b.format ~= nil and a.format ~= b.format then
-                return a.format > b.format
-            end
-        end)
-    end
-
-    mp.osd_message("", 0)
-    url_data[url] = {voptions=vres, aoptions=ares, vfmt=vfmt, afmt=afmt}
-    return vres, ares , vfmt, afmt, url
 end
 
 local destroyer = nil
 local function show_menu(isvideo)
-    local selected = 1
-    local active = 0
-    local num_options = 0
-    local options = {}
-    local vfmt = nil
-    local afmt = nil
-    local voptions = nil
-    local aoptions = nil
-    local url = nil
-    local timeout = nil
 
-    if destroyer ~= nil then
+    if destroyer then
         destroyer()
     end
 
-    voptions, aoptions , vfmt, afmt, url = download_formats()
-    if voptions == nil then
+    local voptions, aoptions, vfmt, afmt, url = get_formats()
+
+    local options
+    if isvideo then
+        options = voptions
+    else
+        options = aoptions
+    end
+
+    if options == nil then
         return
     end
 
-    options = isvideo and voptions or aoptions
-
     msg.verbose("current ytdl-format: "..format_string(vfmt, afmt))
 
+    local selected = 1
+    local active = 0
     --set the cursor to the currently format
     for i,v in ipairs(options) do
         if v.format == (isvideo and vfmt or afmt) then
@@ -355,7 +426,7 @@ local function show_menu(isvideo)
     end
 
     local function table_size(t)
-        s = 0
+        local s = 0
         for i,v in ipairs(t) do
             s = s+1
         end
@@ -377,7 +448,7 @@ local function show_menu(isvideo)
         ass:pos(opts.text_padding_x, opts.text_padding_y)
         ass:append(opts.style_ass_tags)
 
-        if options[1] ~= nil then
+        if options[1] then
             for i,v in ipairs(options) do
                 ass:append(choose_prefix(i)..v.label.."\\N")
             end
@@ -390,13 +461,14 @@ local function show_menu(isvideo)
         mp.set_osd_ass(w, h, ass.text)
     end
 
-    num_options = table_size(options)
+    local num_options = table_size(options)
+    local timeout = nil
 
     local function selected_move(amt)
         selected = selected + amt
         if selected < 1 then selected = num_options
         elseif selected > num_options then selected = 1 end
-        if timeout ~= nil then
+        if timeout then
             timeout:kill()
             timeout:resume()
         end
@@ -430,7 +502,7 @@ local function show_menu(isvideo)
     end
     
     local function destroy()
-        if timeout ~= nil then
+        if timeout then
             timeout:kill()
         end
         mp.set_osd_ass(0,0,"")
@@ -448,7 +520,7 @@ local function show_menu(isvideo)
 
     bind_keys(opts.up_binding,     "move_up",   function() selected_move(-1) end, {repeatable=true})
     bind_keys(opts.down_binding,   "move_down", function() selected_move(1)  end, {repeatable=true})
-    if options[1] ~= nil then
+    if options[1] then
         bind_keys(opts.select_binding, "select", function()
             destroy()
             if selected == active then return end
@@ -466,8 +538,8 @@ local function show_menu(isvideo)
         end)
     end
     bind_keys(opts.close_menu_binding, "close", destroy)    --close menu using ESC
+    mp.osd_message("", 0)
     draw_menu()
-    return
 end
 
 local function video_formats_toggle()
@@ -487,9 +559,9 @@ local original_format = mp.get_property("ytdl-format")
 local path = nil
 local function file_start()
     local new_path = mp.get_property("path")
-    if opts.reset_format and path ~= nil and new_path ~= path then
+    if opts.reset_format and path and new_path ~= path then
         local data = url_data[new_path]
-        if data ~= nil then
+        if data then
             msg.verbose("setting previously set format")
             mp.set_property("ytdl-format", format_string(data.vfmt, data.afmt))
         else
@@ -499,9 +571,15 @@ local function file_start()
     end
     if opts.start_with_menu and new_path ~= path then
         video_formats_toggle()
-    elseif fetch_on_start then
-        download_formats()
     end
     path = new_path
 end
 mp.register_event("start-file", file_start)
+
+mp.register_script_message('ytdl_json', function(url, json)
+    process_json_string(url, json)
+    if queue_video_menu then
+        queue_video_menu = false
+        video_formats_toggle()
+    end
+end)

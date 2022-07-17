@@ -37,16 +37,16 @@
     "dest":"~~/scripts"
   },
   {
-    "git":"https://github.com/dyphire/mpv-scripts",
-    "whitelist":"%.lua$",
+    "git":"https://github.com/DonCanjas/mpv-webp-generator",
+    "whitelist":"mpv%-webp%.lua$",
     "dest":"~~/scripts",
     "branch":"main"
   },
   {
-    "git":"https://github.com/dyphire/mpv-webp-generator",
-    "whitelist":"mpv%-webp%.lua$",
+    "git":"https://github.com/dyphire/mpv-scripts",
+    "whitelist":"%.lua$",
     "dest":"~~/scripts",
-    "branch":"dev"
+    "branch":"main"
   },
   {
     "git":"https://github.com/dyphire/mpv-locatefile-lua-script",
@@ -67,9 +67,16 @@
     "branch":"v0.33_CM"
   },
   {
+    "git":"https://github.com/dyphire/mpv-scripts",
+    "whitelist":"undoredo%.lua$|simplehistory%.lua$|simplebookmark%.lua$|smartcopypaste_*%.lua$",
+    "dest":"~~/scripts",
+    "branch":"dev"
+  },
+  {
     "git":"https://github.com/christoph-heinrich/mpv-quality-menu",
     "whitelist":"qualityu%-menu%.lua$",
-    "dest":"~~/scripts"
+    "dest":"~~/scripts",
+    "branch":"get_json_from_ytdl_hook"
   },
   {
     "git":"https://github.com/cvzi/mpv-youtube-download",
@@ -80,11 +87,6 @@
   {
     "git":"https://github.com/jonniek/mpv-playlistmanager",
     "whitelist":"%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
-    "git":"https://github.com/Eisa01/mpv-scripts",
-    "whitelist":"undoredo%.lua$|simplehistory%.lua$|simplebookmark%.lua$|smartcopypaste_*%.lua$",
     "dest":"~~/scripts"
   },
   {
