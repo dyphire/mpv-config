@@ -44,8 +44,8 @@ function scroll_list.ass_escape(str, replace_newline)
 end
 
 --format and return the header string
-function scroll_list:format_header_string(string)
-    return string
+function scroll_list:format_header_string(str)
+    return str
 end
 
 --appends the entered text to the overlay

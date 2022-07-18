@@ -10,7 +10,7 @@
     -- key script-message-to editions_notification_menu toggle-edition-browser
 
     This script needs to be used with scroll-list.lua
-    https://github.com/dyphire/mpv-scroll-list
+    https://github.com/CogentRedTester/mpv-scroll-list
 ]]--
 
 local msg = require 'mp.msg'
@@ -105,12 +105,11 @@ list.wrap = o.wrap
 
 --escape header specifies the format
 --display the cursor position and the total number of lists in the header
-function list:format_header_string(string)
+function list:format_header_string(str)
     if #list.list > 0 then
-        string = string:gsub("%%cursor%%", list.selected)
-		:gsub("%%total%%", #list.list)
-    else string = string:gsub("%[.*%]", "") end
-    return string
+        str = str:gsub("%%(%a+)%%", { cursor = list.selected, total = #list.list })
+    else str = str:gsub("%[.*%]", "") end
+    return str
 end
 
 --update the list when the current edition changes
