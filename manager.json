@@ -131,10 +131,9 @@
     "dest":"~~/script-modules"
   },
   {
-    "git":"https://github.com/dyphire/mpv-scroll-list",
+    "git":"https://github.com/CogentRedTester/mpv-scroll-list",
     "whitelist":"scroll%-list%.lua$",
-    "dest":"~~/script-modules",
-    "branch":"dev"
+    "dest":"~~/script-modules"
   },
   {
     "git":"https://github.com/CogentRedTester/mpv-read-file",
