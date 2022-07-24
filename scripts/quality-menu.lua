@@ -48,21 +48,6 @@ local opts = {
     --setting this to 0 deactivates the timeout
     menu_timeout = 6,
 
-    --default menu entries
-    quality_strings=[[
-    [
-    {"4320p" : "bestvideo[height<=?4320p]+bestaudio/best"},
-    {"2160p" : "bestvideo[height<=?2160]+bestaudio/best"},
-    {"1440p" : "bestvideo[height<=?1440]+bestaudio/best"},
-    {"1080p" : "bestvideo[height<=?1080]+bestaudio/best"},
-    {"720p" : "bestvideo[height<=?720]+bestaudio/best"},
-    {"480p" : "bestvideo[height<=?480]+bestaudio/best"},
-    {"360p" : "bestvideo[height<=?360]+bestaudio/best"},
-    {"240p" : "bestvideo[height<=?240]+bestaudio/best"},
-    {"144p" : "bestvideo[height<=?144]+bestaudio/best"}
-    ]
-    ]],
-
     --reset ytdl-format to the original format string when changing files (e.g. going to the next playlist entry)
     --if file was opened previously, reset to previously selected format
     reset_format = true,
@@ -70,8 +55,12 @@ local opts = {
     --show the video format menu after opening a file
     start_with_menu = true,
 
-    --sort formats instead of keeping the order from yt-dlp/youtube-dl
-    sort_formats = false,
+    --include unknown formats in the list
+    --Unfortunately choosing which formats are video or audio is not always perfect.
+    --Set to true to make sure you don't miss any formats, but then the list
+    --might also include formats that aren't actually video or audio.
+    --Formats that are known to not be video or audio are still filtered out.
+    include_unknown = false,
 
     --hide columns that are identical for all formats
     hide_identical_columns = true,
@@ -97,9 +86,16 @@ local opts = {
     --Be careful, misspelled columns simply won't be displayed, there is no error.
     columns_video = '-resolution,frame_rate,dynamic_range,language,bitrate_total,size,codec_video,codec_audio',
     columns_audio = 'audio_sample_rate,bitrate_total,size,language,codec_audio',
+
+    --columns used for sorting, see "columns_video" for available columns
+    --comma separated list, prefix column with "-" to reverse sorting order
+    --Leaving this empty keeps the order from yt-dlp/youtube-dl.
+    --Be careful, misspelled columns won't result in an error,
+    --but they might influence the result.
+    sort_video = 'height,fps,tbr,size,format_id',
+    sort_audio = 'asr,tbr,size,format_id',
 }
 (require 'mp.options').read_options(opts, "quality-menu")
-opts.quality_strings = utils.parse_json(opts.quality_strings)
 
 -- special thanks to reload.lua (https://github.com/4e6/mpv-reload/)
 local function reload_resume()
@@ -148,49 +144,75 @@ local function process_json(json)
 
     local video_formats = {}
     local audio_formats = {}
+    local all_formats = {}
     for i = #json.formats, 1, -1 do
         local format = json.formats[i]
-        local is_video = not (format.vcodec == "none") and format.resolution and format.resolution ~= "audio only"
-        local is_audio = not (format.acodec == "none") and format.resolution and format.resolution == "audio only"
+        -- "none" means it is not a video
+        -- nil means it is unknown
+        local is_video = (opts.include_unknown or format.vcodec) and format.vcodec ~= "none"
+        local is_audio = (opts.include_unknown or format.acodec) and format.acodec ~= "none"
         if is_video then
             video_formats[#video_formats+1] = format
+            all_formats[#all_formats+1] = format
         elseif is_audio and not is_video then
             audio_formats[#audio_formats+1] = format
+            all_formats[#all_formats+1] = format
         end
     end
 
-    if opts.sort_formats then
-        table.sort(video_formats,
-        function(a, b)
-            local size_a = a.filesize or a.filesize_approx
-            local size_b = b.filesize or b.filesize_approx
-            if a.height and b.height and a.height ~= b.height then
-                return a.height > b.height
-            elseif a.fps and b.fps and a.fps ~= b.fps then
-                return a.fps > b.fps
-            elseif a.tbr and b.tbr and a.tbr ~= b.tbr then
-                return a.tbr > b.tbr
-            elseif size_a and size_b and size_a ~= size_b then
-                return size_a > size_b
-            elseif a.format_id and b.format_id and a.format_id ~= b.format_id then
-                return a.format_id > b.format_id
-            end
-        end)
+    local function populate_special_fields(format)
+        format.size = format.filesize or format.filesize_approx
+        format.frame_rate = format.fps
+        format.bitrate_total = format.tbr
+        format.bitrate_video = format.vbr
+        format.bitrate_audio = format.abr
+        format.codec_video = format.vcodec
+        format.codec_audio = format.acodec
+        format.audio_sample_rate = format.asr
+    end
 
-        table.sort(audio_formats,
-        function(a, b)
-            local size_a = a.filesize or a.filesize_approx
-            local size_b = b.filesize or b.filesize_approx
-            if a.asr and b.asr and a.asr ~= b.asr then
-                return a.asr > b.asr
-            elseif a.tbr and b.tbr and a.tbr ~= b.tbr then
-                return a.tbr > b.tbr
-            elseif size_a and size_b and size_a ~= size_b then
-                return size_a > size_b
-            elseif a.format_id and b.format_id and a.format_id ~= b.format_id then
-                return a.format_id > b.format_id
+    for _,format in ipairs(all_formats) do
+        populate_special_fields(format)
+    end
+
+    local function strip_minus(list)
+        local stripped_list = {}
+        local had_minus = {}
+        for i, val in ipairs(list) do
+            if string.sub(val, 1, 1) == "-" then
+                val = string.sub(val, 2)
+                had_minus[val] = true
             end
-        end)
+            stripped_list[i] = val
+        end
+        return stripped_list, had_minus
+    end
+
+    local sort_video, reverse_video = strip_minus(string_split(opts.sort_video, ','))
+    local sort_audio, reverse_audio = strip_minus(string_split(opts.sort_audio, ','))
+
+    local function comp(properties, reverse)
+        return function (a, b)
+            for _,prop in ipairs(properties) do
+                local a_val = a[prop]
+                local b_val = b[prop]
+                if a_val and b_val and type(a_val) ~= 'table' and a_val ~= b_val then
+                    if reverse[prop] then
+                        return a_val < b_val
+                    else
+                        return a_val > b_val
+                    end
+                end
+            end
+            return false
+        end
+    end
+
+    if #sort_video > 0 then
+        table.sort(video_formats, comp(sort_video, reverse_video))
+    end
+    if #sort_audio > 0 then
+        table.sort(audio_formats, comp(sort_audio, reverse_audio))
     end
 
     local function scale_filesize(size)
@@ -230,13 +252,9 @@ local function process_json(json)
         end
     end
 
-    local function populate_special_fields(format)
-        if format.filesize == nil and format.filesize_approx then
-            format.size = "~"..scale_filesize(format.filesize_approx)
-        else
-            format.size = scale_filesize(format.filesize)
-        end
-
+    local function format_special_fields(format)
+        local size_prefix = not format.filesize and format.filesize_approx and "~" or ""
+        format.size = (size_prefix) .. scale_filesize(format.size)
         format.frame_rate = format.fps and format.fps.."fps" or ""
         format.bitrate_total = scale_bitrate(format.tbr)
         format.bitrate_video = scale_bitrate(format.vbr)
@@ -246,12 +264,8 @@ local function process_json(json)
         format.audio_sample_rate = format.asr and tostring(format.asr) .. "Hz" or ""
     end
 
-    for _,format in ipairs(video_formats) do
-        populate_special_fields(format)
-    end
-
-    for _,format in ipairs(audio_formats) do
-        populate_special_fields(format)
+    for _,format in ipairs(all_formats) do
+        format_special_fields(format)
     end
 
     local function format_table(formats, columns)
@@ -259,14 +273,7 @@ local function process_json(json)
             local display_col = {}
             local column_widths = {}
             local column_values = {}
-            local column_align_left = {}
-
-            for i, prop in ipairs(columns) do
-                if string.sub(prop, 1, 1) == "-" then
-                    columns[i] = string.sub(prop, 2)
-                    column_align_left[i] = true
-                end
-            end
+            local columns, column_align_left = strip_minus(columns)
 
             for _,format in pairs(formats) do
                 for col, prop in ipairs(columns) do
@@ -281,13 +288,15 @@ local function process_json(json)
                     display_col[col] = display_col[col] or (column_values[col] ~= label)
                 end
             end
+
             local show_columns={}
             for i, width in ipairs(column_widths) do
                 if width > 0 and not opts.hide_identical_columns or display_col[i] then
+                    local prop = columns[i]
                     show_columns[#show_columns+1] = {
-                        prop=columns[i],
+                        prop=prop,
                         width=width,
-                        align_left=column_align_left[i]
+                        align_left=column_align_left[prop]
                     }
                 end
             end
@@ -297,22 +306,20 @@ local function process_json(json)
         local show_columns = calc_shown_columns()
 
         local spacing = 2
-        for i=2, #show_columns do
-            -- lua errors out with width > 99 ("invalid conversion specification")
-            show_columns[i].width = math.min(show_columns[i].width + spacing, 99)
-        end
-
         local res = {}
         for _,f in ipairs(formats) do
             local row = ''
-            for _,column in ipairs(show_columns) do
-                local width = column.width * (column.align_left and -1 or 1)
-                row = row .. string.format('%' .. width .. 's', f[column.prop] or "")
+            for i,column in ipairs(show_columns) do
+                -- lua errors out with width > 99 ("invalid conversion specification")
+                local width = math.min(column.width * (column.align_left and -1 or 1), 99)
+                row = row .. (i > 1 and string.format('%' .. spacing .. 's', '') or '')
+                      .. string.format('%' .. width .. 's', f[column.prop] or "")
             end
             res[#res+1] = {label=row, format=f.format_id}
         end
         return res
     end
+
     local columns_video = string_split(opts.columns_video, ',')
     local columns_audio = string_split(opts.columns_audio, ',')
     local vres = format_table(video_formats, columns_video)
@@ -330,8 +337,6 @@ local function process_json_string(url, json)
         return
     end
 
-    msg.verbose("youtube-dl succeeded!")
-
     if json.formats == nil then
         return
     end
@@ -341,20 +346,20 @@ local function process_json_string(url, json)
     return vres, ares , vfmt, afmt
 end
 
+local function get_url()
+    local path = mp.get_property("path")
+    path = string.gsub(path, "ytdl://", "") -- Strip possible ytdl:// prefix.
+
+    local function is_url(s)
+        -- adapted the regex from https://stackoverflow.com/questions/3809401/what-is-a-good-regular-expression-to-match-a-url
+        return nil ~= string.match(path, "^[%w]-://[-a-zA-Z0-9@:%._\\+~#=]+%.[a-zA-Z0-9()][a-zA-Z0-9()]?[a-zA-Z0-9()]?[a-zA-Z0-9()]?[a-zA-Z0-9()]?[a-zA-Z0-9()]?[-a-zA-Z0-9()@:%_\\+.~#?&/=]*")
+    end
+
+    return is_url(path) and path or nil
+end
+
 local queue_video_menu = false
 local function get_formats()
-
-    local function get_url()
-        local path = mp.get_property("path")
-        path = string.gsub(path, "ytdl://", "") -- Strip possible ytdl:// prefix.
-
-        local function is_url(s)
-            -- adapted the regex from https://stackoverflow.com/questions/3809401/what-is-a-good-regular-expression-to-match-a-url
-            return nil ~= string.match(path, "^[%w]-://[-a-zA-Z0-9@:%._\\+~#=]+%.[a-zA-Z0-9()][a-zA-Z0-9()]?[a-zA-Z0-9()]?[a-zA-Z0-9()]?[a-zA-Z0-9()]?[a-zA-Z0-9()]?[-a-zA-Z0-9()@:%_\\+.~#?&/=]*")
-        end
-
-        return is_url(path) and path or nil
-    end
 
     local url = get_url()
     if url == nil then
@@ -364,17 +369,6 @@ local function get_formats()
     if url_data[url] then
         local data = url_data[url]
         return data.voptions, data.aoptions, data.vfmt, data.afmt, url
-    end
-
-    if opts.fetch_formats == false then
-        local vres = {}
-        for i,v in ipairs(opts.quality_strings) do
-            for k,v2 in pairs(v) do
-                vres[i] = {label = k, format=v2}
-            end
-        end
-        url_data[url] = {voptions=vres, aoptions={}, vfmt=nil, afmt=nil}
-        return vres, {}, nil, nil, url
     end
 
     queue_video_menu = true
@@ -414,9 +408,9 @@ local function show_menu(isvideo)
 
     msg.verbose("current ytdl-format: "..format_string(vfmt, afmt))
 
-    local selected = 1
     local active = 0
-    --set the cursor to the currently format
+    local selected = 1
+    --set the cursor to the current format
     for i,v in ipairs(options) do
         if v.format == (isvideo and vfmt or afmt) then
             active = i
@@ -487,7 +481,7 @@ local function show_menu(isvideo)
           i = i + 1
         end
     end
-      
+
     local function unbind_keys(keys, name)
         if not keys then
           mp.remove_key_binding(name)
@@ -500,7 +494,7 @@ local function show_menu(isvideo)
           i = i + 1
         end
     end
-    
+
     local function destroy()
         if timeout then
             timeout:kill()
@@ -512,7 +506,7 @@ local function show_menu(isvideo)
         unbind_keys(opts.close_menu_binding, "close")
         destroyer = nil
     end
-    
+
     if opts.menu_timeout > 0 then
         timeout = mp.add_periodic_timer(opts.menu_timeout, destroy)
     end
@@ -524,7 +518,7 @@ local function show_menu(isvideo)
         bind_keys(opts.select_binding, "select", function()
             destroy()
             if selected == active then return end
-            
+
             if isvideo == true then
                 vfmt = options[selected].format
                 url_data[url].vfmt = vfmt
@@ -558,9 +552,12 @@ mp.add_key_binding(nil, "reload", reload_resume)
 local original_format = mp.get_property("ytdl-format")
 local path = nil
 local function file_start()
-    local new_path = mp.get_property("path")
+    local new_path = get_url()
+    if not new_path then return end
+
+    local data = url_data[new_path]
+
     if opts.reset_format and path and new_path ~= path then
-        local data = url_data[new_path]
         if data then
             msg.verbose("setting previously set format")
             mp.set_property("ytdl-format", format_string(data.vfmt, data.afmt))

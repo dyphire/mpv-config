@@ -875,6 +875,16 @@ end
 --------------------------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------------------------
 
+--selects the first item in the list which is highlighted as playing
+local function select_playing_item()
+    for i,item in ipairs(state.list) do
+        if highlight_entry(item) then
+            state.selected = i
+            return
+        end
+    end
+end
+
 --scans the list for which item to select by default
 --chooses the folder that the script just moved out of
 --or, otherwise, the item highlighted as currently playing
@@ -890,12 +900,7 @@ local function select_prev_directory()
         end
     end
 
-    for i,item in ipairs(state.list) do
-        if highlight_entry(item) then
-            state.selected = i
-            return
-        end
-    end
+    select_playing_item()
 end
 
 --parses the given directory or defers to the next parser if nil is returned
@@ -964,7 +969,7 @@ local function parse_directory(directory, parse_state)
 end
 
 --sends update requests to the different parsers
-local function update_list()
+local function update_list(moving_adjacent)
     msg.verbose('opening directory: ' .. state.directory)
 
     state.selected = 1
@@ -1029,7 +1034,8 @@ local function update_list()
         elseif state.selected < 1 then state.selected = 1 end
     end
 
-    select_prev_directory()
+    if moving_adjacent then select_prev_directory()
+    else select_playing_item() end
     state.prev_directory = state.directory
 end
 
@@ -1049,14 +1055,17 @@ local function update(moving_adjacent)
 
     --the directory is always handled within a coroutine to allow addons to
     --pause execution for asynchronous operations
-    state.co = coroutine.create(function() update_list(); update_ass() end)
-    API.coroutine.resume_err(state.co)
+    API.coroutine.run(function()
+        state.co = coroutine.running()
+        update_list(moving_adjacent)
+        update_ass()
+    end)
 end
 
 --the base function for moving to a directory
 local function goto_directory(directory)
     state.directory = directory
-    update()
+    update(false)
 end
 
 --loads the root list
@@ -1114,6 +1123,8 @@ end
 
 --opens the browser
 local function open()
+    if not state.hidden then return end
+
     for _,v in ipairs(state.keybinds) do
         mp.add_forced_key_binding(v[1], 'dynamic/'..v[2], v[3], v[4])
     end
@@ -1134,6 +1145,8 @@ end
 
 --closes the list and sets the hidden flag
 local function close()
+    if state.hidden then return end
+
     for _,v in ipairs(state.keybinds) do
         mp.remove_key_binding('dynamic/'..v[2])
     end
