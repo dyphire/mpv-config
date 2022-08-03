@@ -1,6 +1,6 @@
 --[[
 SOURCE_ https://github.com/mpv-player/mpv/blob/master/player/lua/ytdl_hook.lua
-COMMIT_ 20220226 b15b3f6
+COMMIT_ 20220727 284fecc
 Modify_ https://gist.github.com/zhongfly/e95fa433ca912380f9f61e0910146d7e/0f46340621415ae93a91a7f3eb60d013c5bdf542#file-ytdl_hook_plus-lua
 Modify_ https://github.com/dyphire/mpv-scripts
 ]]--
@@ -223,7 +223,9 @@ end
 local function parse_yt_playlist(url, json)
     -- return 0-based index to use with --playlist-start
 
-    if not json.extractor or json.extractor ~= "youtube:playlist" then
+    if not json.extractor or
+       (json.extractor ~= "youtube:tab" and
+        json.extractor ~= "youtube:playlist") then
         return nil
     end
 
@@ -248,7 +250,7 @@ local function parse_yt_playlist(url, json)
 
     -- if there's no index or it doesn't match, look for video
     for i = 1, #json.entries do
-        if json.entries[i] == args["v"] then
+        if json.entries[i].id == args["v"] then
             msg.debug("found requested video in index " .. (i - 1))
             return i - 1
         end
