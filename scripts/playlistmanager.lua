@@ -68,6 +68,8 @@ local settings = {
   loadfiles_on_start = false,
   -- loadfiles from working directory on idle startup
   loadfiles_on_idle_start = false,
+  --always put loaded files after currently playing file
+  loadfiles_always_append = false,
 
   --sort playlist on mpv start
   sortplaylist_on_start = false,
@@ -105,6 +107,8 @@ local settings = {
   --allow the playlist cursor to loop from end to start and vice versa
   loop_cursor = true,
 
+  --youtube-dl executable for title resolving if enabled, probably "youtube-dl" or "yt-dlp", can be absolute path
+  youtube_dl_executable = "youtube-dl",
 
   --####  VISUAL SETTINGS
 
@@ -707,19 +711,19 @@ function playlist(force_dir)
         appendstr = "append-play"
         hasfile = true
       end
-      if filenames[file] then
-        -- continue
-      elseif cur == true then
+      if filename == file then
+        cur = true
+      elseif filenames[file] then
+        -- skip files already in playlist
+      elseif cur == true or settings.loadfiles_always_append then
         mp.commandv("loadfile", utils.join_path(dir, file), appendstr)
         msg.info("Appended to playlist: " .. file)
         c2 = c2 + 1
-      elseif file ~= filename then
-          mp.commandv("loadfile", utils.join_path(dir, file), appendstr)
-          msg.info("Prepended to playlist: " .. file)
-          mp.commandv("playlist-move", mp.get_property_number("playlist-count", 1)-1,  c)
-          c = c + 1
       else
-        cur = true
+        mp.commandv("loadfile", utils.join_path(dir, file), appendstr)
+        msg.info("Prepended to playlist: " .. file)
+        mp.commandv("playlist-move", mp.get_property_number("playlist-count", 1)-1,  c)
+        c = c + 1
       end
     end
     if c2 > 0 or c>0 then
@@ -1015,7 +1019,7 @@ function resolve_titles()
     then
       requested_urls[filename] = true
 
-      local args = { 'youtube-dl', '--no-playlist', '--flat-playlist', '-sJ', filename }
+      local args = { settings.youtube_dl_executable, '--no-playlist', '--flat-playlist', '-sJ', filename }
       local req = mp.command_native_async(
         {
           name = "subprocess",
