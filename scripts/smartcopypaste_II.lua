@@ -2,7 +2,7 @@
 -- License: BSD 2-Clause License
 -- Creator: Eisa AlAwadhi
 -- Project: SmartCopyPaste_II
--- Version: 3.1
+-- Version: 3.1.1
 
 local o = {
 ---------------------------USER CUSTOMIZATION SETTINGS---------------------------
@@ -502,7 +502,7 @@ function read_log_table()
 		dt = line:match('%[(.-)%]')
 		t = line:match(' | ' .. esc_string(log_time_text) .. '(%d*%.?%d*)(.*)$')
 		ln = line:match(' | ' .. esc_string(log_length_text) .. '(%d*%.?%d*)(.*)$')
-		r = tonumber(ln) - tonumber(t)
+		if tonumber(ln) and tonumber(t) then r = tonumber(ln) - tonumber(t) else r = 0 end
 		cp = line:match(' | .* | ' .. esc_string(log_clipboard_text) .. '(copy)$')
 		pt = line:match(' | .* | ' .. esc_string(log_clipboard_text) .. '(paste)$')
 		l = line
