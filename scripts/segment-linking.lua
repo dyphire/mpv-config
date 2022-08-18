@@ -257,8 +257,11 @@ local function main()
     end
 
     --we'll use the mpv edl specification to merge the files into one seamless timeline
-    local separator = ",title="..SEGMENT_CHAPTER..";"
-    local edl_path = "edl://"..table.concat(list, separator)..separator
+    local edl_path = "edl://"
+    for _, filepath in ipairs(list) do
+        -- the filepath should start with `%[#-chars-in-path]%` to handle any special characters
+        edl_path = edl_path..("%%%d%%%s,title=%s;"):format(filepath:len(), filepath, SEGMENT_CHAPTER)
+    end
 
     mp.set_property("stream-open-filename", edl_path)
     FLAG_CHAPTER_FIX = true

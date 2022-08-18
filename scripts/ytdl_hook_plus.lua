@@ -1,6 +1,6 @@
 --[[
 SOURCE_ https://github.com/mpv-player/mpv/blob/master/player/lua/ytdl_hook.lua
-COMMIT_ 20220727 284fecc
+COMMIT_ 20220818 08dd30
 Modify_ https://gist.github.com/zhongfly/e95fa433ca912380f9f61e0910146d7e/0f46340621415ae93a91a7f3eb60d013c5bdf542#file-ytdl_hook_plus-lua
 Modify_ https://github.com/dyphire/mpv-scripts
 ]]--
@@ -418,8 +418,9 @@ local function formats_to_edl(json, formats, use_all_formats)
                    (not track["abr"]) and (not track["vbr"])
     end
 
-    for index = #formats, 1, -1 do
-        local track = formats[index]
+    local has_requested_video = false
+    local has_requested_audio = false
+    for index, track in ipairs(formats) do
         local edl_track = nil
         edl_track = edl_track_joined(track.fragments,
             track.protocol, json.is_live,
@@ -428,29 +429,33 @@ local function formats_to_edl(json, formats, use_all_formats)
             return nil
         end
 
+        local is_default = default_formats[track["format_id"]]
         local tracks = {}
-        if track.vcodec and track.vcodec ~= "none" then
+        -- "none" means it is not a video
+        -- nil means it is unknown
+        if (o.force_all_formats or track.vcodec) and track.vcodec ~= "none" then
             tracks[#tracks + 1] = {
                 media_type = "video",
                 codec = map_codec_to_mpv(track.vcodec),
             }
+            if is_default then
+                has_requested_video = true
+            end
         end
-        -- Tries to follow the strange logic that vcodec unset means it's
-        -- an audio stream, even if acodec is sometimes unset.
-        if (#tracks == 0) or (track.acodec and track.acodec ~= "none") then
+        if (o.force_all_formats or track.acodec) and track.acodec ~= "none" then
             tracks[#tracks + 1] = {
                 media_type = "audio",
                 codec = map_codec_to_mpv(track.acodec) or
                         ext_map[track.ext],
             }
-        end
-        if #tracks == 0 then
-            return nil
+            if is_default then
+                has_requested_audio = true
+            end
         end
 
         local url = edl_track or track.url
         local hdr = {"!new_stream", "!no_clip", "!no_chapters"}
-        local skip = false
+        local skip = #tracks == 0
         local params = ""
 
         if use_all_formats then
@@ -491,7 +496,7 @@ local function formats_to_edl(json, formats, use_all_formats)
                     title = title .. "muxed-" .. index
                 end
                 local flags = {}
-                if default_formats[track["format_id"]] then
+                if is_default then
                     flags[#flags + 1] = "default"
                 end
                 hdr[#hdr + 1] = "!track_meta,title=" ..
@@ -504,12 +509,14 @@ local function formats_to_edl(json, formats, use_all_formats)
             end
         end
 
-        hdr[#hdr + 1] = edl_escape(url) .. params
+        if not skip then
+            hdr[#hdr + 1] = edl_escape(url) .. params
 
-        streams[#streams + 1] = table.concat(hdr, ";")
-        -- In case there is only 1 of these streams.
-        -- Note: assumes it has no important EDL headers
-        single_url = url
+            streams[#streams + 1] = table.concat(hdr, ";")
+            -- In case there is only 1 of these streams.
+            -- Note: assumes it has no important EDL headers
+            single_url = url
+        end
     end
 
     -- Merge all tracks into a single virtual file, but avoid EDL if it's
@@ -525,6 +532,13 @@ local function formats_to_edl(json, formats, use_all_formats)
         res.url = "edl://" .. table.concat(streams, ";")
     else
         return nil
+    end
+
+    if has_requested_audio ~= has_requested_video then
+        local not_req_prop = has_requested_video and "aid" or "vid"
+        if mp.get_property(not_req_prop) == "auto" then
+            mp.set_property("file-local-options/" .. not_req_prop, "no")
+        end
     end
 
     return res
@@ -655,7 +669,8 @@ local function add_single_video(json)
                     edl = edl .. ",codec=" .. codec
                 end
                 edl = edl .. ";" .. edl_escape(sub)
-                mp.commandv("sub-add", edl, "auto", sub_info.ext, lang)
+                local title = sub_info.name or sub_info.ext
+                mp.commandv("sub-add", edl, "auto", title, lang)
             else
                 msg.verbose("No subtitle data/url for ["..lang.."]")
             end
