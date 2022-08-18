@@ -126,35 +126,36 @@ local ytdl = {
 }
 
 local function process_json(json)
-    local function string_split (inputstr, sep)
-        if sep == nil then
-            sep = "%s"
-        end
-        local t={}
-        for str in string.gmatch(inputstr, "([^"..sep.."]+)") do
-            table.insert(t, str)
-        end
-        return t
+    local function is_video(format)
+        -- "none" means it is not a video
+        -- nil means it is unknown
+        return (opts.include_unknown or format.vcodec) and format.vcodec ~= "none"
     end
 
-    local original_format=json.format_id
-    local formats_split = string_split(original_format, "+")
-    local vfmt = formats_split[1]
-    local afmt = formats_split[2]
+    local function is_audio(format)
+        return (opts.include_unknown or format.acodec) and format.acodec ~= "none"
+    end
+
+    local vfmt = nil
+    local afmt = nil
+    local requested_formats = json["requested_formats"] or json["requested_downloads"]
+    for _, format in ipairs(requested_formats) do
+        if is_video(format) then
+            vfmt = format["format_id"]
+        elseif is_audio(format) then
+            afmt = format["format_id"]
+        end
+    end
 
     local video_formats = {}
     local audio_formats = {}
     local all_formats = {}
     for i = #json.formats, 1, -1 do
         local format = json.formats[i]
-        -- "none" means it is not a video
-        -- nil means it is unknown
-        local is_video = (opts.include_unknown or format.vcodec) and format.vcodec ~= "none"
-        local is_audio = (opts.include_unknown or format.acodec) and format.acodec ~= "none"
-        if is_video then
+        if is_video(format) then
             video_formats[#video_formats+1] = format
             all_formats[#all_formats+1] = format
-        elseif is_audio and not is_video then
+        elseif is_audio(format) then
             audio_formats[#audio_formats+1] = format
             all_formats[#all_formats+1] = format
         end
@@ -186,6 +187,17 @@ local function process_json(json)
             stripped_list[i] = val
         end
         return stripped_list, had_minus
+    end
+
+    local function string_split (inputstr, sep)
+        if sep == nil then
+            sep = "%s"
+        end
+        local t={}
+        for str in string.gmatch(inputstr, "([^"..sep.."]+)") do
+            table.insert(t, str)
+        end
+        return t
     end
 
     local sort_video, reverse_video = strip_minus(string_split(opts.sort_video, ','))
@@ -396,10 +408,13 @@ local function show_menu(isvideo)
     local voptions, aoptions, vfmt, afmt, url = get_formats()
 
     local options
+    local fmt
     if isvideo then
         options = voptions
+        fmt = vfmt
     else
         options = aoptions
+        fmt = afmt
     end
 
     if options == nil then
@@ -411,12 +426,17 @@ local function show_menu(isvideo)
     local active = 0
     local selected = 1
     --set the cursor to the current format
-    for i,v in ipairs(options) do
-        if v.format == (isvideo and vfmt or afmt) then
-            active = i
-            selected = active
-            break
+    if fmt then
+        for i,v in ipairs(options) do
+            if v.format == fmt then
+                active = i
+                selected = active
+                break
+            end
         end
+    else
+        active = #options + 1
+        selected = active
     end
 
     local function table_size(t)
@@ -446,6 +466,7 @@ local function show_menu(isvideo)
             for i,v in ipairs(options) do
                 ass:append(choose_prefix(i)..v.label.."\\N")
             end
+            ass:append(choose_prefix(#options+1).."None")
         else
             ass:append("no formats found")
         end
@@ -455,7 +476,7 @@ local function show_menu(isvideo)
         mp.set_osd_ass(w, h, ass.text)
     end
 
-    local num_options = table_size(options)
+    local num_options = table_size(options) + 1
     local timeout = nil
 
     local function selected_move(amt)
@@ -519,11 +540,12 @@ local function show_menu(isvideo)
             destroy()
             if selected == active then return end
 
+            fmt = options[selected] and options[selected].format or nil
             if isvideo == true then
-                vfmt = options[selected].format
+                vfmt = fmt
                 url_data[url].vfmt = vfmt
             else
-                afmt = options[selected].format
+                afmt = fmt
                 url_data[url].afmt = afmt
             end
             mp.set_property("ytdl-raw-options", "")    --reset youtube-dl raw options before changing format

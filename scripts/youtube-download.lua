@@ -86,7 +86,7 @@ local opts = {
     -- Executable of youtube-dl to use, e.g. "youtube-dl", "yt-dlp" or
     -- path to the executable file
     -- Set to "" to auto-detect the executable
-    youtube_dl_exe = "",
+    youtube_dl_exe = "yt-dlp",
 
     -- Use a config file, see youtube-dl --config-location, instead of
     -- the usual options for this keyboard shortcut. This way you can
@@ -303,8 +303,9 @@ local function download(download_type, config_file)
         mp.osd_message("Video download started", 2)
     end
 
+    local filepath = opts.filename
     if not_empty(opts.download_path) then
-        opts.filename = opts.download_path .. "/" .. opts.filename
+        filepath = opts.download_path .. "/" .. filepath
     end
 
     -- Compose command line arguments
@@ -325,9 +326,9 @@ local function download(download_type, config_file)
         if opts.restrict_filenames then
           table.insert(command, "--restrict-filenames")
         end
-        if not_empty(opts.filename) then
+        if not_empty(filepath) then
             table.insert(command, "-o")
-            table.insert(command, opts.filename)
+            table.insert(command, filepath)
         end
         if opts.no_playlist then
             table.insert(command, "--no-playlist")
@@ -413,22 +414,22 @@ local function download(download_type, config_file)
         -- Add time to the file name of the video
         local filename_format
         -- Insert start time/end time
-        if not_empty(opts.filename) then
-            if opts.filename:find("%%%(start_time%)") ~= nil then
+        if not_empty(filepath) then
+            if filepath:find("%%%(start_time%)") ~= nil then
                 -- Found "start_time" -> replace it
-                filename_format = tostring(opts.filename:
+                filename_format = tostring(filepath:
                     gsub("%%%(start_time%)[^diouxXeEfFgGcrs]*[diouxXeEfFgGcrs]", start_time_str):
                     gsub("%%%(end_time%)[^diouxXeEfFgGcrs]*[diouxXeEfFgGcrs]", end_time_str))
             else
                 local ext_pattern = "%(ext)s"
-                if opts.filename:sub(-#ext_pattern) == ext_pattern then
+                if filepath:sub(-#ext_pattern) == ext_pattern then
                     -- Insert before ext
-                    filename_format = opts.filename:sub(1, #(opts.filename) - #ext_pattern) ..
+                    filename_format = filepath:sub(1, #(filepath) - #ext_pattern) ..
                         start_time_str .. "-" ..
                         end_time_str .. ".%(ext)s"
                 else
                     -- append at end
-                    filename_format = opts.filename .. start_time_str .. "-" .. end_time_str
+                    filename_format = filepath .. start_time_str .. "-" .. end_time_str
                 end
             end
         else

@@ -32,7 +32,6 @@ function delete_file(path)
 
     if is_windows then
         local ps_code = [[& {
-            Start-Sleep -Seconds 1
             Add-Type -AssemblyName Microsoft.VisualBasic
             [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('__path__', 'OnlyErrorDialogs', 'SendToRecycleBin')
         }]]
@@ -69,10 +68,7 @@ function remove_current_file()
         new_pos = pos + 1
     end
 
-    if new_pos > -1 then
-        mp.set_property_number("playlist-pos", new_pos)
-    end
-
+    mp.set_property_number("playlist-pos", new_pos)
     mp.command("playlist-remove " .. pos)
 end
 
@@ -80,6 +76,7 @@ function handle_confirm_key()
     local path = mp.get_property("path")
 
     if file_to_delete == path then
+        mp.commandv("show-text", "")
         remove_current_file()
         delete_file(file_to_delete)
         remove_bindings()
