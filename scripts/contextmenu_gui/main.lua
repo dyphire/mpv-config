@@ -1010,11 +1010,15 @@ local function playmenuList()
 
 -- 三级菜单 —— 字幕兼容性
         sub_menu = {
-             {CHECK, "vsfilter系兼容性", "V", "cycle sub-ass-vsfilter-aspect-compat;show-text vsfilter系兼容性:${sub-ass-vsfilter-aspect-compat}", function() return propNative("sub-ass-vsfilter-aspect-compat") end, false},
-             {CHECK, "blur标签缩放兼容性", "B", "cycle sub-ass-vsfilter-blur-compat;show-text blur标签缩放兼容性:${sub-ass-vsfilter-blur-compat}", function() return propNative("sub-ass-vsfilter-blur-compat") end, false},
              {COMMAND, "切换 字体渲染方式", "F", "cycle sub-font-provider;show-text 字体渲染方式:${sub-font-provider}", "", false},
              {COMMAND, "切换 字幕颜色转换方式", "J", "cycle sub-ass-vsfilter-color-compat;show-text 字幕颜色转换方式:${sub-ass-vsfilter-color-compat}", "", false},
              {COMMAND, "切换 ass字幕阴影边框缩放", "X", "cycle-values sub-ass-force-style ScaledBorderAndShadow=no ScaledBorderAndShadow=yes;show-text 强制替换ass样式:${sub-ass-force-style}", "", false},
+             {CHECK, "vsfilter系兼容性", "V", "cycle sub-ass-vsfilter-aspect-compat;show-text vsfilter系兼容性:${sub-ass-vsfilter-aspect-compat}", function() return propNative("sub-ass-vsfilter-aspect-compat") end, false},
+             {CHECK, "blur标签缩放兼容性", "B", "cycle sub-ass-vsfilter-blur-compat;show-text blur标签缩放兼容性:${sub-ass-vsfilter-blur-compat}", function() return propNative("sub-ass-vsfilter-blur-compat") end, false},
+             {SEP},
+             {CHECK, "开/关 Unicode双向算法", "", "cycle sub-ass-feature-bidi-brackets;show-text 启用Unicode双向算法:${sub-ass-feature-bidi-brackets}", function() return propNative("sub-ass-feature-bidi-brackets") end, false},
+             {CHECK, "开/关 文本整体处理方式", "", "cycle sub-ass-feature-whole-text-layout;show-text 启用文本整体处理:${sub-ass-feature-whole-text-layout}", function() return propNative("sub-ass-feature-whole-text-layout") end, false},
+             {CHECK, "开/关 Unicode换行处理方式", "", "cycle sub-ass-feature-wrap-unicode;show-text 启用Unicode换行处理:${sub-ass-feature-wrap-unicode}", function() return propNative("sub-ass-feature-wrap-unicode") end, false},
              {SEP},
              {CHECK, "ass字幕输出到黑边", "H", "cycle sub-ass-force-margins;show-text ass字幕输出黑边:${sub-ass-force-margins}", function() return propNative("sub-ass-force-margins") end, false},
              {CHECK, "srt字幕输出到黑边", "Z", "cycle sub-use-margins;show-text srt字幕输出黑边:${sub-use-margins}", function() return propNative("sub-use-margins") end, false},
