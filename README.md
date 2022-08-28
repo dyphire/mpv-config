@@ -13,8 +13,8 @@ PS：自行编辑配置文件时，注意编码格式应为 UTF-8，换行符为
 - 目前 mpv 没有官方发布的客户端，官网上有放一些推荐的第三方编译版：[https://mpv.io/installation](https://mpv.io/installation)
   - windows 上推荐使用 shinchiro 版： [shinchiro_mpv](https://github.com/shinchiro/mpv-winbuild-cmake/releases) ![releases](https://img.shields.io/github/v/release/shinchiro/mpv-winbuild-cmake)
   - 每日构建版：[zhongfly_mpv](https://github.com/zhongfly/mpv-winbuild) [![releases](https://img.shields.io/github/v/release/zhongfly/mpv-winbuild)](https://github.com/zhongfly/mpv-winbuild/releases)
-  - 基于个人修改的 [libass](https://github.com/dyphire/libass/tree/dev) 构建版：[dyphire_mpv](https://github.com/dyphire/mpv-winbuild) [![releases](https://img.shields.io/github/v/release/dyphire/mpv-winbuild)](https://github.com/dyphire/mpv-winbuild/releases)
-    -  修复 libass 在 ass 字幕脚本比例和视频比例不匹配时导致的 PlayResX 缩放错误的问题
+  - 基于个人修改版 [mpv](https://github.com/dyphire/mpv/tree/patch) 和修改版 [libass](https://github.com/dyphire/libass/tree/dev) 构建版：[dyphire_mpv](https://github.com/dyphire/mpv-winbuild) [![releases](https://img.shields.io/github/v/release/dyphire/mpv-winbuild)](https://github.com/dyphire/mpv-winbuild/releases)
+    -  [修改版 mpv 和修改版 libass 相关说明](https://github.com/dyphire/mpv-config/discussions/7)
 - 目前比较成熟的 mpv/libmpv 前端推荐 ： [mpv.net](https://github.com/stax76/mpv.net) [![mpv.net](https://flat.badgen.net/github/last-commit/stax76/mpv.net?scale=1.0&cache=1800)](https://github.com/stax76/mpv.net) [![releases](https://img.shields.io/github/v/release/stax76/mpv.net)](https://github.com/stax76/mpv.net/releases)
 	- 其汉化版： [mpv.net_CM](https://github.com/hooke007/mpv.net_CM) [![releases](https://img.shields.io/github/v/release/hooke007/mpv.net_CM)](https://github.com/hooke007/mpv.net_CM/releases)
 	- 个人 Github Action 编译版: [mpv.net](https://github.com/dyphire/mpv.net) [![releases](https://img.shields.io/github/v/release/dyphire/mpv.net)](https://github.com/dyphire/mpv.net/releases)
