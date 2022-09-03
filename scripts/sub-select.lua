@@ -171,10 +171,10 @@ local function select_subtitles(alang)
         if is_valid_audio(alang, pref) then
             --checks if any of the subtitle tracks match the preset for the current audio
             local slangs = type(pref.slang) == "string" and {pref.slang} or pref.slang
-            for _,lang in ipairs(slangs) do
 
+            for _,lang in ipairs(slangs) do
                 --special handling when we want to disable subtitles
-                if pref.slang == "no" then
+                if lang == "no" then
                     set_track("sid", "no")
                     return
                 end

@@ -548,7 +548,6 @@ local function show_menu(isvideo)
                 afmt = fmt
                 url_data[url].afmt = afmt
             end
-            mp.set_property("ytdl-raw-options", "")    --reset youtube-dl raw options before changing format
             mp.set_property("ytdl-format", format_string(vfmt, afmt))
             reload_resume()
         end)
