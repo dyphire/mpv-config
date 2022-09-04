@@ -49,6 +49,11 @@
     "branch":"main"
   },
   {
+    "git":"https://github.com/dyphire/MPVMediaControl",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
     "git":"https://github.com/dyphire/mpv-locatefile-lua-script",
     "whitelist":"%.lua$",
     "dest":"~~/scripts",

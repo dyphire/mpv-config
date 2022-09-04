@@ -27,6 +27,7 @@
 | locatefile.lua* | 定位当前文件 |
 | manager.lua | 一键更新指定脚本和着色器（配置文件 [manager.json](../manager.json)） |
 | mpv-webp.lua* | 剪切指定片段为 webp 动图（依赖 ffmpeg；配置文件 [webp.conf](../script-opts/webp.conf)） |
+| notify_media.lua* | 基于 IPC 管道实现 SMTC 功能（依赖 [MPVMediaControl.exe](https://github.com/dyphire/MPVMediaControl/releases)；配置文件 [notify_media.conf](../script-opts/notify_media.conf)） |
 | open_dialog.lua* | 快捷键载入文件/网址/其他字幕或音轨/高级次字幕                  |
 | ordered-chapters-playlist.lua | 有序章节播放列表 |
 | pause-indicator.lua | 在 mpv 暂停时在屏幕右上角显示暂停图标 |
