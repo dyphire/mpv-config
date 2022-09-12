@@ -52,8 +52,8 @@ local opts = {
     --if file was opened previously, reset to previously selected format
     reset_format = true,
 
-    --show the video format menu after opening a file
-    start_with_menu = true,
+    --show the video format menu after opening an url
+    start_with_menu = false,
 
     --include unknown formats in the list
     --Unfortunately choosing which formats are video or audio is not always perfect.
@@ -84,8 +84,8 @@ local opts = {
     --
     --Not all videos have all columns available.
     --Be careful, misspelled columns simply won't be displayed, there is no error.
-    columns_video = '-resolution,frame_rate,dynamic_range,language,bitrate_total,size,codec_video,codec_audio',
-    columns_audio = 'audio_sample_rate,bitrate_total,size,language,codec_audio',
+    columns_video = '-resolution,frame_rate,dynamic_range,language,bitrate_total,size,-codec_video,-codec_audio',
+    columns_audio = 'audio_sample_rate,bitrate_total,size,language,-codec_audio',
 
     --columns used for sorting, see "columns_video" for available columns
     --comma separated list, prefix column with "-" to reverse sorting order
@@ -370,6 +370,12 @@ local function get_url()
     return is_url(path) and path or nil
 end
 
+local function send_formats_to(type, url, script_name, options, format_id)
+    mp.commandv('script-message-to', script_name, type .. '_formats', url, utils.format_json(options), format_id)
+end
+
+local queue_callback_video = {}
+local queue_callback_audio = {}
 local queue_video_menu = false
 local function get_formats()
 
@@ -398,6 +404,18 @@ local function format_string(vfmt, afmt)
     end
 end
 
+local function set_format(url, vfmt, afmt)
+    if (url_data[url].vfmt ~= vfmt or url_data[url].afmt ~= afmt) then
+        url_data[url].afmt = afmt
+        url_data[url].vfmt = vfmt
+        if url == mp.get_property("path") then
+            mp.set_property("ytdl-format", format_string(vfmt, afmt))
+            reload_resume()
+        end
+    end
+end
+
+local uosc = false
 local destroyer = nil
 local function show_menu(isvideo)
 
@@ -418,6 +436,14 @@ local function show_menu(isvideo)
     end
 
     if options == nil then
+        if uosc then
+            if isvideo then
+                mp.commandv('script-binding', 'uosc/video')
+            else
+                mp.commandv('script-binding', 'uosc/audio')
+            end
+        end
+
         return
     end
 
@@ -439,12 +465,35 @@ local function show_menu(isvideo)
         selected = active
     end
 
-    local function table_size(t)
-        local s = 0
-        for i,v in ipairs(t) do
-            s = s+1
+    if uosc then
+        local menu = {
+            title =  isvideo and 'Video Formats' or 'Audio Formats',
+            items = {},
+            active_index = active,
+            type = (isvideo and 'video' or 'audio') .. '_formats',
+        }
+        for i, option in ipairs(options) do
+            menu.items[i] = {
+                title = option.label,
+                value = {
+                    'script-message-to',
+                    'quality_menu',
+                    (isvideo and 'video' or 'audio') .. '-format-set',
+                    url,
+                    option.format}
+            }
         end
-        return s
+        menu.items[#menu.items + 1] = {
+            title = 'None',
+            value = {
+                'script-message-to',
+                'quality_menu',
+                (isvideo and 'video' or 'audio') .. '-format-set',
+                url}
+        }
+        local json = utils.format_json(menu)
+        mp.commandv('script-message-to', 'uosc', 'show-menu', json)
+        return
     end
 
     local function choose_prefix(i)
@@ -462,7 +511,7 @@ local function show_menu(isvideo)
         ass:pos(opts.text_padding_x, opts.text_padding_y)
         ass:append(opts.style_ass_tags)
 
-        if options[1] then
+        if #options > 0 then
             for i,v in ipairs(options) do
                 ass:append(choose_prefix(i)..v.label.."\\N")
             end
@@ -476,7 +525,7 @@ local function show_menu(isvideo)
         mp.set_osd_ass(w, h, ass.text)
     end
 
-    local num_options = table_size(options) + 1
+    local num_options = #options + 1
     local timeout = nil
 
     local function selected_move(amt)
@@ -535,21 +584,18 @@ local function show_menu(isvideo)
 
     bind_keys(opts.up_binding,     "move_up",   function() selected_move(-1) end, {repeatable=true})
     bind_keys(opts.down_binding,   "move_down", function() selected_move(1)  end, {repeatable=true})
-    if options[1] then
+    if #options > 0 then
         bind_keys(opts.select_binding, "select", function()
             destroy()
             if selected == active then return end
 
             fmt = options[selected] and options[selected].format or nil
-            if isvideo == true then
+            if isvideo then
                 vfmt = fmt
-                url_data[url].vfmt = vfmt
             else
                 afmt = fmt
-                url_data[url].afmt = afmt
             end
-            mp.set_property("ytdl-format", format_string(vfmt, afmt))
-            reload_resume()
+            set_format(url, vfmt, afmt)
         end)
     end
     bind_keys(opts.close_menu_binding, "close", destroy)    --close menu using ESC
@@ -557,12 +603,26 @@ local function show_menu(isvideo)
     draw_menu()
 end
 
+local ui_callback = {}
+
 local function video_formats_toggle()
-    show_menu(true)
+    if #ui_callback > 0 then
+        for _, name in ipairs(ui_callback) do
+            mp.commandv('script-message-to', name, 'video-formats-menu')
+        end
+    else
+        show_menu(true)
+    end
 end
 
 local function audio_formats_toggle()
-    show_menu(false)
+    if #ui_callback > 0 then
+        for _, name in ipairs(ui_callback) do
+            mp.commandv('script-message-to', name, 'audio-formats-menu')
+        end
+    else
+        show_menu(false)
+    end
 end
 
 -- keybind to launch menu
@@ -594,8 +654,62 @@ local function file_start()
 end
 mp.register_event("start-file", file_start)
 
+mp.register_script_message('video-formats-get', function(url, script_name)
+    local data = url_data[url]
+    if data then
+        send_formats_to('video', url, script_name, data.voptions, data.vfmt)
+    else
+        local queue = queue_callback_video[url] or {}
+        queue[#queue + 1] = script_name
+        queue_callback_video[url] = queue
+        get_formats()
+    end
+end)
+
+mp.register_script_message('audio-formats-get', function(url, script_name)
+    local data = url_data[url]
+    if data then
+        send_formats_to('audio', url, script_name, data.aoptions, data.afmt)
+    else
+        local queue = queue_callback_audio[url] or {}
+        queue[#queue + 1] = script_name
+        queue_callback_audio[url] = queue
+        get_formats()
+    end
+end)
+
+mp.register_script_message('video-format-set', function(url, format_id)
+    set_format(url, format_id, url_data[url].afmt)
+end)
+
+mp.register_script_message('audio-format-set', function(url, format_id)
+    set_format(url, url_data[url].vfmt, format_id)
+end)
+
+mp.register_script_message('register-ui', function(script_name)
+    ui_callback[#ui_callback + 1] = script_name
+end)
+
+-- check if uosc is running
+mp.register_script_message('uosc-version', function(version)
+	uosc = true
+end)
+mp.commandv('script-message-to', 'uosc', 'get-version', mp.get_script_name())
+
 mp.register_script_message('ytdl_json', function(url, json)
     process_json_string(url, json)
+
+    local data = url_data[url]
+    for _, script_name in ipairs(queue_callback_video[url] or {}) do
+        send_formats_to('video', url, script_name, data.voptions, data.vfmt)
+    end
+    for _, script_name in ipairs(queue_callback_audio[url] or {}) do
+        send_formats_to('audio', url, script_name, data.aoptions, data.afmt)
+    end
+
+    queue_callback_video[url] = nil
+    queue_callback_audio[url] = nil
+
     if queue_video_menu then
         queue_video_menu = false
         video_formats_toggle()

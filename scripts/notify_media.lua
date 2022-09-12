@@ -25,10 +25,7 @@ o.shot_path = mp.command_native({ "expand-path", o.shot_path })
 
 --create o.shot_path if it doesn't exist
 if utils.readdir(o.shot_path) == nil then
-    local is_windows = package.config:sub(1, 1) == "\\"
-    local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', o.shot_path }
-    local unix_args = { 'mkdir', '-p', o.shot_path }
-    local args = is_windows and windows_args or unix_args
+    local args = { 'powershell', '-NoProfile', '-Command', 'mkdir', o.shot_path }
     local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})
     if res.status ~= 0 then
         msg.error("Failed to create shot_path save directory "..o.shot_path..". Error: "..(res.error or "unknown"))

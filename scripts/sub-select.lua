@@ -112,77 +112,92 @@ local function set_track(type, id)
 end
 
 --checks if the given audio matches the given track preference
-local function is_valid_audio(alang, pref)
-    if pref.alang == '*' then return true end
-
+local function is_valid_audio(audio, pref)
     local alangs = type(pref.alang) == "string" and {pref.alang} or pref.alang
 
     for _,lang in ipairs(alangs) do
-        msg.verbose("Checking " .. lang)
-        if alang then
-            if alang:find(lang) then return true end
-        elseif lang == "no" then return true end
+        msg.debug("Checking for valid audio:", lang)
+
+        if not audio and lang == "no" then
+            return true
+        elseif audio then
+            if lang == '*' then
+                return true
+            elseif lang == "forced" then
+                if audio.forced then return true end
+            elseif lang == "default" then
+                if audio.default then return true end
+            else
+                if audio.lang and audio.lang:find(lang) then return true end
+            end
+        end
     end
     return false
 end
 
 --checks if the given sub matches the given track preference
 local function is_valid_sub(sub, slang, pref)
+    msg.trace("checking sub", slang, "against track", utils.to_string(sub))
+
+    -- Do not try to un-nest these if statements, it will break detection of default and forced tracks.
+    -- I've already had to un-nest these statements twice due to this mistake, don't let it happen again.
     if slang == "default" then
         if not sub.default then return false end
     elseif slang == "forced" then
         if not sub.forced then return false end
     else
-        if not sub.lang:find(slang) and sub.lang ~= "*" then return false end
+        if not sub.lang:find(slang) and slang ~= "*" then return false end
     end
 
     local title = sub.title
 
-    --whitelist/blacklist handling
-    if pref.whitelist then
-        if not title then return false end
-        title = title:lower()
-        local found = false
+    -- if the whitelist is not set then we don't need to find anything
+    local passes_whitelist = not pref.whitelist
+    local passes_blacklist = true
 
+    -- whitelist/blacklist handling
+    if pref.whitelist and title then
         for _,word in ipairs(pref.whitelist) do
-            if title:find(word) then found = true end
+            if title:lower():find(word) then passes_whitelist = true end
         end
-
-        if not found then return false end
     end
 
-    if pref.blacklist then
-        if not title then return true end
-        title = title:lower()
-
+    if pref.blacklist and title then
         for _,word in ipairs(pref.blacklist) do
-            if title:find(word) then return false end
+            if title:lower():find(word) then passes_blacklist = false end
         end
     end
 
-    return true
+    msg.trace(string.format("%s %s whitelist: %s | %s blacklist: %s",
+        title,
+        passes_whitelist and "passed" or "failed", utils.to_string(pref.whitelist),
+        passes_blacklist and "passed" or "failed", utils.to_string(pref.blacklist)
+    ))
+    return passes_whitelist and passes_blacklist
 end
 
 --scans the track list and selects subtitle tracks which match the track preferences
-local function select_subtitles(alang)
+local function select_subtitles(audio)
+    msg.debug("select subtitle for", utils.to_string(audio))
+
     --searching the selection presets for one that applies to this track
     for _,pref in ipairs(prefs) do
-        msg.trace("testing pref: " .. utils.to_string(pref))
-        if is_valid_audio(alang, pref) then
+        msg.trace("checking pref:", utils.to_string(pref))
+
+        if is_valid_audio(audio, pref) then
             --checks if any of the subtitle tracks match the preset for the current audio
             local slangs = type(pref.slang) == "string" and {pref.slang} or pref.slang
+            msg.verbose("valid audio preference found:", utils.to_string(pref.alang))
 
-            for _,lang in ipairs(slangs) do
+            for _,slang in ipairs(slangs) do
+                msg.debug("checking for valid sub:", slang)
+
                 --special handling when we want to disable subtitles
-                if lang == "no" then
-                    set_track("sid", "no")
-                    return
-                end
+                if slang == "no" then return set_track("sid", "no") end
 
                 for _,sub_track in ipairs(sub_tracks) do
-                    if is_valid_sub(sub_track, lang, pref) then
-                        set_track("sid", sub_track.id)
-                        return
+                    if is_valid_sub(sub_track, slang, pref) then
+                        return set_track("sid", sub_track.id)
                     end
                 end
             end
@@ -192,10 +207,12 @@ end
 
 --extract the language code from an audio track node and pass it to select_subtitles
 local function process_audio(audio)
+    if not audio then audio = {} end
     latest_audio = audio
-    local alang = audio.lang
-    if not next(audio) then alang = nil end
-    select_subtitles(alang)
+
+    -- if the audio track has no fields we assume that there is no actual track selected
+    if audio and not next(audio) then audio = nil end
+    select_subtitles(audio)
 end
 
 --returns the audio node for the currently playing audio track
