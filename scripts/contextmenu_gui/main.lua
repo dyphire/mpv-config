@@ -52,43 +52,6 @@ local function round(num, numDecimalPlaces)
     return tonumber(string.format("%." .. (numDecimalPlaces or 0) .. "f", num))
 end
 
--- 播放列表子菜单
-local function inspectPlaylist()
-    local playlistDisable = false
-    if propNative("playlist/count") == nil or  propNative("playlist/count") < 1 then playlistDisable = true end
-    return playlistDisable
-end
-
-local function checkplaylist(playlistNum)
-    local playlistState, playlistCur = false, propNative("playlist-pos")
-    if (playlistNum == playlistCur) then playlistState = true end
-    return playlistState
-end
-
-local function playlistMenu()
-    local playlistCount = propNative("playlist/count")
-    local playlistMenuVal = {}
-
-    if playlistCount ~= nil and not (playlistCount == 0) then
-        for playlistNum=0, (playlistCount - 1), 1 do
-            local playlistTitle = propNative("playlist/" .. playlistNum .. "/title")
-            local playlistFilename = propNative("playlist/" .. playlistNum .. "/filename")
-            if playlistFilename:match("://") then table.insert(playlistMenuVal, {COMMAND, "不支持串流文件", "", "", "", true})
-            else
-                local playlistFilename = playlistFilename:gsub("\\", "/")
-                local playlistFilename = playlistFilename:gsub("^.*/", "")
-                if string.len(playlistFilename) > 80 then playlistFilename = string.sub(playlistFilename, 1, 80) .. "..." end
-                if not (playlistTitle) then playlistTitle = playlistFilename end
-
-                local playlistCommand = "set playlist-pos " .. playlistNum
-                table.insert(playlistMenuVal, {RADIO, playlistTitle, "", playlistCommand, function() return checkplaylist(playlistNum) end, false})
-            end
-        end
-    end
-
-    return playlistMenuVal
-end
-
 -- 版本（Edition）子菜单
 local function inspectEdition()
     local editionDisable = false
@@ -761,7 +724,6 @@ local function playmenuList()
             {CASCADE, "版本（Edition）", "edition_menu", "", "", function() return inspectEdition() end},
             {CASCADE, "章节", "chapter_menu", "", "", function() return inspectChapter() end},
             {SEP},
-            {CASCADE, "播放列表", "playlist_menu", "", "", function() return inspectPlaylist() end},
             {CHECK, "列表循环", "", "cycle-values loop-playlist inf no", function() return statePlayLoop() end, false},
             {CHECK, "随机播放", "", "cycle shuffle", function() return propNative("shuffle") end, false},
             {COMMAND, "清除播放列表", "", "playlist-clear", "", false},
@@ -781,7 +743,6 @@ local function playmenuList()
         },
 
         -- Use functions returning tables, since we don't need these menus if there aren't any editions or any chapters to seek through.
-        playlist_menu = playlistMenu(),
         edition_menu = editionMenu(),
         chapter_menu = chapterMenu(),
 
@@ -1156,10 +1117,6 @@ mp.add_hook("on_preloaded", 100, playmenuList)
 local function observe_change()
     mp.observe_property("track-list/count", "number", playmenuList)
     mp.observe_property("chapter-list/count", "number", playmenuList)
-    mp.observe_property("playlist/count", "number", playmenuList)
-    mp.observe_property("playlist-shuffle", nil, playmenuList)
-    mp.observe_property("playlist-unshuffle", nil, playmenuList)
-    mp.observe_property("playlist-move", nil, playmenuList)
 end
 
 mp.register_event("file-loaded", observe_change)
