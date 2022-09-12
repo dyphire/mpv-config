@@ -135,8 +135,12 @@ local function get_active_track(track_type)
     local track_list = mp.get_property_native('track-list')
     for num, track in ipairs(track_list) do
         if track.type == track_type and track.selected == true then
-            track['external-filename'] = track.external and url_decode(track['external-filename'])
-            return num, track
+            if track.external then
+                track['external-filename'] = url_decode(track['external-filename'])
+            end
+            if not (track_type == 'sub' and track.id == mp.get_property_native('secondary-sid')) then
+                return num, track
+            end
         end
     end
     return notify(string.format("错误: 没有选择类型为 '%s' 的轨道", track_type), "error", 3)
@@ -150,8 +154,16 @@ local function get_extension(filename)
     return filename:match("^.+(%.%w+)$")
 end
 
+local function startswith(str, prefix)
+    return string.sub(str, 1, string.len(prefix)) == prefix
+end
+
 local function mkfp_retimed(sub_path)
-    return table.concat { remove_extension(sub_path), '_retimed', get_extension(sub_path) }
+    if not startswith(sub_path, os_temp()) then
+        return table.concat { remove_extension(sub_path), '_retimed', get_extension(sub_path) }
+    else
+        return table.concat { remove_extension(mp.get_property("path")), '_retimed', get_extension(sub_path) }
+    end
 end
 
 local function engine_is_set()
@@ -334,7 +346,7 @@ function ref_selector:get_keybindings()
         { key = 'WHEEL_DOWN', fn = function() self:down() end },
         { key = 'WHEEL_UP', fn = function() self:up() end },
         { key = 'MBTN_LEFT', fn = function() self:act() end },
-        { key = 'MBTN_RIGHT', fn = function() self:close() end },   
+        { key = 'MBTN_RIGHT', fn = function() self:close() end },
     }
 end
 
@@ -366,7 +378,7 @@ function ref_selector:act()
     self:close()
 
     if self.selected == 3 then
-        do return sync_to_manual_offset() end
+        return sync_to_manual_offset()
     end
     if self.selected == 4 then
         return
