@@ -1,13 +1,13 @@
 --[[
 SOURCE_ https://github.com/mpv-player/mpv/blob/master/player/lua/osc.lua
 COMMIT_ 20220206 0197729
-SOURCE_ https://github.com/deus0ww/mpv-conf/blob/master/scripts/Thumbnailer_OSC.lua
+SOURCE_ https://github.com/deus0ww/mpv-conf/blob/master/scripts/osc_lazy.lua
 COMMIT_ 20220207 8b57a11
 SOURCE_ https://github.com/hooke007/MPV_lazy/blob/main/portable_config/scripts/osc_lazy.lua
 COMMIT_ 20220331 30b5728
 改进版本的OSC，须禁用原始mpv的内置OSC，且不兼容其它OSC类脚本，实现全部功能需搭配额外两个缩略图引擎脚本（Thumbnailer）。
 示例在 input.conf 中写入：
-SHIFT+DEL  script-binding thumbnailer_osc/visibility  # 切换thumbnailer_osc的可见性
+SHIFT+DEL  script-binding osc_lazy/visibility  # 切换osc_lazy的可见性
 --]]
 
 function lock_osc(name, value)
@@ -55,7 +55,7 @@ local user_opts = {
     iamaprogrammer = false,             -- use native mpv values and disable OSC
                                         -- internal track list management (and some
                                         -- functions that depend on it)
-    layout = "bottombar",               -- 原版可选为 "bottombar" "topbar" "box" "slimbox" ；在thumbnailer_osc中新增 "bottombox"
+    layout = "bottombar",               -- 原版可选为 "bottombar" "topbar" "box" "slimbox" ；在osc_lazy中新增 "bottombox"
     seekbarstyle = "bar",               -- bar, diamond or knob
     seekbarhandlesize = 0.6,            -- size ratio of the diamond and knob handle
     seekrangestyle = "inverted",        -- bar, line, slider, inverted or none
@@ -78,7 +78,7 @@ local user_opts = {
     playlist_osd = true,                -- whether to show playlist OSD on next/prev
     chapter_fmt = "章节：%s",           -- chapter print format for seekbar-hover. "no" to disable
 
-    -- 以下为thumbnailer_osc的独占选项
+    -- 以下为osc_lazy的独占选项
 
     wctitle = "${media-title}",         -- 无边框的上方标题
     sub_title = " ",                    -- bottombox布局的右侧子标题
@@ -93,7 +93,7 @@ local user_opts = {
 }
 
 -- read options from config and command-line
-opt.read_options(user_opts, "thumbnailer_osc", function(list) update_options(list) end)
+opt.read_options(user_opts, "osc_lazy", function(list) update_options(list) end)
 
 
 
