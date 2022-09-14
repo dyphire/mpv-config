@@ -1,6 +1,6 @@
 --[[
 SOURCE_ https://github.com/mpv-player/mpv/blob/master/player/lua/ytdl_hook.lua
-COMMIT_ 20220818 08dd30
+COMMIT_ 20220914 e302c9
 Modify_ https://gist.github.com/zhongfly/e95fa433ca912380f9f61e0910146d7e/0f46340621415ae93a91a7f3eb60d013c5bdf542#file-ytdl_hook_plus-lua
 Modify_ https://github.com/dyphire/mpv-scripts
 ]]--
@@ -201,11 +201,8 @@ end
 local function is_blacklisted(url)
     if o.exclude == "" then return false end
     if #ytdl.blacklisted == 0 then
-        local joined = o.exclude
-        while joined:match('%|?[^|]+') do
-            local _, e, substring = joined:find('%|?([^|]+)')
-            table.insert(ytdl.blacklisted, substring)
-            joined = joined:sub(e+1)
+        for match in o.exclude:gmatch('%|?([^|]+)') do
+            ytdl.blacklisted[#ytdl.blacklisted + 1] = match
         end
     end
     if #ytdl.blacklisted > 0 then
