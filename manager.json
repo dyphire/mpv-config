@@ -151,6 +151,11 @@
     "dest":"~~/script-modules/file-browser-addons"
   },
   {
+    "git":"https://github.com/tomasklaen/uosc",
+    "whitelist":"%.lua$",
+    "dest":"~~/osc-style"
+  },
+  {
     "git":"https://github.com/deus0ww/mpv-conf",
     "whitelist":"krigbilateral%.glsl$|ssimdownscaler%.glsl$|ssimsuperres%.glsl$|adaptive%-sharpen%.glsl$",
     "dest":"~~/shaders/igv"
