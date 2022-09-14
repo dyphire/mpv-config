@@ -593,7 +593,6 @@ menuList = {
     etc_menu = {
         {COMMAND, "[内部脚本] 控制台", "~", "script-binding console/enable", "", false},
         {COMMAND, "[外置脚本] OSD高级音频设备菜单", "F6", "script-message-to adevice_list toggle-adevice-browser;show-text ''", "", false},
-        {COMMAND, "[外置脚本] 开/关 进度条预览", "CTRL+T", "cycle-values script-opts thumbnailer-auto_gen=no,thumbnailer-auto_show=no thumbnailer-auto_gen=yes,thumbnailer-auto_show=yes", "", false},
         {COMMAND, "[外部脚本] 更新  脚本着色器", "M", "script-message manager-update-all;show-text 更新脚本着色器", "", false},
     },
 
@@ -803,8 +802,6 @@ local function playmenuList()
             {COMMAND, "切换 hdr动态映射", "ALT+h", "cycle-values hdr-compute-peak yes no;show-text hdr动态映射:${hdr-compute-peak}", "", false},
             {COMMAND, "切换 色调映射模式", "CTRL+t", "cycle tone-mapping-mode;show-text 色调映射模式:${tone-mapping-mode}", "", false},
             {COMMAND, "切换 色域剪切模式", "CTRL+g", "cycle gamut-mapping-mode;show-text 色域剪切方式:${gamut-mapping-mode}", "", false},
-            {SEP},
-            {COMMAND, "[外置脚本] 开/关 进度条预览", "CTRL+T", "cycle-values script-opts thumbnailer-auto_gen=no,thumbnailer-auto_show=no thumbnailer-auto_gen=yes,thumbnailer-auto_show=yes", "", false},
         },
 
 -- 三级菜单 —— 长宽比

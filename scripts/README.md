@@ -30,6 +30,7 @@
 | notify_media.lua* | 基于 IPC 管道实现 SMTC 功能（依赖 [MPVMediaControl.exe](https://github.com/dyphire/MPVMediaControl/releases)；配置文件 [notify_media.conf](../script-opts/notify_media.conf)） |
 | open_dialog.lua* | 快捷键载入文件/网址/其他字幕或音轨/高级次字幕                  |
 | ordered-chapters-playlist.lua | 有序章节播放列表 |
+| osc_lazy.lua* | 第三方 OSC 脚本，可搭配缩略图脚本使用（配置文件 [osc_lazy.conf](../script-opts/osc_lazy.conf)） |
 | pause-indicator.lua | 在 mpv 暂停时在屏幕右上角显示暂停图标 |
 | persist_properties.lua | 监视并保存预设参数的全局变化值（如音量）（配置文件 [persist_properties.conf](../script-opts/persist_properties.conf)） |
 | playlistmanager.lua | OSD交互式播放列表（配置文件 [playlistmanager.conf](../script-opts/playlistmanager.conf)） |
@@ -43,8 +44,6 @@
 | smartcopypaste_II.lua*       | OSD交互式剪贴菜单，智能复制粘贴视频路径及进度（配置文件 [smartcopypaste_II.conf](../script-opts/smartcopypaste_II.conf)）；键位绑定均在同名配置文件中 |
 | sub-fonts-dir-auto.lua | 在播放目录下自动指定`sub-fonts-dir`要使用的字体目录fonts以实现加载特定字体目录。**注意**：mpv必须以包含pr [mpv-player/#9856](https://github.com/mpv-player/mpv/pull/9856) 的版本编译方可使用此脚本，可在[Releases · dyphire/mpv-winbuild](https://github.com/dyphire/mpv-winbuild/releases)处下载 |
 | sub-select.lua | 指定字幕轨道优先级/黑白名单（配置文件 [sub_select.conf](../script-opts/sub_select.conf)；[sub-select.json](../script-opts/sub-select.json)） |
-| thumbnailer*.lua\*        | 缩略图引擎(依赖 [thumbnailer_osc.lua](../scripts/thumbnailer_osc.lua)；配置文件 [thumbnailer.conf](../script-opts/thumbnailer.conf)) |
-| thumbnailer_osc.lua*        | 缩略图引擎搭配的 OSC 界面（配置文件 [thumbnailer_osc.conf](../script-opts/thumbnailer_osc.conf)） |
 | track-menu.lua*    | OSD交互式轨道菜单（配置文件 [track_menu.conf](../script-opts/track_menu.conf)） |
 | trackselect.lua*              | 指定音频轨道优先级/黑白名单（配置文件 [trackselect.conf](../script-opts/trackselect.conf)） |
 | undoredo.lua                  | 智能跳跃记录操作                                             |
