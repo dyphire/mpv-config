@@ -1,7 +1,7 @@
 
 --[[
 
-    This script deletes the file that is currently playing
+    This script instantly deletes the file that is currently playing
     via keyboard shortcut, the file is moved to the recycle bin.
 
     On Linux the app trash-cli must be installed first.
@@ -12,7 +12,7 @@
     # delete directly
     KP0 script-message-to delete_current_file delete-file
 
-    # delete with required confirmation
+    # delete with confirmation
     KP0 script-message-to delete_current_file delete-file KP1 "Press 1 to delete file"
 
     Press KP0 to initiate the delete operation,
@@ -31,10 +31,10 @@ function delete_file(path)
     local is_windows = package.config:sub(1,1) == "\\"
 
     if is_windows then
-        local ps_code = [[& {
+        local ps_code = [[
             Add-Type -AssemblyName Microsoft.VisualBasic
             [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('__path__', 'OnlyErrorDialogs', 'SendToRecycleBin')
-        }]]
+        ]]
 
         local escaped_path = string.gsub(path, "'", "''")
         escaped_path = string.gsub(escaped_path, "’", "’’")

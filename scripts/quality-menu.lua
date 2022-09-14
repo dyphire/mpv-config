@@ -469,12 +469,12 @@ local function show_menu(isvideo)
         local menu = {
             title =  isvideo and 'Video Formats' or 'Audio Formats',
             items = {},
-            active_index = active,
             type = (isvideo and 'video' or 'audio') .. '_formats',
         }
         for i, option in ipairs(options) do
             menu.items[i] = {
                 title = option.label,
+                active = i == active,
                 value = {
                     'script-message-to',
                     'quality_menu',
@@ -492,7 +492,7 @@ local function show_menu(isvideo)
                 url}
         }
         local json = utils.format_json(menu)
-        mp.commandv('script-message-to', 'uosc', 'show-menu', json)
+        mp.commandv('script-message-to', 'uosc', 'open-menu', json)
         return
     end
 
