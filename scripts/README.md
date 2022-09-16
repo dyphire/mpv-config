@@ -24,13 +24,11 @@
 | fix-avsync.lua* | 修复存在af过滤器时切换音轨和调整播放速度带来的视频冻结 |
 | fuzzydir.lua* | 外挂音轨/字幕路径检测增强（配置文件 [fuzzydir.conf](../script-opts/fuzzydir.conf)） |
 | history-bookmark.lua* | 记录并恢复视频目录播放记录（可确认是否恢复该目录上次播放进度; 配置文件 [history_bookmark.conf](../script-opts/history_bookmark.conf)） |
-| locatefile.lua* | 定位当前文件 |
 | manager.lua | 一键更新指定脚本和着色器（配置文件 [manager.json](../manager.json)） |
 | mpv-webp.lua* | 剪切指定片段为 webp 动图（依赖 ffmpeg；配置文件 [webp.conf](../script-opts/webp.conf)） |
 | notify_media.lua* | 基于 IPC 管道实现 SMTC 功能（依赖 [MPVMediaControl.exe](https://github.com/dyphire/MPVMediaControl/releases)；配置文件 [notify_media.conf](../script-opts/notify_media.conf)） |
 | open_dialog.lua* | 快捷键载入文件/网址/其他字幕或音轨/高级次字幕                  |
 | ordered-chapters-playlist.lua | 有序章节播放列表 |
-| osc_lazy.lua* | 第三方 OSC 脚本，可搭配缩略图脚本使用（配置文件 [osc_lazy.conf](../script-opts/osc_lazy.conf)） |
 | pause-indicator.lua | 在 mpv 暂停时在屏幕右上角显示暂停图标 |
 | persist_properties.lua | 监视并保存预设参数的全局变化值（如音量）（配置文件 [persist_properties.conf](../script-opts/persist_properties.conf)） |
 | playlistmanager.lua | OSD交互式播放列表（配置文件 [playlistmanager.conf](../script-opts/playlistmanager.conf)） |
@@ -47,6 +45,7 @@
 | track-menu.lua*    | OSD交互式轨道菜单（配置文件 [track_menu.conf](../script-opts/track_menu.conf)） |
 | trackselect.lua*              | 指定音频轨道优先级/黑白名单（配置文件 [trackselect.conf](../script-opts/trackselect.conf)） |
 | undoredo.lua                  | 智能跳跃记录操作                                             |
+| uosc.lua | 第三方高级 OSC 脚本，实现了许多实用功能（配置文件 [uosc.conf](../script-opts/uosc.conf)） |
 | ytdl_hook_plus.lua*   | 增强版 ytdl_hook 脚本，整合了部分相关的pr代码（依赖yt-dlp/youtube-dl; 配置文件 [ytdl_hook_plus.conf](../script-opts/ytdl_hook_plus.conf)） |
 | youtube-download.lua* | 下载 ytdl 视频/音频/字幕/片段（依赖 yt-dlp/youtube-dl和ffmpeg; 配置文件 [youtube-download.conf](../script-opts/youtube-download.conf)） |
 | autosubsync（组）*        | 字幕同步菜单（依赖 ffmpeg, [ffsubsync](https://github.com/smacke/ffsubsync) or [alass](https://github.com/dyphire/alass) or both; 配置文件 [autosubsync.conf](../script-opts/autosubsync.conf)） |
