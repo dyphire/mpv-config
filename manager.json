@@ -54,12 +54,6 @@
     "dest":"~~/scripts"
   },
   {
-    "git":"https://github.com/dyphire/mpv-locatefile-lua-script",
-    "whitelist":"%.lua$",
-    "dest":"~~/scripts",
-    "branch":"patch-1"
-  },
-  {
     "git":"https://github.com/dyphire/chapterskip",
     "whitelist":"%.lua$",
     "dest":"~~/scripts",
