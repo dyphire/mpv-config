@@ -2476,8 +2476,6 @@ function osc_init()
     else
         scale = user_opts.scalewindowed
     end
-    
-    scale = scale * mp.get_property_native("display-hidpi-scale", 1.0)
 
     if user_opts.vidscale then
         osc_param.unscaled_y = baseResY
