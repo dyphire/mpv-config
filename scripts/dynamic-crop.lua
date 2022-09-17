@@ -160,6 +160,7 @@ local function osd_size_change(orientation)
     local prop_maximized = mp.get_property("window-maximized")
     local prop_fullscreen = mp.get_property("fullscreen")
     local osd = mp.get_property_native("osd-dimensions")
+    if toggled > 1 or not options.resize_windowed then return end
     if prop_fullscreen == "no" then
         -- keep window width or height to avoid reset to source size when cropping
         if prop_maximized == "yes" or not options.resize_windowed then

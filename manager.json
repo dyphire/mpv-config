@@ -16,11 +16,6 @@
     "dest":"~~/scripts"
   },
   {
-    "git":"https://github.com/Ashyni/mpv-scripts",
-    "whitelist":"dynamic%-crop%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
     "git":"https://github.com/detuur/mpv-scripts",
     "whitelist":"skiptosilence%.lua$",
     "dest":"~~/scripts"
@@ -66,7 +61,13 @@
     "branch":"v0.33_CM"
   },
   {
-    "git":"https://github.com/dyphire/mpv-scripts",
+    "git":"https://github.com/dyphire/Ashyni_mpv-scripts",
+    "whitelist":"dynamic%-crop%.lua$",
+    "dest":"~~/scripts",
+    "branch":"resize_window"
+  },
+  {
+    "git":"https://github.com/dyphire/Eisa01_mpv-scripts",
     "whitelist":"undoredo%.lua$|simplehistory%.lua$|simplebookmark%.lua$|smartcopypaste_*%.lua$",
     "dest":"~~/scripts",
     "branch":"dev"
