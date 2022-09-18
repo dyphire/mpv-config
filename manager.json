@@ -44,6 +44,12 @@
     "branch":"main"
   },
   {
+    "git":"https://github.com/dyphire/uosc",
+    "whitelist":"%.lua$",
+    "dest":"~~/osc-style",
+    "branch":"dev"
+  },
+  {
     "git":"https://github.com/dyphire/MPVMediaControl",
     "whitelist":"%.lua$",
     "dest":"~~/scripts"
@@ -144,11 +150,6 @@
     "git":"https://github.com/CogentRedTester/mpv-file-browser",
     "whitelist":"favourites%.lua$|windir%.lua$|apache%-browser%.lua$|home%-label%.lua$|url%-decode%.lua$|m3u%-browser%.lua$|ftp%-browser%.lua$",
     "dest":"~~/script-modules/file-browser-addons"
-  },
-  {
-    "git":"https://github.com/tomasklaen/uosc",
-    "whitelist":"%.lua$",
-    "dest":"~~/osc-style"
   },
   {
     "git":"https://github.com/deus0ww/mpv-conf",
