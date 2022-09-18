@@ -38,6 +38,12 @@
     "branch":"main"
   },
   {
+    "git":"https://github.com/Natural-Harmonia-Gropius/mpv_config",
+    "whitelist":"pressaction%.lua$",
+    "dest":"~~/scripts",
+    "branch":"main"
+  },
+  {
     "git":"https://github.com/dyphire/mpv-scripts",
     "whitelist":"%.lua$",
     "dest":"~~/scripts",

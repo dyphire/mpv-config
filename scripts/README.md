@@ -32,6 +32,7 @@
 | pause-indicator.lua | 在 mpv 暂停时在屏幕右上角显示暂停图标 |
 | persist_properties.lua | 监视并保存预设参数的全局变化值（如音量）（配置文件 [persist_properties.conf](../script-opts/persist_properties.conf)） |
 | playlistmanager.lua | OSD交互式播放列表（配置文件 [playlistmanager.conf](../script-opts/playlistmanager.conf)） |
+| pressaction.lua | 实现自定义触发长按的快捷键及相关操作（配置文件 [pressaction.conf](../script-opts/pressaction.conf)） |
 | quality-menu.lua* | 选择ytdl视频/音频质量的OSD交互式菜单（依赖 yt-dlp/youtube-dl; 配置文件 [quality-menu.conf](../script-opts/quality-menu.conf)） |
 | segment-linking.lua | 实现对 matroska [硬段链接](https://www.ietf.org/archive/id/draft-ietf-cellar-matroska-06.html#name-hard-linking) 的支持（依赖  [read-file.lua](../script-modules/read-file.lua)；配置文件 [segment_linking.conf](../script-opts/segment_linking.conf)） |
 | slicing_copy.lua* | 剪切视频片段（依赖 ffmpeg；配置文件 [slicing_copy.conf](../script-opts/slicing_copy.conf)） |
