@@ -3084,15 +3084,60 @@ function Controls:init()
 	self:serialize()
 end
 
+local function track_count(checkType)
+    local tracksCount = mp.get_property_native('track-list/count')
+    local track_countVal = {}
+    for i = 0, (tracksCount - 1), 1 do
+        local trackType = mp.get_property_native('track-list/' .. i .. '/type')
+        if (trackType == checkType) then table.insert(track_countVal, i) end
+    end
+    return track_countVal
+end
+
+local function checkTrack(trackId, type)
+    local selectedId = mp.get_property_native('current-tracks/' .. type .. '/id')
+    return selectedId == trackId
+end
+
+local function cur_track(type)
+    local tracks = track_count(type)
+    local curr_track = 0
+    for i = 1, #tracks, 1 do
+        local trackId = mp.get_property_native('track-list/' .. tracks[i] .. '/id')
+        if checkTrack(trackId, type) then curr_track = trackId end
+    end
+    return curr_track
+end
+
+local function cur_chapter()
+    local chapter = mp.get_property_native('chapter')
+    local chapter_list = mp.get_property_native('chapter-list')
+    local curr_chapter = 0
+    for i = 1, #chapter_list do
+        if (i - 1 == chapter) then curr_chapter = i end
+    end
+    return curr_chapter
+end
+
 function Controls:serialize()
 	local shorthands = {
 		menu = 'command:menu:script-binding uosc/menu?Menu',
-		subtitles = 'command:subtitles:script-binding uosc/subtitles?Subtitles',
-		audio = 'command:audiotrack:script-binding uosc/audio?Audio',
+		subtitles = string.format('command:subtitles:script-binding uosc/subtitles?Subtitles %s%s', 
+		cur_track('sub') ~= 0 and cur_track('sub') .. '/' or '', 
+		#track_count('sub') ~= 0 and #track_count('sub') or ''),
+		audio = string.format('command:audiotrack:script-binding uosc/audio?Audio %s%s', 
+		cur_track('audio') ~= 0 and cur_track('audio') .. '/' or '', 
+		#track_count('audio') ~= 0 and #track_count('audio') or ''),
 		['audio-device'] = 'command:speaker:script-binding uosc/audio-device?Audio device',
-		video = 'command:theaters:script-binding uosc/video?Video',
-		playlist = 'command:list_alt:script-binding uosc/playlist?Playlist',
-		chapters = 'command:bookmarks:script-binding uosc/chapters?Chapters',
+		video = string.format('command:theaters:script-binding uosc/video?Video %s%s', 
+		cur_track('video') ~= 0 and cur_track('video') .. '/' or '', 
+		#track_count('video') ~= 0 and #track_count('video') or ''),
+		playlist = string.format('command:list_alt:script-binding uosc/playlist?Playlist %s%s', 
+		mp.get_property_native('playlist-pos') >= 0 and state.playlist_pos .. '/' or '', 
+		state.playlist_count > 0 and state.playlist_count or ''),
+		chapters = string.format('command:bookmarks:script-binding uosc/chapters?Chapters %s%s', 
+		cur_chapter() ~= 0 and cur_chapter() .. '/' or '', 
+		mp.get_property('chapters') and mp.get_property('chapters') or ''),
 		['stream-quality'] = 'command:deblur:script-binding uosc/stream-quality?Stream quality',
 		['open-file'] = 'command:file_open:script-binding uosc/open-file?Open file',
 		['items'] = 'command:list_alt:script-binding uosc/items?Playlist/Files',
@@ -4104,6 +4149,10 @@ mp.observe_property('track-list', 'native', function(name, value)
 	set_state('has_sub', has_sub)
 	set_state('is_video', is_video)
 	set_state('is_stream', is_protocol(path))
+	Elements:trigger('dispositions')
+end)
+mp.observe_property('chapter', 'number', function()
+	cur_chapter()
 	Elements:trigger('dispositions')
 end)
 mp.observe_property('chapter-list', 'native', function(_, chapters)
