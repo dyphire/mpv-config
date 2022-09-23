@@ -44,6 +44,11 @@
     "branch":"main"
   },
   {
+    "git":"https://github.com/po5/thumbfast",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
     "git":"https://github.com/dyphire/mpv-scripts",
     "whitelist":"%.lua$",
     "dest":"~~/scripts",
@@ -159,7 +164,7 @@
   },
   {
     "git":"https://github.com/deus0ww/mpv-conf",
-    "whitelist":"krigbilateral%.glsl$|ssimdownscaler%.glsl$|ssimsuperres%.glsl$|adaptive%-sharpen%.glsl$",
+    "whitelist":"fsrcnnx%_x2%_8%-0%-4%-1%.glsl$|fsrcnnx%_x2%_16%-0%-4%-1%.glsl$|fsrcnnx%_x2%_8%-0%-4%-1%_lineart%.glsl$|fsrcnnx%_x2%_16%-0%-4%-1%_enhance%.glsl$|fsrcnnx%_x2%_16%-0%-4%-1%_anime%_enhance%.glsl$",
     "dest":"~~/shaders/igv"
   },
   {
@@ -180,11 +185,6 @@
   {
     "git":"https://gist.github.com/igv/36508af3ffc84410fe39761d6969be10",
     "whitelist":"%.glsl$",
-    "dest":"~~/shaders/igv"
-  },
-  {
-    "git":"https://github.com/deus0ww/mpv-conf",
-    "whitelist":"fsrcnnx%_x2%_8%-0%-4%-1%.glsl$|fsrcnnx%_x2%_16%-0%-4%-1%.glsl$|fsrcnnx%_x2%_8%-0%-4%-1%_lineart%.glsl$|fsrcnnx%_x2%_16%-0%-4%-1%_enhance%.glsl$|fsrcnnx%_x2%_16%-0%-4%-1%_anime%_enhance%.glsl$",
     "dest":"~~/shaders/igv"
   },
   {

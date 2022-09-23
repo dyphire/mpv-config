@@ -43,6 +43,7 @@
 | smartcopypaste_II.lua*       | OSD交互式剪贴菜单，智能复制粘贴视频路径及进度（配置文件 [smartcopypaste_II.conf](../script-opts/smartcopypaste_II.conf)）；键位绑定均在同名配置文件中 |
 | sub-fonts-dir-auto.lua | 在播放目录下自动指定`sub-fonts-dir`要使用的字体目录fonts以实现加载特定字体目录。**注意**：mpv必须以包含pr [mpv-player/#9856](https://github.com/mpv-player/mpv/pull/9856) 的版本编译方可使用此脚本，可在[Releases · dyphire/mpv-winbuild](https://github.com/dyphire/mpv-winbuild/releases)处下载 |
 | sub-select.lua | 指定字幕轨道优先级/黑白名单（配置文件 [sub_select.conf](../script-opts/sub_select.conf)；[sub-select.json](../script-opts/sub-select.json)） |
+| thumbfast.lua   | 适用于 mpv 的高性能动态缩略图，需在 osc 类脚本中自行集成（配置文件 [thumbfast.conf](../script-opts/thumbfast.conf)） |
 | track-menu.lua*    | OSD交互式轨道菜单（配置文件 [track_menu.conf](../script-opts/track_menu.conf)） |
 | trackselect.lua*              | 指定音频轨道优先级/黑白名单（配置文件 [trackselect.conf](../script-opts/trackselect.conf)） |
 | undoredo.lua                  | 智能跳跃记录操作                                             |
