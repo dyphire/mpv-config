@@ -59,38 +59,18 @@ function SetUnion (a,b)
 end
 
 EXTENSIONS_VIDEO = Set {
-    '3gp',
-    'amr','amv','asf','avi',
-    'f4v','flv',
-    'iso',
-    'm2ts','m4v','mkv','mov','mp4','mpeg','mpg',
-    'ogv',
-    'rm','rmvb',
-    'ts',
-    'vob',
-    'webm','wmv',
+    '3g2', '3gp', 'avi', 'asf', 'f4v', 'flv', 'iso', 'm2ts', 'm4v', 'mj2', 'mkv', 'mov',
+    'mp4', 'mpeg', 'mpg', 'ogv', 'rm', 'rmvb', 'ts', 'vob', 'webm', 'wmv', 'y4m'
 }
 
 EXTENSIONS_AUDIO = Set {
-    'aac','aiff','alac','ape',
-    'dsf',
-    'flac',
-    'm4a','mp3',
-    'ogg','opus',
-    'tak','tta',
-    'wav','wma','wv',
+    'aiff', 'ape', 'au', 'dsf', 'flac', 'm4a', 'mka', 'mp3', 'oga', 'ogg',
+    'ogm', 'opus', 'spx', 'wav', 'wma'
 }
 
 EXTENSIONS_IMAGES = Set {
-    'apng','avif',
-    'bmp',
-    'gif',
-    'heic','heif',
-    'jfif','jpeg','jpg',
-    'png',
-    'svg',
-    'tif','tiff',
-    'webp',
+    'avif', 'bmp', 'gif', 'j2k', 'jfif', 'jp2', 'jpeg', 'jpg', 'jxl', 'png',
+    'svg', 'tga', 'tif', 'tiff', 'webp'
 }
 
 EXTENSIONS = Set {}

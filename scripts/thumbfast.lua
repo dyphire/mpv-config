@@ -12,6 +12,7 @@ local options = {
     thumbnail = "",
 
     -- Maximum thumbnail size in pixels (scaled down to fit)
+    -- Values are scaled when hidpi is enabled
     max_height = 200,
     max_width = 200,
 
@@ -48,6 +49,7 @@ local os_name = ""
 
 math.randomseed(os.time())
 local unique = math.random(10000000)
+local init = false
 
 local spawned = false
 local can_generate = true
@@ -66,8 +68,9 @@ local last_request_time = nil
 local last_display_time = 0
 
 local effective_w = options.max_width
-local effective_h = options.max_height
-local thumb_size = effective_w * effective_h * 4
+local generate_h = options.max_height
+local render_h = generate_h
+local thumb_size = effective_w * generate_h * 4
 
 local filters_reset = {["lavfi-crop"]=true, crop=true}
 local filters_runtime = {hflip=true, vflip=true}
@@ -132,7 +135,7 @@ local function get_os()
     return str_os_name
 end
 
-local function vf_string(filters)
+local function vf_string(filters, full)
     local vf = ""
     local vf_table = mp.get_property_native("vf")
 
@@ -151,6 +154,10 @@ local function vf_string(filters)
         end
     end
 
+    if full then
+        vf = vf.."scale=w="..effective_w..":h="..generate_h..par..",pad=w="..effective_w..":h="..generate_h..",format=bgra"
+    end
+
     return vf
 end
 
@@ -162,14 +169,15 @@ local function calc_dimensions()
     local scale = mp.get_property_number("display-hidpi-scale", 1)
 
     if width / height > options.max_width / options.max_height then
-        effective_w = math.floor(options.max_width * scale + 0.5)
-        effective_h = math.floor(height / width * effective_w + 0.5)
+        effective_w = math.floor(options.max_width * scale / 2) * 2
     else
-        effective_h = math.floor(options.max_height * scale + 0.5)
-        effective_w = math.floor(width / height * effective_h + 0.5)
+        local target_h = math.floor(options.max_height * scale + 0.5)
+        effective_w = math.floor(width / height * target_h / 2) * 2
     end
+    generate_h = math.ceil(height / width * effective_w / 2) * 2
+    render_h = math.floor(height / width * effective_w + 0.5)
 
-    thumb_size = effective_w * effective_h * 4
+    thumb_size = effective_w * generate_h * 4
 
     local v_par = mp.get_property_number("video-out-params/par", 1)
     if v_par == 1 then
@@ -180,9 +188,9 @@ local function calc_dimensions()
 end
 
 local function info()
-    local display_w, display_h = effective_w, effective_h
+    local display_w, display_h = effective_w, render_h
     if mp.get_property_number("video-params/rotate", 0) % 180 == 90 then
-        display_w, display_h = effective_h, effective_w
+        display_w, display_h = render_h, effective_w
     end
 
     local json, err = mp.utils.format_json({width=display_w, height=display_h, disabled=disabled, socket=options.socket, thumbnail=options.thumbnail, overlay_id=options.overlay_id})
@@ -216,17 +224,22 @@ local function spawn(time)
             options.socket = "/tmp/thumbfast"
         end
     end
-    -- ensure uniqueness
-    options.socket = options.socket .. unique
 
     if options.thumbnail == "" then
         if os_name == "Windows" then
-            options.thumbnail = mp.command_native({"expand-path", "~/AppData/Local/Temp"}).."\\thumbfast.out"
+            options.thumbnail = os.getenv("TEMP").."\\thumbfast.out"
         elseif os_name == "Mac" then
             options.thumbnail = "/tmp/thumbfast.out"
         else
             options.thumbnail = "/tmp/thumbfast.out"
         end
+    end
+
+    if not init then
+        -- ensure uniqueness
+        options.socket = options.socket .. unique
+        options.thumbnail = options.thumbnail .. unique
+        init = true
     end
 
     os.remove(options.thumbnail)
@@ -238,14 +251,14 @@ local function spawn(time)
 
     mp.command_native_async(
         {name = "subprocess", playback_only = true, args = {
-            "mpv", path, "--no-config", "--msg-level=all=no", "--idle", "--pause",
+            "mpv", path, "--no-config", "--msg-level=all=no", "--idle", "--pause", "--keep-open=always",
             "--edition="..(mp.get_property_number("edition") or "auto"), "--vid="..(mp.get_property_number("vid") or "auto"), "--no-sub", "--no-audio",
             "--input-ipc-server="..options.socket,
             "--start="..time, "--hr-seek=no",
             "--ytdl-format=worst", "--demuxer-readahead-secs=0", "--demuxer-max-bytes=128KiB",
-            "--dither=no", "--vd-lavc-skiploopfilter=all", "--vd-lavc-software-fallback=1", "--vd-lavc-fast",
-            "--tone-mapping="..(mp.get_property_number("tone-mapping") or "auto"), "--tone-mapping-param="..(mp.get_property_number("tone-mapping-param") or "default"), "--hdr-compute-peak=no",
-            "--vf="..vf_string(filters_all).."scale=w="..effective_w..":h="..effective_h..par..",pad=w="..effective_w..":h="..effective_h..":x=(ow-iw)/2:y=(oh-ih)/2,format=bgra",
+            "--vd-lavc-skiploopfilter=all", "--vd-lavc-software-fallback=1", "--vd-lavc-fast",
+            "--vf="..vf_string(filters_all, true),
+            "--sws-allow-zimg=no", "--sws-fast=yes",
             "--video-rotate="..last_rotate,
             "--ovc=rawvideo", "--of=image2", "--ofopts=update=1", "--o="..options.thumbnail
         }},
@@ -384,7 +397,7 @@ local function thumb(time, r_x, r_y, script)
         last_index = index
         if x ~= last_x or y ~= last_y then
             last_x, last_y = x, y
-            display_img(effective_w, effective_h, time, mp.get_time(), script, true)
+            display_img(effective_w, render_h, time, mp.get_time(), script, true)
         end
         return
     end
@@ -398,13 +411,13 @@ local function thumb(time, r_x, r_y, script)
     if not spawned then
         spawn(seek_time)
         if can_generate then
-            display_img(effective_w, effective_h, time, cur_request_time, script)
-            mp.add_timeout(0.15, function() display_img(effective_w, effective_h, time, cur_request_time, script) end)
+            display_img(effective_w, render_h, time, cur_request_time, script)
+            mp.add_timeout(0.15, function() display_img(effective_w, render_h, time, cur_request_time, script) end)
             end
         return
     end
 
-    run("async seek "..seek_time.." absolute+keyframes", function() if can_generate then display_img(effective_w, effective_h, time, cur_request_time, script) end end)
+    run("async seek "..seek_time.." absolute+keyframes", function() if can_generate then display_img(effective_w, render_h, time, cur_request_time, script) end end)
 end
 
 local function clear()
@@ -419,7 +432,7 @@ end
 
 local function watch_changes()
     local old_w = effective_w
-    local old_h = effective_h
+    local old_h = generate_h
 
     calc_dimensions()
 
@@ -427,7 +440,7 @@ local function watch_changes()
     local rotate = mp.get_property_number("video-rotate", 0)
 
     if spawned then
-        if old_w ~= effective_w or old_h ~= effective_h or last_vf_reset ~= vf_reset or (last_rotate % 180) ~= (rotate % 180) or par ~= last_par then
+        if old_w ~= effective_w or old_h ~= generate_h or last_vf_reset ~= vf_reset or (last_rotate % 180) ~= (rotate % 180) or par ~= last_par then
             last_rotate = rotate
             -- mpv doesn't allow us to change output size
             run("quit")
@@ -441,12 +454,12 @@ local function watch_changes()
             end
             local vf_runtime = vf_string(filters_runtime)
             if vf_runtime ~= last_vf_runtime then
-                run("vf set "..vf_string(filters_all).."scale=w="..effective_w..":h="..effective_h..":force_original_aspect_ratio=decrease,pad=w="..effective_w..":h="..effective_h..":x=(ow-iw)/2:y=(oh-ih)/2,format=bgra")
+                run("vf set "..vf_string(filters_all, true))
                 last_vf_runtime = vf_runtime
             end
         end
     else
-        if old_w ~= effective_w or old_h ~= effective_h or last_vf_reset ~= vf_reset or (last_rotate % 180) ~= (rotate % 180) or par ~= last_par then
+        if old_w ~= effective_w or old_h ~= generate_h or last_vf_reset ~= vf_reset or (last_rotate % 180) ~= (rotate % 180) or par ~= last_par then
             last_rotate = rotate
             info()
         end
@@ -472,8 +485,9 @@ local function file_load()
     local albumart = image and mp.get_property_native("current-tracks/video/albumart", false)
 
     disabled = (network and not options.network) or (albumart and not options.audio) or (image and not albumart)
-    if disabled then return end
     info()
+    if disabled then return end
+
     interval = math.min(math.max(mp.get_property_number("duration", 1) / options.max_thumbnails, options.interval), mp.get_property_number("duration", options.interval * options.min_thumbnails) / options.min_thumbnails)
 
     spawned = false
