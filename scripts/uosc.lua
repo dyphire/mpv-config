@@ -883,8 +883,6 @@ function serialize_chapter_ranges(normalized_chapters)
 							start = chapter.time,
 							['end'] = next_chapter and next_chapter.time or infinity,
 						}, config.chapter_ranges[meta.name])
-						chapter.is_range_point = true
-						if next_chapter then next_chapter.is_range_point = true end
 					end
 				end
 			end
@@ -893,7 +891,7 @@ function serialize_chapter_ranges(normalized_chapters)
 		-- Sponsor blocks
 		if config.chapter_ranges.ads then
 			local id = chapter.lowercase_title:match('segment start *%(([%w]%w-)%)')
-			if id then
+			if id then -- ad range from sponsorblock
 				for j = i + 1, #chapters, 1 do
 					local end_chapter = chapters[j]
 					local end_match = end_chapter.lowercase_title:match('segment end *%(' .. id .. '%)')
@@ -903,10 +901,17 @@ function serialize_chapter_ranges(normalized_chapters)
 							start = chapter.time, ['end'] = end_chapter.time,
 						}, config.chapter_ranges.ads)
 						ranges[#ranges + 1], sponsor_ranges[#sponsor_ranges + 1] = range, range
-						chapter.is_range_point, end_chapter.is_range_point, end_chapter.is_end_only = true, true, true
+						end_chapter.is_end_only = true
 						break
 					end
-				end
+				end -- single chapter for ad
+			elseif not chapter.is_end_only and
+				(chapter.lowercase_title:find('%[sponsorblock%]:') or chapter.lowercase_title:find('^sponsors?')) then
+				local next_chapter = chapters[i + 1]
+				ranges[#ranges + 1] = table_assign({
+					start = chapter.time,
+					['end'] = next_chapter and next_chapter.time or infinity,
+				}, config.chapter_ranges.ads)
 			end
 		end
 	end
@@ -2794,15 +2799,15 @@ function Timeline:render()
 	local fcy = fay + (size / 2)
 
 	local time_x = bax + self.width * progress
-	local line_width, past_x_adjustment, future_x_adjustment = 0, 1, 1
+	local line_width, line_width_max, past_x_adjustment, future_x_adjustment = 0, 0, 1, 1
 
 	if is_line then
 		local minimized_fraction = 1 - math.min((size - size_min) / ((self.size_max - size_min) / 8), 1)
-		local width_normal = self:get_effective_line_width()
+		line_width_max = self:get_effective_line_width()
 		local max_min_width_delta = size_min > 0
-			and width_normal - width_normal * options.timeline_line_width_minimized_scale
+			and line_width_max - line_width_max * options.timeline_line_width_minimized_scale
 			or 0
-		line_width = width_normal - (max_min_width_delta * minimized_fraction)
+		line_width = line_width_max - (max_min_width_delta * minimized_fraction)
 		fax = bax + (self.width - line_width) * progress
 		fbx = fax + line_width
 		local past_time_width, future_time_width = time_x - bax, bbx - time_x
@@ -2817,7 +2822,7 @@ function Timeline:render()
 
 	-- line_x_adjustment: adjusts x coordinate so that it never lies inside of the line
 	-- it's as if line cuts the timeline and squeezes itself into the cut
-	local lxa = line_width == 0 and function(x) return x end or function(x)
+	local lxa = line_width == line_width_max and function(x) return x end or function(x)
 		return x < time_x and bax + (x - bax) * past_x_adjustment or bbx - (bbx - x) * future_x_adjustment
 	end
 
@@ -2890,7 +2895,7 @@ function Timeline:render()
 
 			if state.chapters ~= nil then
 				for i, chapter in ipairs(state.chapters) do
-					if not chapter.is_range_point then draw_chapter(chapter.time) end
+					draw_chapter(chapter.time)
 				end
 			end
 
@@ -3865,12 +3870,8 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 		local active_index = nil
 		local disabled_item = nil
 
-		-- Add option to disable a subtitle track. This works for all tracks,
-		-- but why would anyone want to disable audio or video? Better to not
-		-- let people mistakenly select what is unwanted 99.999% of the time.
-		-- If I'm mistaken and there is an active need for this, feel free to
-		-- open an issue.
-		if track_type == 'sub' then
+		-- Add option to disable track. This works for all tracks.
+		if track_type ~= '' then
 			disabled_item = {title = 'Disabled', italic = true, muted = true, hint = '—', value = nil, active = true}
 			items[#items + 1] = disabled_item
 		end

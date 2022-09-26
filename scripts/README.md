@@ -35,12 +35,12 @@
 | pressaction.lua | 实现自定义触发长按的快捷键及相关操作（配置文件 [pressaction.conf](../script-opts/pressaction.conf)） |
 | quality-menu.lua* | 选择ytdl视频/音频质量的OSD交互式菜单（依赖 yt-dlp/youtube-dl; 配置文件 [quality-menu.conf](../script-opts/quality-menu.conf)） |
 | segment-linking.lua | 实现对 matroska [硬段链接](https://www.ietf.org/archive/id/draft-ietf-cellar-matroska-06.html#name-hard-linking) 的支持（依赖  [read-file.lua](../script-modules/read-file.lua)；配置文件 [segment_linking.conf](../script-opts/segment_linking.conf)） |
-| slicing_copy.lua* | 剪切视频片段（依赖 ffmpeg；配置文件 [slicing_copy.conf](../script-opts/slicing_copy.conf)） |
-| skiptosilence.lua | 跳至播放文件的下一个静音位置（另类地实现跳 op/ed 的方法；配置文件 [skiptosilence.conf](../script-opts/skiptosilence.conf)） |
-| sub_export.lua* | 导出当前内封字幕（依赖 ffmpeg，脚本支持 srt、ass 和 sup 格式的字幕；配置文件 [sub_export.conf](../script-opts/sub_export.conf)） |
 | simplebookmark.lua* | OSD交互式书签菜单（配置文件 [simplebookmark.conf](../script-opts/simplebookmark.conf)）；键位绑定均在同名配置文件中 |
 | simplehistory.lua* | OSD交互式历史菜单，可恢复最后的播放记录并播放（配置文件 [simplehistory.conf](../script-opts/simplehistory.conf)）；键位绑定均在同名配置文件中 |
+| skiptosilence.lua | 跳至播放文件的下一个静音位置（另类地实现跳 op/ed 的方法；配置文件 [skiptosilence.conf](../script-opts/skiptosilence.conf)） |
+| slicing_copy.lua* | 剪切视频片段（依赖 ffmpeg；配置文件 [slicing_copy.conf](../script-opts/slicing_copy.conf)） |
 | smartcopypaste_II.lua*       | OSD交互式剪贴菜单，智能复制粘贴视频路径及进度（配置文件 [smartcopypaste_II.conf](../script-opts/smartcopypaste_II.conf)）；键位绑定均在同名配置文件中 |
+| sub_export.lua* | 导出当前内封字幕（依赖 ffmpeg，脚本支持 srt、ass 和 sup 格式的字幕；配置文件 [sub_export.conf](../script-opts/sub_export.conf)） |
 | sub-fonts-dir-auto.lua | 在播放目录下自动指定`sub-fonts-dir`要使用的字体目录fonts以实现加载特定字体目录。**注意**：mpv必须以包含pr [mpv-player/#9856](https://github.com/mpv-player/mpv/pull/9856) 的版本编译方可使用此脚本，可在[Releases · dyphire/mpv-winbuild](https://github.com/dyphire/mpv-winbuild/releases)处下载 |
 | sub-select.lua | 指定字幕轨道优先级/黑白名单（配置文件 [sub_select.conf](../script-opts/sub_select.conf)；[sub-select.json](../script-opts/sub-select.json)） |
 | thumbfast.lua   | 适用于 mpv 的高性能动态缩略图，需在 osc 类脚本中自行集成（配置文件 [thumbfast.conf](../script-opts/thumbfast.conf)） |
@@ -48,10 +48,8 @@
 | trackselect.lua*              | 指定音频轨道优先级/黑白名单（配置文件 [trackselect.conf](../script-opts/trackselect.conf)） |
 | undoredo.lua                  | 智能跳跃记录操作                                             |
 | uosc.lua | 第三方高级 OSC 脚本，实现了许多实用功能（配置文件 [uosc.conf](../script-opts/uosc.conf)） |
-| ytdl_hook_plus.lua*   | 增强版 ytdl_hook 脚本，整合了部分相关的pr代码（依赖yt-dlp/youtube-dl; 配置文件 [ytdl_hook_plus.conf](../script-opts/ytdl_hook_plus.conf)） |
 | youtube-download.lua* | 下载 ytdl 视频/音频/字幕/片段（依赖 yt-dlp/youtube-dl和ffmpeg; 配置文件 [youtube-download.conf](../script-opts/youtube-download.conf)） |
 | autosubsync（组）*        | 字幕同步菜单（依赖 ffmpeg, [ffsubsync](https://github.com/smacke/ffsubsync) or [alass](https://github.com/dyphire/alass) or both; 配置文件 [autosubsync.conf](../script-opts/autosubsync.conf)） |
-| contextmenu_gui（组）*        | 图形化右键菜单（依赖 tclkit，上游说明：https://github.com/hooke007/MPV_lazy/discussions/60; 配置文件 [contextmenu_gui.conf](../script-opts/contextmenu_gui.conf)） |
 1. 标记`*`号的部分脚本为**个人修改版或自建脚本**。
 2. 所有脚本预绑定的`mp.add_key_binding`静态键位已被 [mpv.conf](../mpv.conf) 中的`input-default-bindings=no`参数屏蔽，可查看 [input.conf](../input.conf)  的"LUA 脚本"部分示例参考绑定所需键位  
    - 本配置绑定的快捷键及功能请参考 [快捷键说明.md](../快捷键说明.md) 文件
