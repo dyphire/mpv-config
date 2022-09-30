@@ -759,9 +759,10 @@ local function update_ass()
         elseif playing_file then append(style.playing) end
 
         --sets the folder icon
-        if v.type == 'dir' then append(style.folder..o.folder_icon.."\\h".."{\\fn"..o.font_name_body.."}") end
+        if v.type == 'dir' then append(style.folder..o.folder_icon.."\\h") end
 
         --adds the actual name of the item
+        append(style.body)
         append(v.ass or API.ass_escape(v.label or v.name, true))
         newline()
     end

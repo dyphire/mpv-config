@@ -52,7 +52,7 @@ function delete_file(path)
             name = "subprocess",
             playback_only = false,
             detach = true,
-            args = { 'trash', file_to_delete },
+            args = { 'trash', path },
         })
     end
 end
