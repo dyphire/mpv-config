@@ -92,8 +92,7 @@
   {
     "git":"https://github.com/christoph-heinrich/mpv-quality-menu",
     "whitelist":"qualityu%-menu%.lua$",
-    "dest":"~~/scripts",
-    "branch":"get_json_from_ytdl_hook"
+    "dest":"~~/scripts"
   },
   {
     "git":"https://github.com/cvzi/mpv-youtube-download",
