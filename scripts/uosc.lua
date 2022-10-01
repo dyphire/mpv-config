@@ -438,7 +438,6 @@ local state = {
 	first_real_mouse_move_received = false,
 	playlist_count = 0,
 	playlist_pos = 0,
-	chapter_cur = 0,
 	margin_top = 0,
 	margin_bottom = 0,
 	hidpi_scale = 1,
@@ -3189,7 +3188,7 @@ end
 -- `ratio` - Width/height ratio of a static or dynamic element.
 -- `ratio_min` Min ratio for 'dynamic' sized element.
 -- `skip` - Whether it should be skipped, determined during layout phase.
----@alias ControlItem {element?: Element; kind: string; sizing: 'space' | 'static' | 'dynamic'; scale: number; ratio?: number; ratio_min?: number; hide: boolean;}
+---@alias ControlItem {element?: Element; kind: string; sizing: 'space' | 'static' | 'dynamic'; scale: number; ratio?: number; ratio_min?: number; hide: boolean; dispositions?: table<string, boolean>}
 
 ---@class Controls : Element
 local Controls = class(Element)
@@ -3197,60 +3196,21 @@ local Controls = class(Element)
 function Controls:new() return Class.new(self) --[[@as Controls]] end
 function Controls:init()
 	Element.init(self, 'controls')
-	---@type ControlItem[]
+	---@type ControlItem[] All control elements serialized from `options.controls`.
 	self.controls = {}
-	---@type fun()[]
-	self.disposers = {}
-	self:serialize()
-end
+	---@type ControlItem[] Only controls that match current dispositions.
+	self.layout = {}
 
-local function track_count(checkType)
-    local tracksCount = mp.get_property_native('track-list/count')
-    local track_countVal = {}
-    for i = 0, (tracksCount - 1), 1 do
-        local trackType = mp.get_property_native('track-list/' .. i .. '/type')
-        if (trackType == checkType) then table.insert(track_countVal, i) end
-    end
-    return track_countVal
-end
-
-local function checkTrack(trackId, type)
-    local selectedId = mp.get_property_native('current-tracks/' .. type .. '/id')
-    return selectedId == trackId
-end
-
-local function cur_track(type)
-    local tracks = track_count(type)
-    local curr_track = 0
-    for i = 1, #tracks, 1 do
-        local trackId = mp.get_property_native('track-list/' .. tracks[i] .. '/id')
-        if checkTrack(trackId, type) then curr_track = trackId end
-    end
-    return curr_track
-end
-
-function Controls:serialize()
+	-- Serialize control elements
 	local shorthands = {
 		menu = 'command:menu:script-binding uosc/menu-blurred?Menu',
-		subtitles = string.format('command:closed_caption:script-binding uosc/subtitles#sub>1?Subtitles %s%s', 
-		cur_track('sub') ~= 0 and cur_track('sub') .. '/' or '', 
-		#track_count('sub') ~= 0 and #track_count('sub') or ''),
-		audio = string.format('command:graphic_eq:script-binding uosc/audio#audio>1?Audio %s%s', 
-		cur_track('audio') ~= 0 and cur_track('audio') .. '/' or '', 
-		#track_count('audio') ~= 0 and #track_count('audio') or ''),
+		subtitles = 'command:closed_caption:script-binding uosc/subtitles#sub>1?Subtitles',
+		audio = 'command:graphic_eq:script-binding uosc/audio#audio>1?Audio',
 		['audio-device'] = 'command:speaker:script-binding uosc/audio-device?Audio device',
-		video = string.format('command:smart_display:script-binding uosc/video#video>1?Video %s%s', 
-		cur_track('video') ~= 0 and cur_track('video') .. '/' or '', 
-		#track_count('video') ~= 0 and #track_count('video') or ''),
-		playlist = string.format('command:list_alt:script-binding uosc/playlist#playlist>1?Playlist %s%s', 
-		state.playlist_pos > 0 and state.playlist_pos .. '/' or '', 
-		state.playlist_count > 0 and state.playlist_count or ''),
-		chapters = string.format('command:track_changes:script-binding uosc/chapters#chapters>1?Chapters %s%s', 
-		state.chapter_cur > 0 and state.chapter_cur .. '/' or '', 
-		mp.get_property('chapters') and mp.get_property('chapters') or ''),
-		['editions'] = string.format('command:movie_filter:script-binding uosc/editions#editions>1?Editions %s%s',
-		mp.get_property('current-edition') and mp.get_property('current-edition') + 1 .. '/' or '', 
-		mp.get_property('editions') and mp.get_property('editions') or ''),
+		video = 'command:smart_display:script-binding uosc/video#video>1?Video',
+		playlist = 'command:list_alt:script-binding uosc/playlist#playlist>1?Playlist',
+		chapters = 'command:track_changes:script-binding uosc/chapters#chapters>1?Chapters',
+		['editions'] = 'command:movie_filter:script-binding uosc/editions#editions>1?Editions',
 		['stream-quality'] = 'command:high_quality:script-binding uosc/stream-quality?Stream quality',
 		['open-file'] = 'command:folder:script-binding uosc/open-file?Open file',
 		['items'] = 'command:list_alt:script-binding uosc/items#playlist>1?Playlist/Files',
@@ -3264,14 +3224,14 @@ function Controls:serialize()
 		fullscreen = 'cycle:crop_free:fullscreen:no/yes=fullscreen_exit!?Fullscreen',
 	}
 
-	-- Parse configs
+	-- Parse out disposition/config pairs
 	local items = {}
 	local in_disposition = false
 	local current_item = nil
 	for c in options.controls:gmatch('.') do
 		if not current_item then current_item = {disposition = '', config = ''} end
-		if c == '<' then in_disposition = true
-		elseif c == '>' then in_disposition = false
+		if c == '<' and #current_item.config == 0 then in_disposition = true
+		elseif c == '>' and #current_item.config == 0 then in_disposition = false
 		elseif c == ',' and not in_disposition then
 			items[#items + 1] = current_item
 			current_item = nil
@@ -3281,19 +3241,6 @@ function Controls:serialize()
 		end
 	end
 	items[#items + 1] = current_item
-
-	-- Filter out based on disposition
-	items = itable_filter(items, function(item)
-		if item.disposition == '' then return true end
-		local dispositions = split(item.disposition, ' *, *')
-		for _, disposition in ipairs(dispositions) do
-			local value = disposition:sub(1, 1) ~= '!'
-			local name = not value and disposition:sub(2) or disposition
-			local prop = name:sub(1, 4) == 'has_' and name or 'is_' .. name
-			if state[prop] ~= value then return false end
-		end
-		return true
-	end)
 
 	-- Create controls
 	self.controls = {}
@@ -3309,18 +3256,30 @@ function Controls:serialize()
 		local parts = split(config, ' *: *')
 		local kind, params = parts[1], itable_slice(parts, 2)
 
+		-- Serialize dispositions
+		local dispositions = {}
+		for _, definition in ipairs(split(item.disposition, ' *, *')) do
+			if #definition > 0 then
+				local value = definition:sub(1, 1) ~= '!'
+				local name = not value and definition:sub(2) or definition
+				local prop = name:sub(1, 4) == 'has_' and name or 'is_' .. name
+				dispositions[prop] = value
+			end
+		end
+
 		-- Convert toggles into cycles
 		if kind == 'toggle' then
 			kind = 'cycle'
 			params[#params + 1] = 'no/yes!'
 		end
 
+		-- Create a control element
+		local control = {dispositions = dispositions, kind = kind}
+
 		if kind == 'space' then
-			self.controls[#self.controls + 1] = {kind = kind, sizing = 'space'}
+			control.sizing = 'space'
 		elseif kind == 'gap' then
-			self.controls[#self.controls + 1] = {
-				kind = kind, sizing = 'dynamic', scale = 1, ratio = params[1] or 0.3, ratio_min = 0,
-			}
+			table_assign(control, {sizing = 'dynamic', scale = 1, ratio = params[1] or 0.3, ratio_min = 0})
 		elseif kind == 'command' then
 			if #params ~= 2 then
 				mp.error(string.format(
@@ -3334,9 +3293,7 @@ function Controls:serialize()
 					tooltip = tooltip,
 					count_prop = 'sub',
 				})
-				self.controls[#self.controls + 1] = {
-					kind = kind, element = element, sizing = 'static', scale = 1, ratio = 1,
-				}
+				table_assign(control, {element = element, sizing = 'static', scale = 1, ratio = 1})
 				if badge then self:register_badge_updater(badge, element) end
 			end
 		elseif kind == 'cycle' then
@@ -3363,37 +3320,46 @@ function Controls:serialize()
 				local element = CycleButton:new('control_' .. i, {
 					prop = params[2], anchor_id = 'controls', states = states, tooltip = tooltip,
 				})
-				self.controls[#self.controls + 1] = {
-					kind = kind, element = element, sizing = 'static', scale = 1, ratio = 1,
-				}
+				table_assign(control, {element = element, sizing = 'static', scale = 1, ratio = 1})
 				if badge then self:register_badge_updater(badge, element) end
 			end
 		elseif kind == 'speed' then
 			if not Elements.speed then
 				local element = Speed:new({anchor_id = 'controls'})
-				self.controls[#self.controls + 1] = {
-					kind = kind, element = element,
-					sizing = 'dynamic', scale = params[1] or 1.3, ratio = 3.5, ratio_min = 2,
-				}
+				table_assign(control, {
+					element = element, sizing = 'dynamic', scale = params[1] or 1.3, ratio = 3.5, ratio_min = 2,
+				})
 			else
 				msg.error('there can only be 1 speed slider')
 			end
+		else
+			msg.error('unknown element kind "' .. kind .. '"')
+			break
 		end
+
+		self.controls[#self.controls + 1] = control
+	end
+
+	self:reflow()
+end
+
+function Controls:reflow()
+	-- Populate the layout only with items that match current disposition
+	self.layout = {}
+	for _, control in ipairs(self.controls) do
+		local matches = true
+		for prop, value in pairs(control.dispositions) do
+			if state[prop] ~= value then
+				matches = false
+				break
+			end
+		end
+		if control.element then control.element.enabled = matches end
+		if matches then self.layout[#self.layout + 1] = control end
 	end
 
 	self:update_dimensions()
-	Elements:update_proximities()
 	Elements:trigger('controls_reflow')
-end
-
-function Controls:clean_controls()
-	for _, control in ipairs(self.controls) do
-		if control.element then Elements:remove(control.element) end
-	end
-	for _, disposer in ipairs(self.disposers) do disposer() end
-	self.disposers = {}
-	self.controls = {}
-	request_render()
 end
 
 ---@param badge string
@@ -3428,7 +3394,6 @@ function Controls:register_badge_updater(badge, element)
 
 	if is_external_prop then element['on_external_prop_' .. prop] = function(_, value) handler(prop, value) end
 	else mp.observe_property(observable_name, 'native', handler) end
-	self.disposers[#self.disposers + 1] = function() mp.unobserve_property(handler) end
 end
 
 function Controls:get_visibility()
@@ -3449,19 +3414,19 @@ function Controls:update_dimensions()
 	self.ax, self.ay = window_border + margin, self.by - size
 
 	-- Re-enable all elements
-	for c, control in ipairs(self.controls) do
+	for c, control in ipairs(self.layout) do
 		control.hide = false
 		if control.element then control.element.enabled = true end
 	end
 
 	-- Controls
 	local available_width = self.bx - self.ax
-	local statics_width = (#self.controls - 1) * spacing
+	local statics_width = (#self.layout - 1) * spacing
 	local min_content_width = statics_width
 	local max_dynamics_width, dynamic_units, spaces = 0, 0, 0
 
 	-- Calculate statics_width, min_content_width, and count spaces
-	for c, control in ipairs(self.controls) do
+	for c, control in ipairs(self.layout) do
 		if control.sizing == 'space' then
 			spaces = spaces + 1
 		elseif control.sizing == 'static' then
@@ -3477,10 +3442,10 @@ function Controls:update_dimensions()
 
 	-- Hide & disable elements in the middle until we fit into available width
 	if min_content_width > available_width then
-		local i = math.ceil(#self.controls / 2 + 0.1)
-		for a = 0, #self.controls - 1, 1 do
+		local i = math.ceil(#self.layout / 2 + 0.1)
+		for a = 0, #self.layout - 1, 1 do
 			i = i + (a * (a % 2 == 0 and 1 or -1))
-			local control = self.controls[i]
+			local control = self.layout[i]
 
 			if control.kind ~= 'gap' and control.kind ~= 'space' then
 				control.hide = true
@@ -3505,7 +3470,7 @@ function Controls:update_dimensions()
 	local width_for_dynamics = available_width - statics_width
 	local space_width = (width_for_dynamics - max_dynamics_width) / spaces
 
-	for c, control in ipairs(self.controls) do
+	for c, control in ipairs(self.layout) do
 		if not control.hide then
 			local sizing, element, scale, ratio = control.sizing, control.element, control.scale, control.ratio
 			local width, height = 0, 0
@@ -3527,13 +3492,11 @@ function Controls:update_dimensions()
 		end
 	end
 
+	Elements:update_proximities()
 	request_render()
 end
 
-function Controls:on_dispositions()
-	self:clean_controls()
-	self:serialize()
-end
+function Controls:on_dispositions() self:reflow() end
 function Controls:on_display() self:update_dimensions() end
 function Controls:on_prop_border() self:update_dimensions() end
 function Controls:on_prop_fullormaxed() self:update_dimensions() end
@@ -3873,6 +3836,18 @@ function create_self_updating_menu_opener(options)
 end
 
 function create_select_tracklist_type_menu_opener(menu_title, track_type, track_prop, load_command)
+	local function esc_for_title(string)
+		string = string:gsub('^%-', '')
+		:gsub('^%_', '')
+		:gsub('^%.', '')
+		:gsub('^.*%].', '')
+		:gsub('^.*%).', '')
+		:gsub('%.%w+$', '')
+		:gsub('^.*%s', '')
+		:gsub('^.*%.', '')
+		return string
+	end
+
 	local function serialize_tracklist(tracklist)
 		local items = {}
 
@@ -3904,6 +3879,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 					track['demux-samplerate'] and string.format('%.3gkHz', track['demux-samplerate'] / 1000) or nil,
 					track.forced and 'forced' or nil,
 					track.default and 'default' or nil,
+					track.external and 'external' or '',
 				}
 				local hint_values_filtered = {}
 				for i = 1, #hint_values do
@@ -3912,9 +3888,12 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 					end
 				end
 
+				local filename = mp.get_property_native("filename/no-ext")
+				if track.title then track.title = track.title:gsub(filename, '') end
+				if track.external then track.title = esc_for_title(track.title) end
 				items[#items + 1] = {
 					title = (track.title and track.title or 'Track ' .. track.id),
-					hint = table.concat(hint_values_filtered, ', '),
+					hint = table.concat(hint_values_filtered, ', '):gsub(',%s$', ''),
 					value = track.id,
 					active = track.selected,
 				}
@@ -4308,10 +4287,6 @@ mp.observe_property('track-list', 'native', function(name, value)
 end)
 mp.observe_property('editions', 'number', function(_, editions)
 	if editions then set_state('has_many_edition', editions > 1) end
-	Elements:trigger('dispositions')
-end)
-mp.observe_property('chapter', 'number', function(_, curr)
-	if curr then set_state('chapter_cur', curr + 1) end
 	Elements:trigger('dispositions')
 end)
 mp.observe_property('chapter-list', 'native', function(_, chapters)
