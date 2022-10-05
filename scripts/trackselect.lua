@@ -58,7 +58,7 @@ local options = {
 
     --add above (after a comma) any protocol to disable
     special_protocols = [[
-	["https?://", "^magnet:", "^rtmp:", "smb://", "bd://", "dvd://", "cdda://"]
+	["://", "^magnet:"]
 	]],
 }
 

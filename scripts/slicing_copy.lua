@@ -85,6 +85,10 @@ local function info(s)
     osd(s)
 end
 
+local function is_remote()
+    return string.match(mp.get_property("path"),"://") ~= nil
+end
+
 local function get_outname(shift, endpos)
     local name = mp.get_property("filename/no-ext")
     local ext = get_ext()
@@ -104,19 +108,19 @@ local function cut(shift, endpos)
         :arg("-v", "warning")
         :arg(o.overwrite and "-y" or "-n")
         :arg("-stats")
-    if ua and ua ~= '' and ua ~= 'libmpv' then
+    if is_remote() and ua and ua ~= '' and ua ~= 'libmpv' then
         cmds:arg('-user_agent', ua)
     end
     if referer and referer ~= '' then
         cmds:arg('-referer', referer)
     end
     cmds:arg("-ss", tostring(shift))
-        :arg("-i", inpath)
-        :arg("-t", tostring(endpos - shift))
-        :arg("-c:v", o.vcodec)
-        :arg("-c:a", o.acodec)
-        :arg(not copy_audio and "-an" or nil)
-        :arg(outpath)
+    cmds:arg("-i", inpath)
+    cmds:arg("-t", tostring(endpos - shift))
+    cmds:arg("-c:v", o.vcodec)
+    cmds:arg("-c:a", o.acodec)
+    cmds:arg(not copy_audio and "-an" or nil)
+    cmds:arg(outpath)
     msg.info("Run commands: " .. cmds:as_str())
     local res, err = cmds:run()
     if err then
