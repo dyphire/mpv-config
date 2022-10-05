@@ -197,7 +197,7 @@ local function extract_to_file(subtitle_track)
         temp_sub_fp
     }
     if ret == nil or ret.status ~= 0 then
-        return notify("无法提取内封字幕.\n请确保视频有内封字幕.", "error", 7)
+        return notify("无法提取内封字幕.\n请先确保在脚本配置文件中为 ffmpeg 指定了正确的路径\n并确保视频有内封字幕.", "error", 7)
     end
     return temp_sub_fp
 end
@@ -211,14 +211,6 @@ local function sync_subtitles(ref_sub_path)
     local subtitle_path = sub_track.external and sub_track['external-filename'] or extract_to_file(sub_track)
     local engine_name = engine_selector:get_engine_name()
     local engine_path = config[engine_name .. '_path']
-
-    if not file_exists(engine_path) then
-        return notify(
-                string.format("无法找到 %s 可执行文件.\n请在脚本配置文件中指定正确的路径.", engine_name),
-                "error",
-                5
-        )
-    end
 
     if not file_exists(subtitle_path) then
         return notify(
@@ -263,7 +255,7 @@ local function sync_subtitles(ref_sub_path)
             notify("错误: 不能添加同步字幕.", "error", 3)
         end
     else
-        notify("字幕同步失败.", "error", 3)
+        notify(string.format("字幕同步失败.\n请确保在脚本配置文件中为 %s 指定了正确的路径.", engine_name), "error", 3)
     end
 end
 
@@ -273,9 +265,6 @@ local function sync_to_subtitle()
     if selected_track and selected_track.external then
         sync_subtitles(selected_track['external-filename'])
     else
-        if not file_exists(config.ffmpeg_path) then
-            return notify("不能找到ffmpeg可执行文件.\n请在脚本配置文件中指定正确的路径.", "error", 5)
-        end
         local temp_sub_fp = extract_to_file(selected_track)
         if temp_sub_fp then
             sync_subtitles(temp_sub_fp)

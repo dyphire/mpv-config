@@ -31,7 +31,7 @@ o = {
         []
         ]], --excluded directories for cloud mount disks on Windows, example: ["X:", "Z:", "F:\\Download\\", "Download"]. !!the option only for Windows
     special_protocols = [[
-	["https?://", "^magnet:", "^rtmp:", "smb://", "bd://", "dvd://", "cdda://"]
+	["://", "^magnet:"]
 	]], --add above (after a comma) any protocol to disable
 }
 options.read_options(o)

@@ -18,6 +18,7 @@ local o = {
 	windows_copy = 'powershell', --'powershell' is for using windows powershell to copy. OR write the copy command, e.g: ' clip'
 	windows_paste = 'powershell', --'powershell' is for using windows powershell to paste. OR write the paste command
 	auto_run_list_idle = 'none', --Auto run the list when opening mpv and there is no video / file loaded. 'none' for disabled. Or choose between: 'all', 'copy', 'paste', 'recents', 'distinct', 'protocols', 'fileonly', 'titleonly', 'timeonly', 'keywords'.	
+	toggle_idlescreen = false, --enable script-message to control the idlescreen
 	resume_offset = -0.65, --change to 0 so item resumes from the exact position, or decrease the value so that it gives you a little preview before loading the resume point
 	osd_messages = true, --true is for displaying osd messages when actions occur. Change to false will disable all osd messages generated from this script
 	mark_clipboard_as_chapter = false, --true is for marking the time as a chapter. false disables mark as chapter behavior.
@@ -48,7 +49,7 @@ local o = {
 	["ctrl+alt+v", "ctrl+alt+V", "meta+alt+v", "meta+alt+V"]
 	]], --Keybind that will be used to paste based on the paste behavior specified
 	paste_protocols=[[
-	["https?://", "magnet:", "rtmp:"]
+	["://", "magnet:"]
 	]], --add above (after a comma) any protocol you want paste to work with; e.g: ,'ftp://'. Or set it as "" by deleting all defined protocols to make paste works with any protocol.
 	paste_extensions=[[
 	["ac3", "a52", "eac3", "mlp", "dts", "dts-hd", "dtshd", "true-hd", "thd", "truehd", "thd+ac3", "tta", "pcm", "wav", "aiff", "aif",  "aifc", "amr", "awb", "au", "snd", "lpcm", "yuv", "y4m", "ape", "wv", "shn", "m2ts", "m2t", "mts", "mtv", "ts", "tsv", "tsa", "tts", "trp", "adts", "adt", "mpa", "m1a", "m2a", "mp1", "mp2", "mp3", "mpeg", "mpg", "mpe", "mpeg2", "m1v", "m2v", "mp2v", "mpv", "mpv2", "mod", "tod", "vob", "vro", "evob", "evo", "mpeg4", "m4v", "mp4", "mp4v", "mpg4", "m4a", "aac", "h264", "avc", "x264", "264", "hevc", "h265", "x265", "265", "flac", "oga", "ogg", "opus", "spx", "ogv", "ogm", "ogx", "mkv", "mk3d", "mka", "webm", "weba", "avi", "vfw", "divx", "3iv", "xvid", "nut", "flic", "fli", "flc", "nsv", "gxf", "mxf", "wma", "wm", "wmv", "asf", "dvr-ms", "dvr", "wtv", "dv", "hdv", "flv","f4v", "f4a", "qt", "mov", "hdmov", "rm", "rmvb", "ra", "ram", "3ga", "3ga2", "3gpp", "3gp", "3gp2", "3g2", "ay", "gbs", "gym", "hes", "kss", "nsf", "nsfe", "sap", "spc", "vgm", "vgz", "m3u", "m3u8", "pls", "cue",
@@ -335,14 +336,16 @@ local filterName = 'all'
 local sortName
 
 function starts_protocol(tab, val)
-	for index, value in ipairs(tab) do
-		if (val:find(value) == 1) then
+	for index, element in ipairs(tab) do
+        if string.find(val, element) then
+            return true
+        end
+		if (val:find(element) == 1) then
 			return true
 		end
 	end
 	return false
 end
-
 
 function contain_value(tab, val)
 	if not tab then return msg.error('check value passed') end
@@ -1066,6 +1069,7 @@ function display_list(filter, sort, action)
 	if not search_active then get_page_properties(filter) else update_search_results('','') end
 	draw_list()
 	utils.shared_script_property_set("menu-open", "yes")
+	if o.toggle_idlescreen then mp.commandv('script-message', 'osc-idlescreen', 'no', 'no_osd') end
 	list_drawn = true
 	if not search_active then get_list_keybinds() end
 end
@@ -1728,6 +1732,7 @@ end
 
 function list_close_and_trash_collection()
 	utils.shared_script_property_set("menu-open", "no")
+	if o.toggle_idlescreen then mp.commandv('script-message', 'osc-idlescreen', 'yes', 'no_osd') end
 	unbind_list_keys()
 	unbind_search_keys()
 	mp.set_osd_ass(0, 0, "")
