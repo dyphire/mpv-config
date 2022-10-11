@@ -38,10 +38,14 @@
     "branch":"main"
   },
   {
-    "git":"https://github.com/Natural-Harmonia-Gropius/mpv_config",
-    "whitelist":"pressaction%.lua$",
-    "dest":"~~/scripts",
-    "branch":"main"
+    "git":"https://github.com/Natural-Harmonia-Gropius/InputEvent",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/po5/evafast",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts"
   },
   {
     "git":"https://github.com/po5/thumbfast",
