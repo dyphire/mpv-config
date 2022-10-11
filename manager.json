@@ -125,25 +125,19 @@
     "dest":"~~/scripts"
   },
   {
-    "git":"https://github.com/CogentRedTester/mpv-scripts",
-    "whitelist":"cycle%-commands%.lua$|display%-profiles%.lua$|editions%-notification%.lua$|onedrive%-hook%.lua$|ordered%-chapters%-playlist%.lua$",
+    "git":"https://github.com/CogentRedTester/mpv-sub-select",
+    "whitelist":"sub%-select%.lua$",
     "dest":"~~/scripts"
   },
   {
-    "git":"https://github.com/CogentRedTester/mpv-sub-select",
-    "whitelist":"sub%-select%.lua$",
+    "git":"https://github.com/CogentRedTester/mpv-scripts",
+    "whitelist":"cycle%-commands%.lua$|display%-profiles%.lua$|ordered%-chapters%-playlist%.lua$",
     "dest":"~~/scripts"
   },
   {
     "git":"https://github.com/CogentRedTester/mpv-user-input",
     "whitelist":"user%-input%.lua$",
     "dest":"~~/scripts"
-  },
-  {
-    "git":"https://github.com/hooke007/MPV_lazy",
-    "whitelist":"contextmenu%_gui%_lang%.lua$|contextmenu%_gui%_engine%.lua$|contextmenu%_gui%_tk%.tcl$",
-    "dest":"~~/scripts/contextmenu_gui",
-    "branch":"main"
   },
   {
     "git":"https://github.com/CogentRedTester/mpv-user-input",
@@ -162,7 +156,7 @@
   },
   {
     "git":"https://github.com/CogentRedTester/mpv-file-browser",
-    "whitelist":"favourites%.lua$|windir%.lua$|apache%-browser%.lua$|home%-label%.lua$|url%-decode%.lua$|m3u%-browser%.lua$|ftp%-browser%.lua$",
+    "whitelist":"apache%-browser%.lua$|favourites%.lua$|find%.lua$|ftp%-browser%.lua$|home%-label%.lua$|m3u%-browser%.lua$|url%-decode%.lua$|windir%.lua$|winroot%.lua$",
     "dest":"~~/script-modules/file-browser-addons"
   },
   {
