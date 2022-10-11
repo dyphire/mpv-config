@@ -89,7 +89,7 @@ local o = {
     --directory to load external modules - currently just user-input-module
     module_directory = "~~/script-modules",
 
-    --enable script-message to control the idlescreen
+    --turn the OSC idle screen off and on when opening and closing the browser
     toggle_idlescreen = false,
 
     --force file-browser to use a specific text alignment (default: top-left)
@@ -758,14 +758,15 @@ local function update_ass()
         elseif i == state.selected then append(style.selected) end
 
         --prints the currently-playing icon and style
-        if playing_file and multiselected then append(style.playing_selected)
-        elseif playing_file then append(style.playing) end
+        if playing_file then append( multiselected and style.playing_selected or style.playing) end
 
         --sets the folder icon
-        if v.type == 'dir' then append(style.folder..o.folder_icon.."\\h") end
+        if v.type == 'dir' then
+            append(style.folder..o.folder_icon.."\\h"..style.body)
+            if playing_file then append( multiselected and style.playing_selected or style.playing) end
+        end
 
         --adds the actual name of the item
-        append(style.body)
         append(v.ass or API.ass_escape(v.label or v.name, true))
         newline()
     end

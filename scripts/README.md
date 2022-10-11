@@ -4,6 +4,7 @@
 
 | 脚本名 | 简要说明 |
 | --- | --- |
+| autosubsync（组）* | 字幕同步菜单（依赖 ffmpeg, [ffsubsync](https://github.com/smacke/ffsubsync) or [alass](https://github.com/dyphire/alass) or both; 配置文件 [autosubsync.conf](../script-opts/autosubsync.conf)） |
 | adevice-list.lua* | OSD交互式音频设备菜单 |
 | autoload.lua* | 自动加载同级目录的文件（配置文件 [autoload.conf](../script-opts/autoload.conf)） |
 | autodeint.lua       | 自动检测并切换去交错（默认禁用，需快捷键启用） |
@@ -48,7 +49,7 @@
 | undoredo.lua                  | 可实现智能跳跃记录操作                                          |
 | uosc.lua* | 第三方高级 OSC 脚本，实现了许多实用功能（配置文件 [uosc.conf](../script-opts/uosc.conf)） |
 | youtube-download.lua* | 下载 ytdl 视频/音频/字幕/片段（依赖 yt-dlp/youtube-dl和ffmpeg; 配置文件 [youtube-download.conf](../script-opts/youtube-download.conf)） |
-| autosubsync（组）*        | 字幕同步菜单（依赖 ffmpeg, [ffsubsync](https://github.com/smacke/ffsubsync) or [alass](https://github.com/dyphire/alass) or both; 配置文件 [autosubsync.conf](../script-opts/autosubsync.conf)） |
+
 1. 标记`*`号的部分脚本为**个人修改版或自建脚本**。
 2. 所有脚本预绑定的`mp.add_key_binding`静态键位已被 [mpv.conf](../mpv.conf) 中的`input-default-bindings=no`参数屏蔽，可查看 [input.conf](../input.conf)  的"LUA 脚本"部分示例参考绑定所需键位  
    - 本配置绑定的快捷键及功能请参考 [快捷键说明.md](../快捷键说明.md) 文件
