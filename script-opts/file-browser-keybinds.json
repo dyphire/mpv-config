@@ -131,6 +131,12 @@
         "multiselect": true
     },
     {
+        "key": "Ctrl+O",
+        "command": ["run", "powershell", "-command", "explorer.exe", "'/select,'", "( %F -replace '/', '\\' )"],
+        "filter": "file",
+        "multiselect": true
+    },
+    {
         "key": "Ctrl+o",
         "command": ["run", "powershell", "-command", "& 'C:/Program Files/Mozilla Firefox/firefox.exe' %P"],
         "multiselect": false,
@@ -143,6 +149,7 @@
         "multiselect": true,
         "parser": "ftp"
     },
+
     {
         "key": "F",
         "command": ["script-message", "favourites/add_favourite", "%f"]
@@ -165,5 +172,12 @@
             ["script-message", "favourites/move_down", "%f"]
         ],
         "parser": "favourites"
-    }
+    },
+    {
+        "key": "Ctrl+r",
+        "command": [
+            ["script-message", "windrives/import_root_drives"]
+        ],
+        "parser": "root"
+    },
 ]

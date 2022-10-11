@@ -19,14 +19,6 @@ local options = {
     -- Overlay id
     overlay_id = 42,
 
-    -- Thumbnail interval in seconds, set to 0 to disable (warning: high cpu usage)
-    -- Clamped to min_thumbnails and max_thumbnails
-    interval = 6,
-
-    -- Number of thumbnails
-    min_thumbnails = 6,
-    max_thumbnails = 120,
-
     -- Spawn thumbnailer on file load for faster initial thumbnails
     spawn_first = false,
 
@@ -34,15 +26,49 @@ local options = {
     network = false,
 
     -- Enable on audio playback
-    audio = false
+    audio = false,
+
+    -- Windows only: don't use subprocess to communicate with socket
+    use_lua_io = false
 }
 
 mp.utils = require "mp.utils"
 mp.options = require "mp.options"
 mp.options.read_options(options, "thumbfast")
 
-if options.min_thumbnails < 1 then
-    options.min_thumbnails = 1
+local winapi = {}
+if options.use_lua_io then
+    local ffi_loaded, ffi = pcall(require, "ffi")
+    if ffi_loaded then
+        winapi = {
+            ffi = ffi,
+            C = ffi.C,
+            bit = require("bit"),
+
+            -- WinAPI constants
+            GENERIC_WRITE = 0x40000000,
+            OPEN_EXISTING = 3,
+            FILE_FLAG_WRITE_THROUGH = 0x80000000,
+            FILE_FLAG_NO_BUFFERING = 0x20000000,
+            PIPE_NOWAIT = ffi.new("unsigned long[1]", 0x00000001),
+
+            INVALID_HANDLE_VALUE = ffi.cast("void*", -1),
+
+            -- don't care about how many bytes WriteFile wrote, so allocate something to store the result once
+            _lpNumberOfBytesWritten = ffi.new("unsigned long[1]"),
+        }
+		-- cache flags used in run() to avoid bor() call
+        winapi._createfile_pipe_flags = winapi.bit.bor(winapi.FILE_FLAG_WRITE_THROUGH, winapi.FILE_FLAG_NO_BUFFERING)
+
+        ffi.cdef[[
+            void* __stdcall CreateFileA(const char *lpFileName, unsigned long dwDesiredAccess, unsigned long dwShareMode, void *lpSecurityAttributes, unsigned long dwCreationDisposition, unsigned long dwFlagsAndAttributes, void *hTemplateFile);
+            bool __stdcall WriteFile(void *hFile, const void *lpBuffer, unsigned long nNumberOfBytesToWrite, unsigned long *lpNumberOfBytesWritten, void *lpOverlapped);
+            bool __stdcall CloseHandle(void *hObject);
+            bool __stdcall SetNamedPipeHandleState(void *hNamedPipe, unsigned long *lpMode, unsigned long *lpMaxCollectionCount, unsigned long *lpCollectDataTimeout);
+        ]]
+    else
+        options.use_lua_io = false
+    end
 end
 
 local os_name = ""
@@ -52,25 +78,24 @@ local unique = math.random(10000000)
 local init = false
 
 local spawned = false
-local can_generate = true
 local network = false
 local disabled = false
-local interval = 0
 
 local x = nil
 local y = nil
 local last_x = x
 local last_y = y
 
-local last_index = nil
-local last_request = nil
-local last_request_time = nil
-local last_display_time = 0
+local last_seek_time = nil
 
 local effective_w = options.max_width
-local generate_h = options.max_height
-local render_h = generate_h
-local thumb_size = effective_w * generate_h * 4
+local effective_h = options.max_height
+local real_w = nil
+local real_h = nil
+
+local script_name = nil
+
+local show_thumbnail = false
 
 local filters_reset = {["lavfi-crop"]=true, crop=true}
 local filters_runtime = {hflip=true, vflip=true}
@@ -84,6 +109,10 @@ local last_rotate = 0
 
 local par = ""
 local last_par = ""
+
+local file_timer = nil
+local file_check_period = 1/60
+local first_file = false
 
 local function get_os()
     local raw_os_name = ""
@@ -155,7 +184,7 @@ local function vf_string(filters, full)
     end
 
     if full then
-        vf = vf.."scale=w="..effective_w..":h="..generate_h..par..",pad=w="..effective_w..":h="..generate_h..",format=bgra"
+        vf = vf.."scale=w="..effective_w..":h="..effective_h..par..",pad=w="..effective_w..":h="..effective_h..":x=-1:y=-1,format=bgra"
     end
 
     return vf
@@ -169,15 +198,12 @@ local function calc_dimensions()
     local scale = mp.get_property_number("display-hidpi-scale", 1)
 
     if width / height > options.max_width / options.max_height then
-        effective_w = math.floor(options.max_width * scale / 2) * 2
+        effective_w = math.floor(options.max_width * scale + 0.5)
+        effective_h = math.floor(height / width * effective_w + 0.5)
     else
-        local target_h = math.floor(options.max_height * scale + 0.5)
-        effective_w = math.floor(width / height * target_h / 2) * 2
+        effective_h = math.floor(options.max_height * scale + 0.5)
+        effective_w = math.floor(width / height * effective_h + 0.5)
     end
-    generate_h = math.ceil(height / width * effective_w / 2) * 2
-    render_h = math.floor(height / width * effective_w + 0.5)
-
-    thumb_size = effective_w * generate_h * 4
 
     local v_par = mp.get_property_number("video-out-params/par", 1)
     if v_par == 1 then
@@ -187,10 +213,10 @@ local function calc_dimensions()
     end
 end
 
-local function info()
-    local display_w, display_h = effective_w, render_h
+local function info(w, h)
+    local display_w, display_h = w, h
     if mp.get_property_number("video-params/rotate", 0) % 180 == 90 then
-        display_w, display_h = render_h, effective_w
+        display_w, display_h = h, w
     end
 
     local json, err = mp.utils.format_json({width=display_w, height=display_h, disabled=disabled, socket=options.socket, thumbnail=options.thumbnail, overlay_id=options.overlay_id})
@@ -249,13 +275,9 @@ local function spawn(time)
 
     remove_thumbnail_files()
 
-    calc_dimensions()
-
-    info()
-
     mp.command_native_async(
         {name = "subprocess", playback_only = true, args = {
-            "mpv", path, "--no-config", "--msg-level=all=no", "--idle", "--pause", "--keep-open=always",
+            "mpv", path, "--no-config", "--msg-level=all=no", "--idle", "--pause", "--keep-open=always", "--really-quiet", "--no-terminal",
             "--edition="..(mp.get_property_number("edition") or "auto"), "--vid="..(mp.get_property_number("vid") or "auto"), "--no-sub", "--no-audio",
             "--input-ipc-server="..options.socket,
             "--start="..time, "--hr-seek=no",
@@ -272,6 +294,22 @@ end
 
 local function run(command, callback)
     if not spawned then return end
+
+    if options.use_lua_io and os_name == "Windows" then
+        local hPipe = winapi.C.CreateFileA("\\\\.\\pipe\\" .. options.socket, winapi.GENERIC_WRITE, 0, nil, winapi.OPEN_EXISTING, winapi._createfile_pipe_flags, nil)
+        if hPipe ~= winapi.INVALID_HANDLE_VALUE then
+            local buf = command .. "\n"
+            winapi.C.SetNamedPipeHandleState(hPipe, winapi.PIPE_NOWAIT, nil, nil)
+            winapi.C.WriteFile(hPipe, buf, #buf + 1, winapi._lpNumberOfBytesWritten, nil)
+            winapi.C.CloseHandle(hPipe)
+        end
+
+        if callback then
+            mp.add_timeout(0, callback)
+        end
+
+        return
+    end
 
     callback = callback or function() end
 
@@ -291,20 +329,8 @@ local function run(command, callback)
     )
 end
 
-local function thumb_index(thumbtime)
-    return math.floor(thumbtime / interval)
-end
-
-local function index_time(index, thumbtime)
-    if interval > 0 then
-        local time = index * interval
-        return time + interval / 3
-    else
-        return thumbtime
-    end
-end
-
-local function draw(w, h, thumbtime, display_time, script)
+local function draw(w, h, script)
+    if not w or not show_thumbnail then return end
     local display_w, display_h = w, h
     if mp.get_property_number("video-params/rotate", 0) % 180 == 90 then
         display_w, display_h = h, w
@@ -320,67 +346,94 @@ local function draw(w, h, thumbtime, display_time, script)
     end
 end
 
-local function display_img(w, h, thumbtime, display_time, script, redraw)
-    if last_display_time > display_time or disabled then return end
+local function real_res(req_w, req_h, filesize)
+    local count = filesize / 4
+    local diff = (req_w * req_h) - count
 
-    if not redraw then
-        can_generate = false
-
-        local info = mp.utils.file_info(options.thumbnail)
-        if not info or info.size ~= thumb_size then
-            if thumbtime == -1 then
-                can_generate = true
-                return
-            end
-
-            if thumbtime < 0 then
-                thumbtime = thumbtime + 1
-            end
-
-            -- display last successful thumbnail if one exists
-            local info2 = mp.utils.file_info(options.thumbnail..".bgra")
-            if info2 and info2.size == thumb_size then
-                draw(w, h, thumbtime, display_time, script)
-            end
-
-            -- retry up to 5 times
-            return mp.add_timeout(0.05, function() display_img(w, h, thumbtime < 0 and thumbtime or -5, display_time, script) end)
-        end
-
-        if last_display_time > display_time then return end
-
-        -- os.rename can't replace files on windows
-        if os_name == "Windows" then
-            os.remove(options.thumbnail..".bgra")
-        end
-        -- move the file because it can get overwritten while overlay-add is reading it, and crash the player
-        os.rename(options.thumbnail, options.thumbnail..".bgra")
-
-        last_display_time = display_time
+    if diff == 0 then
+        return req_w, req_h
     else
-        local info = mp.utils.file_info(options.thumbnail..".bgra")
-        if not info or info.size ~= thumb_size then
-            -- still waiting on intial thumbnail
-            return mp.add_timeout(0.05, function() display_img(w, h, thumbtime, display_time, script) end)
+        local threshold = 5 -- throw out results that change too much
+        local long_side, short_side = req_w, req_h
+        if req_h > req_w then
+            long_side, short_side = req_h, req_w
         end
-        if not can_generate then
-            return draw(w, h, thumbtime, display_time, script)
+        for a = short_side, short_side - threshold, -1 do
+            if count % a == 0 then
+                local b = count / a
+                if long_side - b < threshold then
+                    if req_h < req_w then return b, a else return a, b end
+                end
+            end
         end
-    end
-
-    draw(w, h, thumbtime, display_time, script)
-
-    can_generate = true
-
-    if not redraw then
-        -- often, the file we read will be the last requested thumbnail
-        -- retry after a small delay to ensure we got the latest image
-        if thumbtime ~= -1 then
-            mp.add_timeout(0.05, function() display_img(w, h, -1, display_time, script) end)
-            mp.add_timeout(0.1, function() display_img(w, h, -1, display_time, script) end)
-        end
+        return nil
     end
 end
+
+local function move_file(from, to)
+    if os_name == "Windows" then
+        os.remove(to)
+    end
+    -- move the file because it can get overwritten while overlay-add is reading it, and crash the player
+    os.rename(from, to)
+end
+
+local last_seek = 0
+local function seek(exact)
+    if last_seek_time then
+        last_seek = mp.get_time()
+        run("async seek " .. last_seek_time .. (exact and " absolute+exact" or " absolute+keyframes"))
+    end
+end
+
+local seek_period = 0.1
+local seek_timer = mp.add_timeout(seek_period, seek)
+seek_timer:kill()
+local exact_seek_timer = mp.add_timeout(seek_period * 1.1, function() seek(true) end)
+exact_seek_timer:kill()
+local function request_seek()
+    exact_seek_timer:kill()
+    exact_seek_timer:resume()
+    if seek_timer:is_enabled() then return end
+    local next_seek = seek_period - (mp.get_time() - last_seek)
+    if next_seek <= 0 then seek() return end
+    seek_timer.timeout = next_seek
+    seek_timer:resume()
+end
+
+local function check_new_thumb()
+    local finfo = mp.utils.file_info(options.thumbnail)
+    if not finfo then return false end
+
+    -- the slave might start writing to the file after checking existance and
+    -- validity but before actually moving the file, so move to a temporary
+    -- location before validity check to make sure everything stays consistant
+    -- and valid thumbnails don't get overwritten by invalid ones
+    local tmp = options.thumbnail..".tmp"
+    move_file(options.thumbnail, tmp)
+    if first_file then
+        request_seek()
+        first_file = false
+    end
+    finfo = mp.utils.file_info(tmp)
+    if not finfo then return false end
+    local w, h = real_res(effective_w, effective_h, finfo.size)
+    if w then -- only accept valid thumbnails
+        move_file(tmp, options.thumbnail..".bgra")
+
+        real_w, real_h = w, h
+        if real_w then info(real_w, real_h) end
+        return true
+    end
+    return false
+end
+
+file_timer = mp.add_periodic_timer(file_check_period, function()
+    if check_new_thumb() then
+        draw(real_w, real_h, script_name)
+    end
+end)
+file_timer:kill()
 
 local function thumb(time, r_x, r_y, script)
     if disabled then return end
@@ -394,39 +447,27 @@ local function thumb(time, r_x, r_y, script)
         x, y = math.floor(r_x + 0.5), math.floor(r_y + 0.5)
     end
 
-    local index = thumb_index(time)
-    local seek_time = index_time(index, time)
-
-    if last_request == seek_time or (interval > 0 and index == last_index) then
-        last_index = index
-        if x ~= last_x or y ~= last_y then
-            last_x, last_y = x, y
-            display_img(effective_w, render_h, time, mp.get_time(), script, true)
-        end
-        return
+    script_name = script
+    if last_x ~= x or last_y ~= y or not show_thumbnail then
+        show_thumbnail = true
+        last_x = x
+        last_y = y
+        draw(real_w, real_h, script)
     end
 
-    local cur_request_time = mp.get_time()
-
-    last_index = index
-    last_request_time = cur_request_time
-    last_request = seek_time
-
-    if not spawned then
-        spawn(seek_time)
-        if can_generate then
-            display_img(effective_w, render_h, time, cur_request_time, script)
-            mp.add_timeout(0.15, function() display_img(effective_w, render_h, time, cur_request_time, script) end)
-            end
-        return
-    end
-
-    run("async seek "..seek_time.." absolute+keyframes", function() if can_generate then display_img(effective_w, render_h, time, cur_request_time, script) end end)
+    if time == last_seek_time then return end
+    last_seek_time = time
+    if not spawned then spawn(time) end
+    request_seek()
+    if not file_timer:is_enabled() then file_timer:resume() end
 end
 
 local function clear()
-    last_display_time = mp.get_time()
-    can_generate = true
+    file_timer:kill()
+    seek_timer:kill()
+    exact_seek_timer:kill()
+    last_seek = 0
+    show_thumbnail = false
     last_x = nil
     last_y = nil
     mp.command_native(
@@ -436,7 +477,7 @@ end
 
 local function watch_changes()
     local old_w = effective_w
-    local old_h = generate_h
+    local old_h = effective_h
 
     calc_dimensions()
 
@@ -444,14 +485,14 @@ local function watch_changes()
     local rotate = mp.get_property_number("video-rotate", 0)
 
     if spawned then
-        if old_w ~= effective_w or old_h ~= generate_h or last_vf_reset ~= vf_reset or (last_rotate % 180) ~= (rotate % 180) or par ~= last_par then
+        if old_w ~= effective_w or old_h ~= effective_h or last_vf_reset ~= vf_reset or (last_rotate % 180) ~= (rotate % 180) or par ~= last_par then
             last_rotate = rotate
             -- mpv doesn't allow us to change output size
             run("quit")
             clear()
-            info()
+            info(effective_w, effective_h)
             spawned = false
-            spawn(last_request or mp.get_property_number("time-pos", 0))
+            spawn(last_seek_time or mp.get_property_number("time-pos", 0))
         else
             if rotate ~= last_rotate then
                 run("set video-rotate "..rotate)
@@ -463,9 +504,9 @@ local function watch_changes()
             end
         end
     else
-        if old_w ~= effective_w or old_h ~= generate_h or last_vf_reset ~= vf_reset or (last_rotate % 180) ~= (rotate % 180) or par ~= last_par then
+        if old_w ~= effective_w or old_h ~= effective_h or last_vf_reset ~= vf_reset or (last_rotate % 180) ~= (rotate % 180) or par ~= last_par then
             last_rotate = rotate
-            info()
+            info(effective_w, effective_h)
         end
         last_vf_runtime = vf_string(filters_runtime)
     end
@@ -483,19 +524,23 @@ end
 
 local function file_load()
     clear()
+    real_w, real_h = nil, nil
+    last_seek_time = nil
 
     network = mp.get_property_bool("demuxer-via-network", false)
     local image = mp.get_property_native('current-tracks/video/image', true)
     local albumart = image and mp.get_property_native("current-tracks/video/albumart", false)
 
     disabled = (network and not options.network) or (albumart and not options.audio) or (image and not albumart)
-    info()
+    calc_dimensions()
+    info(effective_w, effective_h)
     if disabled then return end
 
-    interval = math.min(math.max(mp.get_property_number("duration", 1) / options.max_thumbnails, options.interval), mp.get_property_number("duration", options.interval * options.min_thumbnails) / options.min_thumbnails)
-
     spawned = false
-    if options.spawn_first then spawn(mp.get_property_number("time-pos", 0)) end
+    if options.spawn_first then
+        spawn(mp.get_property_number("time-pos", 0))
+        first_file = true
+    end
 end
 
 local function shutdown()
