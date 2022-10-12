@@ -941,7 +941,7 @@ local function playmenuList()
             {SEP},
             {COMMAND, "切换 字幕", "j", "cycle sub;show-text 字幕切换为:${sub}", "", false},
             {COMMAND, "切换 渲染样式", "u", "cycle sub-ass-override;show-text 字幕渲染样式:${sub-ass-override}", "", false},
-            {COMMAND, "切换 默认字体", "T", "cycle-values sub-font '思源黑体 Bold' '思源宋体 Bold' 思源黑体 思源宋体;show-text 使用字体:${sub-font}", "", false},
+            {COMMAND, "切换 默认字体", "T", "cycle-values sub-font 'NotoSansCJKsc-Bold' 'NotoSerifCJKsc-Bold';show-text 使用字体:${sub-font}", "", false},
             {COMMAND, "加载次字幕", "k", "cycle secondary-sid;show-text 加载次字幕:${secondary-sid}", "", false},
             {SEP},
             {CASCADE, "字幕兼容性", "sub_menu", "", "", false},
