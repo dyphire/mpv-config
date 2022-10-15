@@ -8,11 +8,13 @@
 --  Note:
 --     Requires FFmpeg in PATH environment variable or edit ffmpeg_path in the script options,
 --     for example, by replacing "ffmpeg" with "C:\Programs\ffmpeg\bin\ffmpeg.exe"
---  Note: 
+--  Note:
+--     The script support subtitles in srt, ass, and sup formats.
+--  Note:
 --     A small circle at the top-right corner is a sign that export is happenning now.
 --  Note:
 --     The exported subtitles will be automatically selected with visibility set to true. 
---  Note: 
+--  Note:
 --     It could take ~1-5 minutes to export subtitles.
 
 local msg = require 'mp.msg'
@@ -21,7 +23,9 @@ local options = require "mp.options"
 
 ---- Script Options ----
 local o = {
-    ffmpeg_path = "ffmpeg"
+    ffmpeg_path = "ffmpeg",
+    -- eng=English, chs=Chinese
+    language = 'eng',
 }
 
 options.read_options(o)
@@ -45,8 +49,13 @@ local function export_selected_subtitles()
 
         if track_type == "sub" and track_selected == "yes" then
             if track_external == "yes" then
-                msg.info("Error: external subtitles have been selected")
-                mp.osd_message("Error: external subtitles have been selected", 2)
+                if o.language == 'chs' then
+                    msg.info("错误:已选择外部字幕")
+                    mp.osd_message("错误:已选择外部字幕", 2)
+                else
+                    msg.info("Error: external subtitles have been selected")
+                    mp.osd_message("Error: external subtitles have been selected", 2)
+                end
                 return
             end
 
@@ -69,8 +78,13 @@ local function export_selected_subtitles()
             
             subtitles_file = dir .. fname .. subtitles_ext
 
-            msg.info("Exporting selected subtitles")
-            mp.osd_message("Exporting selected subtitles")
+            if o.language == 'chs' then
+                msg.info("正在导出当前字幕")
+                mp.osd_message("正在导出当前字幕")
+            else
+                msg.info("Exporting selected subtitles")
+                mp.osd_message("Exporting selected subtitles")
+            end
 
             is_windows = package.config:sub(1,1) == "\\"
             cmd = string.format("%s -y -hide_banner -loglevel error -i '%s' -map '%s' -vn -an -c:s copy '%s'", o.ffmpeg_path, video_file, index, subtitles_file)
@@ -94,13 +108,23 @@ function process()
     local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})
     mp.set_osd_ass(screenx, screeny, "")
     if res.status == 0 then
-        msg.info("Finished exporting subtitles")
-        mp.osd_message("Finished exporting subtitles")
+        if o.language == 'chs' then
+            msg.info("当前字幕已导出")
+            mp.osd_message("当前字幕已导出")
+        else
+            msg.info("Finished exporting subtitles")
+            mp.osd_message("Finished exporting subtitles")
+        end
         mp.commandv("sub-add", subtitles_file)
         mp.set_property("sub-visibility", "yes")
     else
-        msg.info("Failed to export subtitles")
-        mp.osd_message("Failed to export subtitles, check console for more info.")
+        if o.language == 'chs' then
+            msg.info("当前字幕导出失败")
+            mp.osd_message("当前字幕导出失败, 查看控制台获取更多信息.")
+        else
+            msg.info("Failed to export subtitles")
+            mp.osd_message("Failed to export subtitles, check console for more info.")
+        end
     end
 end
 

@@ -1,14 +1,12 @@
--- quality-menu.lua
+-- quality-menu 2.7.0 - 2022-Oct-02
+-- https://github.com/christoph-heinrich/mpv-quality-menu
 --
 -- Change the stream video and audio quality on the fly.
 --
 -- Usage:
 -- add bindings to input.conf:
--- Ctrl+f   script-message-to quality_menu video_formats_toggle
--- Alt+f    script-message-to quality_menu audio_formats_toggle
---
--- Displays a menu that lets you switch to different ytdl-format settings while
--- you're in the middle of a video (just like you were using the web player).
+-- Ctrl+f script-binding quality_menu/video_formats_toggle
+-- Alt+f  script-binding quality_menu/audio_formats_toggle
 
 local mp = require 'mp'
 local utils = require 'mp.utils'

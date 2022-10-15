@@ -19,6 +19,7 @@ Default config:
 -- ------ config -------
 
 local options = {
+  language = 'eng',            -- eng=English, chs=Chinese
   start_keys_enabled = false,  -- if true then choose the up/down keys wisely
   key_toggle_bindings = "ALT+n", -- enter/exit drcbox keys mode 
   key_toggle_drcbox = "ALT+N",  -- toggle dynaudnorm without changing its values
@@ -35,6 +36,23 @@ local options = {
 }
 
 (require 'mp.options').read_options(options)
+
+-- Localization
+local language = {
+  ['eng'] = {
+      msg1 = 'DynAudNorm: ',
+      msg2 = 'Key-bindings: ',
+      msg3 = 'Reset: ',
+  },
+  ['chs'] = {
+      msg1 = '开/关 dynaudnorm音频处理: ',
+      msg2 = '开/关 内置键位绑定: ',
+      msg3 = '重置  dynaudnorm音频处理: ',
+  }
+}
+
+-- apply lang opts
+local texts = language[options.language]
 
 local function get_cmd_full()
   f = options[1].option[5]
@@ -102,13 +120,13 @@ end
 
 -- some visual messing about
 local function updateOSD()
-  local msg1 = fsize(70) .. '开/关 dynaudnorm音频处理: ' .. ceq() .. iff(drcbox_enabled, 'On', 'Off')
+  local msg1 = fsize(70) .. texts.msg1 .. ceq() .. iff(drcbox_enabled, 'On', 'Off')
             .. ' [' .. options.key_toggle_drcbox .. ']' .. cnorm()
   local msg2 = fsize(70)
-            .. '开/关 内置键位绑定: ' .. ckeys() .. iff(bindings_enabled, 'On', 'Off')
+            .. texts.msg2 .. ckeys() .. iff(bindings_enabled, 'On', 'Off')
             .. ' [' .. options.key_toggle_bindings .. ']' .. cnorm()
   local msg3 = fsize(70)
-            .. '重置  dynaudnorm音频处理: '
+            .. texts.msg3
             .. ' [' .. options.key_reset_drcbox .. ']'
   local msg4 = ' '
 

@@ -7,7 +7,7 @@
 
     This script also implements an interractive track list
     Usage: add bindings to input.conf
-    -- key script-message-to editions_notification_menu toggle-edition-browser
+    -- key script-message-to edition_list toggle-edition-browser
 
     This script needs to be used with scroll-list.lua
     https://github.com/CogentRedTester/mpv-scroll-list

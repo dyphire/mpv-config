@@ -11,7 +11,7 @@
 | auto-save-state.lua* | 每隔 1 分钟自动保存播放进度（而不是退出时），播放完毕时自动删除进度 |
 | blacklist-extensions.lua         | mpv 直接拖放目录时的文件加载类型的黑/白名单 |
 | change-refresh.lua   | 更改显示器刷新率（依赖 [nircmd](https://www.nirsoft.net/utils/nircmd.html) ，配置文件 [changerefresh.conf](../script-opts/changerefresh.conf)） |
-| chapter_make_read.lua* | 标记/制作/自动读取并加载外部章节文件（配置文件 [chapter_make_read.conf](../script-opts/chapter_make_read.conf)） |
+| chapter-make-read.lua* | 标记/制作/自动读取并加载外部章节文件（配置文件 [chapter_make_read.conf](../script-opts/chapter_make_read.conf)） |
 | chapter-list.lua* | OSD 交互式章节菜单（依赖 [scroll-list.lua](../script-modules/scroll-list.lua)） |
 | chapterskip.lua* | 可实现自动跳过指定章节（配置文件 [chapterskip.conf](../script-opts/chapterskip.conf)） |
 | copy_subortime.lua* | 复制当前字幕内容或播放时间 |
@@ -20,7 +20,7 @@
 | display-profiles.lua | 实现 mpv 窗口按显示器自动切换参数及配置文件，详见脚本内说明（配置文件 [display_profiles.conf](../script-opts/display_profiles.conf)） |
 | drcbox.lua*   | 使用并调整 dynaudnorm 过滤器混音的可视化脚本（配置文件 [drcbox.conf](../script-opts/drcboxp.conf)） |
 | dynamic-crop.lua* | 自动检测可变化黑边并裁切（[autocrop.lua](https://github.com/mpv-player/mpv/blob/master/TOOLS/lua/autocrop.lua) 改进版；配置文件 [dynamic_crop.conf](../script-opts/dynamic_crop.conf)） |
-| editions-notification-menu.lua* | OSD 交互式 edition 菜单（如果检测到播放文件存在多个edition则在OSD 上提示; 配置文件 [editions_notification_menu.conf](../script-opts/editions_notification_menu.conf)） |
+| edition-list.lua* | OSD 交互式 edition 菜单（如果检测到播放文件存在多个edition则在OSD 上提示; 配置文件 [edition_list.conf](../script-opts/edition_list.conf)） |
 | evafast.lua | 实现比 mpv 内置更高级的倍速功能，遇到字幕（非内嵌）时会减缓速度（配置文件 [evafast.conf](../script-opts/evafast.conf)） |
 | file-browser.lua | OSD 交互式文件浏览器（依赖 [user-input.lua](../scripts/user-input.lua); [user-input-module.lua](../script-modules/user-input-module.lua) ；配置文件 [file_browser.conf](../script-opts/file_browser.conf)） |
 | fix-avsync.lua* | 修复存在 af 过滤器时切换音轨和调整播放速度带来的视频冻结 |
@@ -45,7 +45,7 @@
 | sub-fonts-dir-auto.lua | 在播放目录下自动查找 fonts 子目录并写入 `sub-fonts-dir` 参数以实现自动加载特定字体路径。**注意**：mpv 必须以包含pr [mpv-player/#9856](https://github.com/mpv-player/mpv/pull/9856) 的版本编译方可使用此脚本，可在此处下载: [Releases · dyphire/mpv-winbuild](https://github.com/dyphire/mpv-winbuild/releases) |
 | sub-select.lua | 指定字幕轨道优先级/黑白名单（配置文件 [sub_select.conf](../script-opts/sub_select.conf)；[sub-select.json](../script-opts/sub-select.json)） |
 | thumbfast.lua   | 适用于 mpv 的高性能动态缩略图，需在 OSC 类脚本中自行集成（配置文件 [thumbfast.conf](../script-opts/thumbfast.conf)） |
-| track-menu.lua*    | OSD 交互式轨道菜单（配置文件 [track_menu.conf](../script-opts/track_menu.conf)） |
+| track-list.lua* | OSD 交互式轨道菜单（配置文件 [track_list.conf](../script-opts/track_list.conf)） |
 | trackselect.lua*              | 指定音频轨道优先级/黑白名单（配置文件 [trackselect.conf](../script-opts/trackselect.conf)） |
 | undoredo.lua                  | 可实现智能跳跃记录操作                                          |
 | uosc.lua* | 第三方高级 OSC 脚本，实现了许多实用功能（配置文件 [uosc.conf](../script-opts/uosc.conf)） |
