@@ -1,3 +1,6 @@
+-- InputEvent
+-- https://github.com/Natural-Harmonia-Gropius/InputEvent
+
 local utils = require("mp.utils")
 
 local bind_map = {}
@@ -61,7 +64,7 @@ function command_invert(command)
         if table.has(commands, command) then
             invert = invert .. prefix .. " set " .. property .. " " .. value .. semi
         else
-            mp.msg.error("\"" .. trimed .. "\" doesn't support auto restore.")
+            mp.msg.warn("\"" .. trimed .. "\" doesn't support auto restore.")
         end
     end
     return invert
@@ -138,10 +141,10 @@ function InputEvent:new(key, on)
 
     Instance.key = key
     Instance.name = "@" .. key
-    Instance.on = on or {}
+    Instance.on = table.assign({ click = "" }, on)
     Instance.queue = {}
+    Instance.queue_max = { length = 0 }
     Instance.duration = mp.get_property_number("input-doubleclick-time", 300)
-    Instance.queue_max = 0
 
     for _, event in ipairs(event_pattern) do
         if Instance.on[event.to] and event.length > 1 then
@@ -167,28 +170,33 @@ function InputEvent:emit(event)
         return
     end
 
-    cmd = mp.command_native({'expand-text', cmd})
-
     command(cmd)
 end
 
 function InputEvent:handler(event)
-    if event == "repeat" then
-        self:emit(event)
-        return
-    end
-
-    -- MBTN_LEFT can drag, others can't
-    -- down,up,down + drag -> remove down -> exec down,up -> emit drag
-    if event == "drag" then
-        self.queue = table.filter(self.queue, function(i) return i ~= #self.queue end)
-        self:exec() -- Is this needed?
-        self:emit(event)
-        return
-    end
-
     if event == "press" then
-        self:emit("click")
+        self:handler("down")
+        self:handler("up")
+        return
+    end
+
+    if event == "down" then
+        self.down_at = now()
+    end
+
+    if event == "drag" then
+        print(self.queue[#self.queue])
+        self.queue = table.filter(self.queue, function(i) return i ~= #self.queue end)
+        self:emit(event)
+        return
+    end
+
+    if event == "repeat" then
+        if now() - self.down_at < self.duration then
+            return
+        end
+
+        self:emit(event)
         return
     end
 
@@ -210,7 +218,7 @@ function InputEvent:handler(event)
 end
 
 function InputEvent:exec()
-    if self.queue == 0 then
+    if #self.queue == 0 then
         return
     end
 
@@ -273,9 +281,9 @@ function bind_from_input_conf()
         line = line:trim()
         if line ~= "" then
             local key, cmd, comment = line:match("%s*([%S]+)%s+(.-)%s+#%s*(.-)%s*$")
-            if comment then
+            if comment and key:sub(1, 1) ~= "#" then
                 local comments = comment:split("#")
-                local events = table.filter(comments, function (i, v) return v:match("^@") end)
+                local events = table.filter(comments, function(i, v) return v:match("^@") end)
                 if events and #events > 0 then
                     local event = events[1]:match("^@(.*)"):trim()
                     if event and event ~= "" then

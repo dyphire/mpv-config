@@ -55,6 +55,7 @@
   {
     "git":"https://github.com/dyphire/mpv-scripts",
     "whitelist":"%.lua$",
+    "blacklist":"open%_dialog%.lua$",
     "dest":"~~/scripts",
     "branch":"main"
   },

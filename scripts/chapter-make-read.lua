@@ -1,5 +1,5 @@
 --[[
-  * chapter_make_read.lua v.2022-06-24
+  * chapter-make-read.lua v.2022-10-15
   *
   * AUTHORS: dyphire
   * License: MIT
@@ -8,7 +8,7 @@
 
 -- Implementation read and automatically load the namesake external chapter file.
 -- The external chapter files should conform to the following formats.
--- Note: The time should strictly follow the 12-bit format of 'hh:mm:ss.sss' !!
+-- Note: The Timestamps should use the 12-bit format of 'hh:mm:ss.sss'.
 -- Note: The file encoding should be UTF-8 and the linebreak should be Unix(LF).
 -- Note: The script also supports reading OGM format and MediaInfo format in addition to the following formats.
 --[[
@@ -178,7 +178,6 @@ local function format_time(seconds)
 end
 
 local function write_chapter()
-    local euid = mp.get_property_number("estimated-frame-count")
     local chapter_count = mp.get_property_number("chapter-list/count")
     local all_chapters = mp.get_property_native("chapter-list")
     local insert_chapters = ""
@@ -209,7 +208,7 @@ local function write_chapter()
     end
     file:write(chapters)
     file:close()
-    mp.osd_message("Export file to: " .. out_path, 3)
+    mp.osd_message("Export chapter file to: " .. out_path, 3)
 end
 
 local function write_chapter_xml()
@@ -250,7 +249,7 @@ local function write_chapter_xml()
     end
     file:write(chapters)
     file:close()
-    mp.osd_message("Export file to: "..out_path, 3)
+    mp.osd_message("Export chapter file to: "..out_path, 3)
 end
 
 mp.add_hook("on_preloaded", 50, mark_chapter)

@@ -1,5 +1,5 @@
---[[ uosc 4.2.0 - 2022-Oct-02 | https://github.com/tomasklaen/uosc ]]
-local uosc_version = '4.2.0'
+--[[ uosc 4.3.0 - 2022-Oct-11 | https://github.com/tomasklaen/uosc ]]
+local uosc_version = '4.3.0'
 
 local assdraw = require('mp.assdraw')
 local opt = require('mp.options')
@@ -203,6 +203,7 @@ local defaults = {
 	shuffle = false,
 
 	ui_scale = 1,
+	font = '',
 	font_scale = 1,
 	text_border = 1.2,
 	pause_on_click_shorter_than = 0, -- deprecated by below
@@ -249,21 +250,20 @@ local fgt, bgt = serialize_rgba(options.foreground_text).color, serialize_rgba(o
 
 local function create_default_menu()
 	return {
-		{title = 'Open file', value = 'script-binding uosc/open-file'},
-		{title = 'Playlist', value = 'script-binding uosc/playlist'},
-		{title = 'Chapters', value = 'script-binding uosc/chapters'},
-		{title = 'Subtitle tracks', value = 'script-binding uosc/subtitles'},
+		{title = 'Subtitles', value = 'script-binding uosc/subtitles'},
 		{title = 'Audio tracks', value = 'script-binding uosc/audio'},
 		{title = 'Stream quality', value = 'script-binding uosc/stream-quality'},
+		{title = 'Playlist', value = 'script-binding uosc/items'},
+		{title = 'Chapters', value = 'script-binding uosc/chapters'},
 		{title = 'Navigation', items = {
 			{title = 'Next', hint = 'playlist or file', value = 'script-binding uosc/next'},
 			{title = 'Prev', hint = 'playlist or file', value = 'script-binding uosc/prev'},
 			{title = 'Delete file & Next', value = 'script-binding uosc/delete-file-next'},
 			{title = 'Delete file & Prev', value = 'script-binding uosc/delete-file-prev'},
 			{title = 'Delete file & Quit', value = 'script-binding uosc/delete-file-quit'},
+			{title = 'Open file', value = 'script-binding uosc/open-file'},
 		},},
 		{title = 'Utils', items = {
-			{title = 'Load subtitles', value = 'script-binding uosc/load-subtitles'},
 			{title = 'Aspect ratio', items = {
 				{title = 'Default', value = 'set video-aspect-override "-1"'},
 				{title = '16:9', value = 'set video-aspect-override "16:9"'},
@@ -285,7 +285,7 @@ local config = {
 	-- sets max rendering frequency in case the
 	-- native rendering frequency could not be detected
 	render_delay = 1 / 60,
-	font = mp.get_property('options/osd-font'),
+	font = options.font ~= '' and options.font or mp.get_property('options/osd-font'),
 	media_types = split(options.media_types, ' *, *'),
 	subtitle_types = split(options.subtitle_types, ' *, *'),
 	stream_quality_options = split(options.stream_quality_options, ' *, *'),
@@ -653,6 +653,24 @@ function wrap_text(text, target_line_length)
 		if line_length > max_length then max_length = line_length end
 	end
 	return table.concat(lines, '\n'), max_length, #lines
+end
+
+---Extracts the properties used by property expansion of that string.
+---@param str string
+---@param res { [string] : boolean } | nil
+---@return { [string] : boolean }
+local function get_expansion_props(str, res)
+	res = res or {}
+	for str in str:gmatch('%$(%b{})') do
+		local name, str = str:match('^{[?!]?=?([^:]+):?(.*)}$')
+		if name then
+			local s = name:find('==') or nil
+			if s then name = name:sub(0, s - 1) end
+			res[name] = true
+			if str and str ~= '' then get_expansion_props(str, res) end
+		end
+	end
+	return res
 end
 
 -- Escape a string for verbatim display on the OSD
@@ -1231,10 +1249,18 @@ end
 -- Toggles passed elements' min visibilities between 0 and 1.
 ---@param ids string[] IDs of elements to peek.
 function Elements:toggle(ids)
-	local elements = itable_filter(self.itable, function(element) return itable_index_of(ids, element.id) ~= nil end)
-	local all_visible = itable_find(elements, function(element) return element.min_visibility ~= 1 end) == nil
-	local to = all_visible and 0 or 1
-	for _, element in ipairs(elements) do element:tween_property('min_visibility', element.min_visibility, to) end
+	local has_invisible = itable_find(ids, function(id) return Elements[id] and Elements[id].min_visibility ~= 1 end)
+	self:set_min_visibility(has_invisible and 1 or 0, ids)
+end
+
+-- Set (animate) elements' min visibilities to passed value.
+---@param visibility number 0-1 floating point.
+---@param ids string[] IDs of elements to peek.
+function Elements:set_min_visibility(visibility, ids)
+	for _, id in ipairs(ids) do
+		local element = Elements[id]
+		if element then element:tween_property('min_visibility', element.min_visibility, visibility) end
+	end
 end
 
 -- Flash passed elements.
@@ -1273,7 +1299,10 @@ mp.set_key_bindings({
 	{
 		'mbtn_left',
 		Elements:create_proximity_dispatcher('mbtn_left_up'),
-		Elements:create_proximity_dispatcher('mbtn_left_down'),
+		function(...)
+			update_mouse_pos(nil, mp.get_property_native('mouse-pos'), true)
+			Elements:proximity_trigger('mbtn_left_down', ...)
+		end,
 	},
 	{'mbtn_left_dbl', 'ignore'},
 }, 'mbtn_left', 'force')
@@ -1773,10 +1802,11 @@ function Menu:update_content_dimensions()
 		-- Estimate width of a widest item
 		local max_width = 0
 		for _, item in ipairs(menu.items) do
-			local spacings_in_item = 2 + (item.hint and 1 or 0) + (item.icon and 1 or 0)
 			local icon_width = item.icon and self.font_size or 0
 			item.title_width = text_length_width_estimate(item.title_length, self.font_size)
 			item.hint_width = text_length_width_estimate(item.hint_length, self.font_size_hint)
+			local spacings_in_item = 1 + (item.title_width > 0 and 1 or 0)
+				+ (item.hint_width > 0 and 1 or 0) + (icon_width > 0 and 1 or 0)
 			local estimated_width = item.title_width + item.hint_width + icon_width
 				+ (self.item_padding * spacings_in_item)
 			if estimated_width > max_width then max_width = estimated_width end
@@ -2141,8 +2171,6 @@ function Menu:render()
 			local item_by = item_ay + self.item_height
 			local item_center_y = item_ay + (self.item_height / 2)
 			local item_clip = (item_ay < ay or item_by > by) and scroll_clip or nil
-			-- controls title & hint clipping proportional to the ratio of their widths
-			local title_hint_ratio = item.hint and item.title_width / (item.title_width + item.hint_width) or 1
 			local content_ax, content_bx = ax + spacing, bx - spacing
 			local font_color = item.active and fgt or bgt
 			local shadow_color = item.active and fg or bg
@@ -2176,12 +2204,18 @@ function Menu:render()
 				content_bx = content_bx - icon_size - spacing
 			end
 
-			local title_hint_cut_x = content_ax + (content_bx - content_ax - spacing) * title_hint_ratio
+			local title_cut_x = content_bx
+			if item.hint_width > 0 then
+				-- controls title & hint clipping proportional to the ratio of their widths
+				local title_content_ratio = item.title_width / (item.title_width + item.hint_width)
+				title_cut_x = round(content_ax + (content_bx - content_ax - spacing) * title_content_ratio
+					+ (item.title_width > 0 and spacing / 2 or 0))
+			end
 
 			-- Hint
 			if item.hint then
 				item.ass_safe_hint = item.ass_safe_hint or ass_escape(item.hint)
-				local clip = '\\clip(' .. round(title_hint_cut_x + spacing / 2) .. ',' ..
+				local clip = '\\clip(' .. title_cut_x .. ',' ..
 					math.max(item_ay, ay) .. ',' .. bx .. ',' .. math.min(item_by, by) .. ')'
 				ass:txt(content_bx, item_center_y, 6, item.ass_safe_hint, {
 					size = self.font_size_hint, color = font_color, wrap = 2, opacity = 0.5 * opacity, clip = clip,
@@ -2193,7 +2227,7 @@ function Menu:render()
 			if item.title then
 				item.ass_safe_title = item.ass_safe_title or ass_escape(item.title)
 				local clip = '\\clip(' .. ax .. ',' .. math.max(item_ay, ay) .. ','
-					.. round(title_hint_cut_x - spacing / 2) .. ',' .. math.min(item_by, by) .. ')'
+					.. title_cut_x .. ',' .. math.min(item_by, by) .. ')'
 				ass:txt(content_ax, item_center_y, 4, item.ass_safe_title, {
 					size = self.font_size, color = font_color, italic = item.italic, bold = item.bold, wrap = 2,
 					opacity = text_opacity * (item.muted and 0.5 or 1), clip = clip,
@@ -2217,7 +2251,7 @@ function Menu:render()
 			})
 
 			-- Title
-			ass:txt(ax + menu.width / 2, title_ay + (title_height / 2), 5, menu.title, {
+			ass:txt(ax + menu.width / 2, title_ay + (title_height / 2), 5, menu.ass_safe_title, {
 				size = self.font_size, bold = true, color = bg, wrap = 2, opacity = opacity,
 				clip = '\\clip(' .. ax .. ',' .. title_ay .. ',' .. bx .. ',' .. ay .. ')',
 			})
@@ -3002,8 +3036,8 @@ function Timeline:render()
 			local font_size = self.font_size * 0.8
 			local human = round(math.max(buffered_time, 0)) .. 's'
 			local width = text_width_estimate(human, font_size)
-			local min_x = bax + 5 + text_width_estimate(state.time_human, self.font_size)
-			local max_x = bbx - 5 - text_width_estimate(state.duration_or_remaining_time_human, self.font_size)
+			local min_x = bax + spacing + 5 + text_width_estimate(state.time_human, self.font_size)
+			local max_x = bbx - spacing - 5 - text_width_estimate(state.duration_or_remaining_time_human, self.font_size)
 			if x < min_x then x = min_x elseif x + width > max_x then x, align = max_x, 6 end
 			draw_timeline_text(x, fcy, align, human, {size = font_size, opacity = text_opacity * 0.6, border = 1})
 		end
@@ -3049,7 +3083,7 @@ function Timeline:render()
 			local thumb_y = round(tooltip_anchor.ay * scale_y - thumb_y_margin - thumb_height)
 			local ax, ay = (thumb_x - border) / scale_x, (thumb_y - border) / scale_y
 			local bx, by = (thumb_x + thumb_width + border) / scale_x, (thumb_y + thumb_height + border) / scale_y
-			ass:rect(ax, ay, bx, by, {color = bg, border = 1, border_color = fg, border_opacity = 0.1, radius = 2})
+			ass:rect(ax, ay, bx, by, {color = bg, border = 1, border_color = fg, border_opacity = 0.08, radius = 2})
 			mp.commandv('script-message-to', 'thumbfast', 'thumb', hovered_seconds, thumb_x, thumb_y)
 			tooltip_anchor.ax, tooltip_anchor.bx, tooltip_anchor.ay = ax, bx, ay
 		end
@@ -3214,8 +3248,8 @@ function TopBar:render()
 		end
 
 		-- Title
-		if max_bx - title_ax > self.font_size * 3 then
-			local text = state.title or 'n/a'
+		local text = state.title
+		if max_bx - title_ax > self.font_size * 3 and text and text ~= '' then
 			local bx = math.min(max_bx, title_ax + text_width_estimate(text, self.font_size) + padding * 2)
 			local by = self.by - bg_margin
 			ass:rect(title_ax, title_ay, bx, by, {
@@ -4290,43 +4324,41 @@ if options.click_threshold > 0 then
 	mp.enable_key_bindings('mouse_movement', 'allow-vo-dragging+allow-hide-cursor')
 end
 
-mp.observe_property('mouse-pos', 'native', function(_, mouse)
-	if mouse.hover then
+function update_mouse_pos(_, mouse, ignore_hover)
+	if ignore_hover or mouse.hover then
 		if cursor.hidden then handle_mouse_enter(mouse.x, mouse.y) end
 		handle_mouse_move(mouse.x, mouse.y)
 	else handle_mouse_leave() end
-end)
-mp.observe_property('osc', 'bool', function(name, value) if value == true then mp.set_property('osc', 'no') end end)
-function update_title(title_template)
-	if title_template:sub(-6) == ' - mpv' then title_template = title_template:sub(1, -7) end
-	set_state('title', ass_escape(mp.command_native({'expand-text', title_template})))
 end
+mp.observe_property('mouse-pos', 'native', update_mouse_pos)
+mp.observe_property('osc', 'bool', function(name, value) if value == true then mp.set_property('osc', 'no') end end)
 mp.register_event('file-loaded', function()
 	set_state('path', normalize_path(mp.get_property_native('path')))
-	update_title(mp.get_property_native('title'))
 end)
 mp.register_event('end-file', function(event)
-	set_state('title', nil)
 	if event.reason == 'eof' then
 		file_end_timer:kill()
 		handle_file_end()
 	end
 end)
-function observe_title()
-	-- Idle is needed as some template variables might not be present until everything else initialized
-	mp.unregister_idle(observe_title)
-	local hot_keywords = {'time'}
-	local timer = mp.add_periodic_timer(0.9, function() update_title(mp.get_property_native('title')) end)
-	timer:kill()
+do
+	local template = nil
+	function update_title()
+		if template:sub(-6) == ' - mpv' then template = template:sub(1, -7) end
+		-- escape ASS, and strip newlines and trailing slashes and trim whitespace
+		local t = mp.command_native({'expand-text', template}):gsub('\\n', ' '):gsub('[\\%s]+$', ''):gsub('^%s+', '')
+		if t:match('^No file$') ~= nil then set_state('title', nil) else set_state('title', ass_escape(t)) end
+	end
 	mp.observe_property('title', 'string', function(_, title)
-		-- Don't change title if there is currently none
-		if state.title then update_title(title) end
-		-- Enable periodic updates for templates with hot variables
-		local is_hot = itable_find(hot_keywords, function(var) return string.find(title or '', var) ~= nil end)
-		if is_hot then timer:resume() else timer:kill() end
+		mp.unobserve_property(update_title)
+		template = title
+		local props = get_expansion_props(title)
+		for prop, _ in pairs(props) do
+			mp.observe_property(prop, 'native', update_title)
+		end
+		if not next(props) then update_title() end
 	end)
 end
-mp.register_idle(observe_title)
 mp.observe_property('playback-time', 'number', create_state_setter('time', function()
 	-- Create a file-end event that triggers right before file ends
 	file_end_timer:kill()
@@ -4821,4 +4853,9 @@ mp.register_script_message('set', function(name, value)
 	Elements:trigger('external_prop_' .. name, value)
 end)
 mp.register_script_message('toggle-elements', function(elements) Elements:toggle(split(elements, ' *, *')) end)
+mp.register_script_message('set-min-visibility', function(visibility, elements)
+	local fraction = tonumber(visibility)
+	local ids = split(elements and elements ~= '' and elements or 'timeline,controls,volume,top_bar', ' *, *')
+	if fraction then Elements:set_min_visibility(clamp(0, fraction, 1), ids) end
+end)
 mp.register_script_message('flash-elements', function(elements) Elements:flash(split(elements, ' *, *')) end)

@@ -1,5 +1,5 @@
 --[[
-    * track-menu.lua v.2022-08-11
+    * track-list.lua v.2022-10-15
     *
     * AUTHORS: dyphire
     * License: MIT
@@ -7,10 +7,10 @@
 
     This script implements an interractive track list
     Usage: add bindings to input.conf
-    -- key script-message-to track_menu toggle-vidtrack-browser
-    -- key script-message-to track_menu toggle-audtrack-browser
-    -- key script-message-to track_menu toggle-subtrack-browser
-    -- key script-message-to track_menu toggle-secondary-subtrack-browser
+    -- key script-message-to track_list toggle-vidtrack-browser
+    -- key script-message-to track_list toggle-audtrack-browser
+    -- key script-message-to track_list toggle-subtrack-browser
+    -- key script-message-to track_list toggle-secondary-subtrack-browser
 
     This script needs to be used with scroll-list.lua
     https://github.com/CogentRedTester/mpv-scroll-list

@@ -7,7 +7,7 @@ worldwide. This software is distributed without any warranty. See
 <https://creativecommons.org/publicdomain/zero/1.0/> for a copy of the CC0
 Public Domain Dedication, which applies to this software.
 
-The script calls up a window in mpv to quickly load the file/URL.
+The script calls up a window in mpv to quickly load the file/url/other subtitles/other audio tracks/advanced subtitle filter.
 Usage, add bindings to input.conf:
 key        script-message-to open_dialog import_files
 key        script-message-to open_dialog import_url
@@ -65,7 +65,7 @@ local function import_url()
 			Add-Type -AssemblyName Microsoft.VisualBasic
 			$u8 = [System.Text.Encoding]::UTF8
 			$out = [Console]::OpenStandardOutput()
-            $urlname = [Microsoft.VisualBasic.Interaction]::InputBox("输入地址", "打开", "https://")
+            $urlname = [Microsoft.VisualBasic.Interaction]::InputBox("Address", "Open", "https://")
             $u8urlname = $u8.GetBytes("$urlname")
             $out.Write($u8urlname, 0, $u8urlname.Length)
 		}]]},
