@@ -83,6 +83,12 @@
     "branch":"v0.33_CM"
   },
   {
+    "git":"https://github.com/open-dynaMIX/simple-mpv-webui",
+    "whitelist":"main%.lua$|webui%-page",
+    "dest":"~~/scripts/simple-mpv-webui",
+    "branch":"main"
+  },
+  {
     "git":"https://github.com/dyphire/Ashyni_mpv-scripts",
     "whitelist":"dynamic%-crop%.lua$",
     "dest":"~~/scripts",
