@@ -134,7 +134,7 @@ utils.shared_script_property_set("file_browser-open", "no")
 --------------------------------------------------------------------------------------------------------
 
 --sets the version for the file-browser API
-API_VERSION = "1.3.0"
+API_VERSION = "1.4.0"
 
 --switch the main script to a different environment so that the
 --executed lua code cannot access our global variales
@@ -287,6 +287,7 @@ local cache = setmetatable({}, { __index = __cache })
 ---------------------------------------Part of the addon API--------------------------------------------
 --------------------------------------------------------------------------------------------------------
 
+API.list = {}
 API.coroutine = {}
 local ABORT_ERROR = {
     msg = "browser is no longer waiting for list - aborting parse"
@@ -362,6 +363,14 @@ function API.coroutine.run(fn, ...)
     API.coroutine.resume_err(co, ...)
 end
 
+--returns whether or not the given table contains the given value
+function API.list.some(t, fn)
+    for i, v in ipairs(t) do
+        if fn(v, i, t) then return true end
+    end
+    return false
+end
+
 --get the full path for the current file
 function API.get_full_path(item, dir)
     if item.path then return item.path end
@@ -423,7 +432,7 @@ end
 --standardises filepaths across systems
 function API.fix_path(str, is_directory)
     str = string.gsub(str, [[\]],[[/]])
-    str = str:gsub([[/./]], [[/]])
+    str = str:gsub([[/%./]], [[/]])
     if is_directory and str:sub(-1) ~= '/' then str = str..'/' end
     return str
 end
@@ -580,8 +589,8 @@ end
 --------------------------------------------------------------------------------------------------------
 
 --parser object for the root
---this object is not added to the parsers table so that scripts cannot get access to
---the root table, which is returned directly by parse()
+--not inserted to the parser list as it has special behaviour
+--it does get get added to parsers under it's ID to prevent confusing duplicates
 local root_parser = {
     name = "root",
     priority = math.huge,
@@ -1538,8 +1547,11 @@ local function run_custom_command(cmd, items, state)
 end
 
 --runs one of the custom commands
-local function custom_command(cmd, state, co)
+local function run_custom_keybind(cmd, state, co)
     if cmd.parser and cmd.parser ~= (state.parser.keybind_name or state.parser.name) then return false end
+
+    --these are for the default keybinds, or from addons which use direct functions
+    if type(cmd.command) == 'function' then return cmd.command(cmd, cmd.addon and API.copy_table(state) or state, co) end
 
     --the function terminates here if we are running the command on a single item
     if not (cmd.multiselect and next(state.selection)) then
@@ -1588,17 +1600,13 @@ end
 local function run_keybind_recursive(keybind, state, co)
     msg.trace("Attempting custom command:", utils.to_string(keybind))
 
-    --these are for the default keybinds, or from addons which use direct functions
-    local addon_fn = type(keybind.command) == "function"
-    local fn = addon_fn and keybind.command or custom_command
-
     if keybind.passthrough ~= nil then
-        fn(keybind, addon_fn and API.copy_table(state) or state, co)
+        run_custom_keybind(keybind, state, co)
         if keybind.passthrough == true and keybind.prev_key then
             run_keybind_recursive(keybind.prev_key, state, co)
         end
     else
-        if fn(keybind, state, co) == false and keybind.prev_key then
+        if run_custom_keybind(keybind, state, co) == false and keybind.prev_key then
             run_keybind_recursive(keybind.prev_key, state, co)
         end
     end
@@ -1675,6 +1683,7 @@ local function setup_keybinds()
                     else keybind = API.copy_table(keybind) end
 
                     keybind.name = parsers[parser].id.."/"..(keybind.name or tostring(i))
+                    keybind.addon = true
                     insert_custom_keybind(keybind)
                 end
             end
@@ -1738,10 +1747,36 @@ end
 
 --add item to root at position pos
 function API.insert_root_item(item, pos)
-    msg.verbose("adding item to root", item.label or item.name)
+    msg.debug("adding item to root", item.label or item.name, pos)
     item.ass = item.ass or API.ass_escape(item.label or item.name)
     item.type = "dir"
     table.insert(root, pos or (#root + 1), item)
+end
+
+--a newer API for adding items to the root
+--only adds the item if the same item does not already exist in the root
+--the priority variable is a number that specifies the insertion location
+--a lower priority is placed higher in the list and the default is 100
+function API.register_root_item(item, priority)
+    msg.verbose('registering root item:', utils.to_string(item))
+    if type(item) == 'string' then
+        item = {name = item}
+    end
+
+    -- if the item is already in the list then do nothing
+    if API.list.some(root, function(r)
+        return API.get_full_path(r, '') == API.get_full_path(item, '')
+    end) then return false end
+
+    item._priority = priority
+    for i, v in ipairs(root) do
+        if (v._priority or 100) > (priority or 100) then
+            API.insert_root_item(item, i)
+            return true
+        end
+    end
+    API.insert_root_item(item)
+    return true
 end
 
 --providing getter and setter functions so that addons can't modify things directly
@@ -1781,6 +1816,11 @@ end
 
 function parser_API:get_index() return parsers[self].index end
 function parser_API:get_id() return parsers[self].id end
+
+--a wrapper that passes the parsers priority value if none other is specified
+function parser_API:register_root_item(item, priority)
+    return API.register_root_item(item, priority or parsers[self:get_id()].priority)
+end
 
 --runs choose_and_parse starting from the next parser
 function parser_API:defer(directory)
@@ -1920,6 +1960,8 @@ local function setup_parser(parser, file)
     if parser.priority == nil then parser.priority = 0 end
     if type(parser.priority) ~= "number" then return msg.error("parser", parser:get_id(), "needs a numeric priority") end
 
+    --the root parser has special behaviour, so it should not be in the list of parsers
+    if parser == root_parser then return end
     table.insert(parsers, parser)
 end
 
@@ -2010,6 +2052,7 @@ end
 setup_root()
 
 setup_parser(file_parser, "file-browser.lua")
+setup_parser(root_parser, 'file-browser.lua')
 if o.addons then
     --all of the API functions need to be defined before this point for the addons to be able to access them safely
     setup_addons()

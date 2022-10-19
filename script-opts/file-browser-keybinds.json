@@ -179,5 +179,5 @@
             ["script-message", "windrives/import_root_drives"]
         ],
         "parser": "root"
-    },
+    }
 ]

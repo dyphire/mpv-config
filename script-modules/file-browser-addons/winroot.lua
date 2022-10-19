@@ -1,7 +1,9 @@
 --[[
     Automatically populates the root with windows drives on startup.
     Ctrl+r will add new drives mounted since startup.
+
     Drives will only be added if they are not already present in the root.
+
     Available at: https://github.com/CogentRedTester/mpv-file-browser/tree/master/addons
 ]]
 
@@ -26,23 +28,12 @@ local function get_drives()
     return root
 end
 
--- returns true if the given drive is in the given root list
-local function in_root(drive, root)
-    for _, item in ipairs(root) do
-        if item.name == drive then return true end
-    end
-    return false
-end
-
 -- adds windows drives to the root if they are not already present
 local function import_drives()
     local drives = get_drives()
-    local root = fb.get_root()
 
     for _, drive in ipairs(drives) do
-        if not in_root(drive, root) then
-            fb.insert_root_item({ name = drive })
-        end
+        fb.register_root_item(drive)
     end
 end
 
@@ -55,7 +46,7 @@ local keybind = {
 }
 
 return {
-    version = '1.3.0', 
+    version = '1.4.0',
     setup = import_drives,
     keybinds = { keybind }
 }
