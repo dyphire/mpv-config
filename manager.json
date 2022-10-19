@@ -138,7 +138,7 @@
   },
   {
     "git":"https://github.com/CogentRedTester/mpv-scripts",
-    "whitelist":"cycle%-commands%.lua$|display%-profiles%.lua$|ordered%-chapters%-playlist%.lua$",
+    "whitelist":"cycle%-commands%.lua$|delay%-command%.lua$|display%-profiles%.lua$|ordered%-chapters%-playlist%.lua$",
     "dest":"~~/scripts"
   },
   {

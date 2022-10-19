@@ -17,6 +17,7 @@
 | chapterskip.lua* | 可实现自动跳过指定章节（配置文件 [chapterskip.conf](../script-opts/chapterskip.conf)） |
 | copy_subortime.lua* | 复制当前字幕内容或播放时间 |
 | cycle-commands.lua | 快捷键循环切换命令，使用方法见脚本内说明 |
+| delay-command.lua | 实现延时执行指定命令（局限性：无法延时执行多个命令） |
 | delete-current-file.lua | 删除当前播放文件（windows 可在回收站恢复） |
 | display-profiles.lua | 实现 mpv 窗口按显示器自动切换参数及配置文件，详见脚本内说明（配置文件 [display_profiles.conf](../script-opts/display_profiles.conf)） |
 | drcbox.lua*   | 使用并调整 dynaudnorm 过滤器混音的可视化脚本（配置文件 [drcbox.conf](../script-opts/drcboxp.conf)） |
@@ -32,7 +33,6 @@
 | mpv-webp.lua* | 剪切指定片段为 webp 动图（依赖 ffmpeg；配置文件 [webp.conf](../script-opts/webp.conf)） |
 | notify_media.lua* | 基于 IPC 管道实现 SMTC 功能（依赖 [MPVMediaControl.exe](https://github.com/dyphire/MPVMediaControl/releases)；配置文件 [notify_media.conf](../script-opts/notify_media.conf)） |
 | ordered-chapters-playlist.lua | 有序章节播放列表 |
-| pause-indicator.lua* | 在 mpv 暂停时在屏幕右上角显示暂停图标 |
 | persist_properties.lua | 监视并保存预设参数的全局变化值（如音量）（配置文件 [persist_properties.conf](../script-opts/persist_properties.conf)） |
 | playlistmanager.lua | OSD 交互式播放列表（配置文件 [playlistmanager.conf](../script-opts/playlistmanager.conf)） |
 | quality-menu.lua* | 切换 ytdl 视频/音频质量的 OSD 交互式菜单（依赖 yt-dlp/youtube-dl; 配置文件 [quality-menu.conf](../script-opts/quality-menu.conf)） |
