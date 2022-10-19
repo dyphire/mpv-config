@@ -351,7 +351,7 @@ local function process_json(json)
                 row = row .. (i > 1 and string.format('%' .. spacing .. 's', '') or '')
                       .. string.format('%' .. width .. 's', f[column.prop] or "")
             end
-            res[#res+1] = {label=row, format=f.format_id}
+            res[#res+1] = {label=row:gsub('%s+$', ''), format=f.format_id}
         end
         return res
     end

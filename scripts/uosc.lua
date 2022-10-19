@@ -4347,7 +4347,7 @@ do
 		if template:sub(-6) == ' - mpv' then template = template:sub(1, -7) end
 		-- escape ASS, and strip newlines and trailing slashes and trim whitespace
 		local t = mp.command_native({'expand-text', template}):gsub('\\n', ' '):gsub('[\\%s]+$', ''):gsub('^%s+', '')
-		if t:match('^No file$') ~= nil then set_state('title', nil) else set_state('title', ass_escape(t)) end
+		if t:match('No file$') ~= nil then set_state('title', t:gsub('No file$', '')) else set_state('title', ass_escape(t)) end
 	end
 	mp.observe_property('title', 'string', function(_, title)
 		mp.unobserve_property(update_title)
