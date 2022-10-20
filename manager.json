@@ -89,6 +89,12 @@
     "branch":"main"
   },
   {
+    "git":"https://github.com/qwerty12/simple-mpv-webui",
+    "whitelist":"%.lua$|res$|ljf%-com",
+    "blacklist":"script%-opts",
+    "dest":"~~/scripts/mpv-taskbar-buttons"
+  },
+  {
     "git":"https://github.com/dyphire/Ashyni_mpv-scripts",
     "whitelist":"dynamic%-crop%.lua$",
     "dest":"~~/scripts",
