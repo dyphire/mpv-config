@@ -2158,7 +2158,7 @@ function mark_chapter()
 	local chapters_time = {}
 	
 	get_list_contents()
-	if not list_contents then return end
+	if not list_contents or not list_contents[1] then return end
 	for i = 1, #list_contents do
 		if list_contents[i].found_path == filePath and tonumber(list_contents[i].found_time) > 0 then
 			table.insert(chapters_time, tonumber(list_contents[i].found_time))

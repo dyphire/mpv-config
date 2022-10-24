@@ -43,6 +43,11 @@
     "dest":"~~/scripts"
   },
   {
+    "git":"https://github.com/Ashyni/mpv-scripts",
+    "whitelist":"dynamic%-crop%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
     "git":"https://github.com/po5/evafast",
     "whitelist":"%.lua$",
     "dest":"~~/scripts"
@@ -77,6 +82,12 @@
     "branch":"dev"
   },
   {
+    "git":"https://github.com/dyphire/Eisa01_mpv-scripts",
+    "whitelist":"undoredo%.lua$|simplehistory%.lua$|simplebookmark%.lua$|smartcopypaste_*%.lua$",
+    "dest":"~~/scripts",
+    "branch":"dev"
+  },
+  {
     "git":"https://github.com/dyphire/autosubsync-mpv",
     "whitelist":"%.lua$",
     "dest":"~~/scripts/autosubsync",
@@ -93,18 +104,6 @@
     "whitelist":"%.lua$|res$|ljf%-com",
     "blacklist":"script%-opts",
     "dest":"~~/scripts/mpv-taskbar-buttons"
-  },
-  {
-    "git":"https://github.com/dyphire/Ashyni_mpv-scripts",
-    "whitelist":"dynamic%-crop%.lua$",
-    "dest":"~~/scripts",
-    "branch":"resize_window"
-  },
-  {
-    "git":"https://github.com/dyphire/Eisa01_mpv-scripts",
-    "whitelist":"undoredo%.lua$|simplehistory%.lua$|simplebookmark%.lua$|smartcopypaste_*%.lua$",
-    "dest":"~~/scripts",
-    "branch":"dev"
   },
   {
     "git":"https://github.com/christoph-heinrich/mpv-quality-menu",
