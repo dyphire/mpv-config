@@ -19,6 +19,8 @@ local o = {
     history_dir = "/:dir%mpvconf%/historybookmarks",
     -- specifies the extension of the history-bookmark file
     bookmark_ext = ".mpv.history",
+    -- specifies a whitelist of files to find in a directory
+    whitelist="3gp,amr,amv,asf,avi,avi,bdmv,f4v,flv,m2ts,m4v,mkv,mov,mp4,mpeg,mpg,ogv,rm,rmvb,ts,vob,webm,wmv",
     -- excluded directories for shared, #windows: ["X:", "Z:", "F:\\Download\\", "Download"]
     excluded_dir = [[
         []
@@ -51,6 +53,7 @@ local current_idx = 1
 local bookmark_path
 
 local wait_msg
+local on_key = false
 
 if o.history_dir:match('^/:dir%%mpvconf%%') then
     o.history_dir = o.history_dir:gsub('/:dir%%mpvconf%%', mp.find_config_file('.'))
@@ -74,6 +77,44 @@ if utils.readdir(o.history_dir) == nil then
         msg.error("Failed to create history_dir save directory "..o.history_dir..". Error: "..(res.error or "unknown"))
         return
     end
+end
+
+function split(input)
+    local ret = {}
+    for str in string.gmatch(input, "([^,]+)") do
+        ret[#ret + 1] = str
+    end
+    return ret
+end
+
+o.whitelist = split(o.whitelist)
+
+local exclude
+if #o.whitelist > 0 then
+    exclude = function(extension)
+        for _, ext in pairs(o.whitelist) do
+            if extension == ext then
+                return false
+            end
+        end
+        return true
+    end
+else
+    return
+end
+
+function should_remove(filename)
+    if string.find(filename, "://") then
+        return false
+    end
+    local extension = string.match(filename, "%.([^./]+)$")
+    if not extension then
+        return true
+    end
+    if extension and exclude(string.lower(extension)) then
+        return true
+    end
+    return false
 end
 
 local function need_ignore(tab, val)
@@ -100,53 +141,6 @@ function M.prompt_msg(msg, ms)
     mp.commandv("show-text", msg, ms)
 end
 
-function M.compare(s1, s2)
-    local l1 = #s1
-    local l2 = #s2
-    local len = l2
-    if l1 < l2 then
-        local len = l1
-    end
-    for i = 1, len do
-        if s1:sub(i,i) < s2:sub(i,i) then
-            return -1, i-1
-        elseif s1:sub(i,i) > s2:sub(i,i) then
-            return 1, i-1
-        end
-    end
-    return 0, len
-end
-
-function M.get_episode_num(idx)
-    if idx > #pl_list then
-        return ""
-    end
-    local k = 1
-    onm = pl_list[idx]
-    if(idx > 1) then
-        local name = pl_list[idx-1]
-        local _, tk = M.compare(onm, name)
-        if k < tk then
-            k = tk
-        end
-    end
-    if(idx < #pl_list) then
-        local name = pl_list[idx+1]
-        local _, tk = M.compare(onm, name)
-        if k < tk then
-            k = tk
-        end
-    end
-    while k > 1 do
-        if onm:match("^[0-9]+", k-1) == nil then
-            break
-        end
-        k = k - 1
-    end
-    return  onm:match("[0-9]+", k) or ""
-end
-
-
 function M.is_bookmark_exist(bookmark_path)
     local file = io.open(bookmark_path, "r")
     if file == nil then
@@ -172,18 +166,23 @@ function M.get_record(bookmark_path)
     return record
 end
 
+function alphanumsort(a, b)
+  local function padnum(d)
+    local dec, n = string.match(d, "(%.?)0*(.+)")
+    return #dec > 0 and ("%.12f"):format(d) or ("%s%03d%s"):format(dec, #n, n)
+  end
+  return tostring(a):lower():gsub("%.?%d+",padnum)..("%3d"):format(#b)
+       < tostring(b):lower():gsub("%.?%d+",padnum)..("%3d"):format(#a)
+end
 
-function M.create_playlist(dir, ftype)
+function M.create_playlist(dir)
     local file_list = utils.readdir(dir, 'files')
-    table.sort(file_list)
+    table.sort(file_list, alphanumsort)
     for i = 1, #file_list do
         local file = file_list[i]
-        -- Usually the playlist will have the same extension name
-        -- When the extension name is different from the history
-        --     record, it means we are watching another playlist
-        if file:match('%' .. ftype .. '$') ~= nil then
-            table.insert(pl_list, file)
-        end
+        if not should_remove(file) then
+           table.insert(pl_list, file)
+        end 
     end
 end
 
@@ -227,37 +226,43 @@ function M.pause(name, paused)
     end
 end
 
-local timeout = 15 
+local timeout = 45
 function M.wait4jumping()
     timeout = timeout - 1
-    if(timeout < 1) then
-        M.wait_jump_timer:kill()
-        M.unbind_key()
+    if (timeout >= 0) then
+        if(timeout < 1) then
+            M.wait_jump_timer:kill()
+            M.unbind_key()
+        end
+        local msg = ""
+        if timeout < 10 then
+            msg = "0"
+        end
+        if not on_key then
+            msg = wait_msg.." -- continue? ".. string.format("%d", timeout/2) .." [EN/IG]"
+            M.prompt_msg(msg, 1000)
+        end
     end
-    local msg = ""
-    if timeout < 10 then
-        msg = "0"
-    end
-    msg = wait_msg.." -- continue? "..timeout.." [EN/IG]"
-    M.prompt_msg(msg, 1000)
 end
 
 function M.bind_key()
     mp.register_script_message('resume_yes', M.key_jump)
     mp.register_script_message('resume_not', function()
         M.unbind_key()
+        on_key = true
         M.wait_jump_timer:kill()
     end)
 end
 
 function M.unbind_key()
-    msg.info('Unbinding the keys: \"Enter\", \"n\".')
+    msg.info('Unbinding keys')
     mp.remove_key_binding('resume_yes')
     mp.remove_key_binding('resume_not')
 end
 
 function M.key_jump()
     M.unbind_key()
+    on_key = true
     M.wait_jump_timer:kill()
     current_idx = pl_idx
     mp.register_event('file-loaded', M.jump_resume)
@@ -275,7 +280,6 @@ function M.exe()
     mp.unregister_event(M.exe)
     local path = mp.get_property('path')
     local dir, fname = utils.split_path(path)
-    local ftype = fname:match('%.([^.]+)$')
     local fpath = dir:gsub("\\", "/")
     local playlist_count = mp.get_property_number('playlist-count')
     fpath = string.sub(fpath, 1, -2)
@@ -296,7 +300,6 @@ function M.exe()
 
     msg.info('folder -- ' .. dir)
     msg.info('playing -- ' .. fname)
-    msg.info('file type -- ' .. ftype)
     msg.info('bookmark path -- ' .. bookmark_path)
 
     if(not M.is_bookmark_exist(bookmark_path)) then
@@ -306,7 +309,7 @@ function M.exe()
         pl_path = utils.join_path(dir, pl_name)
     end
 
-    M.create_playlist(dir, ftype)
+    M.create_playlist(dir)
 
     pl_idx = M.get_playlist_idx(pl_name)
     if (pl_idx == nil) then
@@ -323,7 +326,7 @@ function M.exe()
         pl_name = fname
         pl_path = path
     elseif (pl_idx ~= current_idx) then
-        wait_msg = M.get_episode_num(pl_idx)
+        wait_msg = pl_idx
         msg.info('Last watched episode -- ' .. wait_msg)
         M.wait_jump_timer = mp.add_periodic_timer(1, M.wait4jumping)
         M.bind_key()
@@ -333,4 +336,6 @@ function M.exe()
     mp.observe_property("pause", "bool", M.pause)
 end
 
-mp.register_event('file-loaded', M.exe)
+mp.observe_property('playlist-count', "number", function(_, counts)
+    if counts > 1 then M.exe() end
+end)
