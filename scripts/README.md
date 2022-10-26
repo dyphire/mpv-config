@@ -7,6 +7,7 @@
 | autosubsync（组）* | 字幕同步菜单（依赖 ffmpeg, [ffsubsync](https://github.com/smacke/ffsubsync) or [alass](https://github.com/dyphire/alass) or both; 配置文件 [autosubsync.conf](../script-opts/autosubsync.conf)） |
 | mpv-taskbar-buttons（组）* | 为 mpv 实现任务栏媒体控制按钮（依赖 [libtcc.dll](https://github.com/qwerty12/mpv-taskbar-buttons/blob/master/libtcc.dll); 配置文件 [mpv-taskbar-buttons.conf](../script-opts/mpv-taskbar-buttons.conf)） |
 | simple-mpv-webui（组）* | 为 mpv 实现一个简单的 webui（依赖 [luasocket](https://github.com/57op/simple-mpv-webui-windows-libs) ; 配置文件 [webui.conf](../script-opts/webui.conf)） |
+| uosc（组）* | 第三方高级 OSC 脚本，实现了许多实用功能（配置文件 [uosc.conf](../script-opts/uosc.conf)） |
 | adevice-list.lua* | OSD 交互式音频设备菜单 |
 | autoload.lua* | 自动加载同级目录的文件（配置文件 [autoload.conf](../script-opts/autoload.conf)） |
 | autodeint.lua       | 自动检测并切换去交错（默认禁用，需快捷键启用） |
@@ -51,7 +52,6 @@
 | track-list.lua* | OSD 交互式轨道菜单（配置文件 [track_list.conf](../script-opts/track_list.conf)） |
 | trackselect.lua*              | 指定音频轨道优先级/黑白名单（配置文件 [trackselect.conf](../script-opts/trackselect.conf)） |
 | undoredo.lua                  | 可实现智能跳跃记录操作                                          |
-| uosc.lua* | 第三方高级 OSC 脚本，实现了许多实用功能（配置文件 [uosc.conf](../script-opts/uosc.conf)） |
 | youtube-download.lua* | 下载 ytdl 视频/音频/字幕/片段（依赖 yt-dlp/youtube-dl和ffmpeg; 配置文件 [youtube-download.conf](../script-opts/youtube-download.conf)） |
 
 1. 标记`*`号的部分脚本为**个人修改版或自建脚本**。
