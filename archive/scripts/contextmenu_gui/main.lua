@@ -170,15 +170,25 @@ local function noneCheck(checkType)
     return checkVal
 end
 
+local function is_empty(input)
+    if input == nil or input == "" then
+        return true
+    end
+end
+
+----- string
+local function replace(str, what, with)
+    if is_empty(str) then return "" end
+    if is_empty(what) then return str end
+    if with == nil then with = "" end
+    what = string.gsub(what, "[%(%)%.%+%-%*%?%[%]%^%$%%]", "%%%1")
+    with = string.gsub(with, "[%%]", "%%%%")
+    return string.gsub(str, what, with)
+end
+
 local function esc_for_title(string)
-    string = string:gsub('^%-', '')
-    :gsub('^%_', '')
-    :gsub('^%.', '')
-    :gsub('^.*%].', '')
-    :gsub('^.*%).', '')
-    :gsub('%.%w+$', '')
-    :gsub('^.*%s', '')
-    :gsub('^.*%.', '')
+    string = string:gsub('^[%._%-%s]*', '')
+            :gsub('%.%w+$', '')
     return string
 end
 
@@ -206,7 +216,7 @@ local function vidTrackMenu()
             local vidTrackExternal = propNative("track-list/" .. vidTrackNum .. "/external")
             local filename = propNative("filename/no-ext")
 
-            if vidTrackTitle then vidTrackTitle = vidTrackTitle:gsub(filename, '') end
+            if vidTrackTitle then vidTrackTitle = replace(vidTrackTitle, filename, "") end
             if vidTrackExternal then vidTrackTitle = esc_for_title(vidTrackTitle) end
             if vidTrackCodec:match("MPEG2") then vidTrackCodec = "MPEG2"
             elseif vidTrackCodec:match("DVVIDEO") then vidTrackCodec = "DV"
@@ -261,7 +271,7 @@ local function audTrackMenu()
             local filename = propNative("filename/no-ext")
             -- Convert ISO 639-1/2 codes
             if not (audTrackLang == nil) then audTrackLang = getLang(audTrackLang) and getLang(audTrackLang) or audTrackLang end
-            if audTrackTitle then audTrackTitle = audTrackTitle:gsub(filename, '') end
+            if audTrackTitle then audTrackTitle = replace(audTrackTitle, filename, "") end
             if audTrackExternal then audTrackTitle = esc_for_title(audTrackTitle) end
             if audTrackCodec:match("PCM") then audTrackCodec = "PCM" end
 
@@ -317,7 +327,7 @@ local function subTrackMenu()
             local filename = propNative("filename/no-ext")
             -- Convert ISO 639-1/2 codes
             if not (subTrackLang == nil) then subTrackLang = getLang(subTrackLang) and getLang(subTrackLang) or subTrackLang end
-            if subTrackTitle then subTrackTitle = subTrackTitle:gsub(filename, '') end
+            if subTrackTitle then subTrackTitle = replace(subTrackTitle, filename, "") end end
             if subTrackExternal then subTrackTitle = esc_for_title(subTrackTitle) end
             if subTrackCodec:match("PGS") then subTrackCodec = "PGS"
             elseif subTrackCodec:match("SUBRIP") then subTrackCodec = "SRT"

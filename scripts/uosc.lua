@@ -1,7 +1,6 @@
---[[ uosc 4.3.0 - 2022-Oct-11 | https://github.com/tomasklaen/uosc ]]
-local uosc_version = '4.3.0'
+--[[ uosc 4.4.0 - 2022-Oct-28 | https://github.com/tomasklaen/uosc ]]
+local uosc_version = '4.4.0'
 
-require('lib/std')
 assdraw = require('mp.assdraw')
 opt = require('mp.options')
 utils = require('mp.utils')
@@ -9,6 +8,11 @@ msg = require('mp.msg')
 osd = mp.create_osd_overlay('ass-events')
 infinity = 1e309
 quarter_pi_sin = math.sin(math.pi / 4)
+
+-- Enables relative requires from `scripts` directory
+package.path = package.path .. ';' .. mp.find_config_file('scripts') .. '/?.lua'
+
+require('uosc_shared/lib/std')
 
 --[[ OPTIONS ]]
 
@@ -27,6 +31,7 @@ defaults = {
 	timeline_border = 1,
 	timeline_step = 5,
 	timeline_chapters_opacity = 0.8,
+	timeline_cache = true,
 
 	controls = 'menu,gap,subtitles,<has_many_audio>audio,<has_many_video>video,<has_many_edition>editions,<stream>stream-quality,gap,space,speed,space,shuffle,loop-playlist,loop-file,gap,prev,items,next,gap,fullscreen',
 	controls_size = 32,
@@ -325,14 +330,14 @@ state = {
 }
 thumbnail = {width = 0, height = 0, disabled = false}
 external = {} -- Properties set by external scripts
-Elements = require('elements/Elements')
-Menu = require('elements/Menu')
+Elements = require('uosc_shared/elements/Elements')
+Menu = require('uosc_shared/elements/Menu')
 
 -- State dependent utilities
-require('lib/utils')
-require('lib/text')
-require('lib/ass')
-require('lib/menus')
+require('uosc_shared/lib/utils')
+require('uosc_shared/lib/text')
+require('uosc_shared/lib/ass')
+require('uosc_shared/lib/menus')
 
 --[[ STATE UPDATERS ]]
 
@@ -375,6 +380,8 @@ end
 
 -- Notifies other scripts such as console about where the unoccupied parts of the screen are.
 function update_margins()
+	if display.height == 0 then return end
+
 	-- margins are normalized to window size
 	local timeline, top_bar, controls = Elements.timeline, Elements.top_bar, Elements.controls
 	local bottom_y = controls and controls.enabled and controls.ay or timeline.ay
@@ -471,13 +478,14 @@ function load_file_index_in_current_directory(index)
 
 	local serialized = serialize_path(state.path)
 	if serialized and serialized.dirname then
-		local files = get_files_in_directory(serialized.dirname, config.media_types)
+		local files = read_directory(serialized.dirname, config.media_types)
 
 		if not files then return end
+		sort_filenames(files)
 		if index < 0 then index = #files + index + 1 end
 
 		if files[index] then
-			mp.commandv('loadfile', utils.join_path(serialized.dirname, files[index]))
+			mp.commandv('loadfile', join_path(serialized.dirname, files[index]))
 		end
 	end
 end
@@ -549,7 +557,8 @@ do
 		if template:sub(-6) == ' - mpv' then template = template:sub(1, -7) end
 		-- escape ASS, and strip newlines and trailing slashes and trim whitespace
 		local t = mp.command_native({'expand-text', template}):gsub('\\n', ' '):gsub('[\\%s]+$', ''):gsub('^%s+', '')
-		if t:match('No file$') ~= nil then set_state('title', t:gsub('No file$', '')) else set_state('title', ass_escape(t)) end
+		if t:match('No file$') then set_state('title', t:gsub('No file$', ''))
+		else set_state('title', ass_escape(t)) end
 	end
 	mp.observe_property('title', 'string', function(_, title)
 		mp.unobserve_property(update_title)
@@ -895,7 +904,7 @@ mp.add_key_binding(nil, 'open-file', function()
 	-- Update active file in directory navigation menu
 	local function handle_file_loaded()
 		if Menu:is_open('open-file') then
-			Elements.menu:activate_value(normalize_path(mp.get_property_native('path')))
+			Elements.menu:activate_one_value(normalize_path(mp.get_property_native('path')))
 		end
 	end
 
@@ -951,7 +960,7 @@ mp.add_key_binding(nil, 'delete-file-next', function()
 		mp.commandv('playlist-remove', 'current')
 	else
 		if is_local_file then
-			local paths, current_index = get_adjacent_paths(state.path, config.media_types)
+			local paths, current_index = get_adjacent_files(state.path, config.media_types)
 			if paths and current_index then
 				local index, path = decide_navigation_in_list(paths, current_index, 1)
 				if path then next_file = path end
@@ -996,7 +1005,7 @@ mp.add_key_binding(nil, 'audio-device', create_self_updating_menu_opener({
 }))
 mp.add_key_binding(nil, 'open-config-directory', function()
 	local config_path = mp.command_native({'expand-path', '~~/mpv.conf'})
-	local config = serialize_path(config_path)
+	local config = serialize_path(normalize_path(config_path))
 
 	if config then
 		local args
@@ -1064,11 +1073,11 @@ mp.register_script_message('flash-elements', function(elements) Elements:flash(s
 
 --[[ ELEMENTS ]]
 
-require('elements/WindowBorder'):new()
-require('elements/BufferingIndicator'):new()
-require('elements/PauseIndicator'):new()
-require('elements/TopBar'):new()
-require('elements/Timeline'):new()
-if options.controls and options.controls ~= 'never' then require('elements/Controls'):new() end
-if itable_index_of({'left', 'right'}, options.volume) then require('elements/Volume'):new() end
-require('elements/Curtain'):new()
+require('uosc_shared/elements/WindowBorder'):new()
+require('uosc_shared/elements/BufferingIndicator'):new()
+require('uosc_shared/elements/PauseIndicator'):new()
+require('uosc_shared/elements/TopBar'):new()
+require('uosc_shared/elements/Timeline'):new()
+if options.controls and options.controls ~= 'never' then require('uosc_shared/elements/Controls'):new() end
+if itable_index_of({'left', 'right'}, options.volume) then require('uosc_shared/elements/Volume'):new() end
+require('uosc_shared/elements/Curtain'):new()

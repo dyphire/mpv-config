@@ -36,6 +36,32 @@ local function is_empty(var)
     return var == nil or var == '' or (type(var) == 'table' and next(var) == nil)
 end
 
+----- string
+local function replace(str, what, with)
+    if is_empty(str) then return "" end
+    if is_empty(what) then return str end
+    if with == nil then with = "" end
+    what = string.gsub(what, "[%(%)%.%+%-%*%?%[%]%^%$%%]", "%%%1")
+    with = string.gsub(with, "[%%]", "%%%%")
+    return string.gsub(str, what, with)
+end
+
+local function esc_for_title(string)
+    string = string:gsub('^[%._%-%s]*', '')
+            :gsub('%.%w+$', '')
+    return string
+end
+
+local function esc_for_code(trackCode)
+    if trackCode:match("PGS") then trackCode = "PGS"
+    elseif trackCode:match("SUBRIP") then trackCode = "SRT"
+    elseif trackCode:match("VTT") then trackCode = "VTT"
+    elseif trackCode:match("DVB_SUB") then trackCode = "DVB"
+    elseif trackCode:match("DVD_SUB") then trackCode = "VOB"
+    end
+    return trackCode
+end
+
 -- Snippet borrowed from stackoverflow to get the operating system
 -- originally found at: https://stackoverflow.com/a/30960054
 local os_name = (function()
@@ -315,6 +341,7 @@ ref_selector = menu:new {
     last_choice = 'audio',
     pos_x = 50,
     pos_y = 50,
+    rect_width = 400,
     text_color = 'fff5da',
     border_color = '2f1728',
     active_color = 'ff6b71',
@@ -452,6 +479,7 @@ function track_selector:init()
     self.tracks = {}
     self.items = {}
 
+    local filename = mp.get_property_native('filename/no-ext')
     for _, track in ipairs(self.all_sub_tracks) do
         local supported_format = true
         if track.external then
@@ -466,10 +494,12 @@ function track_selector:init()
             table.insert(
                     self.items,
                     string.format(
-                            "%s #%s - %s%s",
+                            "%s #%s - %s%s%s",
                             (track.external and 'External' or 'Internal'),
                             track['id'],
-                            (track.lang or (track.title and track.title:gsub('^.*%.', '') or 'unknown')),
+                            (track.lang or (track.title and
+                            esc_for_title(replace(track.title, filename, '')) or 'unknown')),
+                            (track.codec and '[' .. esc_for_code(track.codec:upper()) .. ']' or ''),
                             (track.selected and ' (active)' or '')
                     )
             )

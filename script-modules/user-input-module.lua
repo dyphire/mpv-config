@@ -37,7 +37,7 @@ local function format_options(options, response_string)
         source = name,
         request_text = ("[%s] %s"):format(options.source or name, options.request_text or options.text or "requesting user input:"),
         default_input = options.default_input,
-        cursor_pos = options.cursor_pos,
+        cursor_pos = tonumber(options.cursor_pos),
         queueable = options.queueable and true,
         replace = options.replace and true
     }

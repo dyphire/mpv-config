@@ -80,15 +80,15 @@ mp.options.read_options(options, "trackselect")
 options.special_protocols = utils.parse_json(options.special_protocols)
 
 local function need_ignore(tab, val)
-	for index, element in ipairs(tab) do
+    for index, element in ipairs(tab) do
         if string.find(val, element) then
             return true
         end
-		if (val:find(element) == 1) then
-			return true
-		end
-	end
-	return false
+        if (val:find(element) == 1) then
+            return true
+        end
+    end
+    return false
 end
 
 function contains(track, words, attr)
@@ -146,7 +146,8 @@ end
 function track_layout_hash(tracklist)
     local t = {}
     for _, track in ipairs(tracklist) do
-        t[#t+1] = string.format("%s-%d-%s-%s-%s-%s", track.type, track.id, tostring(track.default), tostring(track.external), track.lang or "", track.external and "" or (track.title or ""))
+        t[#t + 1] = string.format("%s-%d-%s-%s-%s-%s", track.type, track.id, tostring(track.default),
+            tostring(track.external), track.lang or "", track.external and "" or (track.title or ""))
     end
     return table.concat(t, "\n")
 end
@@ -169,7 +170,9 @@ function trackselect()
         tracklist_changed = true
     end
     for _, track in ipairs(tracklist) do
-        if options.smart_keep and last[track.type] ~= nil and last[track.type].lang == track.lang and last[track.type].codec == track.codec and last[track.type].external == track.external and last[track.type].title == track.title then
+        if options.smart_keep and last[track.type] ~= nil and last[track.type].lang == track.lang and
+            last[track.type].codec == track.codec and last[track.type].external == track.external and
+            last[track.type].title == track.title then
             tracks[track.type].best = track
             options["preferred_" .. track.type .. "_lang"] = ""
             options["excluded_" .. track.type .. "_words"] = ""
@@ -187,7 +190,9 @@ function trackselect()
                 options["preferred_" .. track.type .. "_channels"] = ""
             end
         end
-        if options["preferred_" .. track.type .. "_lang"] ~= "" or options["excluded_" .. track.type .. "_words"] ~= "" or options["expected_" .. track.type .. "_words"] ~= "" or (options["preferred_" .. track.type .. "_channels"] or "") ~= "" then
+        if options["preferred_" .. track.type .. "_lang"] ~= "" or options["excluded_" .. track.type .. "_words"] ~= ""
+            or options["expected_" .. track.type .. "_words"] ~= "" or
+            (options["preferred_" .. track.type .. "_channels"] or "") ~= "" then
             if track.selected then
                 tracks[track.type].selected = track.id
                 if options.smart_keep then
@@ -197,20 +202,28 @@ function trackselect()
             if track.external then
                 track.title = string.gsub(string.gsub(track.title, "%W", "%%%1"), filename, "")
             end
-            if next(tracks[track.type].best) == nil or not (tracks[track.type].best.external and tracks[track.type].best.lang ~= nil) then
-                if options["excluded_" .. track.type .. "_words"] == "" or not contains(track, options["excluded_" .. track.type .. "_words"], "title") then
-                    if options["expected_" .. track.type .. "_words"] == "" or contains(track, options["expected_" .. track.type .. "_words"], "title") then
+            if next(tracks[track.type].best) == nil or
+                not (tracks[track.type].best.external and tracks[track.type].best.lang ~= nil) then
+                if options["excluded_" .. track.type .. "_words"] == "" or
+                    not contains(track, options["excluded_" .. track.type .. "_words"], "title") then
+                    if options["expected_" .. track.type .. "_words"] == "" or
+                        contains(track, options["expected_" .. track.type .. "_words"], "title") then
                         local pass = true
                         local channels = false
                         local lang = false
-                        if (options["preferred_" .. track.type .. "_channels"] or "") ~= "" and preferred_or_equals(track, options["preferred_" .. track.type .. "_lang"], "lang", "lang_score") then
-                            channels = preferred(track, options["preferred_" .. track.type .. "_channels"], "demux-channel-count", "channels_score")
+                        if (options["preferred_" .. track.type .. "_channels"] or "") ~= "" and
+                            preferred_or_equals(track, options["preferred_" .. track.type .. "_lang"], "lang",
+                                "lang_score") then
+                            channels = preferred(track, options["preferred_" .. track.type .. "_channels"],
+                                "demux-channel-count", "channels_score")
                             pass = channels
                         end
                         if options["preferred_" .. track.type .. "_lang"] ~= "" then
                             lang = preferred(track, options["preferred_" .. track.type .. "_lang"], "lang", "lang_score")
                         end
-                        if (options["preferred_" .. track.type .. "_lang"] == "" and pass) or channels or lang or (track.external and track.lang == nil and (not tracks[track.type].best.external or tracks[track.type].best.lang == nil)) then
+                        if (options["preferred_" .. track.type .. "_lang"] == "" and pass) or channels or lang or
+                            (track.external and track.lang == nil and
+                            (not tracks[track.type].best.external or tracks[track.type].best.lang == nil)) then
                             tracks[track.type].best = track
                         end
                     end

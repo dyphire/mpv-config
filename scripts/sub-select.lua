@@ -34,6 +34,9 @@ local o = {
     --observe audio switches and reselect the subtitles when alang changes
     observe_audio_switches = false,
 
+    --only select forced subtitles if they are explicitly included in slang
+    explicit_forced_subs = false,
+
     --the folder that contains the 'sub-select.json' file
     config = "~~/script-opts"
 }
@@ -54,6 +57,37 @@ local latest_audio = {}
 local alang_priority = mp.get_property_native("alang", {})
 local audio_tracks = {}
 local sub_tracks = {}
+
+--returns a table that stores the given table t as the __index in its metatable
+--creates a prototypally inherited table
+local function redirect_table(t, new)
+    return setmetatable(new or {}, { __index = t })
+end
+
+--evaluates and runs the given string in both Lua 5.1 and 5.2
+--the name argument is used for error reporting
+--provides the mpv modules and the fb module to the string
+local function evaluate_string(str, env)
+    env = redirect_table(_G, env)
+    env.mp = redirect_table(mp)
+    env.msg = redirect_table(msg)
+    env.utils = redirect_table(utils)
+
+    local chunk, err
+    if setfenv then
+        chunk, err = loadstring(str)
+        if chunk then setfenv(chunk, env) end
+    else
+        chunk, err = load(str, nil, 't', env)
+    end
+    if not chunk then
+        msg.warn('failed to load string:', str)
+        msg.error(err)
+        chunk = function() return nil end
+    end
+
+    return chunk()
+end
 
 --anticipates the default audio track
 --returns the node for the predicted track
@@ -146,6 +180,7 @@ local function is_valid_sub(sub, slang, pref)
     elseif slang == "forced" then
         if not sub.forced then return false end
     else
+        if sub.forced and o.explicit_forced_subs then return false end
         if not sub.lang:find(slang) and slang ~= "*" then return false end
     end
 
@@ -196,7 +231,9 @@ local function select_subtitles(audio)
                 if slang == "no" then return set_track("sid", "no") end
 
                 for _,sub_track in ipairs(sub_tracks) do
-                    if is_valid_sub(sub_track, slang, pref) then
+                    if  is_valid_sub(sub_track, slang, pref)
+                        and (not pref.condition or (evaluate_string('return '..pref.condition, { audio = audio, sub = sub_track }) == true))
+                    then
                         return set_track("sid", sub_track.id)
                     end
                 end
@@ -303,6 +340,8 @@ if o.observe_audio_switches then
         if aid ~= "auto" then reselect_subtitles() end
     end)
 end
+
+mp.observe_property('track-list/count', 'number', read_track_list)
 
 --force subtitle selection during playback
 mp.register_script_message("select-subtitles", async_load)

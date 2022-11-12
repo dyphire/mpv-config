@@ -1,5 +1,5 @@
 --[[
-  * chapter-make-read.lua v.2022-10-15
+  * chapter-make-read.lua v.2022-11-5
   *
   * AUTHORS: dyphire
   * License: MIT
@@ -35,7 +35,7 @@ local o = {
     -- Specifies the extension of the external chapter file.
     chapter_flie_ext = "_chapter.chp",
     -- Specifies the subpath of the same directory as the playing file as the external chapter file path.
-    -- Note: The external chapter file is read from the subdirectory first. 
+    -- Note: The external chapter file is read from the subdirectory first.
     -- If the file does not exist, it will next be read from the same directory as the playing file.
     external_chapter_subpath = "chapters",
 }
@@ -43,23 +43,23 @@ local o = {
 (require 'mp.options').read_options(o)
 
 local function read_chapter(func)
-	local f = io.open(chapter_fullpath, "r")
-	if not f then return end
-	local contents = {}
-	for line in f:lines() do
-            table.insert(contents, (func(line)))
-	end
-	f:close()
-	return contents
+    local f = io.open(chapter_fullpath, "r")
+    if not f then return end
+    local contents = {}
+    for line in f:lines() do
+        table.insert(contents, (func(line)))
+    end
+    f:close()
+    return contents
 end
 
 local function read_chapter_table()
-	local line_pos = 0
-	return read_chapter(function(line)
+    local line_pos = 0
+    return read_chapter(function(line)
         local h, m, s, t, n, l
         if line:match("^%d+:%d+:%d+") ~= nil then
             h, m, s = line:match("^(%d+):(%d+):(%d+.%d*)")
-            t = h*3600 + m*60 + s
+            t = h * 3600 + m * 60 + s
             if line:match("^%d+:%d+:%d+.%d*[,%s].*") ~= nil then
                 n = line:match("^%d+:%d+:%d+.%d*[,%s](.*)")
                 n = n:gsub(":%s%a?%a?:", "")
@@ -69,7 +69,7 @@ local function read_chapter_table()
             line_pos = line_pos + 1
         elseif line:match("^CHAPTER%d+=%d+:%d+:%d+") ~= nil then
             h, m, s = line:match("^CHAPTER%d+=(%d+):(%d+):(%d+.%d*)")
-            t = h*3600 + m*60 + s
+            t = h * 3600 + m * 60 + s
             l = line
             line_pos = line_pos + 1
         elseif line:match("^CHAPTER%d+NAME=.*") ~= nil then
@@ -78,8 +78,8 @@ local function read_chapter_table()
             l = line
             line_pos = line_pos + 1
         else return end
-        return {found_title = n, found_time = t, found_line = l}
-	end)
+        return { found_title = n, found_time = t, found_line = l }
+    end)
 end
 
 local function mark_chapter()
@@ -90,12 +90,13 @@ local function mark_chapter()
     local chapters_title = {}
     local path = mp.get_property("path")
     local dir, filename = utils.split_path(path)
-    local fpath = dir:gsub("\\", "/")
     local fname = mp.get_property("filename/no-ext")
     local chapter_fliename = fname .. o.chapter_flie_ext
-    chapter_fullpath = fpath .. o.external_chapter_subpath .. "/" .. chapter_fliename
+    local fpath = dir
+    if o.external_chapter_subpath ~= '' then fpath = dir .. o.external_chapter_subpath end
+    chapter_fullpath = utils.join_path(fpath, chapter_fliename)
     if io.open(chapter_fullpath, "r") == nil then
-        chapter_fullpath = fpath .. chapter_fliename
+        chapter_fullpath = dir .. chapter_fliename
     end
     list_contents = read_chapter_table()
 
@@ -110,9 +111,9 @@ local function mark_chapter()
         end
     end
     if not chapters_time[1] then return end
-	
+
     table.sort(chapters_time, function(a, b) return a < b end)
-	
+
     for i = 1, #chapters_time do
         chapter_index = chapter_index + 1
         all_chapters[chapter_index] = {
@@ -154,13 +155,13 @@ local function create_chapter()
         for i = chapter_count, curr_chapter + 2, -1 do
             all_chapters[i + 1] = all_chapters[i]
         end
-        all_chapters[curr_chapter+2] = {
-            title = "Chapter " .. string.format("%02.f", curr_chapter+2),
+        all_chapters[curr_chapter + 2] = {
+            title = "Chapter " .. string.format("%02.f", curr_chapter + 2),
             time = time_pos
         }
     end
     mp.set_property_native("chapter-list", all_chapters)
-    mp.set_property_number("chapter", curr_chapter+1)
+    mp.set_property_number("chapter", curr_chapter + 1)
 end
 
 local function format_time(seconds)
@@ -168,11 +169,11 @@ local function format_time(seconds)
     if seconds <= 0 then
         return "00:00:00.000";
     else
-        hours = string.format("%02.f", math.floor(seconds/3600))
-        mins = string.format("%02.f", math.floor(seconds/60 - (hours*60)))
-        secs = string.format("%02.f", math.floor(seconds - hours*60*60 - mins*60))
-        msecs = string.format("%03.f", seconds*1000 - hours*60*60*1000 - mins*60*1000 - secs*1000)
-        result = hours..":"..mins..":"..secs.."."..msecs
+        hours = string.format("%02.f", math.floor(seconds / 3600))
+        mins = string.format("%02.f", math.floor(seconds / 60 - (hours * 60)))
+        secs = string.format("%02.f", math.floor(seconds - hours * 60 * 60 - mins * 60))
+        msecs = string.format("%03.f", seconds * 1000 - hours * 60 * 60 * 1000 - mins * 60 * 1000 - secs * 1000)
+        result = hours .. ":" .. mins .. ":" .. secs .. "." .. msecs
     end
     return result
 end
@@ -194,7 +195,7 @@ local function write_chapter()
 
     local path = mp.get_property("path")
     dir, name_ext = utils.split_path(path)
-    local name = string.sub(name_ext, 1, (string.len(name_ext)-4))
+    local name = string.sub(name_ext, 1, (string.len(name_ext) - 4))
     local out_path = utils.join_path(dir, name .. o.chapter_flie_ext)
     local file = io.open(out_path, "w")
     if file == nil then
@@ -223,20 +224,30 @@ local function write_chapter_xml()
         local time_pos = format_time(curr.time)
 
         if i == 1 and curr.time ~= 0 then
-            local first_chapter="    <ChapterAtom>\n      <ChapterUID>"..math.random(1000, 9000).."</ChapterUID>\n      <ChapterFlagHidden>0</ChapterFlagHidden>\n      <ChapterFlagEnabled>1</ChapterFlagEnabled>\n      <ChapterDisplay>\n        <ChapterString>Prologue</ChapterString>\n        <ChapterLanguage>eng</ChapterLanguage>\n      </ChapterDisplay>\n      <ChapterTimeStart>00:00:00.000</ChapterTimeStart>\n    </ChapterAtom>\n"
-            insert_chapters = insert_chapters..first_chapter
+            local first_chapter = "    <ChapterAtom>\n      <ChapterUID>" ..
+                math.random(1000, 9000) ..
+                "</ChapterUID>\n      <ChapterFlagHidden>0</ChapterFlagHidden>\n      <ChapterFlagEnabled>1</ChapterFlagEnabled>\n      <ChapterDisplay>\n        <ChapterString>Prologue</ChapterString>\n        <ChapterLanguage>eng</ChapterLanguage>\n      </ChapterDisplay>\n      <ChapterTimeStart>00:00:00.000</ChapterTimeStart>\n    </ChapterAtom>\n"
+            insert_chapters = insert_chapters .. first_chapter
         end
 
-        local next_chapter="      <ChapterAtom>\n        <ChapterDisplay>\n          <ChapterString>"..curr.title.."</ChapterString>\n          <ChapterLanguage>eng</ChapterLanguage>\n        </ChapterDisplay>\n        <ChapterUID>"..math.random(1000, 9000).."</ChapterUID>\n        <ChapterTimeStart>"..time_pos.."</ChapterTimeStart>\n        <ChapterFlagHidden>0</ChapterFlagHidden>\n        <ChapterFlagEnabled>1</ChapterFlagEnabled>\n      </ChapterAtom>\n"
-        insert_chapters = insert_chapters..next_chapter
+        local next_chapter = "      <ChapterAtom>\n        <ChapterDisplay>\n          <ChapterString>" ..
+            curr.title ..
+            "</ChapterString>\n          <ChapterLanguage>eng</ChapterLanguage>\n        </ChapterDisplay>\n        <ChapterUID>"
+            ..
+            math.random(1000, 9000) ..
+            "</ChapterUID>\n        <ChapterTimeStart>" ..
+            time_pos ..
+            "</ChapterTimeStart>\n        <ChapterFlagHidden>0</ChapterFlagHidden>\n        <ChapterFlagEnabled>1</ChapterFlagEnabled>\n      </ChapterAtom>\n"
+        insert_chapters = insert_chapters .. next_chapter
     end
 
-    local chapters="<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\n<Chapters>\n  <EditionEntry>\n    <EditionFlagHidden>0</EditionFlagHidden>\n    <EditionFlagDefault>0</EditionFlagDefault>\n    <EditionUID>"..euid.."</EditionUID>\n"..insert_chapters.."  </EditionEntry>\n</Chapters>"
+    local chapters = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\n<Chapters>\n  <EditionEntry>\n    <EditionFlagHidden>0</EditionFlagHidden>\n    <EditionFlagDefault>0</EditionFlagDefault>\n    <EditionUID>"
+        .. euid .. "</EditionUID>\n" .. insert_chapters .. "  </EditionEntry>\n</Chapters>"
 
     local path = mp.get_property("path")
     dir, name_ext = utils.split_path(path)
-    local name = string.sub(name_ext, 1, (string.len(name_ext)-4))
-    local out_path = utils.join_path(dir, name.."_chapter.xml")
+    local name = string.sub(name_ext, 1, (string.len(name_ext) - 4))
+    local out_path = utils.join_path(dir, name .. "_chapter.xml")
     local file = io.open(out_path, "w")
     if file == nil then
         dir = utils.getcwd()
@@ -249,11 +260,11 @@ local function write_chapter_xml()
     end
     file:write(chapters)
     file:close()
-    mp.osd_message("Export chapter file to: "..out_path, 3)
+    mp.osd_message("Export chapter file to: " .. out_path, 3)
 end
 
 mp.add_hook("on_preloaded", 50, mark_chapter)
 
-mp.register_script_message("create_chapter", create_chapter, {repeatable=true})
-mp.register_script_message("write_chapter", write_chapter, {repeatable=false})
-mp.register_script_message("write_chapter_xml", write_chapter_xml, {repeatable=false})
+mp.register_script_message("create_chapter", create_chapter, { repeatable = true })
+mp.register_script_message("write_chapter", write_chapter, { repeatable = false })
+mp.register_script_message("write_chapter_xml", write_chapter_xml, { repeatable = false })
