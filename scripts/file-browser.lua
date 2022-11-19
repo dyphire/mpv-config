@@ -126,6 +126,10 @@ local o = {
 opt.read_options(o, 'file_browser')
 utils.shared_script_property_set("file_browser-open", "no")
 
+package.path = mp.command_native({"expand-path", o.module_directory}).."/?.lua;"..package.path
+local success, input = pcall(require, "user-input-module")
+if not success then input = nil end
+
 
 
 --------------------------------------------------------------------------------------------------------
@@ -160,8 +164,6 @@ local parse_state_API = {}
 --the osd_overlay API was not added until v0.31. The expand-path command was not added until 0.30
 local ass = mp.create_osd_overlay("ass-events")
 if not ass then return msg.error("Script requires minimum mpv version 0.31") end
-
-package.path = mp.command_native({"expand-path", o.module_directory}).."/?.lua;"..package.path
 
 local style = {
     global = o.alignment == 0 and "" or ([[{\an%d}]]):format(o.alignment),
@@ -303,6 +305,23 @@ if not table.pack then
     end
 end
 
+-- returns true if the given item exists inside the given table
+function API.list.indexOf(t, item, from_index)
+    for i = from_index or 1, #t, 1 do
+        if t[i] == item then return i end
+    end
+    return -1
+end
+
+--returns whether or not the given table contains an entry that
+--causes the given function to evaluate to true
+function API.list.some(t, fn)
+    for i, v in ipairs(t) do
+        if fn(v, i, t) then return true end
+    end
+    return false
+end
+
 --prints an error message and a stack trace
 --accepts an error object and optionally a coroutine
 --can be passed directly to xpcall
@@ -313,6 +332,12 @@ function API.traceback(errmsg, co)
         msg.warn(debug.traceback("", 2))
     end
     msg.error(errmsg)
+end
+
+--returns a table that stores the given table t as the __index in its metatable
+--creates a prototypally inherited table
+function API.redirect_table(t)
+    return setmetatable({}, { __index = t })
 end
 
 --prints an error if a coroutine returns an error
@@ -361,14 +386,6 @@ end
 function API.coroutine.run(fn, ...)
     local co = coroutine.create(fn)
     API.coroutine.resume_err(co, ...)
-end
-
---returns whether or not the given table contains the given value
-function API.list.some(t, fn)
-    for i, v in ipairs(t) do
-        if fn(v, i, t) then return true end
-    end
-    return false
 end
 
 --get the full path for the current file
@@ -555,30 +572,53 @@ function API.format_json_safe(t)
     else return nil, result end
 end
 
+--evaluates and runs the given string in both Lua 5.1 and 5.2
+--the name argument is used for error reporting
+--provides the mpv modules and the fb module to the string
+function API.evaluate_string(str, name)
+    local env = API.redirect_table(_G)
+    env.mp = API.redirect_table(mp)
+    env.msg = API.redirect_table(msg)
+    env.utils = API.redirect_table(utils)
+    env.fb = API.redirect_table(API)
+    env.input = input and API.redirect_table(input)
+
+    local chunk, err
+    if setfenv then
+        chunk, err = loadstring(str, name)
+        if chunk then setfenv(chunk, env) end
+    else
+        chunk, err = load(str, name, 't', env)
+    end
+    if not chunk then
+        msg.warn('failed to load string:', str)
+        msg.error(err)
+        chunk = function() return nil end
+    end
+
+    return chunk()
+end
+
 --copies a table without leaving any references to the original
 --uses a structured clone algorithm to maintain cyclic references
-local function copy_table_recursive(t, references)
-    if type(t) ~= "table" then return t end
+local function copy_table_recursive(t, references, depth)
+    if type(t) ~= "table" or depth == 0 then return t end
     if references[t] then return references[t] end
 
-    local mt = {
-        __original = t,
-        __index = getmetatable(t)
-    }
-    local copy = setmetatable({}, mt)
+    local copy = setmetatable({}, { __original = t })
     references[t] = copy
 
     for key, value in pairs(t) do
-        key = copy_table_recursive(key, references)
-        copy[key] = copy_table_recursive(value, references)
+        key = copy_table_recursive(key, references, depth - 1)
+        copy[key] = copy_table_recursive(value, references, depth - 1)
     end
     return copy
 end
 
 --a wrapper around copy_table to provide the reference table
-function API.copy_table(t)
+function API.copy_table(t, depth)
     --this is to handle cyclic table references
-    return copy_table_recursive(t, {})
+    return copy_table_recursive(t, {}, depth or math.huge)
 end
 
 
@@ -763,16 +803,20 @@ local function update_ass()
 
         --sets the selection colour scheme
         local multiselected = state.selection[i]
-        if multiselected then append(style.multiselect)
-        elseif i == state.selected then append(style.selected) end
 
-        --prints the currently-playing icon and style
-        if playing_file then append( multiselected and style.playing_selected or style.playing) end
+        --sets the colour for the item
+        local function set_colour()
+            if multiselected then append(style.multiselect)
+            elseif i == state.selected then append(style.selected) end
+
+            if playing_file then append( multiselected and style.playing_selected or style.playing) end
+        end
+        set_colour()
 
         --sets the folder icon
         if v.type == 'dir' then
             append(style.folder..o.folder_icon.."\\h"..style.body)
-            if playing_file then append( multiselected and style.playing_selected or style.playing) end
+            set_colour()
         end
 
         --adds the actual name of the item
@@ -1054,13 +1098,13 @@ local function update(moving_adjacent)
     state.list = {}
     disable_select_mode()
     update_ass()
-    state.empty_text = "empty directory"
 
     --the directory is always handled within a coroutine to allow addons to
     --pause execution for asynchronous operations
     API.coroutine.run(function()
         state.co = coroutine.running()
         update_list(moving_adjacent)
+        state.empty_text = "empty directory"
         update_ass()
     end)
 end
@@ -1468,46 +1512,63 @@ state.keybinds = {
 local top_level_keys = {}
 
 --format the item string for either single or multiple items
-local function create_item_string(cmd, items, funct)
-    if not items[1] then return end
+local function create_item_string(fn)
+    local quoted_fn = function(...) return ("%q"):format(fn(...)) end
+    return function(cmd, items, state, code)
+        if not items[1] then return end
+        local func = code == code:upper() and quoted_fn or fn
 
-    local str = funct(items[1])
-    for i = 2, #items do
-        str = str .. ( cmd["concat-string"] or " " ) .. funct(items[i])
+        local str = func(cmd, items[1], state, code)
+        for i = 2, #items, 1 do
+            str = str .. ( cmd["concat-string"] or " " ) .. func(cmd, items[i], state, code)
+        end
+        return str
     end
-    return str
 end
 
---characters used for custom keybind codes
-local CUSTOM_KEYBIND_CODES = "%%["..API.pattern_escape("%fFnNpPdDrR").."]"
+--functions to replace custom-keybind codes
 local code_fns
 code_fns = {
-    ["%f"] = function(cmd, items, s)
-        return create_item_string(cmd, items, function(item)
-            return item and API.get_full_path(item, s.directory) or ""
-        end)
-    end,
-    ["%F"] = function(cmd, items, s)
-        return create_item_string(cmd, items, function(item)
-            return ("%q"):format(item and API.get_full_path(item, s.directory) or "")
-        end)
-    end,
-    ["%n"] = function(cmd, items)
-        return create_item_string(cmd, items, function(item)
-            return item and (item.label or item.name) or ""
-        end)
-    end,
-    ["%N"] = function(cmd, items)
-        return create_item_string(cmd, items, function(item)
-            return ("%q"):format(item and (item.label or item.name) or "")
-        end)
-    end,
+    ["%"] = "%",
 
-    ["%%"] = "%",
-    ["%p"] = function(_, _, s) return s.directory or "" end,
-    ["%d"] = function(_, _, s) return (s.directory_label or s.directory):match("([^/]+)/?$") or "" end,
-    ["%r"] = function(_, _, s) return s.parser.keybind_name or s.parser.name or "" end,
+    f = create_item_string(function(_, item, s) return item and API.get_full_path(item, s.directory) or "" end),
+    n = create_item_string(function(_, item, _) return item and (item.label or item.name) or "" end),
+    i = create_item_string(function(_, item, s) return API.list.indexOf(s.list, item) end),
+    j = create_item_string(function(_, item, s) return math.abs(API.list.indexOf( API.sort_keys(s.selection) , item)) end),
+
+    p = function(_, _, s) return s.directory or "" end,
+    d = function(_, _, s) return (s.directory_label or s.directory):match("([^/]+)/?$") or "" end,
+    r = function(_, _, s) return s.parser.keybind_name or s.parser.name or "" end,
 }
+
+--codes that are specific to individual items require custom encapsulation behaviour
+--hence we need to manually specify the uppercase codes in the table
+code_fns.F = code_fns.f
+code_fns.N = code_fns.n
+code_fns.I = code_fns.i
+code_fns.J = code_fns.j
+
+--programatically creates a pattern that matches any key code
+--this will result in some duplicates but that shouldn't really matter
+local CUSTOM_KEYBIND_CODES = ""
+for key in pairs(code_fns) do CUSTOM_KEYBIND_CODES = CUSTOM_KEYBIND_CODES..key:lower()..key:upper() end
+local KEYBIND_CODE_PATTERN = ('%%%%([%s])'):format(API.ass_escape(CUSTOM_KEYBIND_CODES))
+
+--substitutes the key codes for the 
+local function substitute_codes(str, cmd, items, state)
+    return string.gsub(str, KEYBIND_CODE_PATTERN, function(code)
+        if type(code_fns[code]) == "string" then return code_fns[code] end
+
+        --encapsulates the string if using an uppercase code
+        if not code_fns[code] then
+            local lower = code_fns[code:lower()]
+            if not lower then return end
+            return string.format("%q", lower(cmd, items, state, code))
+        end
+
+        return code_fns[code](cmd, items, state, code)
+    end)
+end
 
 --iterates through the command table and substitutes special
 --character codes for the correct strings used for custom functions
@@ -1517,18 +1578,7 @@ local function format_command_table(cmd, items, state)
         copy[i] = {}
 
         for j = 1, #cmd.command[i] do
-            copy[i][j] = cmd.command[i][j]:gsub(CUSTOM_KEYBIND_CODES, function(code)
-                if type(code_fns[code]) == "string" then return code_fns[code] end
-
-                --encapsulates the string if using an uppercase code
-                if not code_fns[code] then
-                    local lower = code_fns[code:lower()]
-                    if not lower then return end
-                    return string.format("%q", lower(cmd, items, state))
-                end
-
-                return code_fns[code](cmd, items, state)
-            end)
+            copy[i][j] = substitute_codes(cmd.command[i][j], cmd, items, state)
         end
     end
     return copy
@@ -1540,15 +1590,42 @@ end
 local function run_custom_command(cmd, items, state)
     local custom_cmds = cmd.codes and format_command_table(cmd, items, state) or cmd.command
 
-    for _, cmd in ipairs(custom_cmds) do
-        msg.debug("running command:", utils.to_string(cmd))
-        mp.command_native(cmd)
+    for _, custom_cmd in ipairs(custom_cmds) do
+        msg.debug("running command:", utils.to_string(custom_cmd))
+        mp.command_native(custom_cmd)
     end
+end
+
+--returns true if the given code set has item specific codes (%f, %i, etc)
+local function has_item_codes(codes)
+    for code in pairs(codes) do
+        if code_fns[code:upper()] then return true end
+    end
+    return false
 end
 
 --runs one of the custom commands
 local function run_custom_keybind(cmd, state, co)
-    if cmd.parser and cmd.parser ~= (state.parser.keybind_name or state.parser.name) then return false end
+    --evaluates a condition and passes through the correct values
+    local function evaluate_condition(condition, items)
+        local cond = substitute_codes(condition, cmd, items, state)
+        return API.evaluate_string('return '..cond) == true
+    end
+
+    -- evaluates the string condition to decide if the keybind should be run
+    local do_item_condition
+    if cmd.condition then
+        if has_item_codes(cmd.condition_codes) then
+            do_item_condition = true
+        elseif not evaluate_condition(cmd.condition, {}) then
+            return false
+        end
+    end
+
+    if cmd.parser then
+       local parser_str = ' '..cmd.parser..' '
+       if not parser_str:find( '%W'..(state.parser.keybind_name or state.parser.name)..'%W' ) then return false end
+    end
 
     --these are for the default keybinds, or from addons which use direct functions
     if type(cmd.command) == 'function' then return cmd.command(cmd, cmd.addon and API.copy_table(state) or state, co) end
@@ -1560,23 +1637,29 @@ local function run_custom_keybind(cmd, state, co)
             if state.list[state.selected].type ~= cmd.filter then return false end
         end
 
-        --if the directory is empty, and this command needs to work on an item, then abort and fallback to the next command
-        if cmd.codes and not state.list[state.selected] then
-            if cmd.codes["%f"] or cmd.codes["%F"] or cmd.codes["%n"] or cmd.codes["%N"] then return false end
+        if cmd.codes then
+            --if the directory is empty, and this command needs to work on an item, then abort and fallback to the next command
+            if not state.list[state.selected] and has_item_codes(cmd.codes) then return false end
         end
 
+        if do_item_condition and not evaluate_condition(cmd.condition, { state.list[state.selected] }) then
+            return false
+        end
         run_custom_command(cmd, { state.list[state.selected] }, state)
         return true
     end
 
     --runs the command on all multi-selected items
-    local selection = API.sort_keys(state.selection, function(item) return not cmd.filter or item.type == cmd.filter end)
+    local selection = API.sort_keys(state.selection, function(item)
+        if do_item_condition and not evaluate_condition(cmd.condition, { item }) then return false end
+        return not cmd.filter or item.type == cmd.filter
+    end)
     if not next(selection) then return false end
 
     if cmd["multi-type"] == "concat" then
         run_custom_command(cmd, selection, state)
 
-    elseif cmd["multi-type"] == "repeat" then
+    elseif cmd["multi-type"] == "repeat" or cmd["multi-type"] == nil then
         for i,_ in ipairs(selection) do
             run_custom_command(cmd, {selection[i]}, state)
 
@@ -1640,7 +1723,7 @@ local function scan_for_codes(command_table, codes)
         if type == "table" then
             scan_for_codes(value, codes)
         elseif type == "string" then
-            value:gsub(CUSTOM_KEYBIND_CODES, function(code) codes[code] = true end)
+            value:gsub(KEYBIND_CODE_PATTERN, function(code) codes[code] = true end)
         end
     end
     return codes
@@ -1657,6 +1740,11 @@ local function insert_custom_keybind(keybind)
     keybind.codes = scan_for_codes(keybind.command, {})
     if not next(keybind.codes) then keybind.codes = nil end
     keybind.prev_key = top_level_keys[keybind.key]
+
+    if keybind.condition then
+        keybind.condition_codes = {}
+        for code in string.gmatch(keybind.condition, KEYBIND_CODE_PATTERN) do keybind.condition_codes[code] = true end
+    end
 
     table.insert(state.keybinds, {keybind.key, keybind.name, function() run_keybind_coroutine(keybind) end, keybind.flags or {}})
     top_level_keys[keybind.key] = keybind
@@ -1895,19 +1983,15 @@ local function set_parser_id(parser)
     parsers[parser] = { id = name }
 end
 
-local function redirect_table(t)
-    return setmetatable({}, { __index = t })
-end
-
 --loads an addon in a separate environment
 local function load_addon(path)
     local name_sqbr = string.format("[%s]", path:match("/([^/]*)%.lua$"))
-    local addon_environment = redirect_table(_G)
+    local addon_environment = API.redirect_table(_G)
     addon_environment._G = addon_environment
 
     --gives each addon custom debug messages
-    addon_environment.package = redirect_table(addon_environment.package)
-    addon_environment.package.loaded = redirect_table(addon_environment.package.loaded)
+    addon_environment.package = API.redirect_table(addon_environment.package)
+    addon_environment.package.loaded = API.redirect_table(addon_environment.package.loaded)
     local msg_module = {
         log = function(level, ...) msg.log(level, name_sqbr, ...) end,
         fatal = function(...) return msg.fatal(name_sqbr, ...) end,
@@ -2090,11 +2174,80 @@ local function scan_directory_json(directory, response_str)
     mp.commandv("script-message", response_str, list or "", opts or "")
 end
 
-pcall(function()
-    local input = require "user-input-module"
+if input then
     mp.add_key_binding("Alt+o", "browse-directory/get-user-input", function()
         input.get_user_input(browse_directory, {request_text = "open directory:"})
     end)
+end
+
+
+
+------------------------------------------------------------------------------------------
+----------------------------------Script Messages-----------------------------------------
+------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+
+--a helper script message for custom keybinds
+--substitutes any '=>' arguments for 'script-message'
+--makes chaining script-messages much easier
+mp.register_script_message('=>', function(...)
+    local command = table.pack('script-message', ...)
+    for i, v in ipairs(command) do
+        if v == '=>' then command[i] = 'script-message' end
+    end
+    mp.commandv(table.unpack(command))
+end)
+
+--a helper script message for custom keybinds
+--sends a command after the specified delay
+mp.register_script_message('delay-command', function(delay, ...)
+    local command = table.pack(...)
+    local success, err = pcall(mp.add_timeout, API.evaluate_string('return '..delay), function() mp.commandv(table.unpack(command)) end)
+    if not success then return msg.error(err) end
+end)
+
+--a helper script message for custom keybinds
+--sends a command only if the given expression returns true
+mp.register_script_message('conditional-command', function(condition, ...)
+    local command = table.pack(...)
+    API.coroutine.run(function()
+        if API.evaluate_string('return '..condition) == true then mp.commandv(table.unpack(command)) end
+    end)
+end)
+
+--a helper script message for custom keybinds
+--extracts lua expressions from the command and evaluates them
+--expressions must be surrounded by !{}. Another ! before the { will escape the evaluation
+mp.register_script_message('evaluate-expressions', function(...)
+    local args = table.pack(...)
+    API.coroutine.run(function()
+        for i, arg in ipairs(args) do
+            args[i] = arg:gsub('(!+)(%b{})', function(lead, expression)
+                if #lead % 2 == 0 then return string.rep('!', #lead/2)..expression end
+
+                local eval = API.evaluate_string('return '..expression:sub(2, -2))
+                return type(eval) == "table" and utils.to_string(eval) or tostring(eval)
+            end)
+        end
+
+        mp.commandv(table.unpack(args))
+    end)
+end)
+
+--a helper function for custom-keybinds
+--concatenates the command arguments with newlines and runs the
+--string as a statement of code
+mp.register_script_message('run-statement', function(...)
+    local statement = table.concat(table.pack(...), '\n')
+    API.coroutine.run(API.evaluate_string, statement)
+end)
+
+--allows keybinds/other scripts to auto-open specific directories
+mp.register_script_message('browse-directory', browse_directory)
+
+--allows other scripts to request directory contents from file-browser
+mp.register_script_message("get-directory-contents", function(directory, response_str)
+    API.coroutine.run(scan_directory_json, directory, response_str)
 end)
 
 
@@ -2121,12 +2274,4 @@ end)
 --declares the keybind to open the browser
 mp.add_key_binding('MENU','browse-files', toggle)
 mp.add_key_binding('Ctrl+o','open-browser', open)
-
---allows keybinds/other scripts to auto-open specific directories
-mp.register_script_message('browse-directory', browse_directory)
-
---allows other scripts to request directory contents from file-browser
-mp.register_script_message("get-directory-contents", function(directory, response_str)
-    API.coroutine.run(scan_directory_json, directory, response_str)
-end)
 

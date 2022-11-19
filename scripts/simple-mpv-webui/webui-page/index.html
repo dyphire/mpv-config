@@ -31,6 +31,11 @@
               </div>
           </td>
           <td>
+              <div onClick="toggleOverlay('uri-loader-overlay')" class="button unselectable gray content icon-content playlist-controls">
+                <i class="fas fa-plus"></i>
+              </div>
+          </td>
+          <td>
               <div onClick="playlist_loop_cycle()" class="button unselectable blue content icon-content playlist-controls playlistLoopButton">
                 <i class="fas fa-redo-alt"></i>
               </div>
@@ -71,6 +76,13 @@
           </td>
           <td>Disable usage of MediaSession API (notifications)</td>
         </tr>
+        <tr>
+          <td>
+            <input type="number" value="1" id="seekSeconds" name="seekSeconds"/>
+            <label for="seekSeconds"></label>
+          </td>
+          <td>Amount of seconds to jump with <i class="fas fa-backward"></i> / <i class="fas fa-forward"></i></td>
+        </tr>
       </table>
       <a class="repo-link" href="https://github.com/open-dynaMIX/simple-mpv-webui" target="_blank" title="simple-mpv-webui on GitHub"><i class="fab fa-github"></i></a>
     </div>
@@ -85,6 +97,19 @@
           <td>Action</td>
         </tr>
       </table>
+    </div>
+
+    <div id="uri-loader-overlay" class="overlay">
+      <div onClick="toggleOverlay('uri-loader-overlay')" class="overlay-top">
+        <i class="far fa-times-circle"></i>
+      </div>
+      <form onsubmit="uriLoader('append-play')" class="uri-loader-form">
+        <label for="uri-loader-input">
+          <input type="text" id="uri-loader-input" placeholder="Enter URI" class="green">
+        </label>
+        <div onClick="uriLoader('append-play')" class="button unselectable blue icon-content playlist-controls"><i class="fa fa-play-circle"></i></div>
+        <div onClick="uriLoader('append')" class="button unselectable blue icon-content playlist-controls"><i class="fa fa-plus-circle"></i></div>
+      </form>
     </div>
 
     <div class="burger">
@@ -152,12 +177,12 @@
       </div>
     </div>
 
-    <div onClick="send('seek', '-10')" class="button unselectable left blue" title="Rewind 10 sec (ArrowLeft)">
+    <div onClick="seek(-1)" class="button unselectable left blue" title="Seek back (ArrowLeft)">
       <div class="content icon-content">
         <i class="fas fa-backward"></i>
       </div>
     </div>
-    <div onClick="send('seek', '10')" class="button unselectable right blue" title="Forward 10 sec (ArrowRight)">
+    <div onClick="seek(1)" class="button unselectable right blue" title="Seek forward (ArrowRight)">
       <div class="content icon-content">
         <i class="fas fa-forward"></i>
       </div>

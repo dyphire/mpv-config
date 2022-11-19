@@ -149,6 +149,16 @@
         "multiselect": true,
         "parser": "ftp"
     },
+    {
+        "key": "DEL",
+        "command": [
+            ["run", "powershell", "-command", "(New-Object -ComObject 'Shell.Application').NameSpace(0).ParseName((%F -replace '/', '\\' )).InvokeVerb('delete')"],
+            ["script-message", "delay-command", "4", "script-binding", "file_browser/dynamic/reload"],
+            ["show-text", "删除 %f"]
+        ],
+        "multiselect": true,
+        "multi-type": "repeat"
+    },
 
     {
         "key": "F",

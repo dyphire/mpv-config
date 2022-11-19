@@ -1,5 +1,5 @@
 --[[
-    * adevice-list.lua v.2022-07-01
+    * adevice-list.lua v.2022-10-27
     *
     * AUTHORS: dyphire
     * License: MIT
@@ -38,7 +38,7 @@ local o = {
 opts.read_options(o)
 
 --adding the source directory to the package path and loading the module
-local list = dofile(mp.command_native({"expand-path", "~~/script-modules/scroll-list.lua"}))
+local list = dofile(mp.command_native({ "expand-path", "~~/script-modules/scroll-list.lua" }))
 
 --modifying the list settings
 local original_open = list.open
@@ -109,13 +109,13 @@ list.keybinds = {}
 local function add_keys(keys, name, fn, flags)
     local i = 1
     for key in keys:gmatch("%S+") do
-      table.insert(list.keybinds, {key, name..i, fn, flags})
-      i = i + 1
+        table.insert(list.keybinds, { key, name .. i, fn, flags })
+        i = i + 1
     end
 end
 
-add_keys(o.key_scroll_down, 'scroll_down', function() list:scroll_down() end, {repeatable = true})
-add_keys(o.key_scroll_up, 'scroll_up', function() list:scroll_up() end, {repeatable = true})
+add_keys(o.key_scroll_down, 'scroll_down', function() list:scroll_down() end, { repeatable = true })
+add_keys(o.key_scroll_up, 'scroll_up', function() list:scroll_up() end, { repeatable = true })
 add_keys(o.key_move_pageup, 'move_pageup', function() list:move_pageup() end, {})
 add_keys(o.key_move_pagedown, 'move_pagedown', function() list:move_pagedown() end, {})
 add_keys(o.key_move_begin, 'move_begin', function() list:move_begin() end, {})

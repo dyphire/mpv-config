@@ -1,7 +1,7 @@
-local Element = require('elements/Element')
-local Button = require('elements/Button')
-local CycleButton = require('elements/CycleButton')
-local Speed = require('elements/Speed')
+local Element = require('uosc_shared/elements/Element')
+local Button = require('uosc_shared/elements/Button')
+local CycleButton = require('uosc_shared/elements/CycleButton')
+local Speed = require('uosc_shared/elements/Speed')
 
 -- `scale` - `options.controls_size` scale factor.
 -- `ratio` - Width/height ratio of a static or dynamic element.
@@ -217,8 +217,7 @@ function Controls:register_badge_updater(badge, element)
 end
 
 function Controls:get_visibility()
-	local timeline_is_hovered = Elements.timeline.enabled and Elements.timeline.proximity_raw == 0
-	return (Elements.speed and Elements.speed.dragging) and 1 or timeline_is_hovered
+	return (Elements.speed and Elements.speed.dragging) and 1 or Elements.timeline:get_is_hovered()
 		and -1 or Element.get_visibility(self)
 end
 

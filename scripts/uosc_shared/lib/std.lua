@@ -17,6 +17,41 @@ function serialize_rgba(rgba)
 	}
 end
 
+-- Escape special characters in url.
+---@param str string
+---@return string
+function url_decode(str)
+	local function hex_to_char(x)
+		return string.char(tonumber(x, 16))
+	end
+	if str ~= nil then
+		str = str:gsub('^file://', '')
+		str = str:gsub('+', ' ')
+		str = str:gsub('%%(%x%x)', hex_to_char)
+		if str:match('://localhost:?') then
+			str = str:gsub('^.*/', '')
+		end
+		return str
+	else
+		return
+	end
+end
+
+-- Trim any `char` from the end of the string.
+---@param str string
+---@param char string
+---@return string
+function trim_end(str, char)
+	local char, end_i = char:byte(), 0
+	for i = #str, 1, -1 do
+		if str:byte(i) ~= char then
+			end_i = i
+			break
+		end
+	end
+	return str:sub(1, end_i)
+end
+
 ---@param str string
 ---@param pattern string
 ---@return string[]
@@ -35,6 +70,20 @@ function split(str, pattern)
 		list[#list + 1] = capture
 	end
 	return list
+end
+
+-- Get index of the last appearance of `sub` in `str`.
+---@param str string
+---@param sub string
+---@return integer|nil
+function string_last_index_of(str, sub)
+	local sub_length = #sub
+	for i = #str, 1, -1 do
+		for j = 1, sub_length do
+			if str:byte(i + j - 1) ~= sub:byte(j) then break end
+			if j == sub_length then return i end
+		end
+	end
 end
 
 ---@param itable table

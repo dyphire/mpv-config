@@ -30,28 +30,28 @@ o = {
     excluded_dir = [[
         []
         ]], --excluded directories for cloud mount disks on Windows, example: ["X:", "Z:", "F:\\Download\\", "Download"]. !!the option only for Windows
-    special_protocols = [[
-	["://", "^magnet:"]
-	]], --add above (after a comma) any protocol to disable
 }
 options.read_options(o)
 
 o.excluded_dir = utils.parse_json(o.excluded_dir)
-o.special_protocols = utils.parse_json(o.special_protocols)
 
 local default_audio_paths = mp.get_property_native("options/audio-file-paths")
 local default_sub_paths = mp.get_property_native("options/sub-file-paths")
 
+function is_protocol(path)
+    return type(path) == 'string' and (path:match('^%a[%a%d-_]+://') ~= nil or path:match('^%a[%a%d-_]+:\\?') ~= nil)
+end
+
 local function need_ignore(tab, val)
-	for index, element in ipairs(tab) do
+    for index, element in ipairs(tab) do
         if string.find(val, element) then
             return true
         end
-		if (val:find(element) == 1) then
-			return true
-		end
-	end
-	return false
+        if (val:find(element) == 1) then
+            return true
+        end
+    end
+    return false
 end
 
 function starts_with(str, prefix)
@@ -120,9 +120,7 @@ function explode(from, working_directory)
         local parent, leftover = utils.split_path(path)
         local fpath = mp.get_property('path')
 
-        if not need_ignore(o.special_protocols, fpath)
-        and not need_ignore(o.excluded_dir, path) 
-        then
+        if not is_protocol(fpath) and not need_ignore(o.excluded_dir, path) then
             if leftover == "**" then
                 table.insert(result, parent)
                 add_all(result, traverse(parent))

@@ -140,6 +140,12 @@ local state = {
     proc_volume,								--processed volume
 }
 
+local thumbfast = {
+    width = 0,
+    height = 0,
+    disabled = false
+}
+
 local window_control_box_width = 138
 local tick_delay = 0.03
 
@@ -655,6 +661,39 @@ function render_elements(master_ass)
                     elem_ass:append(slider_lo.tooltip_style)
                     ass_append_alpha(elem_ass, slider_lo.alpha, 0)
                     elem_ass:append(tooltiplabel)
+
+                    -- thumbnail
+                    if element.thumbnail and not thumbfast.disabled and thumbfast.width ~= 0 and thumbfast.height ~= 0 then
+                        local osd_w = mp.get_property_number("osd-dimensions/w")
+                        if osd_w then
+                            local r_w, r_h = get_virt_scale_factor()
+
+                            local thumbPad = 4
+                            local thumbMarginX = 18 / r_w
+                            local thumbMarginY = 30
+                            local tooltipBgColor = "FFFFFF"
+                            local tooltipBgAlpha = 80
+                            local thumbX = math.min(osd_w - thumbfast.width - thumbMarginX, math.max(thumbMarginX, tx / r_w - thumbfast.width / 2))
+                            local thumbY = ((ty - thumbMarginY) / r_h - thumbfast.height)
+
+                            elem_ass:new_event()
+                            elem_ass:pos(thumbX * r_w, ty - thumbMarginY - thumbfast.height * r_h)
+                            elem_ass:append(osc_styles.Tooltip)
+                            elem_ass:draw_start()
+                            elem_ass:rect_cw(-thumbPad * r_h, -thumbPad * r_h, (thumbfast.width + thumbPad) * r_w, (thumbfast.height + thumbPad) * r_h)
+                            elem_ass:draw_stop()
+
+                            mp.commandv("script-message-to", "thumbfast", "thumb",
+                                mp.get_property_number("duration", 0) * (sliderpos / 100),
+                                thumbX,
+                                thumbY
+                            )
+                        end
+                    end
+                else
+                    if element.thumbnail and thumbfast.width ~= 0 and thumbfast.height ~= 0 then
+                        mp.commandv("script-message-to", "thumbfast", "clear")
+                    end
                 end
             end
 
@@ -1372,6 +1411,7 @@ function osc_init()
     ne = new_element('seekbar', 'slider')
 
     ne.enabled = not (mp.get_property('percent-pos') == nil)
+    ne.thumbnail = true
     ne.slider.markerF = function ()
         local duration = mp.get_property_number('duration', nil)
         if not (duration == nil) then
@@ -1915,7 +1955,8 @@ function process_event(source, what)
 end
 
 function show_logo()
-    local osd_w, osd_h = 640, 360
+    local osd_w, osd_h, osd_aspect = mp.get_osd_size()
+    osd_w, osd_h = 360*osd_aspect, 360
     local logo_x, logo_y = osd_w/2, osd_h/2-20
     local ass = assdraw.ass_new()
     ass:new_event()
@@ -2170,6 +2211,15 @@ end
 visibility_mode(user_opts.visibility, true)
 mp.register_script_message('osc-visibility', visibility_mode)
 mp.add_key_binding(nil, 'visibility', function() visibility_mode('cycle') end)
+
+mp.register_script_message("thumbfast-info", function(json)
+    local data = utils.parse_json(json)
+    if type(data) ~= "table" or not data.width or not data.height then
+        msg.error("thumbfast-info: received json didn't produce a table with thumbnail information")
+    else
+        thumbfast = data
+    end
+end)
 
 set_virt_mouse_area(0, 0, 0, 0, 'input')
 set_virt_mouse_area(0, 0, 0, 0, 'window-controls')

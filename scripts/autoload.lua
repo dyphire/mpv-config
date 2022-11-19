@@ -59,7 +59,7 @@ function SetUnion (a,b)
 end
 
 EXTENSIONS_VIDEO = Set {
-    '3g2', '3gp', 'avi', 'asf', 'f4v', 'flv', 'iso', 'm2ts', 'm4v', 'mj2', 'mkv', 'mov',
+    '3g2', '3gp', 'avi', 'asf', 'f4v', 'flv', 'm2ts', 'm4v', 'mj2', 'mkv', 'mov',
     'mp4', 'mpeg', 'mpg', 'ogv', 'rm', 'rmvb', 'ts', 'vob', 'webm', 'wmv', 'y4m'
 }
 
@@ -107,19 +107,22 @@ end
 -- alphanum sorting for humans in Lua
 -- http://notebook.kulchenko.com/algorithms/alphanumeric-natural-sorting-for-humans-in-lua
 
-function alphanumsort(o)
+function alphanumsort(filenames)
     local function padnum(d)
         local dec, n = string.match(d, "(%.?)0*(.+)")
-        return #dec > 0 and ("%.12f"):format(d) or ("%s%03d%s"):format(dec, #n, n)
+        return #dec > 0 and ("%.12f"):format(d) or ("%03d%s"):format(#n, n)
     end
-    table.sort(o, function(a,b)
-        return tostring(a):lower():gsub("%.?%d+",padnum)..("%3d"):format(#b)
-             < tostring(b):lower():gsub("%.?%d+",padnum)..("%3d"):format(#a) 
-    end)
-    return o
-end
 
-local autoloaded = nil
+    local tuples = {}
+    for i, f in ipairs(filenames) do
+        tuples[i] = {f:lower():gsub("%.?%d+", padnum), f}
+    end
+    table.sort(tuples, function(a, b)
+        return a[1] == b[1] and #b[2] < #a[2] or a[1] < b[1]
+    end)
+    for i, tuple in ipairs(tuples) do filenames[i] = tuple[2] end
+    return filenames
+end
 
 function get_playlist_filenames()
     local filenames = {}
@@ -143,26 +146,12 @@ function find_and_add_entries()
         return
     end
 
-    pl_count = mp.get_property_number("playlist-count", 1)
-    -- check if this is a manually made playlist
-    if (pl_count > 1 and autoloaded == nil) or
-       (pl_count == 1 and EXTENSIONS[string.lower(get_extension(filename))] == nil) then
-        msg.verbose("stopping: manually made playlist")
-        return
-    else
-        autoloaded = true
-    end
-
-    local pl = mp.get_property_native("playlist", {})
-    local pl_current = mp.get_property_number("playlist-pos-1", 1)
-    msg.trace(("playlist-pos-1: %s, playlist: %s"):format(pl_current,
-        utils.to_string(pl)))
-
     local files = utils.readdir(dir, "files")
     if files == nil then
         msg.verbose("no other files in directory")
         return
     end
+
     table.filter(files, function (v, k)
         -- The current file could be a hidden file, ignoring it doesn't load other
         -- files from the current directory.
@@ -180,7 +169,7 @@ function find_and_add_entries()
             for vidext, _ in pairs(EXTENSIONS_VIDEO) do
                 if string.match(name, vidext.."$") ~= nil then
                     if string.match(v, "^"..namepre0) == nil then
-                    return false
+                        return false
                     end
                 end
             end
@@ -192,6 +181,18 @@ function find_and_add_entries()
     if dir == "." then
         dir = ""
     end
+
+    pl_count = mp.get_property_number("playlist-count", 1)
+    -- check if this is a playlist
+    if (pl_count > 1 and #files <= o.max_entries) or
+       (pl_count == 1 and EXTENSIONS[string.lower(get_extension(filename))] == nil) then
+        return
+    end
+
+    local pl = mp.get_property_native("playlist", {})
+    local pl_current = mp.get_property_number("playlist-pos-1", 1)
+    msg.trace(("playlist-pos-1: %s, playlist: %s"):format(pl_current,
+        utils.to_string(pl)))
 
     -- Find the current pl entry (dir+"/"+filename) in the sorted dir list
     local current
