@@ -714,13 +714,12 @@ local function format_request_fields(req)
 
     req.text = ass_escape(req.request_text or "")
     req.default_input = req.default_input or ""
-    req.cursor_pos = req.cursor_pos or 1
+    req.cursor_pos = tonumber(req.cursor_pos) or 1
     req.id = req.id or "mpv"
 
     if req.cursor_pos ~= 1 then
-        if cursor_pos < 1 then cursor_pos = 1
-        elseif cursor_pos > #req.default_input then cursor_pos = #req.default_input end
-        req.cursor_pos = cursor_pos
+        if req.cursor_pos  < 1 then req.cursor_pos  = 1
+        elseif req.cursor_pos  > #req.default_input then req.cursor_pos  = #req.default_input end
     end
 
     if not histories[req.id] then histories[req.id] = {pos = 1, list = {}} end

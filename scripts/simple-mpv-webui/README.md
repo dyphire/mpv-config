@@ -17,6 +17,10 @@ A web based user interface with controls for the [mpv mediaplayer](https://mpv.i
       - [static_dir](#static_dir)
       - [htpasswd_path](#htpasswd_path)
       - [collections](#collections)
+    + [Setting options](#setting-options)
+      - [CLI](#cli)
+      - [mpv config file](#mpv-config-file)
+      - [Webui config file](#webui-config-file)
     + [Authentication](#authentication)
   * [Dependencies](#dependencies)
     + [Linux](#linux)
@@ -49,6 +53,7 @@ add something like `scripts-append=/path/to/simple-mpv-webui/` to `mpv.conf`.
 
   Alternatively you can also use the `--script` or `--scripts-append` option from mpv or
   add something like `scripts-append=/path/to/simple-mpv-webui/webui.lua` to `mpv.conf`.
+  ---
 </details>
 
 See [dependencies](#dependencies) for more information about the installation.
@@ -56,11 +61,11 @@ See [dependencies](#dependencies) for more information about the installation.
 You can access the webui when visiting [http://127.0.0.1:8080](http://127.0.0.1:8080) or
 [http://[::1]:8080](http://[::1]:8080) in your webbrowser.
 
-By default it listens on `0.0.0.0:8080` and `[::0]:8080`. As described below, this can be changed.
+By default, it listens on `0.0.0.0:8080` and `[::0]:8080`. As described below, this can be changed.
 
 ### Options
-Options can be set with [--script-opts](https://mpv.io/manual/master/#options-script-opts)
-with the prefix `webui-`.
+
+Information about how to set options can be found [here](#setting-options).
 
 #### port (int)
 Set the port to serve the webui (default: 8080). Setting this allows for
@@ -177,6 +182,28 @@ Example:
 ```
 webui-collections="/home/user/Music;/home/user/Videos"
 ```
+
+### Setting options
+
+There are three ways to set an option for the webui. Please refer to the MPV
+documentation for more details about this, as this is no feature of the webui.
+
+#### CLI
+
+If you want to set webui-options from the CLI, you need to pass them to `--script-opts`
+or `--script-opts-add` respectively, like this: `--script-opts-add=webui-osd_logging=no`.
+
+#### mpv config file
+
+If you want to set webui-options in the main mpv config file, you need to write it like
+this: `script-opts-add=webui-osd_logging=no`.
+
+#### Webui config file
+
+Finally, if you want to webui-options in their dedicated config file, you can put them
+in a file `/path/to/mpv/user/dir/script-opts/webui.conf` (usually
+`~/.config/mpv/script-opts/webui.conf` on Linux) like this: `osd_logging=no`.
+
 
 ### Authentication
 There is a very simple implementation of

@@ -65,9 +65,9 @@
     "branch":"main"
   },
   {
-    "git":"https://github.com/dyphire/uosc",
+    "git":"https://github.com/dyphire/mpv-playlistmanager",
     "whitelist":"%.lua$",
-    "dest":"~~/osc-style",
+    "dest":"~~/scripts",
     "branch":"dev"
   },
   {
@@ -88,6 +88,12 @@
     "branch":"dev"
   },
   {
+    "git":"https://github.com/dyphire/uosc",
+    "whitelist":"scripts$",
+    "dest":"~~/scripts",
+    "branch":"dev"
+  },
+  {
     "git":"https://github.com/dyphire/autosubsync-mpv",
     "whitelist":"%.lua$",
     "dest":"~~/scripts/autosubsync",
@@ -100,8 +106,8 @@
     "branch":"main"
   },
   {
-    "git":"https://github.com/qwerty12/simple-mpv-webui",
-    "whitelist":"%.lua$|res$|ljf%-com",
+    "git":"https://github.com/qwerty12/mpv-taskbar-buttons",
+    "whitelist":"%.lua$|res|ljf%-com",
     "blacklist":"script%-opts",
     "dest":"~~/scripts/mpv-taskbar-buttons"
   },
@@ -115,11 +121,6 @@
     "whitelist":"%.lua$",
     "dest":"~~/scripts",
     "branch":"main"
-  },
-  {
-    "git":"https://github.com/jonniek/mpv-playlistmanager",
-    "whitelist":"%.lua$",
-    "dest":"~~/scripts"
   },
   {
     "git":"https://github.com/CogentRedTester/mpv-file-browser",
@@ -143,7 +144,7 @@
   },
   {
     "git":"https://github.com/CogentRedTester/mpv-scripts",
-    "whitelist":"cycle%-commands%.lua$|delay%-command%.lua$|display%-profiles%.lua$|ordered%-chapters%-playlist%.lua$",
+    "whitelist":"cycle%-commands%.lua$|display%-profiles%.lua$|ordered%-chapters%-playlist%.lua$",
     "dest":"~~/scripts"
   },
   {

@@ -1,5 +1,5 @@
 --[[
-    * track-list.lua v.2022-10-15
+    * track-list.lua v.2022-11-12
     *
     * AUTHORS: dyphire
     * License: MIT
@@ -34,13 +34,15 @@ local o = {
     key_scroll_down = "DOWN WHEEL_DOWN",
     key_scroll_up = "UP WHEEL_UP",
     key_select_track = "ENTER MBTN_LEFT",
+    key_reload_track = "R r MBTN_MID",
+    key_remove_track = "DEL BS",
     key_close_browser = "ESC MBTN_RIGHT",
 }
 
 opts.read_options(o)
 
 --adding the source directory to the package path and loading the module
-local list = dofile(mp.command_native({"expand-path", "~~/script-modules/scroll-list.lua"}))
+local list = dofile(mp.command_native({ "expand-path", "~~/script-modules/scroll-list.lua" }))
 local listDest = nil
 
 --modifying the list settings
@@ -56,16 +58,39 @@ function list:format_header_string(str)
     return str
 end
 
-local function esc_for_title(string)
-    string = string:gsub('^%-', '')
-    :gsub('^%_', '')
-    :gsub('^%.', '')
-    :gsub('^.*%].', '')
-    :gsub('^.*%).', '')
-    :gsub('%.%w+$', '')
-    :gsub('^.*%s', '')
-    :gsub('^.*%.', '')
-    return string
+local function is_empty(input)
+    if input == nil or input == "" then
+        return true
+    end
+end
+
+----- string
+local function replace(str, what, with)
+    if is_empty(str) then return "" end
+    if is_empty(what) then return str end
+    if with == nil then with = "" end
+    what = string.gsub(what, "[%(%)%.%+%-%*%?%[%]%^%$%%]", "%%%1")
+    with = string.gsub(with, "[%%]", "%%%%")
+    return string.gsub(str, what, with)
+end
+
+local function esc_for_title(str)
+    str = str:gsub('^[_%.%-%s]*', '')
+            :gsub('%.([^%.]+)$', '')
+    return str
+end
+
+local function esc_for_codec(str)
+    if str:match("MPEG2") then str = "MPEG2"
+    elseif str:match("DVVIDEO") then str = "DV"
+    elseif str:match("PCM") then str = "PCM"
+    elseif str:match("PGS") then str = "PGS"
+    elseif str:match("SUBRIP") then str = "SRT"
+    elseif str:match("VTT") then str = "VTT"
+    elseif str:match("DVB_SUB") then str = "DVB"
+    elseif str:match("DVD_SUB") then str = "VOB"
+    end
+    return str
 end
 
 local function getTracks(dest)
@@ -93,90 +118,7 @@ local function isTrackDisabled(trackId, dest)
     return (dest == "sub2" and isTrackSelected(trackId, "sub")) or (dest == "sub" and isTrackSelected(trackId, "sub2"))
 end
 
-local function selectTrack()
-    local selected = list.list[list.selected]
-    if selected then
-        if selected.disabled then
-            return
-        end
-
-        local trackId = selected.id
-        if trackId == nil then
-            trackId = "no"
-        end
-
-        if listDest == "video" then
-            mp.set_property_native("vid", trackId)
-        elseif listDest == "audio" then
-            mp.set_property_native("aid", trackId)
-        elseif listDest == "sub" then
-            mp.set_property_native("sid", trackId)
-        elseif listDest == "sub2" then
-            mp.set_property_native("secondary-sid", trackId)
-        end
-    end
-end
-
-local function getVideoTrackTitle(trackId)
-    local trackTitle = propNative("track-list/" .. trackId .. "/title")
-    local trackCodec = propNative("track-list/" .. trackId .. "/codec"):upper()
-    local trackImage = propNative("track-list/" .. trackId .. "/image")
-    local trackwh = propNative("track-list/" .. trackId .. "/demux-w") .. "x" .. propNative("track-list/" .. trackId .. "/demux-h")
-    local trackFps = string.format("%.3f", propNative("track-list/" .. trackId .. "/demux-fps"))
-    local trackDefault = propNative("track-list/" .. trackId .. "/default")
-    local trackForced = propNative("track-list/" .. trackId .. "/forced")
-    local trackExternal = propNative("track-list/" .. trackId .. "/external")
-    local filename = propNative("filename/no-ext")
-
-    if trackTitle then trackTitle = trackTitle:gsub(filename, '') end
-    if trackExternal then trackTitle = esc_for_title(trackTitle) end
-    if trackCodec:match("MPEG2") then trackCodec = "MPEG2"
-    elseif trackCodec:match("DVVIDEO") then trackCodec = "DV"
-    end
-
-    if trackTitle and not trackImage then trackTitle = trackTitle .. "[" .. trackCodec .. "]" .. ", " .. trackwh .. ", " .. trackFps .. " FPS"
-    elseif trackTitle then trackTitle = trackTitle .. "[" .. trackCodec .. "]" .. ", " .. trackwh
-    elseif trackImage then trackTitle = "[" .. trackCodec .. "]" .. ", " .. trackwh
-    elseif trackFps then trackTitle = "[" .. trackCodec .. "]" .. ", " .. trackwh .. ", " .. trackFps .. " FPS"
-    end
-
-    if trackForced then  trackTitle = trackTitle .. ", " .. "Forced" end
-    if trackDefault then  trackTitle = trackTitle .. ", " .. "Default" end
-    if trackExternal then  trackTitle = trackTitle .. ", " .. "External" end
-
-    return list.ass_escape(trackTitle)
-end
-
-local function getAudioTrackTitle(trackId)
-    local trackTitle = propNative("track-list/" .. trackId .. "/title")
-    local trackLang = propNative("track-list/" .. trackId .. "/lang")
-    local trackCodec = propNative("track-list/" .. trackId .. "/codec"):upper()
-    -- local trackBitrate = propNative("track-list/" .. trackId .. "/demux-bitrate")/1000
-    local trackSamplerate = string.format("%.1f", propNative("track-list/" .. trackId .. "/demux-samplerate")/1000)
-    local trackChannels = propNative("track-list/" .. trackId .. "/demux-channel-count")
-    local trackDefault = propNative("track-list/" .. trackId .. "/default")
-    local trackForced = propNative("track-list/" .. trackId .. "/forced")
-    local trackExternal = propNative("track-list/" .. trackId .. "/external")
-    local filename = propNative("filename/no-ext")
-
-    if trackTitle then trackTitle = trackTitle:gsub(filename, '') end
-    if trackExternal then trackTitle = esc_for_title(trackTitle) end
-    if trackCodec:match("PCM") then trackCodec = "PCM" end
-
-    if trackTitle and trackLang then trackTitle = trackTitle .. ", " .. trackLang .. "[" .. trackCodec .. "]" .. ", " .. trackChannels .. " ch" .. ", " .. trackSamplerate .. " kHz"
-    elseif trackTitle then trackTitle = trackTitle .. "[" .. trackCodec .. "]" .. ", " .. trackChannels .. " ch" .. ", " .. trackSamplerate .. " kHz"
-    elseif trackLang then trackTitle = trackLang .. "[" .. trackCodec .. "]" .. ", " .. trackChannels .. " ch" .. ", " .. trackSamplerate .. " kHz"
-    elseif trackChannels then trackTitle = "[" .. trackCodec .. "]" .. ", " .. trackChannels .. " ch" .. ", " .. trackSamplerate .. " kHz"
-    end
-
-    if trackForced then  trackTitle = trackTitle .. ", " .. "Forced" end
-    if trackDefault then  trackTitle = trackTitle .. ", " .. "Default" end
-    if trackExternal then  trackTitle = trackTitle .. ", " .. "External" end
-
-    return list.ass_escape(trackTitle)
-end
-
-local function getSubTrackTitle(trackId)
+local function getTrackTitle(trackId, dest)
     local trackTitle = propNative("track-list/" .. trackId .. "/title")
     local trackLang = propNative("track-list/" .. trackId .. "/lang")
     local trackCodec = propNative("track-list/" .. trackId .. "/codec"):upper()
@@ -185,28 +127,52 @@ local function getSubTrackTitle(trackId)
     local trackExternal = propNative("track-list/" .. trackId .. "/external")
     local filename = propNative("filename/no-ext")
 
-    if trackTitle then trackTitle = trackTitle:gsub(filename, '') end
+    if trackCodec then trackCodec = esc_for_codec(trackCodec) end
+    if trackTitle then trackTitle = replace(trackTitle, filename, "") end
     if trackExternal then trackTitle = esc_for_title(trackTitle) end
-    if trackCodec:match("PGS") then trackCodec = "PGS"
-    elseif trackCodec:match("SUBRIP") then trackCodec = "SRT"
-    elseif trackCodec:match("VTT") then trackCodec = "VTT"
-    elseif trackCodec:match("DVB_SUB") then trackCodec = "DVB"
-    elseif trackCodec:match("DVD_SUB") then trackCodec = "VOB"
+
+    if dest == "video" then
+        local trackImage = propNative("track-list/" .. trackId .. "/image")
+        local trackwh = propNative("track-list/" .. trackId .. "/demux-w") ..
+            "x" .. propNative("track-list/" .. trackId .. "/demux-h")
+        local trackFps = string.format("%.3f", propNative("track-list/" .. trackId .. "/demux-fps"))
+        if trackTitle and not trackImage then TrackTitle = trackTitle ..
+            ", [" .. trackCodec .. "]" .. ", " .. trackwh .. ", " .. trackFps .. " FPS"
+        elseif trackTitle then TrackTitle = trackTitle .. ", [" .. trackCodec .. "]" .. ", " .. trackwh
+        elseif trackImage then TrackTitle = "[" .. trackCodec .. "]" .. ", " .. trackwh
+        elseif trackFps then TrackTitle = "[" .. trackCodec .. "]" .. ", " .. trackwh .. ", " .. trackFps .. " FPS"
+        end
     end
 
-    if trackTitle and trackLang then trackTitle = trackTitle .. ", " .. trackLang .. "[" .. trackCodec .. "]"
-    elseif trackTitle then trackTitle = trackTitle .. "[" .. trackCodec .. "]"
-    elseif trackLang then trackTitle = trackLang .. "[" .. trackCodec .. "]"
-    elseif trackCodec then trackTitle = "[" .. trackCodec .. "]"
+    if dest == "audio" then
+        -- local trackBitrate = propNative("track-list/" .. trackId .. "/demux-bitrate")/1000
+        local trackSamplerate = string.format("%.1f", propNative("track-list/" .. trackId .. "/demux-samplerate") / 1000)
+        local trackChannels = propNative("track-list/" .. trackId .. "/demux-channel-count")
+        if trackTitle and trackLang then TrackTitle = trackTitle .. ", " .. trackLang ..
+            ", [" .. trackCodec .. "]" .. ", " .. trackChannels .. " ch" .. ", " .. trackSamplerate .. " kHz"
+        elseif trackTitle then TrackTitle = trackTitle ..
+            ", [" .. trackCodec .. "]" .. ", " .. trackChannels .. " ch" .. ", " .. trackSamplerate .. " kHz"
+        elseif trackLang then TrackTitle = trackLang ..
+            ", [" .. trackCodec .. "]" .. ", " .. trackChannels .. " ch" .. ", " .. trackSamplerate .. " kHz"
+        elseif trackChannels then TrackTitle = 
+            "[" .. trackCodec .. "]" .. ", " .. trackChannels .. " ch" .. ", " .. trackSamplerate .. " kHz"
+        end
     end
 
-    if trackForced then  trackTitle = trackTitle .. ", " .. "Forced" end
-    if trackDefault then  trackTitle = trackTitle .. ", " .. "Default" end
-    if trackExternal then  trackTitle = trackTitle .. ", " .. "External" end
+    if dest == "sub" or dest == "sub2" then
+        if trackTitle and trackLang then TrackTitle = trackTitle .. ", " .. trackLang .. ", [" .. trackCodec .. "]"
+        elseif trackTitle then TrackTitle = trackTitle .. ", [" .. trackCodec .. "]"
+        elseif trackLang then TrackTitle = trackLang .. ", [" .. trackCodec .. "]"
+        elseif trackCodec then TrackTitle = "[" .. trackCodec .. "]"
+        end
+    end
 
-    return list.ass_escape(trackTitle)
+    if trackForced then TrackTitle = TrackTitle .. ", " .. "Forced" end
+    if trackDefault then TrackTitle = TrackTitle .. ", " .. "Default" end
+    if trackExternal then TrackTitle = TrackTitle .. ", " .. "External" end
+
+    return list.ass_escape(TrackTitle)
 end
-
 
 local function updateTrackList(listTitle, trackDest, formatter)
     list.header = listTitle .. ": " .. o.header
@@ -230,7 +196,7 @@ local function updateTrackList(listTitle, trackDest, formatter)
         for i = 1, #tracks, 1 do
             local trackIndex = tracks[i]
             local trackId = propNative("track-list/" .. trackIndex .. "/id")
-            local title = formatter(trackIndex)
+            local title = formatter(trackIndex, trackDest)
             local isDisabled = isTrackDisabled(trackId, trackDest)
 
             local listItem = {
@@ -256,20 +222,76 @@ local function updateTrackList(listTitle, trackDest, formatter)
 end
 
 local function updateVideoTrackList()
-    updateTrackList("Video", "video", getVideoTrackTitle)
+    updateTrackList("Video", "video", getTrackTitle)
 end
 
 local function updateAudioTrackList()
-    updateTrackList("Audio", "audio", getAudioTrackTitle)
+    updateTrackList("Audio", "audio", getTrackTitle)
 end
 
 local function updateSubTrackList()
-    updateTrackList("Subtitle", "sub", getSubTrackTitle)
+    updateTrackList("Subtitle", "sub", getTrackTitle)
 end
 
 -- Secondary subtitle track-list menu
 local function updateSecondarySubTrackList()
-    updateTrackList("Secondary Subtitle", "sub2", getSubTrackTitle)
+    updateTrackList("Secondary Subtitle", "sub2", getTrackTitle)
+end
+
+local function selectTrack()
+    local selected = list.list[list.selected]
+    if selected then
+        if selected.disabled then return end
+
+        local trackId = selected.id
+        if trackId == nil then trackId = "no" end
+
+        if listDest == "video" then
+            mp.set_property_native("vid", trackId)
+        elseif listDest == "audio" then
+            mp.set_property_native("aid", trackId)
+        elseif listDest == "sub" then
+            mp.set_property_native("sid", trackId)
+        elseif listDest == "sub2" then
+            mp.set_property_native("secondary-sid", trackId)
+        end
+    end
+end
+
+local function reloadTrack()
+    local selected = list.list[list.selected]
+    if selected then
+        if selected.disabled then return end
+
+        local trackId = selected.id
+        if trackId == nil then return end
+
+        if listDest == "video" then
+            mp.commandv("video-reload", trackId)
+        elseif listDest == "audio" then
+            mp.commandv("audio-reload", trackId)
+        elseif listDest == "sub" then
+            mp.commandv("sub-reload", trackId)
+        end
+    end
+end
+
+local function removeTrack()
+    local selected = list.list[list.selected]
+    if selected then
+        if selected.disabled then return end
+
+        local trackId = selected.id
+        if trackId == nil then return end
+
+        if listDest == "video" then
+            mp.commandv("video-remove", trackId)
+        elseif listDest == "audio" then
+            mp.commandv("audio-remove", trackId)
+        elseif listDest == "sub" then
+            mp.commandv("sub-remove", trackId)
+        end
+    end
 end
 
 --dynamic keybinds to bind when the list is open
@@ -278,18 +300,20 @@ list.keybinds = {}
 local function add_keys(keys, name, fn, flags)
     local i = 1
     for key in keys:gmatch("%S+") do
-      table.insert(list.keybinds, {key, name..i, fn, flags})
-      i = i + 1
+        table.insert(list.keybinds, { key, name .. i, fn, flags })
+        i = i + 1
     end
 end
 
-add_keys(o.key_scroll_down, 'scroll_down', function() list:scroll_down() end, {repeatable = true})
-add_keys(o.key_scroll_up, 'scroll_up', function() list:scroll_up() end, {repeatable = true})
+add_keys(o.key_scroll_down, 'scroll_down', function() list:scroll_down() end, { repeatable = true })
+add_keys(o.key_scroll_up, 'scroll_up', function() list:scroll_up() end, { repeatable = true })
 add_keys(o.key_move_pageup, 'move_pageup', function() list:move_pageup() end, {})
 add_keys(o.key_move_pagedown, 'move_pagedown', function() list:move_pagedown() end, {})
 add_keys(o.key_move_begin, 'move_begin', function() list:move_begin() end, {})
 add_keys(o.key_move_end, 'move_end', function() list:move_end() end, {})
 add_keys(o.key_select_track, 'select_track', selectTrack, {})
+add_keys(o.key_reload_track, 'reload_track', reloadTrack, {})
+add_keys(o.key_remove_track, 'remove_track', removeTrack, {})
 add_keys(o.key_close_browser, 'close_browser', function() list:close() end, {})
 
 local function setTrackChangeHandler(property, func)

@@ -63,16 +63,39 @@ function create_self_updating_menu_opener(options)
 end
 
 function create_select_tracklist_type_menu_opener(menu_title, track_type, track_prop, load_command)
-	local function esc_for_title(string)
-		string = string:gsub('^%-', '')
-		:gsub('^%_', '')
-		:gsub('^%.', '')
-		:gsub('^.*%].', '')
-		:gsub('^.*%).', '')
-		:gsub('%.%w+$', '')
-		:gsub('^.*%s', '')
-		:gsub('^.*%.', '')
-		return string
+	----- string
+	local function is_empty(input)
+		if input == nil or input == "" then
+			return true
+		end
+	end
+
+	local function replace(str, what, with)
+		if is_empty(str) then return "" end
+		if is_empty(what) then return str end
+		if with == nil then with = "" end
+		what = string.gsub(what, "[%(%)%.%+%-%*%?%[%]%^%$%%]", "%%%1")
+		with = string.gsub(with, "[%%]", "%%%%")
+		return string.gsub(str, what, with)
+	end
+
+	local function esc_for_title(str)
+		str = str:gsub('^[_%.%-%s]*', '')
+				:gsub('%.([^%.]+)$', '')
+		return str
+	end
+
+	local function esc_for_codec(str)
+		if str:match("MPEG2") then str = "MPEG2"
+		elseif str:match("DVVIDEO") then str = "DV"
+		elseif str:match("PCM") then str = "PCM"
+		elseif str:match("PGS") then str = "PGS"
+    	elseif str:match("SUBRIP") then str = "SRT"
+    	elseif str:match("VTT") then str = "VTT"
+    	elseif str:match("DVB_SUB") then str = "DVB"
+    	elseif str:match("DVD_SUB") then str = "VOB"
+    	end
+		return str
 	end
 
 	local function serialize_tracklist(tracklist)
@@ -104,15 +127,15 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 					h(track['demux-w'] and (track['demux-w'] .. 'x' .. track['demux-h']) or (track['demux-h'] .. 'p'))
 				end
 				if track['demux-fps'] then h(string.format('%.5gfps', track['demux-fps'])) end
-				h(track.codec)
+				h(esc_for_codec(track.codec:upper()))
 				if track['audio-channels'] then h(track['audio-channels'] .. ' channels') end
 				if track['demux-samplerate'] then h(string.format('%.3gkHz', track['demux-samplerate'] / 1000)) end
 				if track.forced then h('forced') end
 				if track.default then h('default') end
 				if track.external then h('external') end
 
-				local filename = mp.get_property_native("filename/no-ext")
-				if track.title then track.title = track.title:gsub(filename, '') end
+				local filename = mp.get_property_native('filename/no-ext')
+				if track.title then track.title = replace(track.title, filename, '') end
 				if track.external then track.title = esc_for_title(track.title) end
 
 				items[#items + 1] = {
@@ -161,7 +184,7 @@ end
 ---@param handle_select fun(path: string): nil
 ---@param opts NavigationMenuOptions
 function open_file_navigation_menu(directory_path, handle_select, opts)
-	directory = serialize_path(directory_path)
+	directory = serialize_path(normalize_path(directory_path))
 	opts = opts or {}
 
 	if not directory then
@@ -169,17 +192,14 @@ function open_file_navigation_menu(directory_path, handle_select, opts)
 		return
 	end
 
-	local directories, dirs_error = utils.readdir(directory.path, 'dirs')
-	local files, files_error = get_files_in_directory(directory.path, opts.allowed_types)
+	local files, directories = read_directory(directory.path, opts.allowed_types)
 	local is_root = not directory.dirname
+	local path_separator = path_separator(directory.path)
 
-	if not files or not directories then
-		msg.error('Retrieving files from ' .. directory .. ' failed: ' .. (dirs_error or files_error or ''))
-		return
-	end
+	if not files or not directories then return end
 
-	-- Files are already sorted
 	sort_filenames(directories)
+	sort_filenames(files)
 
 	-- Pre-populate items with parent directory selector if not at root
 	-- Each item value is a serialized path table it points to.
@@ -187,76 +207,79 @@ function open_file_navigation_menu(directory_path, handle_select, opts)
 
 	if is_root then
 		if state.os == 'windows' then
-			items[#items + 1] = {
-				title = '..', hint = 'Drives', value = {is_drives = true, is_to_parent = true}, separator = true,
-			}
+			items[#items + 1] = {title = '..', hint = 'Drives', value = '{drives}', separator = true}
 		end
 	else
-		local serialized = serialize_path(directory.dirname)
-		serialized.is_directory = true
-		serialized.is_to_parent = true
-		items[#items + 1] = {title = '..', hint = 'parent dir', value = serialized, separator = true}
+		items[#items + 1] = {title = '..', hint = 'parent dir', value = directory.dirname, separator = true}
 	end
 
-	local items_start_index = #items + 1
+	local back_path = items[#items] and items[#items].value
+	local selected_index = #items + 1
 
 	for _, dir in ipairs(directories) do
-		local serialized = serialize_path(utils.join_path(directory.path, dir))
-		if serialized then
-			serialized.is_directory = true
-			items[#items + 1] = {title = serialized.basename, value = serialized, hint = '/'}
-		end
+		items[#items + 1] = {title = dir, value = join_path(directory.path, dir), hint = path_separator}
 	end
 
 	for _, file in ipairs(files) do
-		local serialized = serialize_path(utils.join_path(directory.path, file))
-		if serialized then
-			serialized.is_file = true
-			items[#items + 1] = {title = serialized.basename, value = serialized}
-		end
+		items[#items + 1] = {title = file, value = join_path(directory.path, file)}
 	end
 
 	for index, item in ipairs(items) do
-		if not item.value.is_to_parent then
-			if index == items_start_index then item.selected = true end
-
-			if opts.active_path == item.value.path then
-				item.active = true
-				if not opts.selected_path then item.selected = true end
-			end
-
-			if opts.selected_path == item.value.path then item.selected = true end
+		if not item.value.is_to_parent and opts.active_path == item.value then
+			item.active = true
+			if not opts.selected_path then selected_index = index end
 		end
+
+		if opts.selected_path == item.value then selected_index = index end
 	end
 
-	local menu_data = {
-		type = opts.type, title = opts.title or directory.basename .. '/', items = items,
-		on_open = opts.on_open, on_close = opts.on_close,
-	}
-
-	return Menu:open(menu_data, function(path)
+	local function open_path(path)
+		local is_drives = path == '{drives}'
+		local is_to_parent = is_drives or #path < #directory_path
 		local inheritable_options = {
 			type = opts.type, title = opts.title, allowed_types = opts.allowed_types, active_path = opts.active_path,
 		}
 
-		if path.is_drives then
+		if is_drives then
 			open_drives_menu(function(drive_path)
 				open_file_navigation_menu(drive_path, handle_select, inheritable_options)
-			end, {type = inheritable_options.type, title = inheritable_options.title, selected_path = directory.path})
+			end, {
+				type = inheritable_options.type, title = inheritable_options.title, selected_path = directory.path,
+				on_open = opts.on_open, on_close = opts.on_close,
+			})
 			return
 		end
 
-		if path.is_directory then
+		local info, error = utils.file_info(path)
+
+		if not info then
+			msg.error('Can\'t retrieve path info for "' .. path .. '". Error: ' .. (error or ''))
+			return
+		end
+
+		if info.is_dir then
 			--  Preselect directory we are coming from
-			if path.is_to_parent then
+			if is_to_parent then
 				inheritable_options.selected_path = directory.path
 			end
 
-			open_file_navigation_menu(path.path, handle_select, inheritable_options)
+			open_file_navigation_menu(path, handle_select, inheritable_options)
 		else
-			handle_select(path.path)
+			handle_select(path)
 		end
-	end)
+	end
+
+	local function handle_back()
+		if back_path then open_path(back_path) end
+	end
+
+	local menu_data = {
+		type = opts.type, title = opts.title or directory.basename .. path_separator, items = items,
+		selected_index = selected_index,
+	}
+	local menu_options = {on_open = opts.on_open, on_close = opts.on_close, on_back = handle_back}
+
+	return Menu:open(menu_data, open_path, menu_options)
 end
 
 -- Opens a file navigation menu with Windows drives as items.
@@ -270,7 +293,7 @@ function open_drives_menu(handle_select, opts)
 		playback_only = false,
 		args = {'wmic', 'logicaldisk', 'get', 'name', '/value'},
 	})
-	local items = {}
+	local items, selected_index = {}, 1
 
 	if process.status == 0 then
 		for _, value in ipairs(split(process.stdout, '\n')) do
@@ -278,15 +301,17 @@ function open_drives_menu(handle_select, opts)
 			if drive then
 				local drive_path = normalize_path(drive)
 				items[#items + 1] = {
-					title = drive, hint = 'Drive', value = drive_path,
-					selected = opts.selected_path == drive_path,
-					active = opts.active_path == drive_path,
+					title = drive, hint = 'drive', value = drive_path, active = opts.active_path == drive_path,
 				}
+				if opts.selected_path == drive_path then selected_index = #items end
 			end
 		end
 	else
 		msg.error(process.stderr)
 	end
 
-	return Menu:open({type = opts.type, title = opts.title or 'Drives', items = items}, handle_select)
+	return Menu:open(
+		{type = opts.type, title = opts.title or 'Drives', items = items, selected_index = selected_index},
+		handle_select
+	)
 end

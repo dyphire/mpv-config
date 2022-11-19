@@ -42,6 +42,7 @@ h3 {
 h4 {
   font-size: 7vmin;
   margin-top: 30px;
+  margin-bottom: 5px;
   clear: right;
 }
 
@@ -60,7 +61,7 @@ h4 {
   float: right;
   font-size: 8vw;
   /*top right bottom left*/
-  margin: 30px 60px 0 30px;
+  margin: 30px 60px 25px 30px;
 }
 
 .overlay-top a {
@@ -92,6 +93,7 @@ h4 {
   cursor: pointer;
   font-size: 150px;
   white-space: nowrap;
+  outline: none;
 }
 
 .unselectable {
@@ -354,7 +356,7 @@ table.playlist-control td {
 }
 
 table.playlist-control td:first-child {
-  width: 50%;
+  width: 38%;
 }
 
 table.playlist-control td:last-child {
@@ -415,6 +417,69 @@ td.playlist.playing:hover {
   filter: brightness(100%);
 }
 
+input[type="text" i] {
+  width: 100%;
+  border: none;
+  text-align: center;
+  display: inline-block;
+  height: 150px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  color: var(--main-bg-color);
+  font-size: 80px;
+  white-space: nowrap;
+  outline: none;
+}
+
+input[type="text" i]:focus {
+  border: none;
+}
+
+input[type="number" i] {
+  border: none;
+  text-align: center;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  background: var(--main-fg-color);
+  font-size: 80px;
+  white-space: nowrap;
+  outline: none;
+  display: block;
+  width: 2em;
+  height: 1em;
+}
+
+/* Chrome, Safari, Edge, Opera */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+::placeholder { /* Chrome, Firefox, Opera, Safari 10.1+ */
+  color: var(--main-bg-color);
+  opacity: 1; /* Firefox */
+}
+
+:-ms-input-placeholder { /* Internet Explorer 10-11 */
+  color: var(--main-bg-color);
+}
+
+::-ms-input-placeholder { /* Microsoft Edge */
+  color: var(--main-bg-color);
+}
+
+.uri-loader-form {
+  width: 90%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 #shortcuts-overlay {
   overflow: scroll;
 }
@@ -422,6 +487,7 @@ td.playlist.playing:hover {
 table#shortcuts-table, table#settings-table {
   width: 100%;
   font-size: 4vmin;
+  border-spacing: 0 .75em;
 }
 
 table#shortcuts-table td, table#settings-table td {
@@ -434,12 +500,13 @@ table#shortcuts-table tr:first-child td {
 }
 
 table#settings-table {
-  margin-top: 50px;
-  margin-bottom: 150px;
+  width: 90%;
+  margin: 50px auto 0;
 }
 
 table#settings-table tr {
   font-weight: bold;
+  margin-bottom: 1em;
 }
 
 .tgl {

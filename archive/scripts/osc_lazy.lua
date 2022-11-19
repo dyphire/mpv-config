@@ -1,6 +1,6 @@
 --[[
 SOURCE_ https://github.com/mpv-player/mpv/blob/master/player/lua/osc.lua
-COMMIT_ 20220713 ad5a1ac
+COMMIT_ 20221007 cc65b38
 改进版本的OSC，须禁用原始mpv的内置OSC，且不兼容其它OSC类脚本
 集成缩略图脚本功能（thumbfast.lua），需自行下载搭配使用：https://github.com/po5/thumbfast
 示例在 input.conf 中写入：
@@ -188,7 +188,8 @@ local state = {
 local thumbfast = {
     width = 0,
     height = 0,
-    disabled = false
+    disabled = false,
+    pause = false,
 }
 
 local window_control_box_width = 80
@@ -882,6 +883,7 @@ function render_elements(master_ass)
                     end
 
                     local tx = get_virt_mouse_pos()
+                    local thumb_tx = tx
                     if (slider_lo.adjust_tooltip) then
                         if (an == 2) then
                             if (sliderpos < (s_min + 3)) then
@@ -907,14 +909,35 @@ function render_elements(master_ass)
                     elem_ass:append(tooltiplabel)
 
                     -- thumbnail
-                    if not thumbfast.disabled and thumbfast.width ~= 0 and thumbfast.height ~= 0 then
+                    if not thumbfast.disabled and thumbfast.width ~= 0 and thumbfast.height ~= 0 and not thumbfast.pause then
                         local osd_w = mp.get_property_number("osd-dimensions/w")
                         if osd_w then
                             local r_w, r_h = get_virt_scale_factor()
+
+                            local tooltip_font_size = (user_opts.layout == "box" or user_opts.layout == "slimbox") and 2 or 12
+                            local thumb_ty = user_opts.layout ~= "topbar" and element.hitbox.y1 - 8 or element.hitbox.y2 + tooltip_font_size + 8
+
+                            local thumb_pad = 2
+                            local thumb_margin_x = 20 / r_w
+                            local thumb_margin_y = (4 + user_opts.tooltipborder) / r_h + thumb_pad
+                            local thumb_x = math.min(osd_w - thumbfast.width - thumb_margin_x, math.max(thumb_margin_x, thumb_tx / r_w - thumbfast.width / 2))
+                            local thumb_y = user_opts.layout ~= "topbar" and thumb_ty / r_h - thumbfast.height - tooltip_font_size / r_h - thumb_margin_y or thumb_ty / r_h + thumb_margin_y
+
+                            thumb_x = math.floor(thumb_x + 0.5)
+                            thumb_y = math.floor(thumb_y + 0.5)
+
+                            elem_ass:new_event()
+                            elem_ass:pos(thumb_x * r_w, thumb_y * r_h)
+                            elem_ass:append(osc_styles.timePosBar)
+                            elem_ass:append("{\\1a&H20&}")
+                            elem_ass:draw_start()
+                            elem_ass:rect_cw(-thumb_pad * r_w, -thumb_pad * r_h, (thumbfast.width + thumb_pad) * r_w, (thumbfast.height + thumb_pad) * r_h)
+                            elem_ass:draw_stop()
+
                             mp.commandv("script-message-to", "thumbfast", "thumb",
                                 mp.get_property_number("duration", 0) * (sliderpos / 100),
-                                math.min(osd_w - thumbfast.width - 10, math.max(10, tx / r_w - thumbfast.width / 2)),
-                                ((ty - (user_opts.layout == "bottombar" and 39 or 18) - user_opts.barmargin) / r_h - (user_opts.layout == "topbar" and -(57 + user_opts.barmargin) / r_h or thumbfast.height))
+                                thumb_x,
+                                thumb_y
                             )
                         end
                     end
@@ -2371,6 +2394,8 @@ function osc_init()
             -- mouse move events may pile up during seeking and may still get
             -- sent when the user is done seeking, so we need to throw away
             -- identical seeks
+            thumbfast.pause = false --暂停渲染缩略图
+            mp.commandv("script-message-to", "thumbfast", "clear")
             local seekto = get_slider_value(element)
             if (element.state.lastseek == nil) or
                 (not (element.state.lastseek == seekto)) then
@@ -2383,7 +2408,9 @@ function osc_init()
             end
 
         end
-    ne.eventresponder["mbtn_left_down"] = --exact seeks on single clicks
+        ne.eventresponder["mouse_leave"] =
+        function (element) thumbfast.pause = true end --恢复渲染缩略图
+        ne.eventresponder["mbtn_left_down"] = --exact seeks on single clicks
         function (element) mp.commandv("seek", get_slider_value(element),
             "absolute-percent", "exact") end
     ne.eventresponder["reset"] =
@@ -2970,7 +2997,11 @@ function tick()
 
         -- render idle message
         msg.trace("idle message")
-        local icon_x, icon_y = 320 - 26, 140
+        local _, _, display_aspect = mp.get_osd_size()
+        local display_h = 360
+        local display_w = display_h * display_aspect
+        -- logo is rendered at 2^(6-1) = 32 times resolution with size 1800x1800
+        local icon_x, icon_y = (display_w - 1800 / 32) / 2, 140
         local line_prefix = ("{\\rDefault\\an7\\1a&H00&\\bord0\\shad0\\pos(%f,%f)}"):format(icon_x, icon_y)
 
         local ass = assdraw.ass_new()
@@ -2992,11 +3023,11 @@ function tick()
 
         if user_opts.idlescreen then
             ass:new_event()
-            ass:pos(320, icon_y+65)
+            ass:pos(display_w / 2, icon_y + 65)
             ass:an(8)
             ass:append("拖入文件/目录/网址进行播放")
         end
-        set_osd(640, 360, ass.text)
+        set_osd(display_w, display_h, ass.text)
 
         if state.showhide_enabled then
             mp.disable_key_bindings("showhide")

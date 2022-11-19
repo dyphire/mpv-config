@@ -1,4 +1,4 @@
-local Element = require('elements/Element')
+local Element = require('uosc_shared/elements/Element')
 
 ---@alias ButtonProps {icon: string; on_click: function; anchor_id?: string; active?: boolean; badge?: string|number; foreground?: string; background?: string; tooltip?: string}
 
@@ -24,6 +24,8 @@ end
 
 function Button:on_coordinates() self.font_size = round((self.by - self.ay) * 0.7) end
 function Button:on_mbtn_left_down()
+	-- Don't accept clicks while hidden.
+	if self:get_visibility() <= 0 then return end
 	-- We delay the callback to next tick, otherwise we are risking race
 	-- conditions as we are in the middle of event dispatching.
 	-- For example, handler might add a menu to the end of the element stack, and that

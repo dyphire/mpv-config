@@ -13,7 +13,7 @@
 --  Note:
 --     A small circle at the top-right corner is a sign that export is happenning now.
 --  Note:
---     The exported subtitles will be automatically selected with visibility set to true. 
+--     The exported subtitles will be automatically selected with visibility set to true.
 --  Note:
 --     It could take ~1-5 minutes to export subtitles.
 
@@ -71,11 +71,11 @@ local function export_selected_subtitles()
             if track_lang ~= nil then
                 if track_title ~= nil then
                     subtitles_ext = "." .. track_title .. "." .. track_lang .. subtitles_ext
-                else 
+                else
                     subtitles_ext = "." .. track_lang .. subtitles_ext
                 end
             end
-            
+
             subtitles_file = dir .. fname .. subtitles_ext
 
             if o.language == 'chs' then
@@ -86,11 +86,12 @@ local function export_selected_subtitles()
                 mp.osd_message("Exporting selected subtitles")
             end
 
-            is_windows = package.config:sub(1,1) == "\\"
-            cmd = string.format("%s -y -hide_banner -loglevel error -i '%s' -map '%s' -vn -an -c:s copy '%s'", o.ffmpeg_path, video_file, index, subtitles_file)
+            is_windows = package.config:sub(1, 1) == "\\"
+            cmd = string.format("%s -y -hide_banner -loglevel error -i '%s' -map '%s' -vn -an -c:s copy '%s'",
+                o.ffmpeg_path, video_file, index, subtitles_file)
             windows_args = { 'powershell', '-NoProfile', '-Command', cmd }
             unix_args = { 'bash', cmd }
-            args =  is_windows and windows_args or unix_args  
+            args = is_windows and windows_args or unix_args
 
             mp.add_timeout(mp.get_property_number("osd-duration") * 0.001, process)
 
@@ -105,7 +106,7 @@ function process()
     local screenx, screeny, aspect = mp.get_osd_size()
 
     mp.set_osd_ass(screenx, screeny, "{\\an9}● ")
-    local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})
+    local res = mp.command_native({ name = "subprocess", capture_stdout = true, playback_only = false, args = args })
     mp.set_osd_ass(screenx, screeny, "")
     if res.status == 0 then
         if o.language == 'chs' then

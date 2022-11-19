@@ -7,7 +7,7 @@
 | autosubsync（组）* | 字幕同步菜单（依赖 ffmpeg, [ffsubsync](https://github.com/smacke/ffsubsync) or [alass](https://github.com/dyphire/alass) or both; 配置文件 [autosubsync.conf](../script-opts/autosubsync.conf)） |
 | mpv-taskbar-buttons（组）* | 为 mpv 实现任务栏媒体控制按钮（依赖 [libtcc.dll](https://github.com/qwerty12/mpv-taskbar-buttons/blob/master/libtcc.dll); 配置文件 [mpv-taskbar-buttons.conf](../script-opts/mpv-taskbar-buttons.conf)） |
 | simple-mpv-webui（组）* | 为 mpv 实现一个简单的 webui（依赖 [luasocket](https://github.com/57op/simple-mpv-webui-windows-libs) ; 配置文件 [webui.conf](../script-opts/webui.conf)） |
-| uosc（组）* | 第三方高级 OSC 脚本，实现了许多实用功能（配置文件 [uosc.conf](../script-opts/uosc.conf)） |
+| uosc*（组） | 第三方高级 OSC 脚本，实现了许多实用功能（配置文件 [uosc.conf](../script-opts/uosc.conf)） |
 | adevice-list.lua* | OSD 交互式音频设备菜单 |
 | autoload.lua* | 自动加载同级目录的文件（配置文件 [autoload.conf](../script-opts/autoload.conf)） |
 | autodeint.lua       | 自动检测并切换去交错（默认禁用，需快捷键启用） |
@@ -19,7 +19,6 @@
 | chapterskip.lua* | 可实现自动跳过指定章节（配置文件 [chapterskip.conf](../script-opts/chapterskip.conf)） |
 | copy_subortime.lua* | 复制当前字幕内容或播放时间 |
 | cycle-commands.lua | 快捷键循环切换命令，使用方法见脚本内说明 |
-| delay-command.lua | 实现延时执行指定命令（局限性：无法延时执行多个命令） |
 | delete-current-file.lua | 删除当前播放文件（windows 可在回收站恢复） |
 | display-profiles.lua | 实现 mpv 窗口按显示器自动切换参数及配置文件，详见脚本内说明（配置文件 [display_profiles.conf](../script-opts/display_profiles.conf)） |
 | drcbox.lua*   | 使用并调整 dynaudnorm 过滤器混音的可视化脚本（配置文件 [drcbox.conf](../script-opts/drcboxp.conf)） |
@@ -32,12 +31,13 @@
 | history-bookmark.lua* | 记录并恢复视频目录播放记录（可确认是否恢复该目录上次播放进度; 配置文件 [history_bookmark.conf](../script-opts/history_bookmark.conf)） |
 | inputevent.lua | 可用于增强 input.conf 中的键位绑定功能，具体用法及示例见脚本仓库说明：[InputEvent](https://github.com/Natural-Harmonia-Gropius/InputEvent) |
 | manager.lua | 一键更新指定脚本和着色器（配置文件 [manager.json](../manager.json)） |
-| mpv_sort_script.lua | 使用 mpv 直接加载目录时实现高级排序功能：名称、日期、大小和随机排序（配置文件 [mpv_sort_script.conf](../script-opts/mpv_sort_script.conf)） |
+| mpv_sort_script.lua* | 使用 mpv 直接加载目录时实现高级排序功能：名称、日期、大小和随机排序（配置文件 [mpv_sort_script.conf](../script-opts/mpv_sort_script.conf)） |
 | mpv-webp.lua* | 剪切指定片段为 webp 动图（依赖 ffmpeg；配置文件 [webp.conf](../script-opts/webp.conf)） |
 | notify_media.lua* | 基于 IPC 管道实现 SMTC 功能（依赖 [MPVMediaControl.exe](https://github.com/dyphire/MPVMediaControl/releases)；配置文件 [notify_media.conf](../script-opts/notify_media.conf)） |
 | ordered-chapters-playlist.lua | 有序章节播放列表 |
 | persist_properties.lua | 监视并保存预设参数的全局变化值（如音量）（配置文件 [persist_properties.conf](../script-opts/persist_properties.conf)） |
 | playlistmanager.lua* | OSD 交互式播放列表（配置文件 [playlistmanager.conf](../script-opts/playlistmanager.conf)） |
+| playlistmanager-save-interactive.lua | 用于 playlistmanager.lua 保存播放列表时进行重命名操作的增强性脚本 |
 | quality-menu.lua* | 切换 ytdl 视频/音频质量的 OSD 交互式菜单（依赖 yt-dlp/youtube-dl; 配置文件 [quality-menu.conf](../script-opts/quality-menu.conf)） |
 | segment-linking.lua | 实现对 matroska [硬段链接](https://www.ietf.org/archive/id/draft-ietf-cellar-matroska-06.html#name-hard-linking) 的支持（依赖  [read-file.lua](../script-modules/read-file.lua)；配置文件 [segment_linking.conf](../script-opts/segment_linking.conf)） |
 | simplebookmark.lua* | OSD 交互式书签菜单（配置文件 [simplebookmark.conf](../script-opts/simplebookmark.conf)）；动态键位绑定在同名配置文件中 |

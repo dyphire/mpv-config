@@ -1,6 +1,6 @@
 --[[ UI specific utilities that might or might not depend on its state or options ]]
 
--- Sorting comparator close to (but not exactly) how file explorers sort files
+-- Sorting comparator close to (but not exactly) how file explorers sort files.
 sort_filenames = (function()
 	local symbol_order
 	local default_order
@@ -93,7 +93,7 @@ function get_point_to_rectangle_proximity(point, rect)
 	return math.sqrt(dx * dx + dy * dy)
 end
 
----Extracts the properties used by property expansion of that string.
+-- Extracts the properties used by property expansion of that string.
 ---@param str string
 ---@param res { [string] : boolean } | nil
 ---@return { [string] : boolean }
@@ -111,7 +111,7 @@ function get_expansion_props(str, res)
 	return res
 end
 
--- Escape a string for verbatim display on the OSD
+-- Escape a string for verbatim display on the OSD.
 ---@param str string
 function ass_escape(str)
 	-- There is no escape for '\' in ASS (I think?) but '\' is used verbatim if
@@ -145,45 +145,105 @@ function opacity_to_alpha(opacity)
 	return 255 - math.ceil(255 * opacity)
 end
 
--- Ensures path is absolute and normalizes slashes to the current platform
+path_separator = (function()
+	local os_separator = state.os == 'windows' and '\\' or '/'
+
+	-- Get appropriate path separator for the given path.
+	---@param path string
+	---@return string
+	return function(path)
+		return path:sub(1, 2) == '\\\\' and '\\' or os_separator
+	end
+end)()
+
+-- Joins paths with the OS aware path separator or UNC separator.
+---@param p1 string
+---@param p2 string
+---@return string
+function join_path(p1, p2)
+	local p1, separator = trim_trailing_separator(p1)
+	-- Prevents joining drive letters with a redundant separator (`C:\\foo`),
+	-- as `trim_trailing_separator()` doesn't trim separators from drive letters.
+	return p1:sub(#p1) == separator and p1 .. p2 or p1 .. separator.. p2
+end
+
+-- Check if path is absolute.
 ---@param path string
+---@return boolean
+function is_absolute(path)
+	if path:sub(1, 2) == '\\\\' then return true
+	elseif state.os == 'windows' then return path:find('^%a+:') ~= nil
+	else return path:sub(1, 1) == '/' end
+end
+
+-- Ensure path is absolute.
+---@param path string
+---@return string
+function ensure_absolute(path)
+	if is_absolute(path) then return path end
+	return join_path(state.cwd, path)
+end
+
+-- Remove trailing slashes/backslashes.
+---@param path string
+---@return string path, string trimmed_separator_type
+function trim_trailing_separator(path)
+	local separator = path_separator(path)
+	path = trim_end(path, separator)
+	if state.os == 'windows' then
+		-- Drive letters on windows need trailing backslash
+		if path:sub(#path) == ':' then path = path .. '\\' end
+	else
+		if path == '' then path = '/' end
+	end
+	return path, separator
+end
+
+-- Ensures path is absolute, remove trailing slashes/backslashes.
+-- Lightweight version of normalize_path for performance critical parts.
+---@param path string
+---@return string
+function normalize_path_lite(path)
+	if not path or is_protocol(path) then return path end
+	path = trim_trailing_separator(ensure_absolute(path))
+	return path
+end
+
+-- Ensures path is absolute, remove trailing slashes/backslashes, normalization of path separators and deduplication.
+---@param path string
+---@return string
 function normalize_path(path)
 	if not path or is_protocol(path) then return path end
 
-	-- Ensure path is absolute
-	if not (path:match('^/') or path:match('^%a+:') or path:match('^\\\\')) then
-		path = utils.join_path(state.cwd, path)
-	end
+	path = ensure_absolute(path)
+	local is_unc = path:sub(1, 2) == '\\\\'
+	if state.os == 'windows' or is_unc then path = path:gsub('/', '\\') end
+	path = trim_trailing_separator(path)
 
-	-- Remove trailing slashes
-	if #path > 1 then
-		path = path:gsub('[\\/]+$', '')
-		path = #path == 0 and '/' or path
-	end
+	--Deduplication of path separators
+	if is_unc then path = path:gsub('(.\\)\\+', '%1')
+	elseif state.os == 'windows' then path = path:gsub('\\\\+', '\\')
+	else path = path:gsub('//+', '/') end
 
-	-- Use proper slashes
-	if state.os == 'windows' then
-		-- Drive letters on windows need trailing backslash
-		if path:sub(#path) == ':' then
-			path = path .. '\\'
-		end
-
-		return path:gsub('/', '\\')
-	else
-		return path:gsub('\\', '/')
-	end
+	return path
 end
 
--- Check if path is a protocol, such as `http://...`
+-- Check if path is a protocol, such as `http://...`.
 ---@param path string
 function is_protocol(path)
-	return type(path) == 'string' and (path:match('^%a[%a%d-_]+://') ~= nil or path:match('^%a[%a%d-_]+:\\?') ~= nil)
+	return type(path) == 'string' and (path:find('^%a[%a%d-_]+://') ~= nil or path:find('^%a[%a%d-_]+:\\?') ~= nil)
 end
 
 ---@param path string
-function get_extension(path)
-	local parts = split(path, '%.')
-	return parts and #parts > 1 and parts[#parts] or nil
+---@param extensions string[] Lowercase extensions without the dot.
+function has_any_extension(path, extensions)
+	local path_last_dot_index = string_last_index_of(path, '.')
+	if not path_last_dot_index then return false end
+	local path_extension = path:sub(path_last_dot_index + 1):lower()
+	for _, extension in ipairs(extensions) do
+		if path_extension == extension then return true end
+	end
+	return false
 end
 
 ---@return string
@@ -191,70 +251,72 @@ function get_default_directory()
 	return mp.command_native({'expand-path', options.default_directory})
 end
 
--- Serializes path into its semantic parts
+-- Serializes path into its semantic parts.
 ---@param path string
 ---@return nil|{path: string; is_root: boolean; dirname?: string; basename: string; filename: string; extension?: string;}
 function serialize_path(path)
 	if not path or is_protocol(path) then return end
 
-	local normal_path = normalize_path(path)
-	-- normalize_path() already strips slashes, but leaves trailing backslash
-	-- for windows drive letters, but we don't need it here.
-	local working_path = normal_path:sub(#normal_path) == '\\' and normal_path:sub(1, #normal_path - 1) or normal_path
-	local parts = split(working_path, '[\\/]+')
-	local basename = parts and parts[#parts] or working_path
-	local dirname = #parts > 1
-		and table.concat(itable_slice(parts, 1, #parts - 1), state.os == 'windows' and '\\' or '/')
-		or nil
-	local dot_split = split(basename, '%.')
+	local normal_path = normalize_path_lite(path)
+	local dirname, basename = utils.split_path(normal_path)
+	if basename == '' then basename, dirname = dirname:sub(1, #dirname - 1), nil end
+	local dot_i = string_last_index_of(basename, '.')
 
 	return {
 		path = normal_path,
 		is_root = dirname == nil,
 		dirname = dirname,
 		basename = basename,
-		filename = #dot_split > 1 and table.concat(itable_slice(dot_split, 1, #dot_split - 1), '.') or basename,
-		extension = #dot_split > 1 and dot_split[#dot_split] or nil,
+		filename = dot_i and basename:sub(1, dot_i - 1) or basename,
+		extension = dot_i and basename:sub(dot_i + 1) or nil,
 	}
 end
 
----@param directory string
----@param allowed_types? string[]
----@return nil|string[]
-function get_files_in_directory(directory, allowed_types)
-	local files, error = utils.readdir(directory, 'files')
+-- Reads items in directory and splits it into directories and files tables.
+---@param path string
+---@param allowed_types? string[] Filter `files` table to contain only files with these extensions.
+---@return string[]|nil files
+---@return string[]|nil directories
+function read_directory(path, allowed_types)
+	local items, error = utils.readdir(path, 'all')
 
-	if not files then
-		msg.error('Retrieving files failed: ' .. (error or ''))
-		return
+	if not items then
+		msg.error('Reading files from "' .. path .. '" failed: ' .. error)
+		return nil, nil
 	end
 
-	-- Filter only requested file types
-	if allowed_types then
-		files = itable_filter(files, function(file)
-			local extension = get_extension(file)
-			return extension and itable_index_of(allowed_types, extension:lower())
-		end)
+	local files, directories = {}, {}
+
+	for _, item in ipairs(items) do
+		if item ~= '.' and item ~= '..' then
+			local info = utils.file_info(join_path(path, item))
+			if info then
+				if info.is_file then
+					if not allowed_types or has_any_extension(item, allowed_types) then
+						files[#files + 1] = item
+					end
+				else directories[#directories + 1] = item end
+			end
+		end
 	end
 
-	sort_filenames(files)
-
-	return files
+	return files, directories
 end
 
 -- Returns full absolute paths of files in the same directory as file_path,
 -- and index of the current file in the table.
 ---@param file_path string
 ---@param allowed_types? string[]
-function get_adjacent_paths(file_path, allowed_types)
+function get_adjacent_files(file_path, allowed_types)
 	local current_file = serialize_path(file_path)
 	if not current_file then return end
-	local files = get_files_in_directory(current_file.dirname, allowed_types)
+	local files = read_directory(current_file.dirname, allowed_types)
 	if not files then return end
+	sort_filenames(files)
 	local current_file_index
 	local paths = {}
 	for index, file in ipairs(files) do
-		paths[#paths + 1] = utils.join_path(current_file.dirname, file)
+		paths[#paths + 1] = join_path(current_file.dirname, file)
 		if current_file.basename == file then current_file_index = index end
 	end
 	if not current_file_index then return end
@@ -290,7 +352,7 @@ end
 ---@param delta number
 function navigate_directory(delta)
 	if not state.path or is_protocol(state.path) then return false end
-	local paths, current_index = get_adjacent_paths(state.path, config.media_types)
+	local paths, current_index = get_adjacent_files(state.path, config.media_types)
 	if paths and current_index then
 		local _, path = decide_navigation_in_list(paths, current_index, delta)
 		if path then mp.commandv('loadfile', path) return true end
