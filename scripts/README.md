@@ -51,7 +51,8 @@
 | thumbfast.lua   | 适用于 mpv 的高性能动态缩略图，需在 OSC 类脚本中自行集成（配置文件 [thumbfast.conf](../script-opts/thumbfast.conf)） |
 | track-list.lua* | OSD 交互式轨道菜单（配置文件 [track_list.conf](../script-opts/track_list.conf)） |
 | trackselect.lua*              | 指定音频轨道优先级/黑白名单（配置文件 [trackselect.conf](../script-opts/trackselect.conf)） |
-| undoredo.lua                  | 可实现智能跳跃记录操作                                          |
+| undoredo.lua                  | 可实现智能跳跃记录操作 |
+| [webtorrent.js](https://github.com/mrxdst/webtorrent-mpv-hook/blob/master/src/webtorrent.ts) | 为 mpv 添加`magnet:?`磁力链接支持，可边下边播，[使用说明](https://github.com/mrxdst/webtorrent-mpv-hook/blob/master/README.md)（依赖 [webtorrent-mpv-hook](https://github.com/mrxdst/webtorrent-mpv-hook); 配置文件 [webtorrent.conf](../script-opts/webtorrent.conf)） |
 | youtube-download.lua* | 下载 ytdl 视频/音频/字幕/片段（依赖 yt-dlp/youtube-dl和ffmpeg; 配置文件 [youtube-download.conf](../script-opts/youtube-download.conf)） |
 
 1. 标记`*`号的部分脚本为**个人修改版或自建脚本**。
