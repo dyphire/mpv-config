@@ -38,9 +38,10 @@
     "branch":"main"
   },
   {
-    "git":"https://github.com/Natural-Harmonia-Gropius/InputEvent",
+    "git":"https://github.com/zhongfly/InputEvent",
     "whitelist":"%.lua$",
-    "dest":"~~/scripts"
+    "dest":"~~/scripts",
+    "branch":"property-expansion"
   },
   {
     "git":"https://github.com/Ashyni/mpv-scripts",
