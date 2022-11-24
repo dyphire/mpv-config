@@ -2,6 +2,21 @@
 -- https://github.com/Natural-Harmonia-Gropius/InputEvent
 
 local utils = require("mp.utils")
+local opt = require("mp.options")
+local msg = require("mp.msg")
+local next = next
+
+local watched_properties = {}       -- indexed by property name (used as a set)
+local cached_properties = {}        -- property name -> last known raw value
+local o = {
+    --enable external config
+    enable_external_config = false,
+
+    --external config file path
+    external_config = "~~/script-opts/inputevent_key.conf",
+}
+
+opt.read_options(o, "inputevent")
 
 local bind_map = {}
 
@@ -22,52 +37,12 @@ local prefixes = { "osd-auto", "no-osd", "osd-bar", "osd-msg", "osd-msg-bar", "r
 -- https://mpv.io/manual/master/#list-of-input-commands
 local commands = { "set", "cycle", "add", "multiply" }
 
-local function debounce(func, wait)
-    func = type(func) == "function" and func or function() end
-    wait = type(wait) == "number" and wait / 1000 or 0
-
-    local timer = nil
-    local timer_end = function()
-        timer:kill()
-        timer = nil
-        func()
+function table:isEmpty()
+    if next(self) == nil then
+        return true
+    else
+        return false
     end
-
-    return function()
-        if timer then
-            timer:kill()
-        end
-        timer = mp.add_timeout(wait, timer_end)
-    end
-end
-
-function now()
-    return mp.get_time() * 1000
-end
-
-function command(command)
-    return mp.command(command)
-end
-
-function command_invert(command)
-    local invert = ""
-    local command_list = command:split(";")
-    for i, v in ipairs(command_list) do
-        local trimed = v:trim()
-        local subs = trimed:split("%s*")
-        local prefix = table.has(prefixes, subs[1]) and subs[1] or ""
-        local command = subs[prefix == "" and 1 or 2]
-        local property = subs[prefix == "" and 2 or 3]
-        local value = mp.get_property(property)
-        local semi = i == #command_list and "" or ";"
-
-        if table.has(commands, command) then
-            invert = invert .. prefix .. " set " .. property .. " " .. value .. semi
-        else
-            mp.msg.warn("\"" .. trimed .. "\" doesn't support auto restore.")
-        end
-    end
-    return invert
 end
 
 function table:push(element)
@@ -132,6 +107,150 @@ function string:split(separator)
     return fields
 end
 
+local function debounce(func, wait)
+    func = type(func) == "function" and func or function() end
+    wait = type(wait) == "number" and wait / 1000 or 0
+
+    local timer = nil
+    local timer_end = function()
+        timer:kill()
+        timer = nil
+        func()
+    end
+
+    return function()
+        if timer then
+            timer:kill()
+        end
+        timer = mp.add_timeout(wait, timer_end)
+    end
+end
+
+local function now()
+    return mp.get_time() * 1000
+end
+
+local function command(command)
+    return mp.command(command)
+end
+
+local function command_invert(command)
+    local invert = ""
+    local command_list = command:split(";")
+    for i, v in ipairs(command_list) do
+        local trimed = v:trim()
+        local subs = trimed:split("%s*")
+        local prefix, command, property = "", nil, nil
+        for _, s in ipairs(subs) do
+            local sub = s:trim()
+            if not command and table.has(prefixes, sub) then
+                prefix = prefix .. " " .. sub
+            elseif not command then
+                if table.has(commands, sub) then
+                    command = sub
+                else
+                    msg.warn("\"" .. trimed .. "\" doesn't support auto restore.")
+                    break
+                end
+            elseif command and not property then
+                property = sub
+                break
+            end
+        end
+
+        repeat -- workaround continue
+            if not command or not property then
+                msg.warn("\"" .. trimed .. "\" doesn't support auto restore.")
+                break
+            end
+
+            local value = mp.get_property(property)
+            if value then
+                local semi = i == #command_list and "" or ";"
+                invert = invert .. prefix:trim() .. " set " .. property .. " " .. value .. semi
+            else
+                msg.warn("\"" .. trimed .. "\" doesn't support auto restore.")
+            end
+        until true
+    end
+    msg.verbose("command_invert:" .. invert)
+    return invert
+end
+
+-- https://github.com/mpv-player/mpv/blob/d3a61cfe9844b78362bfce6e5a8280ad6514dbce/player/lua/stats.lua#L434-L447
+local function get_kbinfo_table()
+    -- active keys: only highest priotity of each key
+    local bindings = mp.get_property_native("input-bindings", {})
+    local active = {}  -- map: key-name -> bind-cmd
+    for _, bind in pairs(bindings) do
+        if bind.priority >= 0 and (
+               not active[bind.key] or
+               (active[bind.key].is_weak and not bind.is_weak) or
+               (bind.is_weak == active[bind.key].is_weak and
+                bind.priority > active[bind.key].priority)
+           )
+        then
+            active[bind.key] = bind.cmd
+        end
+    end
+    return active
+end
+
+-- https://github.com/mpv-player/mpv/blob/master/player/lua/auto_profiles.lua
+local function on_property_change(name, val)
+    cached_properties[name] = val
+end
+
+local function magic_get(name)
+    -- Lua identifiers can't contain "-", so in order to match with mpv
+    -- property conventions, replace "_" to "-"
+    name = string.gsub(name, "_", "-")
+    if not watched_properties[name] then
+        watched_properties[name] = true
+        mp.observe_property(name, "native", on_property_change)
+        cached_properties[name] = mp.get_property_native(name)
+    end
+    return cached_properties[name]
+end
+
+local evil_magic = {}
+setmetatable(evil_magic, {
+    __index = function(table, key)
+        -- interpret everything as property, unless it already exists as
+        -- a non-nil global value
+        local v = _G[key]
+        if type(v) ~= "nil" then
+            return v
+        end
+        return magic_get(key)
+    end,
+})
+
+p = {}
+setmetatable(p, {
+    __index = function(table, key)
+        return magic_get(key)
+    end,
+})
+
+local function compile_cond(name, s)
+    local code, chunkname = "return " .. s, "Event " .. name .. " condition"
+    local chunk, err
+    if setfenv then -- lua 5.1
+        chunk, err = loadstring(code, chunkname)
+        if chunk then
+            setfenv(chunk, evil_magic)
+        end
+    else -- lua 5.2
+        chunk, err = load(code, chunkname, "t", evil_magic)
+    end
+    if not chunk then
+        msg.error("Event '" .. name .. "' condition: " .. err)
+        chunk = function() return false end
+    end
+    return chunk
+end
+
 local InputEvent = {}
 
 function InputEvent:new(key, on)
@@ -141,7 +260,7 @@ function InputEvent:new(key, on)
 
     Instance.key = key
     Instance.name = "@" .. key
-    Instance.on = table.assign({ click = "" }, on)
+    Instance.on = table.assign({ click = {} }, on)  -- event -> actions {cmd="",cond=function}
     Instance.queue = {}
     Instance.queue_max = { length = 0 }
     Instance.duration = mp.get_property_number("input-doubleclick-time", 300)
@@ -156,6 +275,38 @@ function InputEvent:new(key, on)
     return Instance
 end
 
+function InputEvent:evaluate(event)
+    msg.verbose("Evaluating event: " .. event)
+    local seleted = nil
+    local actions = self.on[event]
+    if not actions or table.isEmpty(actions) then return end
+    for _, action in ipairs(actions) do
+        msg.verbose("Evaluating comand: " .. action.cmd)
+        if type(action.cond) ~= "function" then
+            seleted = action.cmd
+            break
+        else
+            local status, res = pcall(action.cond)
+            if not status then
+                -- errors can be "normal", e.g. in case properties are unavailable
+                msg.verbose("Action condition error on evaluating: " .. res)
+                res = false
+            elseif type(res) ~= "boolean" then
+                msg.verbose("Action condition did not return a boolean, but " .. type(res) .. ".")
+                res = false
+            end
+            if res then
+                seleted = action.cmd
+                break
+            end
+        end
+    end
+
+    return seleted
+end
+
+local function cmd_filter(i,v) return (v.cmd ~= nil and v.cmd ~= "ignore") end
+
 function InputEvent:emit(event)
     local ignore = event .. "-ignore"
     if self.on[ignore] then
@@ -166,19 +317,37 @@ function InputEvent:emit(event)
         self.on[ignore] = nil
     end
 
-    if event == "press" and self.on["release"] == "ignore" then
-        self.on["release-auto"] = command_invert(self.on["press"])
-    end
-
-    if event == "release" and self.on[event] == "ignore" then
+    if event == "release" and (
+        self.on["release"] == nil or
+        table.isEmpty(self.on["release"]) or
+        table.isEmpty( table.filter(self.on["release"], cmd_filter) )
+        )
+    then
         event = "release-auto"
     end
 
-    local cmd = self.on[event]
+    local cmd = self:evaluate(event)
     if not cmd or cmd == "" then
         return
     end
 
+    if event == "press" and (
+        self.on["release"] == nil or
+        table.isEmpty(self.on["release"]) or
+        table.isEmpty( table.filter(self.on["release"], cmd_filter) )
+        )
+    then
+        self.on["release-auto"] = {{cmd = command_invert(cmd), cond = nil}}
+    end
+
+    local expand = mp.command_native({'expand-text', cmd})
+    if #cmd:split(";") == #expand:split(";") then
+        cmd = mp.command_native({'expand-text', cmd})
+    else
+        mp.msg.warn("Unsafe property-expansion detected.")
+    end
+
+    msg.verbose("Apply comand: " .. cmd)
     command(cmd)
 end
 
@@ -255,7 +424,7 @@ function InputEvent:rebind(diff)
     self:bind()
 end
 
-function bind(key, on)
+local function bind(key, on)
     key = #key == 1 and key or key:upper()
 
     if type(on) == "string" then
@@ -271,39 +440,55 @@ function bind(key, on)
     bind_map[key]:bind()
 end
 
-function unbind(key)
+local function unbind(key)
     bind_map[key]:unbind()
 end
 
-function bind_from_input_conf()
-    local input_conf = mp.get_property_native("input-conf")
-    local input_conf_path = mp.command_native({ "expand-path", input_conf == "" and "~~/input.conf" or input_conf })
-    local input_conf_meta, meta_error = utils.file_info(input_conf_path)
-    if not input_conf_meta or not input_conf_meta.is_file then return end -- File doesn"t exist
+local function comment_filter(i, v) return v:match("^@") end
+
+local function read_conf(conf_path)
+    local conf_meta, meta_error = utils.file_info(conf_path)
+    if not conf_meta or not conf_meta.is_file then
+        msg.error("File not exist : " .. conf_path)
+        return
+    end -- File doesn't exist
 
     local parsed = {}
-    for line in io.lines(input_conf_path) do
+    for line in io.lines(conf_path) do
         line = line:trim()
         if line ~= "" then
-            local key, cmd, comment = line:match("%s*([%S]+)%s+(.-)%s+#%s*(.-)%s*$")
-            if comment and key:sub(1, 1) ~= "#" then
-                local comments = comment:split("#")
-                local events = table.filter(comments, function(i, v) return v:match("^@") end)
-                if events and #events > 0 then
-                    local event = events[1]:match("^@(.*)"):trim()
-                    if event and event ~= "" then
+            local key, cmd, comments = line:match("%s*([%S]+)%s+(.-)%s+#%s*(.-)%s*$")
+            if comments and key:sub(1, 1) ~= "#" then
+                local comment = table.filter(comments:split("#"), comment_filter)
+                if comment and #comment > 0 then
+                    local statement = comment[1]:match("^@(.*)"):trim()
+                    if statement and statement ~= "" then
+                        msg.verbose(string.format("Statement for [%s]:%s",key,statement))
+                        local parts = statement:split("|")
+                        local event, cond = statement ,nil
+                        if #parts > 1 then
+                            event, cond = statement:match("(.-)%s*|%s*(.-)$")
+                        end
+
                         if parsed[key] == nil then
                             parsed[key] = {}
                         end
-                        parsed[key][event] = cmd
+                        if parsed[key][event] == nil then
+                            parsed[key][event] = {}
+                        end
+
+                        local index = table.isEmpty(parsed[key][event]) and 1 or #parsed[key][event]+1
+                        local cond_name = string.format("%s-%s-%d", key, event, index)
+                        table.insert(parsed[key][event], 1,{
+                            cmd = cmd, 
+                            cond = cond ~= nil and compile_cond(cond_name, cond) or nil
+                        })
                     end
                 end
             end
         end
     end
-    for key, on in pairs(parsed) do
-        bind(key, on)
-    end
+    return parsed
 end
 
 mp.observe_property("input-doubleclick-time", "native", function(_, new_duration)
@@ -321,4 +506,28 @@ end)
 mp.register_script_message("bind", bind)
 mp.register_script_message("unbind", unbind)
 
-bind_from_input_conf()
+local input_conf = mp.get_property_native("input-conf")
+local input_conf_path = mp.command_native({ "expand-path", input_conf == "" and "~~/input.conf" or input_conf })
+if o.enable_external_config then
+    local external_config_path = mp.command_native({ "expand-path", o.external_config })
+    local parsed = read_conf(external_config_path)
+    if parsed and not table.isEmpty(parsed) then
+        local active = get_kbinfo_table()
+        for key, on in pairs(parsed) do
+            if active[key] ~= nil then
+                if on.click==nil then
+                    on.click = {}
+                end
+                table.push(on.click, {cmd = active[key]})
+            end
+            bind(key, on)
+        end
+    end
+else
+    local parsed = read_conf(input_conf_path)
+    if parsed and not table.isEmpty(parsed) then
+        for key, on in pairs(parsed) do
+            bind(key, on)
+        end
+    end
+end
