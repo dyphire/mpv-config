@@ -199,8 +199,8 @@ function trackselect()
                     last[track.type] = track
                 end
             end
-            if track.external then
-                track.title = string.gsub(string.gsub(track.title, "%W", "%%%1"), filename, "")
+            if track.title then
+                track.title = string.gsub(string.gsub(track.title, "[%(%)%.%+%-%*%?%[%]%^%$%%]", "%%%1"), filename, "")
             end
             if next(tracks[track.type].best) == nil or
                 not (tracks[track.type].best.external and tracks[track.type].best.lang ~= nil) then

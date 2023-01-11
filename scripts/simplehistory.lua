@@ -2,7 +2,7 @@
 -- License: BSD 2-Clause License
 -- Creator: Eisa AlAwadhi
 -- Project: SimpleHistory
--- Version: 1.1.1
+-- Version: 1.1.3
 
 local o = {
 ---------------------------USER CUSTOMIZATION SETTINGS---------------------------
@@ -20,7 +20,7 @@ local o = {
 	invert_history_blacklist = false, --true so that blacklist becomes a whitelist, resulting in stuff such as paths / websites that are added to history_blacklist to be saved into history
 	history_blacklist=[[
 	[""]
-	]], --Paths / URLs / Websites / Files / Protocols / Extensions, that wont be added to history automatically, e.g.: ["c:\\users\\eisa01\\desktop", "c:\\temp\\naruto-01.mp4", "youtube.com", "https://dailymotion.com/", "avi", "https://www.youtube.com/watch?v=e8YBesRKq_U", ".jpeg", "magnet:", "https://", "ftp"]
+	]], --Paths / URLs / Websites / Files / Protocols / Extensions, that wont be added to history automatically, e.g.: ["c:\\users\\eisa01\\desktop", "c:\\users\\eisa01\\desktop\\*", "c:\\temp\\naruto-01.mp4", "youtube.com", "https://dailymotion.com/", "avi", "https://www.youtube.com/watch?v=e8YBesRKq_U", ".jpeg", "magnet:", "https://", "ftp"]
 	history_resume_keybind=[[
 	["ctrl+r", "ctrl+R"]
 	]], --Keybind that will be used to immediately load and resume last item when no video is playing. If video is playing it will resume to the last found position
@@ -300,6 +300,7 @@ local list_drawn = false
 local list_pages = {}
 local filePath, fileTitle, fileLength
 local seekTime = 0
+local logTime = 0 --1.3# use logTime since seekTime is used in multiple places
 local filterName = 'all'
 local sortName
 
@@ -393,8 +394,15 @@ function format_time(seconds, sep, decimals, style)
 end
 
 function get_file()
+	function hex_to_char(x)
+		return string.char(tonumber(x, 16))
+	end
+
 	local path = mp.get_property('path')
 	if not path then return end
+	if not path:match('^%a[%a%d-_]+://') then
+		path = utils.join_path(mp.get_property('working-directory'), path)
+	end
 	
 	local length = (mp.get_property_number('duration') or 0)
 	
@@ -409,6 +417,7 @@ function get_file()
 		title = mp.get_property('filename'):gsub("\"", "")
 	end
 	
+	title = title:gsub('%%(%x%x)', hex_to_char)
 	return path, title, length
 end
 
@@ -493,9 +502,9 @@ function list_sort(tab, sort)
 		local function padnum(d) local dec, n = string.match(d, "(%.?)0*(.+)")
 			return #dec > 0 and ("%.12f"):format(d) or ("%s%03d%s"):format(dec, #n, n) end
 		if sort == 'alphanum-asc' then
-			table.sort(tab, function(a, b) return tostring(a['found_path']):lower():gsub("%.?%d+", padnum) .. ("%3d"):format(#b) > tostring(b['found_path']):lower():gsub("%.?%d+", padnum) .. ("%3d"):format(#a) end)
+			table.sort(tab, function(a, b) return tostring(a['found_path']):lower():gsub("%.?%d+", padnum) .. ("%3d"):format(#b) > tostring(b['found_path']):gsub("%.?%d+", padnum) .. ("%3d"):format(#a) end)
 		elseif sort == 'alphanum-desc' then
-			table.sort(tab, function(a, b) return tostring(a['found_path']):lower():gsub("%.?%d+", padnum) .. ("%3d"):format(#b) < tostring(b['found_path']):lower():gsub("%.?%d+", padnum) .. ("%3d"):format(#a) end)
+			table.sort(tab, function(a, b) return tostring(a['found_path']):lower():gsub("%.?%d+", padnum) .. ("%3d"):format(#b) < tostring(b['found_path']):gsub("%.?%d+", padnum) .. ("%3d"):format(#a) end)
 		end
 	end
 	
@@ -997,7 +1006,7 @@ function display_list(filter, sort, action)
 	if not search_active then get_page_properties(filter) else update_search_results('','') end
 	draw_list()
 	utils.shared_script_property_set("simplehistory-menu-open", "yes")
-	if o.toggle_idlescreen then mp.commandv('script-message', 'osc-idlescreen', 'no', 'no_osd') end
+	if o.toggle_idlescreen then mp.commandv('script-message', 'osc-idlescreen', 'yes', 'no_osd') end
 	list_drawn = true
 	if not search_active then get_list_keybinds() end
 end
@@ -1988,6 +1997,13 @@ function history_blacklist_check()
 		has_value(o.history_blacklist, "."..filePath:match('%.([^%.]+)$'), nil) then
 			msg.info(blacklist_msg)
 			return invertable_return[1]
+		else --1.1.2# check to add any subfolder after /* to blacklist. issue #70
+			for i=1, #o.history_blacklist do --1.1.2# loop through blacklisted items, if the blacklist ends with * and it is a match after subbing of the current filePath then log it. #and additionally if it is the exact same path then ignore it.
+				if string.lower(filePath):match(string.lower(o.history_blacklist[i])) and o.history_blacklist[i]:sub(-1,#o.history_blacklist[i]) == '*' and string.lower(o.history_blacklist[i]:sub(1,-2)) ~= string.lower(filePath):match("(.*[\\/])") then
+					msg.info(blacklist_msg)
+					return invertable_return[1]
+				end
+			end
 		end
 	elseif starts_protocol(protocols, filePath) then
 		if has_value(o.history_blacklist, filePath:match('(.-)(:)'), nil) or
@@ -2114,7 +2130,7 @@ end
 function history_resume_option()
 	if o.resume_option == 'notification' or o.resume_option == 'force' then
 		local video_time = mp.get_property_number('time-pos')
-		if (video_time and video_time > 0) then return end
+		if video_time > 0 then return end
 		local logged_time = 0
 		local percentage = 0
 		local video_duration = mp.get_property_number('duration')
@@ -2145,12 +2161,12 @@ function history_resume_option()
 	end
 end
 
-function history_save()
+function history_save(target_time)
 	if filePath ~= nil then
 		if history_blacklist_check() then
 			return
 		end
-		write_log(false, false, o.same_entry_limit)
+		write_log(target_time, false, o.same_entry_limit)
 		if list_drawn then
 			get_list_contents()
 			select(0)
@@ -2219,12 +2235,11 @@ end
 mp.register_event('file-loaded', function()
 	list_close_and_trash_collection()
 	filePath, fileTitle, fileLength = get_file()
-	if o.resume_option ~= 'none' and
-	  (resume_selected == true and seekTime > 0) then
+	if (o.resume_option ~= 'none' and resume_selected == true and seekTime > 0) then
 		mp.commandv('seek', seekTime, 'absolute', 'exact')
 		resume_selected = false
 	end
-	mp.add_timeout(0, history_resume_option)
+	mp.add_timeout(0,history_resume_option)
 	mark_chapter()
 	if not incognito_mode then
 		history_fileonly_save()
@@ -2232,15 +2247,23 @@ mp.register_event('file-loaded', function()
 	end
 end)
 
-mp.add_hook('on_unload', 50, function()
+mp.add_hook('on_unload', 9, function()--1.1.3# get the LogTime only when using on_unload because big functions do not run fully in here
+	logTime = (mp.get_property_number('time-pos') or 0)
+end)
+mp.register_event('end-file', function()--1.1.3# use end-file instead so that it doesn't cause crash while seeking ( i am able to run big functions here)
 	if not incognito_mode then
 		if autosaved_entry == true then delete_log_entry_specific('last', filePath, 0) end
-		history_save()
+		history_save(logTime) --1.1.3# get the updated time from on_unload since it will still be preserved
 	end
 	autosaved_entry = false
+	logTime = 0 --1.1.3# reset logTime to 0
 end)
 
 mp.observe_property("idle-active", "bool", function(_, v)
+	if v then --1.1.2# if idle is triggered
+		filePath, fileTitle, fileLength = nil --1.1.2# set it back to nil if idle is triggered for better trash collection. issue #69
+	end
+
 	if v and has_value(available_filters, o.auto_run_list_idle) then
 		display_list(o.auto_run_list_idle, nil, 'hide-osd')
 	end

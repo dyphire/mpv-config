@@ -425,8 +425,15 @@ function format_time(seconds, sep, decimals, style)
 end
 
 function get_file()
+	function hex_to_char(x)
+		return string.char(tonumber(x, 16))
+	end
+
 	local path = mp.get_property('path')
 	if not path then return end
+	if not path:match('^%a[%a%d-_]+://') then
+		path = utils.join_path(mp.get_property('working-directory'), path)
+	end
 	
 	local length = (mp.get_property_number('duration') or 0)
 	
@@ -441,6 +448,7 @@ function get_file()
 		title = mp.get_property('filename'):gsub("\"", "")
 	end
 	
+	title = title:gsub('%%(%x%x)', hex_to_char)
 	return path, title, length
 end
 

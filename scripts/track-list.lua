@@ -1,5 +1,5 @@
 --[[
-    * track-list.lua v.2022-11-12
+    * track-list.lua v.2022-12-17
     *
     * AUTHORS: dyphire
     * License: MIT
@@ -24,6 +24,22 @@ local o = {
     -- header of the list
     -- %cursor% and %total% to be used to display the cursor position and the total number of lists
     header = "Track List [%cursor%/%total%]\\N ------------------------------------",
+    --list ass style overrides inside curly brackets
+    --these styles will be used for the whole list. so you need to reset them for every line
+    --read http://docs.aegisub.org/3.2/ASS_Tags/ for reference of tags
+    global_style = [[]],
+    header_style = [[{\q2\fs35\c&00ccff&}]],
+    list_style = [[{\q2\fs25\c&Hffffff&}]],
+    wrapper_style = [[{\c&00ccff&\fs16}]],
+    cursor_style = [[{\c&00ccff&}]],
+    selected_style = [[{\c&Hfce788&}]],
+    active_style = [[{\c&H33ff66&}]],
+    cursor = [[➤\h]],
+    indent = [[\h\h\h\h]],
+    --amount of entries to show before slicing. Optimal value depends on font/video size etc.
+    num_entries = 16,
+    --slice long filenames, and how many chars to show
+    slice_longfilenames_amount = 100,
     -- wrap the cursor around the top and bottom of the list
     wrap = true,
     -- set dynamic keybinds to bind when the list is open
@@ -46,8 +62,18 @@ local list = dofile(mp.command_native({ "expand-path", "~~/script-modules/scroll
 local listDest = nil
 
 --modifying the list settings
+local original_open = list.open
 list.header = o.header
+list.cursor = o.cursor
+list.indent = o.indent
 list.wrap = o.wrap
+list.num_entries = o.num_entries
+list.global_style = o.global_style
+list.header_style = o.header_style
+list.list_style = o.list_style
+list.wrapper_style = o.wrapper_style
+list.cursor_style = o.cursor_style
+list.selected_style = o.selected_style
 
 --escape header specifies the format
 --display the cursor position and the total number of lists in the header
@@ -130,6 +156,9 @@ local function getTrackTitle(trackId, dest)
     if trackCodec then trackCodec = esc_for_codec(trackCodec) end
     if trackTitle then trackTitle = replace(trackTitle, filename, "") end
     if trackExternal then trackTitle = esc_for_title(trackTitle) end
+    if trackTitle and trackTitle:len() > o.slice_longfilenames_amount + 5 then
+        trackTitle = trackTitle:sub(1, o.slice_longfilenames_amount) .. " ..."
+    end
 
     if dest == "video" then
         local trackImage = propNative("track-list/" .. trackId .. "/image")
@@ -188,7 +217,7 @@ local function updateTrackList(listTitle, trackDest, formatter)
     if isTrackSelected(nil, trackDest) then
         list.selected = 1
         list[1].ass = "● None"
-        list[1].style = [[{\c&H33ff66&}]]
+        list[1].style = o.active_style
     end
 
     local tracks = getTracks(trackDest)
@@ -206,7 +235,7 @@ local function updateTrackList(listTitle, trackDest, formatter)
             }
             if isTrackSelected(trackId, trackDest) then
                 list.selected = i + 1
-                listItem.style = [[{\c&H33ff66&}]]
+                listItem.style = o.active_style
                 listItem.ass = "● " .. title
             elseif isDisabled then
                 listItem.style = [[{\c&Hff6666&}]]

@@ -1,5 +1,5 @@
---[[ uosc 4.4.0 - 2022-Oct-28 | https://github.com/tomasklaen/uosc ]]
-local uosc_version = '4.4.0'
+--[[ uosc 4.5.0 - 2022-Dec-07 | https://github.com/tomasklaen/uosc ]]
+local uosc_version = '4.5.0'
 
 assdraw = require('mp.assdraw')
 opt = require('mp.options')
@@ -89,7 +89,8 @@ defaults = {
 	foreground_text = '000000',
 	background = '000000',
 	background_text = 'ffffff',
-	total_time = false,
+	total_time = false, -- deprecated by below
+	destination_time = 'playtime-remaining',
 	time_precision = 0,
 	font_bold = false,
 	autohide = false,
@@ -97,9 +98,10 @@ defaults = {
 	pause_indicator = 'flash',
 	curtain_opacity = 0.5,
 	stream_quality_options = '4320,2160,1440,1080,720,480,360,240,144',
-	media_types = '3g2,3gp,aac,aiff,ape,apng,asf,au,avi,avif,bmp,dsf,f4v,flac,flv,gif,h264,h265,j2k,jp2,jfif,jpeg,jpg,jxl,m2ts,m4a,m4v,mid,midi,mj2,mka,mkv,mov,mp3,mp4,mp4a,mp4v,mpeg,mpg,oga,ogg,ogm,ogv,opus,png,rm,rmvb,spx,svg,tak,tga,tta,tif,tiff,ts,vob,wav,weba,webm,webp,wma,wmv,wv,y4m',
+	media_types = '3g2,3gp,aac,aiff,ape,apng,asf,au,avi,avif,bmp,dsf,dts,f4v,flac,flv,gif,h264,h265,j2k,jp2,jfif,jpeg,jpg,jxl,m2ts,m4a,m4v,mid,midi,mj2,mka,mkv,mov,mp3,mp4,mp4a,mp4v,mpeg,mpg,oga,ogg,ogm,ogv,opus,png,rm,rmvb,spx,svg,tak,tga,tta,tif,tiff,ts,vob,wav,weba,webm,webp,wma,wmv,wv,y4m',
 	subtitle_types = 'aqt,ass,gsub,idx,jss,lrc,mks,pgs,pjs,psb,rt,slt,smi,sub,sup,srt,ssa,ssf,ttxt,txt,usf,vt,vtt',
 	default_directory = '~/',
+	use_trash = false,
 	chapter_ranges = 'openings:30abf964,endings:30abf964,ads:c54e4e80',
 	chapter_range_patterns = 'openings:オープニング;endings:エンディング',
 }
@@ -111,6 +113,12 @@ if options.chapter_ranges:sub(1, 4) == '^op|' then options.chapter_ranges = defa
 if options.pause_on_click_shorter_than > 0 and options.click_threshold == 0 then
 	msg.warn('`pause_on_click_shorter_than` is deprecated. Use `click_threshold` and `click_command` instead.')
 	options.click_threshold = options.pause_on_click_shorter_than
+end
+if options.total_time and options.destination_time == 'playtime-remaining' then
+	msg.warn('`total_time` is deprecated. Use `destination_time` instead.')
+	options.destination_time = 'total'
+elseif not itable_index_of({'total', 'playtime-remaining', 'time-remaining'}, options.destination_time) then
+	options.destination_time = 'playtime-remaining'
 end
 -- Ensure required environment configuration
 if options.autoload then mp.commandv('set', 'keep-open-pause', 'no') end
@@ -269,8 +277,8 @@ end
 
 --[[ STATE ]]
 
-display = {width = 1280, height = 720, scale_x = 1, scale_y = 1}
-cursor = {hidden = true, x = 0, y = 0}
+display = {width = 1280, height = 720, scale_x = 1, scale_y = 1, initialized = false}
+cursor = {hidden = true, hover_raw = false, x = 0, y = 0}
 state = {
 	os = (function()
 		if os.getenv('windir') ~= nil then return 'windows' end
@@ -285,7 +293,7 @@ state = {
 	speed = 1,
 	duration = nil, -- current media duration
 	time_human = nil, -- current playback time in human format
-	duration_or_remaining_time_human = nil, -- depends on options.total_time
+	destination_time_human = nil, -- depends on options.destination_time
 	pause = mp.get_property_native('pause'),
 	chapters = {},
 	current_chapter = nil,
@@ -344,9 +352,11 @@ require('uosc_shared/lib/menus')
 function update_display_dimensions()
 	local scale = (state.hidpi_scale or 1) * options.ui_scale
 	local real_width, real_height = mp.get_osd_size()
+	if real_width <= 0 then return end
 	local scaled_width, scaled_height = round(real_width / scale), round(real_height / scale)
 	display.width, display.height = scaled_width, scaled_height
 	display.scale_x, display.scale_y = real_width / scaled_width, real_height / scaled_height
+	display.initialized = true
 
 	-- Tell elements about this
 	Elements:trigger('display')
@@ -367,11 +377,15 @@ function update_human_times()
 		state.time_human = format_time(state.time)
 		if state.duration then
 			local speed = state.speed or 1
-			state.duration_or_remaining_time_human = format_time(
-				options.total_time and state.duration or ((state.time - state.duration) / speed)
-			)
+			if options.destination_time == 'playtime-remaining' then
+				state.destination_time_human = format_time((state.time - state.duration) / speed)
+			elseif options.destination_time == 'total' then
+				state.destination_time_human = format_time(state.duration)
+			else
+				state.destination_time_human = format_time(state.time - state.duration)
+			end
 		else
-			state.duration_or_remaining_time_human = nil
+			state.destination_time_human = nil
 		end
 	else
 		state.time_human = nil
@@ -534,11 +548,15 @@ if options.click_threshold > 0 then
 	mp.enable_key_bindings('mouse_movement', 'allow-vo-dragging+allow-hide-cursor')
 end
 
-function update_mouse_pos(_, mouse, ignore_hover)
-	if ignore_hover or mouse.hover then
+function update_mouse_pos(_, mouse)
+	if not mouse then return end
+	if cursor.hover_raw and not mouse.hover then
+		handle_mouse_leave()
+	else
 		if cursor.hidden then handle_mouse_enter(mouse.x, mouse.y) end
 		handle_mouse_move(mouse.x, mouse.y)
-	else handle_mouse_leave() end
+	end
+	cursor.hover_raw = mouse.hover
 end
 mp.observe_property('mouse-pos', 'native', update_mouse_pos)
 mp.observe_property('osc', 'bool', function(name, value) if value == true then mp.set_property('osc', 'no') end end)
@@ -647,7 +665,7 @@ mp.observe_property('osd-dimensions', 'native', function(name, val)
 	request_render()
 end)
 mp.observe_property('display-hidpi-scale', 'native', create_state_setter('hidpi_scale', update_display_dimensions))
-mp.observe_property('cache', 'native', create_state_setter('cache'))
+mp.observe_property('cache', 'string', create_state_setter('cache'))
 mp.observe_property('cache-buffering-state', 'number', create_state_setter('cache_buffering'))
 mp.observe_property('demuxer-via-network', 'native', create_state_setter('is_stream', function()
 	Elements:trigger('dispositions')

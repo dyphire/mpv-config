@@ -464,12 +464,13 @@ end
 --from here: http://notebook.kulchenko.com/algorithms/alphanumeric-natural-sorting-for-humans-in-lua
 function API.sort(t)
     local function padnum(d)
-        local r = string.match(d, "0*(.+)")
-        return ("%03d%s"):format(#r, r)
+        local dec, n = string.match(d, "(%.?)0*(.+)")
+        return #dec > 0 and ("%.12f"):format(d) or ("%s%03d%s"):format(dec, #n, n)
     end
 
     --appends the letter d or f to the start of the comparison to sort directories and folders as well
-    table.sort(t, function(a,b) return a.type:sub(1,1)..(a.label or a.name):lower():gsub("%d+",padnum) < b.type:sub(1,1)..(b.label or b.name):lower():gsub("%d+",padnum) end)
+    table.sort(t, function(a, b) return a.type:sub(1, 1) .. (a.label or a.name):lower():gsub("%.?%d+", padnum) .. ("%3d"):format(#b)
+        < b.type:sub(1, 1) .. (b.label or b.name):lower():gsub("%.?%d+", padnum) .. ("%3d"):format(#a) end)
     return t
 end
 

@@ -14,6 +14,22 @@ local o = {
     -- header of the list
     -- %cursor% and %total% to be used to display the cursor position and the total number of lists
     header = "Chapter List [%cursor%/%total%]\\N ------------------------------------",
+    --list ass style overrides inside curly brackets
+    --these styles will be used for the whole list. so you need to reset them for every line
+    --read http://docs.aegisub.org/3.2/ASS_Tags/ for reference of tags
+    global_style = [[]],
+    header_style = [[{\q2\fs35\c&00ccff&}]],
+    list_style = [[{\q2\fs25\c&Hffffff&}]],
+    wrapper_style = [[{\c&00ccff&\fs16}]],
+    cursor_style = [[{\c&00ccff&}]],
+    selected_style = [[{\c&Hfce788&}]],
+    active_style = [[{\c&H33ff66&}]],
+    cursor = [[➤\h]],
+    indent = [[\h\h\h\h]],
+    --amount of entries to show before slicing. Optimal value depends on font/video size etc.
+    num_entries = 16,
+    --slice long filenames, and how many chars to show
+    slice_longfilenames_amount = 100,
     -- wrap the cursor around the top and bottom of the list
     wrap = true,
     -- reset cursor navigation when open the list
@@ -37,7 +53,16 @@ local list = dofile(mp.command_native({ "expand-path", "~~/script-modules/scroll
 --modifying the list settings
 local original_open = list.open
 list.header = o.header
+list.cursor = o.cursor
+list.indent = o.indent
 list.wrap = o.wrap
+list.num_entries = o.num_entries
+list.global_style = o.global_style
+list.header_style = o.header_style
+list.list_style = o.list_style
+list.wrapper_style = o.wrapper_style
+list.cursor_style = o.cursor_style
+list.selected_style = o.selected_style
 
 --escape header specifies the format
 --display the cursor position and the total number of lists in the header
@@ -49,19 +74,22 @@ function list:format_header_string(str)
 end
 
 --update the list when the current chapter changes
-mp.observe_property('chapter', 'number', function(_, curr_chapter)
+function chapter_list(curr_chapter)
     list.list = {}
     local chapter_list = mp.get_property_native('chapter-list', {})
     for i = 1, #chapter_list do
         local item = {}
         if (i - 1 == curr_chapter) then
             list.selected = curr_chapter + 1
-            item.style = [[{\c&H33ff66&}]]
+            item.style = o.active_style
         end
 
         local time = chapter_list[i].time
         local title = chapter_list[i].title
-        if title == "" then title = "Chapter " .. string.format("%02.f", i) end
+        if not title then title = "Chapter " .. string.format("%02.f", i) end
+        if title and title:len() > o.slice_longfilenames_amount + 5 then
+            title = title:sub(1, o.slice_longfilenames_amount) .. " ..."
+        end
         if time < 0 then time = 0
         else time = math.floor(time) end
         item.ass = string.format("[%02d:%02d:%02d]", math.floor(time / 60 / 60), math.floor(time / 60) % 60, time % 60)
@@ -69,7 +97,7 @@ mp.observe_property('chapter', 'number', function(_, curr_chapter)
         list.list[i] = item
     end
     list:update()
-end)
+end
 
 --jump to the selected chapter
 local function open_chapter()
@@ -114,3 +142,7 @@ add_keys(o.key_open_chapter, 'open_chapter', open_chapter, {})
 add_keys(o.key_close_browser, 'close_browser', function() list:close() end, {})
 
 mp.register_script_message("toggle-chapter-browser", function() list:toggle() end)
+
+mp.observe_property('chapter', 'number', function(_, curr_chapter)
+    chapter_list(curr_chapter)
+end)

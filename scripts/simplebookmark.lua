@@ -2,7 +2,7 @@
 -- License: BSD 2-Clause License
 -- Creator: Eisa AlAwadhi
 -- Project: SimpleBookmark
--- Version: 1.2.2
+-- Version: 1.2.4
 
 local o = {
 ---------------------------USER CUSTOMIZATION SETTINGS---------------------------
@@ -72,27 +72,20 @@ local o = {
 	-----Logging Settings-----
 	log_path = '/:dir%mpvconf%', --Change to '/:dir%script%' for placing it in the same directory of script, OR change to '/:dir%mpvconf%' for mpv portable_config directory. OR write any variable using '/:var' then the variable '/:var%APPDATA%' you can use path also, such as: '/:var%APPDATA%\\mpv' OR '/:var%HOME%/mpv' OR specify the absolute path , e.g.: 'C:\\Users\\Eisa01\\Desktop\\'
 	log_file = 'mpvBookmark.log', --name+extension of the file that will be used to store the log data
-	date_format = '%A/%B %d/%m/%Y %X', --Date format in the log (see lua date formatting), e.g.:'%d/%m/%y %X' or '%d/%b/%y %X'
-	file_title_logging = 'protocols', --Change between 'all', 'protocols', 'none'. This option will store the media title in log file, it is useful for websites / protocols because title cannot be parsed from links alone
+	file_title_logging = 'all', --Change between 'all', 'protocols', 'local', 'none'. This option will store the media title in log file, it is useful for websites / protocols because title cannot be parsed from links alone
 	logging_protocols=[[
 	["://", "magnet:"]
 	]], --add above (after a comma) any protocol you want its title to be stored in the log file. This is valid only for (file_title_logging = 'protocols' or file_title_logging = 'all')
-	prefer_filename_over_title = 'local', --Prefers to log filename over filetitle. Select between 'local', 'protocols', 'all', and 'none'. 'local' prefer filenames for videos that are not protocols. 'protocols' will prefer filenames for protocols only. 'all' will prefer filename over filetitle for both protocols and not protocols videos. 'none' will always use filetitle instead of filename
 	same_entry_limit = -1, --Limit saving entries with same path: -1 for unlimited, 0 will always update entries of same path, e.g. value of 3 will have the limit of 3 then it will start updating old values on the 4th entry.
 
 	-----List Settings-----
 	loop_through_list = false, --true is for going up on the first item loops towards the last item and vise-versa. false disables this behavior.
 	list_middle_loader = true, --false is for more items to show, then u must reach the end. true is for new items to show after reaching the middle of list.
-	show_paths = false, --Show file paths instead of media-title
-	show_item_number = true, --Show the number of each item before displaying its name and values.
-	slice_longfilenames = false, --Change to true or false. Slices long filenames per the amount specified below
-	slice_longfilenames_amount = 55, --Amount for slicing long filenames
-	list_show_amount = 10, --Change maximum number to show items at once
 	quickselect_0to9_keybind = false, --Keybind entries from 0 to 9 for quick selection when list is open (list_show_amount = 10 is maximum for this feature to work)
 	main_list_keybind_twice_exits = true, --Will exit the list when double tapping the main list, even if the list was accessed through a different filter.
 	search_not_typing_smartly = true, --To smartly set the search as not typing (when search box is open) without needing to press ctrl+enter.
-	search_behavior = 'any', --'specific' to find a match of either a date, title, path / url, time. 'any' to find any typed search based on combination of date, title, path / url, and time. 'any-notime' to find any typed search based on combination of date, title, and path / url, but without looking for time (this is to reduce unwanted results).
-	
+	search_behavior = 'any', --'any' to find any typed search based on combination of date, title, path / url, and time. 'any-notime' to find any typed search based on combination of date, title, and path / url, but without looking for time (this is to reduce unwanted results).
+
 	-----Filter Settings------
 	filters_and_sequence=[[
 	["all", "keybinds", "groups", "/:group%TV Shows%", "/:group%Movies%", "/:group%Anime%", "/:group%Anime Movies%", "/:group%Cartoon%", "/:group%Animated Movies%", "protocols", "fileonly", "titleonly", "timeonly", "playing", "keywords", "recents", "distinct", "keybinds%+%groups", "all%-%groups%-%keybinds"]
@@ -120,12 +113,20 @@ local o = {
 	]], --Keybind to cycle through the different available sorts when list is open
 
 	-----List Design Settings-----
-	list_alignment = 7, --The alignment for the list, uses numpad positions choose from 1-9 or 0 to disable. e,g.:7 top left alignment, 8 top middle alignment, 9 top right alignment.	
-	text_time_type = 'duration', --The time type for items on the list. Select between 'duration', 'length', 'remaining'.
-	time_seperator = ' 🕒 ', --Time seperator that will be used before the time
+	list_alignment = 7, --The alignment for the list, uses numpad positions choose from 1-9 or 0 to disable. e,g.:7 top left alignment, 8 top middle alignment, 9 top right alignment.
+	slice_name = false, --Change to true or false. Slices long names per the amount specified below
+	slice_name_amount = 55, --Amount for slicing long names (for path, name, and title) list_content_text variables
+	list_show_amount = 10, --Change maximum number to show items at once
+	list_content_text = '%number%. %name%%0_duration%%duration%%0_keybind%%keybind%%0_group%%group%%1_group%', --Text to be shown as header for the list
+		--list_content_text variables: %quickselect%, %number%, %name%, %title%, %path%, %duration%, %length%, %remaining%, %dt%, %dt_"format%"%
+		--Variables explanation: %quickselect%: keybind for quickselect. %number%: numbered sequence of the item position. %name%: shows the file name. %title%: shows file title. %path%: shows the filepath or url. %duration%: the reached playback time of item. %length%: the total time length of the file. %remaining% the remaining playback time of file. %dt%: the logged date and time.
+		--You can also use %dt_"format%"%" as per lua date formatting (https://www.lua.org/pil/22.1.html). It is specified after dt_ ..example: (%dt_%a% %dt_%b% %dt_%y%) for abbreviated day month year
+	list_content_variables=[[
+	[ ["0_duration", " 🕒 "], ["0_keybind", " ⌨ "], ["0_group", " 🖿 "] ]
+	]], --User defined variables that only displays if the related variable is triggered.
+		--#_group, #_keybind, #_duration, #_length, #_remaining, #_dt. (# represents the possibility of creating many variables using different numbers. e.g.: "0_keybind", "1_keybind")
 	list_sliced_prefix = '...\\h\\N\\N', --The text that indicates there are more items above. \\N is for new line. \\h is for hard space.
 	list_sliced_suffix = '...', --The text that indicates there are more items below.
-	quickselect_0to9_pre_text = false, --true enables pre text for showing quickselect keybinds before the list. false to disable
 	text_color = 'ffffff', --Text color for list in BGR hexadecimal
 	text_scale = 50, --Font size for the text of list
 	text_border = 0.7, --Black border size for the text of list
@@ -138,27 +139,15 @@ local o = {
 	header_color = 'ffffaa', --Header color in BGR hexadecimal
 	header_scale = 55, --Header text size for the list
 	header_border = 0.8, --Black border size for the Header of list
-	header_text = '🔖 Bookmarks [%cursor%/%total%]%prehighlight%%highlight%%afterhighlight%%prefilter%%filter%%afterfilter%%presort%%sort%%aftersort%%presearch%%search%%aftersearch%', --Text to be shown as header for the list
-	--Available header variables: %cursor%, %total%, %highlight%, %filter%, %search%, %listduration%, %listlength%, %listremaining%
-	--User defined text that only displays if a variable is triggered: %prefilter%, %afterfilter%, %prehighlight%, %afterhighlight% %presearch%, %aftersearch%, %prelistduration%, %afterlistduration%, %prelistlength%, %afterlistlength%, %prelistremaining%, %afterlistremaining%
-	--Variables explanation: %cursor: displays the number of cursor position in list. %total: total amount of items in current list. %highlight%: total number of highlighted items.  %filter: shows the filter name, %search: shows the typed search. Example of user defined text that only displays if a variable is triggered of user: %prefilter: user defined text before showing filter, %afterfilter: user defined text after showing filter.
+	header_text = '🔖 Bookmarks [%cursor%/%total%]%0_highlight%%highlight%%0_filter%%filter%%1_filter%%0_sort%%sort%%1_sort%%0_search%%search%%1_search%', --The formatting of the items when you open the list
+		--header_text variables: %cursor%, %total%, %highlight%, %filter%, %search%, %duration%, %length%, %remaining%.
+		--Variables explanation: %cursor%: the number of cursor position. %total%: total amount in current list. %highlight%: total number of highlighted items.  %filter%: shows the filter name, %search%: shows the typed search. %duration%: the total reached playback time of all displayed items. %length%: the total time length of the file for all displayed items. %remaining% the remaining playback time of file for all the displayed items.
+	header_variables=[[
+	[ ["0_highlight", "✅"], ["0_filter", " [Filter: "], ["1_filter", "]"], ["0_sort", " \\{"], ["1_sort", "}"], ["0_search", "\\h\\N\\N[Search="], ["1_search", "..]"] ]
+	]], --User defined variables that only displays if the related variable is triggered.
+		--#_filter, #_sort, #_highlight, #_search, #_duration, #_length%, #_remaining. (# represents the possibility of creating many variables using different numbers. e.g.: "0_filter", "1_filter")
 	header_sort_hide_text = 'added-asc',--Sort method that is hidden from header when using %sort% variable
-	header_sort_pre_text = ' \\{',--Text to be shown before sort in the header, when using %presort%
-	header_sort_after_text = '}',--Text to be shown after sort in the header, when using %aftersort%
-	header_filter_pre_text = ' [Filter: ', --Text to be shown before filter in the header, when using %prefilter%
-	header_filter_after_text = ']', --Text to be shown after filter in the header, when using %afterfilter%
-	header_search_pre_text = '\\h\\N\\N[Search=', --Text to be shown before search in the header, when using %presearch%
-	header_search_after_text = '..]', --Text to be shown after search in the header, when using %aftersearch%
-	header_highlight_pre_text = '✅', --Text to be shown before total highlighted items of displayed list in the header
-	header_highlight_after_text = '', --Text to be shown after total highlighted items of displayed list in the header
-	header_list_duration_pre_text = ' 🕒 ', --Text to be shown before playback total duration of displayed list in the header
-	header_list_duration_after_text = '', --Text to be shown after playback total duration of displayed list in the header
-	header_list_length_pre_text = ' 🕒 ', --Text to be shown before playback total duration of displayed list in the header
-	header_list_length_after_text = '', --Text to be shown after playback total duration of displayed list in the header
-	header_list_remaining_pre_text = ' 🕒 ', --Text to be shown before playback total duration of displayed list in the header
-	header_list_remaining_after_text = '', --Text to be shown after playback total duration of displayed list in the header
-	keybinds_seperator = ' ⌨ ', --Keybind slots seperator that will be used before the saved keybind
-	groups_seperator = ' 🖿 ', --Seperator that will be used before the assigned group
+
 	-----Time Format Settings-----
 	--in the first parameter, you can define from the available styles: default, hms, hms-full, timestamp, timestamp-concise "default" to show in HH:MM:SS.sss format. "hms" to show in 1h 2m 3.4s format. "hms-full" is the same as hms but keeps the hours and minutes persistent when they are 0. "timestamp" to show the total time as timestamp 123456.700 format. "timestamp-concise" shows the total time in 123456.7 format (shows and hides decimals depending on availability).
 	--in the second parameter, you can define whether to show milliseconds, round them or truncate them. Available options: 'truncate' to remove the milliseconds and keep the seconds. 0 to remove the milliseconds and round the seconds. 1 or above is the amount of milliseconds to display. The default value is 3 milliseconds.
@@ -166,9 +155,15 @@ local o = {
 	osd_time_format=[[
 	["default", "truncate"]
 	]],
-	list_time_format=[[
+	list_duration_time_format=[[
 	["default", "truncate"]
 	]],
+	list_length_time_format=[[
+	["default", "truncate"]
+	]],
+	list_remaining_time_format=[[
+	["default", "truncate"]
+	]],	
 	header_duration_time_format=[[
 	["hms", "truncate", ":"]
 	]],
@@ -249,7 +244,9 @@ o.keywords_filter_list = utils.parse_json(o.keywords_filter_list)
 o.list_filters_sort = utils.parse_json(o.list_filters_sort)
 o.logging_protocols = utils.parse_json(o.logging_protocols)
 o.osd_time_format = utils.parse_json(o.osd_time_format)
-o.list_time_format = utils.parse_json(o.list_time_format)
+o.list_duration_time_format = utils.parse_json(o.list_duration_time_format)--1.3# changed and added time format for each in the list
+o.list_length_time_format = utils.parse_json(o.list_length_time_format)--1.3# added time format for each in the list
+o.list_remaining_time_format = utils.parse_json(o.list_remaining_time_format)--1.3# added time format for each in the list
 o.header_duration_time_format = utils.parse_json(o.header_duration_time_format)
 o.header_length_time_format = utils.parse_json(o.header_length_time_format)
 o.header_remaining_time_format = utils.parse_json(o.header_remaining_time_format)
@@ -263,7 +260,7 @@ o.groups_list_and_keybind = utils.parse_json(o.groups_list_and_keybind)
 o.list_groups_remove_keybind = utils.parse_json(o.list_groups_remove_keybind)
 o.list_groups_remove_highlighted_keybind = utils.parse_json(o.list_groups_remove_highlighted_keybind)
 o.list_group_add_cycle_keybind = utils.parse_json(o.list_group_add_cycle_keybind)
-o.list_group_add_cycle_highlighted_keybind = utils.parse_json(o.list_group_add_cycle_highlighted_keybind) --1.3# highlighted for cycle
+o.list_group_add_cycle_highlighted_keybind = utils.parse_json(o.list_group_add_cycle_highlighted_keybind)
 o.list_move_up_keybind = utils.parse_json(o.list_move_up_keybind)
 o.list_move_down_keybind = utils.parse_json(o.list_move_down_keybind)
 o.list_page_up_keybind = utils.parse_json(o.list_page_up_keybind)
@@ -274,6 +271,8 @@ o.list_highlight_move_keybind = utils.parse_json(o.list_highlight_move_keybind)
 o.list_highlight_all_keybind = utils.parse_json(o.list_highlight_all_keybind)
 o.list_unhighlight_all_keybind = utils.parse_json(o.list_unhighlight_all_keybind)
 o.list_cycle_sort_keybind = utils.parse_json(o.list_cycle_sort_keybind)
+o.list_content_variables = utils.parse_json(o.list_content_variables)--1.3# for new config
+o.header_variables = utils.parse_json(o.header_variables)--1.3# for new config
 o.list_select_keybind = utils.parse_json(o.list_select_keybind)
 o.list_add_playlist_keybind = utils.parse_json(o.list_add_playlist_keybind)
 o.list_add_playlist_highlighted_keybind = utils.parse_json(o.list_add_playlist_highlighted_keybind)
@@ -319,19 +318,11 @@ local log_time_text = 'time='
 local log_keybind_text = 'slot='
 local log_group_text = 'group='
 local protocols = {'https?:', 'magnet:', 'rtmps?:', 'smb:', 'ftps?:', 'sftp:'}
-
---local available_filters = {'all', 'keybinds', 'groups', 'recents', 'distinct', 'playing', 'protocols', 'fileonly', 'titleonly', 'timeonly', 'keywords'} --1.3# temp: remove available_filters
---[[if o.groups_list_and_keybind ~= nil and o.groups_list_and_keybind[1] then
-	for i = 1, #o.groups_list_and_keybind do
-		table.insert(available_filters, '/:group%'..o.groups_list_and_keybind[i][1]..'%')
-	end
-end--]]
-
 local available_sorts = {'added-asc', 'added-desc', 'time-asc', 'time-desc', 'alphanum-asc', 'alphanum-desc'}
 local search_string = ''
 local search_active = false
 local resume_selected = false
-local osd_log_contents = {} --1.3# renamed
+local osd_log_contents = {}
 local list_start = 0
 local list_cursor = 1
 local list_highlight_cursor = {}
@@ -431,24 +422,42 @@ function format_time(seconds, sep, decimals, style)
 	end
 end
 
-function get_file()
+function get_file() --1.3# removed prefer filename overtitle
+	function hex_to_char(x)
+		return string.char(tonumber(x, 16))
+	end
+
 	local path = mp.get_property('path')
 	if not path then return end
-	
-	local length = (mp.get_property_number('duration') or 0)
-	
-	local title = mp.get_property('media-title'):gsub("\"", "")
-	
-	
-	if starts_protocol(o.logging_protocols, path) and o.prefer_filename_over_title == 'protocols' then
-		title = mp.get_property('filename'):gsub("\"", "")
-	elseif not starts_protocol(o.logging_protocols, path) and o.prefer_filename_over_title == 'local' then
-		title = mp.get_property('filename'):gsub("\"", "")
-	elseif o.prefer_filename_over_title == 'all' then
-		title = mp.get_property('filename'):gsub("\"", "")
+	if not path:match('^%a[%a%d-_]+://') then
+		path = utils.join_path(mp.get_property('working-directory'), path)
 	end
 	
+	local length = (mp.get_property_number('duration') or 0)
+
+	local title = mp.get_property('filename'):gsub("\"", "")
+	
+	if starts_protocol(o.logging_protocols, path) and o.file_title_logging == 'protocols' then
+		title = mp.get_property('media-title'):gsub("\"", "")
+	elseif not starts_protocol(o.logging_protocols, path) and o.file_title_logging == 'local' then
+		title = mp.get_property('filename'):gsub("\"", "")
+	elseif o.file_title_logging == 'all' then
+		title = mp.get_property('media-title'):gsub("\"", "")
+	end
+	
+	title = title:gsub('%%(%x%x)', hex_to_char)
 	return path, title, length
+end
+
+function get_local_names(target, property) --1.3# function to get names and fall back to whatever is found --1.2.4# removed or "" so that I can check for errors if the returned value is nil
+	local target_filename = target.found_name or target.found_title or target.found_path
+	local target_filepath = target.found_path or target.found_name or target.found_title
+	local target_filetitle = target.found_title or target.found_name or target.found_path
+	if not property then
+		return target_filename, target_filepath, target_filetitle
+	elseif property == 'osd' then --1.3# added osd property so it removes special character functions when displaying osd in mpv (uses gsub from search)
+		return esc_ass(target_filename), esc_ass(target_filepath), esc_ass(target_filetitle)
+	end
 end
 
 function get_slot_keybind(keyindex)
@@ -521,6 +530,10 @@ function esc_string(str)
 	return str:gsub("([%p])", "%%%1")
 end
 
+function esc_ass(str) --1.3# used function to escape, also this function will use the byte order mark instead of immediately pasting the zero-width space
+	return str:gsub('\\', '\\\239\187\191'):gsub('{', '\\{')
+end
+
 ---------Start of LogManager---------
 --LogManager (Read and Format the List from Log)--
 function read_log(func)
@@ -538,13 +551,12 @@ function read_log_table()
 	local line_pos = 0
 	return read_log(function(line)
 		local tt, p, t, s, d, n, e, l, dt, ln, r, g
-		if line:match('^.-\"(.-)\"') then
-			tt = line:match('^.-\"(.-)\"')
-			n, p = line:match('^.-\"(.-)\" | (.*) | ' .. esc_string(log_length_text) .. '(.*)')
-		else
-			p = line:match('[(.*)%]]%s(.*) | ' .. esc_string(log_length_text) .. '(.*)')
-			d, n, e = p:match('^(.-)([^\\/]-)%.([^\\/%.]-)%.?$')
+		if line:match('^.-\"(.-)\"') then --1.3# changed if statement to only get title and path
+			tt, p = line:match('^.-\"(.-)\" | (.*) | ' .. esc_string(log_length_text) .. '(.*)')
+		else --1.3# get path only if no title is there
+			p = line:match('[(.*)%]]%s(.*) | ' .. esc_string(log_length_text) .. '(.*)') 
 		end
+		d, n, e = p:match('^(.-)([^\\/]-)%.([^\\/%.]-)%.?$') --1.3#  not inside if statement anymore since we are not changing name with title anymore
 		dt = line:match('%[(.-)%]')
 		t = line:match(' | ' .. esc_string(log_time_text) .. '(%d*%.?%d*)(.*)$')
 		ln = line:match(' | ' .. esc_string(log_length_text) .. '(%d*%.?%d*)(.*)$')
@@ -574,16 +586,135 @@ function list_sort(tab, sort)
 		local function padnum(d) local dec, n = string.match(d, "(%.?)0*(.+)")
 			return #dec > 0 and ("%.12f"):format(d) or ("%s%03d%s"):format(dec, #n, n) end
 		if sort == 'alphanum-asc' then
-			table.sort(tab, function(a, b) return tostring(a['found_path']):lower():gsub("%.?%d+", padnum) .. ("%3d"):format(#b) > tostring(b['found_path']):lower():gsub("%.?%d+", padnum) .. ("%3d"):format(#a) end)
+			table.sort(tab, function(a, b) return tostring(a['found_path']):lower():gsub("%.?%d+", padnum) .. ("%3d"):format(#b) > tostring(b['found_path']):gsub("%.?%d+", padnum) .. ("%3d"):format(#a) end)
 		elseif sort == 'alphanum-desc' then
-			table.sort(tab, function(a, b) return tostring(a['found_path']):lower():gsub("%.?%d+", padnum) .. ("%3d"):format(#b) < tostring(b['found_path']):lower():gsub("%.?%d+", padnum) .. ("%3d"):format(#a) end)
+			table.sort(tab, function(a, b) return tostring(a['found_path']):lower():gsub("%.?%d+", padnum) .. ("%3d"):format(#b) < tostring(b['found_path']):gsub("%.?%d+", padnum) .. ("%3d"):format(#a) end)
 		end
 	end
 	
 	return tab
 end
 
-function parse_header(string)
+function get_o_variable(str, arr_var) --1.3# function to get variable content from passed array
+	if not str then return end
+	if str:match('%%(.*)%%') then str = str:match('%%(.*)%%') end --1.3# if the entry has % around it, then remove it
+	
+	local var_return
+	for i = 1, #arr_var do --1.3# loop through the passed array and get the value of the matched variable
+		if arr_var[i][1] == str then
+			var_return = arr_var[i][2] --1.3# added or "" so if that the content of the variable is not defined it does not crash
+			break
+		end
+	end
+
+	return var_return or "" --1.3# return the founded variable content or empty string if nothing is found
+
+end
+
+function parse_list_item(str, properties) --1.3#add ability to parse the contents of the list like the header
+	if not str then return msg.error('str in parse_list_item is nil') end
+	
+	local list_filename, list_filepath, list_filetitle = get_local_names(properties["item"],'osd')--1.3# added osd property so it removes special characters for displaying list
+
+	if o.slice_name and list_filename:len() > o.slice_name_amount then
+		list_filename = list_filename:sub(1, o.slice_name_amount) .. "..." --1.3# perhaps seperate the option for slicing filename / path
+		list_filepath = list_filepath:sub(1, o.slice_name_amount) .. "..."
+		list_filetitle = list_filetitle:sub(1, o.slice_name_amount) .. "..."		
+	end
+
+	str = str:gsub("%%name%%", list_filename)
+		:gsub("%%path%%", list_filepath)
+		:gsub("%%title%%", list_filetitle)		
+		:gsub("%%number%%", properties["index"]+1) --1.3# index +1 is the osd_index
+		:gsub("%%dt%%", properties["item"].found_datetime)
+		
+	for s in str:gmatch("%%dt_%%.%%") do --1.3# loop through all found dt_ in the script a
+		local svar = s:match("_%%."):sub(2) --1.3# match whatever starting from _ when using %dt_var%, then sub(2) to remove the first letter which is _ (then var will remain) to use in our gsub
+		if parse_8601(properties["item"].found_datetime) then --1.3.1# for backward compatibility if matching did not work reset to null
+			str = str:gsub(esc_string(s), os.date(svar, parse_8601(properties["item"].found_datetime))) --1.3# replaces the found dt_var with eg. dt_%a from config
+			
+			for x in str:gmatch("%%%d_dt%%") do --1.3.1# for backward compatibility adds 0_dt to be able to force customize date and time variables
+				str = str:gsub(esc_string(x), get_o_variable(x, o.list_content_variables))
+			end
+		else --1.3.1# for backward compatibility if matching did not work reset to null
+			str = str:gsub(esc_string(s), "")
+
+			for x in str:gmatch("%%%d_dt%%") do --1.3.1# for backward compatibility removes 0_dt if log time cannot be parsed from in log
+				str = str:gsub(esc_string(x), "")
+			end
+		end
+	end
+
+	if properties["item"].found_slot then
+		str = str:gsub("%%keybind%%", get_slot_keybind(tonumber(properties["item"].found_slot)))
+		for s in str:gmatch("%%%d*_keybind%%") do --1.3# if a custom group variable is found, such as %0_group% then get the content of the variable for it
+			str = str:gsub(esc_string(s), get_o_variable(s, o.list_content_variables))
+		end
+	else
+		str = str:gsub("%%keybind%%", "")
+		for s in str:gmatch("%%%d*_keybind%%") do --1.3# if a custom slot is found and there is no slot assigned, remove it
+			str = str:gsub(esc_string(s), "")
+		end
+	end
+
+	if properties["item"].found_group then
+		str = str:gsub("%%group%%", get_group_properties(tonumber(properties["item"].found_group)).name)
+		for s in str:gmatch("%%%d*_group%%") do --1.3# if a custom group variable is found, such as %0_group% then get the content of the variable for it
+			str = str:gsub(esc_string(s), get_o_variable(s, o.list_content_variables))
+		end
+	else
+		str = str:gsub("%%group%%", "")
+		for s in str:gmatch("%%%d*_group%%") do
+			str = str:gsub(esc_string(s), "")
+		end
+	end
+	
+	if properties['quickselect'] and str:match("%%quickselect%%") then --1.2# replace quickselect with the actual key if its available
+		str = str:gsub("%%quickselect%%", properties['quickselect'])
+	else
+		str = str:gsub("%%quickselect%%", "")
+	end
+
+	--1.3# same concept for showing groups but for time
+	if properties["item"].found_time and tonumber(properties["item"].found_time) > 0 then
+		str = str:gsub('%%duration%%', format_time(properties["item"].found_time, o.list_duration_time_format[3], o.list_duration_time_format[2], o.list_duration_time_format[1]))
+		for s in str:gmatch("%%%d*_duration%%") do
+			str = str:gsub(esc_string(s), get_o_variable(s, o.list_content_variables))
+		end
+	else
+		str = str:gsub("%%duration%%", "")
+		for s in str:gmatch("%%%d*_duration%%") do
+			str = str:gsub(esc_string(s), "")
+		end
+	end
+	if properties["item"].found_length and tonumber(properties["item"].found_length) > 0 then
+		str = str:gsub('%%length%%', format_time(properties["item"].found_length, o.list_length_time_format[3], o.list_length_time_format[2], o.list_length_time_format[1]))
+		for s in str:gmatch("%%%d*_length%%") do
+			str = str:gsub(esc_string(s), get_o_variable(s, o.list_content_variables))
+		end
+	else
+		str = str:gsub("%%length%%", "")
+		for s in str:gmatch("%%%d*_length%%") do
+			str = str:gsub(esc_string(s), "")
+		end
+	end
+	if properties["item"].found_remaining and tonumber(properties["item"].found_remaining) > 0 then
+		str = str:gsub('%%remaining%%', format_time(properties["item"].found_remaining, o.list_remaining_time_format[3], o.list_remaining_time_format[2], o.list_remaining_time_format[1]))
+		for s in str:gmatch("%%%d*_remaining%%") do
+			str = str:gsub(esc_string(s), get_o_variable(s, o.list_content_variables))
+		end
+	else
+		str = str:gsub("%%remaining%%", "")
+		for s in str:gmatch("%%%d*_remaining%%") do
+			str = str:gsub(esc_string(s), "")
+		end
+	end
+	str = str:gsub("%%%%", "%%")
+
+	return str
+end
+
+function parse_header(str)
 	local osd_header_color = string.format("{\\1c&H%s}", o.header_color)
 	local osd_search_color = osd_header_color
 	if search_active == 'typing' then
@@ -591,114 +722,112 @@ function parse_header(string)
 	elseif search_active == 'not_typing' then
 		osd_search_color = string.format("{\\1c&H%s}", o.search_color_not_typing)
 	end
-	local osd_msg_end = "{\\1c&HFFFFFF}"
 	
-	string = string:gsub("%%total%%", #osd_log_contents)
+	str = str:gsub("%%total%%", #osd_log_contents)
 		:gsub("%%cursor%%", list_cursor)
 	
 	local filter_osd = filterName
 	if filter_osd ~= 'all' then
 		if filter_osd:match('/:group%%(.*)%%') then filter_osd = filter_osd:match('/:group%%(.*)%%') end
-		string = string:gsub("%%filter%%", filter_osd)
-		:gsub("%%prefilter%%", o.header_filter_pre_text)
-		:gsub("%%afterfilter%%", o.header_filter_after_text)
+		str = str:gsub("%%filter%%", filter_osd)
+		for s in str:gmatch("%%%d*_filter%%") do --1.3# if a filter variable is found, such as %0_filter% then get the content of the variable for it
+			str = str:gsub(esc_string(s), get_o_variable(s, o.header_variables))
+		end
 	else
-		string = string:gsub("%%filter%%", '')
-		:gsub("%%prefilter%%", '')
-		:gsub("%%afterfilter%%", '')
+		str = str:gsub("%%filter%%", '')
+		for s in str:gmatch("%%%d*_filter%%") do --1.3# if a custom slot is found and there is no slot assigned, remove it
+			str = str:gsub(esc_string(s), "")
+		end
 	end
 	
-	local list_total_duration = 0
-	if string:match('%listduration%%') then
-		list_total_duration = get_total_duration('found_time')
-		if list_total_duration > 0 then
-			string = string:gsub("%%listduration%%", format_time(list_total_duration, o.header_duration_time_format[3], o.header_duration_time_format[2], o.header_duration_time_format[1]))
+	if str:match('%%duration%%') then
+		if get_total_duration('found_time') > 0 then
+			str = str:gsub("%%duration%%", format_time(get_total_duration('found_time'), o.header_duration_time_format[3], o.header_duration_time_format[2], o.header_duration_time_format[1]))
+			for s in str:gmatch("%%%d*_duration%%") do --1.3# if a filter variable is found, such as %0_filter% then get the content of the variable for it
+				str = str:gsub(esc_string(s), get_o_variable(s, o.header_variables))
+			end
 		else
-			string = string:gsub("%%listduration%%", '')
+			str = str:gsub("%%duration%%", '')
+			for s in str:gmatch("%%%d*_duration%%") do --1.3# if a custom slot is found and there is no slot assigned, remove it
+				str = str:gsub(esc_string(s), "")
+			end
 		end
-	end	
-	if list_total_duration > 0 then
-		string = string:gsub("%%prelistduration%%", o.header_list_duration_pre_text)
-		:gsub("%%afterlistduration%%", o.header_list_duration_after_text)
-	else
-		string = string:gsub("%%prelistduration%%", '')
-		:gsub("%%afterlistduration%%", '')
 	end
 	
-	local list_total_length = 0
-	if string:match('%listlength%%') then
-		list_total_length = get_total_duration('found_length')
-		if list_total_length > 0 then
-			string = string:gsub("%%listlength%%", format_time(list_total_length, o.header_length_time_format[3], o.header_length_time_format[2], o.header_length_time_format[1]))
+	if str:match('%%length%%') then
+		if get_total_duration('found_length') > 0 then
+			str = str:gsub("%%length%%", format_time(get_total_duration('found_length'), o.header_length_time_format[3], o.header_length_time_format[2], o.header_length_time_format[1]))
+			for s in str:gmatch("%%%d*_length%%") do --1.3# if a filter variable is found, such as %0_filter% then get the content of the variable for it
+				str = str:gsub(esc_string(s), get_o_variable(s, o.header_variables))
+			end
 		else
-			string = string:gsub("%%listlength%%", '')
+			str = str:gsub("%%length%%", '')
+			for s in str:gmatch("%%%d*_length%%") do --1.3# if a filter variable is found, such as %0_filter% then get the content of the variable for it
+				str = str:gsub(esc_string(s), "")
+			end
 		end
-	end	
-	if list_total_length > 0 then
-		string = string:gsub("%%prelistlength%%", o.header_list_length_pre_text)
-		:gsub("%%afterlistlength%%", o.header_list_length_after_text)
-	else
-		string = string:gsub("%%prelistlength%%", '')
-		:gsub("%%afterlistlength%%", '')
 	end
 	
-	local list_total_remaining = 0
-	if string:match('%listremaining%%') then
-		list_total_remaining = get_total_duration('found_remaining')
-		if list_total_remaining > 0 then
-			string = string:gsub("%%listremaining%%", format_time(list_total_remaining, o.header_remaining_time_format[3], o.header_remaining_time_format[2], o.header_remaining_time_format[1]))
+	if str:match('%remaining%%') then
+		if get_total_duration('found_remaining') > 0 then
+			str = str:gsub("%%remaining%%", format_time(get_total_duration('found_remaining'), o.header_remaining_time_format[3], o.header_remaining_time_format[2], o.header_remaining_time_format[1]))
+			for s in str:gmatch("%%%d*_remaining%%") do --1.3# if a filter variable is found, such as %0_filter% then get the content of the variable for it
+				str = str:gsub(esc_string(s), get_o_variable(s, o.header_variables))
+			end
 		else
-			string = string:gsub("%%listremaining%%", '')
+			str = str:gsub("%%remaining%%", '')
+			for s in str:gmatch("%%%d*_remaining%%") do --1.3# if a filter variable is found, such as %0_filter% then get the content of the variable for it
+				str = str:gsub(esc_string(s), "")
+			end
 		end
 	end	
-	if list_total_remaining > 0 then
-		string = string:gsub("%%prelistremaining%%", o.header_list_remaining_pre_text)
-		:gsub("%%afterlistremaining%%", o.header_list_remaining_after_text)
-	else
-		string = string:gsub("%%prelistremaining%%", '')
-		:gsub("%%afterlistremaining%%", '')
-	end
 	
 	if #list_highlight_cursor > 0 then
-		string = string:gsub("%%highlight%%", #list_highlight_cursor)
-		:gsub("%%prehighlight%%", o.header_highlight_pre_text)
-		:gsub("%%afterhighlight%%", o.header_highlight_after_text)
+		str = str:gsub("%%highlight%%", #list_highlight_cursor)
+		for s in str:gmatch("%%%d*_highlight%%") do --1.3# if a filter variable is found, such as %0_filter% then get the content of the variable for it
+			str = str:gsub(esc_string(s), get_o_variable(s, o.header_variables))
+		end
 	else
-		string = string:gsub("%%highlight%%", '')
-		:gsub("%%prehighlight%%", '')
-		:gsub("%%afterhighlight%%", '')
+		str = str:gsub("%%highlight%%", '')
+		for s in str:gmatch("%%%d*_highlight%%") do --1.3# if a filter variable is found, such as %0_filter% then get the content of the variable for it
+			str = str:gsub(esc_string(s), "")
+		end
 	end
 	
 	if sortName and sortName ~= o.header_sort_hide_text then
-		string = string:gsub("%%sort%%", sortName)
-		:gsub("%%presort%%", o.header_sort_pre_text)
-		:gsub("%%aftersort%%", o.header_sort_after_text)
+		str = str:gsub("%%sort%%", sortName)
+		for s in str:gmatch("%%%d*_sort%%") do --1.3# if a filter variable is found, such as %0_filter% then get the content of the variable for it
+			str = str:gsub(esc_string(s), get_o_variable(s, o.header_variables))
+		end
 	else
-		string = string:gsub("%%sort%%", '')
-		:gsub("%%presort%%", '')
-		:gsub("%%aftersort%%", '')
+		str = str:gsub("%%sort%%", '')
+		for s in str:gmatch("%%%d*_sort%%") do --1.3# if a filter variable is found, such as %0_filter% then get the content of the variable for it
+			str = str:gsub(esc_string(s), "")
+		end
 	end
 	
 	if search_active then
 		local search_string_osd = search_string
 		if search_string_osd ~= '' then
-			search_string_osd = search_string:gsub('%%', '%%%%%%%%'):gsub('\\', '\\​'):gsub('{', '\\{')
+			search_string_osd = esc_ass(search_string:gsub('%%', '%%%%%%%%')) --1.3# used ass_escape instead of gsub
 		end
 	
-		string = string:gsub("%%search%%", osd_search_color..search_string_osd..osd_header_color)
-		:gsub("%%presearch%%", o.header_search_pre_text)	
-		:gsub("%%aftersearch%%", o.header_search_after_text)
+		str = str:gsub("%%search%%", osd_search_color..search_string_osd..osd_header_color)
+		for s in str:gmatch("%%%d*_search%%") do --1.3# if a filter variable is found, such as %0_filter% then get the content of the variable for it
+			str = str:gsub(esc_string(s), get_o_variable(s, o.header_variables))
+		end
 	else
-		string = string:gsub("%%search%%", '')
-		:gsub("%%presearch%%", '')
-		:gsub("%%aftersearch%%", '')
+		str = str:gsub("%%search%%", '')
+		for s in str:gmatch("%%%d*_search%%") do --1.3# if a filter variable is found, such as %0_filter% then get the content of the variable for it
+			str = str:gsub(esc_string(s), "")
+		end
 	end
-	string = string:gsub("%%%%", "%%")
-	return string
+	str = str:gsub("%%%%", "%%")
+	return str
 end
 
-function search_log_contents(arr_contents)--1.3# seperate search from get_osd_log_contents
-	if not arr_contents or not arr_contents[1] or not search_active or not search_string == '' then return false end --1.3# only proceed if there is table passed and search activated with some query
+function search_log_contents(arr_contents)
+	if not arr_contents or not arr_contents[1] or not search_active or not search_string == '' then return false end
 	
 	local search_query = ''
 	for search in search_string:gmatch("[^%s]+") do
@@ -706,33 +835,47 @@ function search_log_contents(arr_contents)--1.3# seperate search from get_osd_lo
 	end	
 	local contents_string = ''
 
-	local search_arr_contents = {} --1.3# define a local table to contain the log_items filtered with search
+	local search_arr_contents = {}
 
-	for i = 1, #osd_log_contents do
-		if o.search_behavior == 'specific' then
-			if string.lower(osd_log_contents[i].found_path):match(string.lower(search_query)) then
-				table.insert(search_arr_contents, osd_log_contents[i])
-			elseif osd_log_contents[i].found_title and string.lower(osd_log_contents[i].found_title):match(string.lower(search_query)) then
-				table.insert(search_arr_contents, osd_log_contents[i])
-			elseif tonumber(osd_log_contents[i].found_time) > 0 and format_time(osd_log_contents[i].found_time, o.osd_time_format[3], o.osd_time_format[2], o.osd_time_format[1]):match(search_query) then
-				table.insert(search_arr_contents, osd_log_contents[i])
-			elseif string.lower(osd_log_contents[i].found_datetime):match(string.lower(search_query)) then
-				table.insert(search_arr_contents, osd_log_contents[i])
-			elseif osd_log_contents[i].found_slot and string.lower(get_slot_keybind(tonumber(osd_log_contents[i].found_slot))):match(string.lower(esc_string(search_string))) then
-				table.insert(search_arr_contents, osd_log_contents[i])
+	for i = 1, #osd_log_contents do --1.3# removed specific search method as it doesn't seem useful anymore
+		if o.search_behavior == 'any' then
+			contents_string = osd_log_contents[i].found_datetime --1.3# seperated date and time for search
+			if parse_8601(osd_log_contents[i].found_datetime) then --1.3# an if statement to check if date could be parsed --1.3# allows for all type of dates to be searched thanks to the loop
+				local os_date_tag= {'%a', '%A', '%b', '%B', '%c', '%d', '%H', '%I', '%M', '%m', '%p', '%S', '%w', '%x', '%X', '%Y', '%y'} --1.3# add all lua date time parameters
+				for j=1, #os_date_tag do --1.3# replace all lua parameters with date values that can be searched
+					contents_string = contents_string..os.date(os_date_tag[j], parse_8601(osd_log_contents[i].found_datetime))
+				end
 			end
-		elseif o.search_behavior == 'any' then
-			contents_string = osd_log_contents[i].found_datetime..(osd_log_contents[i].found_title or '')..osd_log_contents[i].found_path
+			contents_string = contents_string..(osd_log_contents[i].found_title or '')..(osd_log_contents[i].found_name or '')..osd_log_contents[i].found_path --1.3# added found_name since parsing is different now
 			if tonumber(osd_log_contents[i].found_time) > 0 then
-				contents_string = contents_string..format_time(osd_log_contents[i].found_time, o.osd_time_format[3], o.osd_time_format[2], o.osd_time_format[1])
+				contents_string = contents_string..format_time(osd_log_contents[i].found_time, o.list_duration_time_format[3], o.list_duration_time_format[2], o.list_duration_time_format[1])
 			end
+			if tonumber(osd_log_contents[i].found_length) > 0 then
+				contents_string = contents_string..format_time(osd_log_contents[i].found_length, o.list_length_time_format[3], o.list_length_time_format[2], o.list_length_time_format[1])
+			end
+			if tonumber(osd_log_contents[i].found_remaining) > 0 then
+				contents_string = contents_string..format_time(osd_log_contents[i].found_remaining, o.list_remaining_time_format[3], o.list_remaining_time_format[2], o.list_remaining_time_format[1])
+			end			
 			if osd_log_contents[i].found_slot then
 				contents_string = contents_string..get_slot_keybind(tonumber(osd_log_contents[i].found_slot))
+			end
+			if osd_log_contents[i].found_group then
+				contents_string = contents_string..get_group_properties(tonumber(osd_log_contents[i].found_group)).name
 			end
 		elseif o.search_behavior == 'any-notime' then
-			contents_string = osd_log_contents[i].found_datetime..(osd_log_contents[i].found_title or '')..osd_log_contents[i].found_path
+			contents_string = osd_log_contents[i].found_datetime --1.3# seperated date and time for search
+			if parse_8601(osd_log_contents[i].found_datetime) then --1.3# an if statement to check if date could be parsed
+				local os_date_tag= {'%a', '%A', '%b', '%B', '%c', '%d', '%H', '%I', '%M', '%m', '%p', '%S', '%w', '%x', '%X', '%Y', '%y'} --1.3# add all lua date time parameters
+				for j=1, #os_date_tag do --1.3# replace all lua parameters with values that can be searched
+					contents_string = contents_string..os.date(os_date_tag[j], parse_8601(osd_log_contents[i].found_datetime))
+				end
+			end
+			contents_string = contents_string..(osd_log_contents[i].found_title or '')..(osd_log_contents[i].found_name or '')..osd_log_contents[i].found_path --1.3# added found_name since parsing is different now
 			if osd_log_contents[i].found_slot then
 				contents_string = contents_string..get_slot_keybind(tonumber(osd_log_contents[i].found_slot))
+			end
+			if osd_log_contents[i].found_group then
+				contents_string = contents_string..get_group_properties(tonumber(osd_log_contents[i].found_group)).name
 			end
 		end
 		
@@ -741,11 +884,11 @@ function search_log_contents(arr_contents)--1.3# seperate search from get_osd_lo
 		end
 	end
 
-	return search_arr_contents --1.3#return the search array
+	return search_arr_contents
 
 end
 
-function filter_log_contents(arr_contents, filter) --1.3# function to immediately choose the filter that will be applied for get_osd_log_contents
+function filter_log_contents(arr_contents, filter)
 	if not arr_contents or not arr_contents[1] or not filter or filter == 'all' then return false end
 	local filtered_arr_contents = {}
 
@@ -754,7 +897,7 @@ function filter_log_contents(arr_contents, filter) --1.3# function to immediatel
 	elseif filter:match('%%%-%%') then
 		if filter_omit(arr_contents,filter) then filtered_arr_contents = filter_omit(arr_contents, filter) end
 	else
-		if filter_apply(arr_contents, filter) then filtered_arr_contents = filter_apply(arr_contents, filter) end --1.3# if the filter returns true, then change osd_log_contents to the filter
+		if filter_apply(arr_contents, filter) then filtered_arr_contents = filter_apply(arr_contents, filter) end
 	end
 
 	return filtered_arr_contents
@@ -762,7 +905,7 @@ end
 
 
 function filter_omit(arr_contents, filter)
-	if not arr_contents or not arr_contents[1] or not filter or filter == 'all' or not filter:match('%%%-%%') then return false end --1.3# only go through this function if the stack variable and filter is passed
+	if not arr_contents or not arr_contents[1] or not filter or filter == 'all' or not filter:match('%%%-%%') then return false end
 	local omitted_arr_table = arr_contents
 
 	local filter_items = {}
@@ -770,14 +913,14 @@ function filter_omit(arr_contents, filter)
 		table.insert(filter_items, f)
 	end
 
-	local temp_filtered_contents = arr_contents --1.3# initilaize with the passed table (solves error if used all filter)
-	for i=1, #filter_items do --1.3# loop through all filters
-		if i== 1 and filter_apply(arr_contents, filter_items[i]) then omitted_arr_table = filter_apply(arr_contents, filter_items[i]) end --1.3# (only apply filter for the first item, then just omit from the table --1.3# use the if statement
-		if i > 1 then --1.3# for the second iteration or above, omit items
-			if filter_apply(arr_contents, filter_items[i]) then temp_filtered_contents = filter_apply(arr_contents, filter_items[i]) end --1.3# apply the filter on the temp variable
-			for j=1, #temp_filtered_contents do --1.3# a nested loop for going through all filtered content
-				for k=1, #omitted_arr_table do --1.3# a 2x nested loop for going through all items in the omitted table
-					if temp_filtered_contents[j] and omitted_arr_table[k] and temp_filtered_contents[j].found_sequence == omitted_arr_table[k].found_sequence then --1.3# if the filtered table item equals any of the omitted table items then remove it
+	local temp_filtered_contents = arr_contents
+	for i=1, #filter_items do
+		if i== 1 and filter_apply(arr_contents, filter_items[i]) then omitted_arr_table = filter_apply(arr_contents, filter_items[i]) end
+		if i > 1 then
+			if filter_apply(arr_contents, filter_items[i]) then temp_filtered_contents = filter_apply(arr_contents, filter_items[i]) end
+			for j=1, #temp_filtered_contents do
+				for k=1, #omitted_arr_table do
+					if temp_filtered_contents[j] and omitted_arr_table[k] and temp_filtered_contents[j].found_sequence == omitted_arr_table[k].found_sequence then
 						table.remove(omitted_arr_table, k)
 					end
 				end
@@ -785,42 +928,38 @@ function filter_omit(arr_contents, filter)
 		end
 	end
 
-	table.sort(omitted_arr_table, function(a, b) return a['found_sequence'] < b['found_sequence'] end) --1.3# sort the items based on the sequence
+	table.sort(omitted_arr_table, function(a, b) return a['found_sequence'] < b['found_sequence'] end)
 
 	return omitted_arr_table
 end
 
 function filter_stack(arr_contents, filter)
-	if not arr_contents or not arr_contents[1] or not filter or filter == 'all' or not filter:match('%%%+%%') then return false end --1.3# only go through this function if the stack variable and filter is passed
+	if not arr_contents or not arr_contents[1] or not filter or filter == 'all' or not filter:match('%%%+%%') then return false end
 	local stacked_arr_table = {}
-	
-	--filter = filter:match("%%(.*)%%") --1.3# reference: just to get stuff between %%
-	--filter = filter:gsub('%%%+%%', " ") --1.3# if I want to change the %variable% to make it for universal loop whether it is %+% or %-%, 
-	--e.g.: converted example: for c in filter:gmatch("[^%%s%\r+]+") do
-	--e.g.: normal example: for c in filter:gmatch("[^%%%+%%\r+]+")
 	local filter_items = {}
+
 	for f in filter:gmatch("[^%%%+%%\r+]+") do
 		table.insert(filter_items, f)
 	end
 
-	local unique_values = {} --1.3# function that stacks the filters when %+% is found in string
-	local temp_filtered_contents = arr_contents --1.3# initilaize with the passed table (solves error if used all filter)
+	local unique_values = {}
+	local temp_filtered_contents = arr_contents
 	for i=1, #filter_items do
-		if filter_apply(arr_contents, filter_items[i]) then temp_filtered_contents = filter_apply(arr_contents, filter_items[i]) end --1.3# use the if statement
+		if filter_apply(arr_contents, filter_items[i]) then temp_filtered_contents = filter_apply(arr_contents, filter_items[i]) end
 			for j=1, #temp_filtered_contents do
-				if not has_value(unique_values, temp_filtered_contents[j].found_sequence) then --1.3# if the item is not in the unique_values table then add it, as well as add it to the stacked table
-					table.insert(unique_values, temp_filtered_contents[j].found_sequence) --1.3# if the value was not inserted into stacked_arr_table, then insert it
+				if not has_value(unique_values, temp_filtered_contents[j].found_sequence) then
+					table.insert(unique_values, temp_filtered_contents[j].found_sequence)
 					table.insert(stacked_arr_table, temp_filtered_contents[j])
 				end
 			end
 	end
-	table.sort(stacked_arr_table, function(a, b) return a['found_sequence'] < b['found_sequence'] end) --1.3# sort the items based on the sequence
+	table.sort(stacked_arr_table, function(a, b) return a['found_sequence'] < b['found_sequence'] end)
 
 	return stacked_arr_table
 
 end
 
-function filter_apply(arr_contents, filter) --1.3# create a seperate function to specifically choose what each filter does
+function filter_apply(arr_contents, filter)
 	if not arr_contents or not arr_contents[1] or not filter or filter == 'all' then return false end
 	local filtered_arr_contents = {}
 
@@ -933,10 +1072,8 @@ function filter_apply(arr_contents, filter) --1.3# create a seperate function to
 		end
 	end
 
-	return filtered_arr_contents --1.3# return the filtered array
+	return filtered_arr_contents
 end
-
---1.3# renamed list_contents to osd_log_contents, renamed filtered_table to filtered_log_contents and made it global
 
 function get_osd_log_contents(filter, sort)
 	if not filter then filter = filterName end
@@ -944,12 +1081,12 @@ function get_osd_log_contents(filter, sort)
 	
 	local current_sort
 	osd_log_contents = read_log_table()
-	if not osd_log_contents or not osd_log_contents[1] then return end --1.3# no need to check for search anymore?
+	if not osd_log_contents or not osd_log_contents[1] then return end
 
 	current_sort = 'added-asc'
 
-	if filter_log_contents(osd_log_contents, filter) then osd_log_contents = filter_log_contents(osd_log_contents, filter) end --1.3# if the filter returns true, then change osd_log_contents to the filter
-	if search_log_contents(osd_log_contents) then osd_log_contents = search_log_contents(osd_log_contents) end --1.3# if the search returns true, then change osd_log_contents to be with search
+	if filter_log_contents(osd_log_contents, filter) then osd_log_contents = filter_log_contents(osd_log_contents, filter) end
+	if search_log_contents(osd_log_contents) then osd_log_contents = search_log_contents(osd_log_contents) end
 	
 	if sort ~= current_sort then
 		list_sort(osd_log_contents, sort)
@@ -980,24 +1117,31 @@ function get_list_sort(filter)
 	return sort
 end
 
-function draw_list(arr_contents) --1.3#added contents table to be able to pass to draw_list different arrays to draw
-	--if not arr_contents or not arr_contents[1] then return msg.error('arr_contents is not defined') end --1.3# provide error if there is no array passed ( i cannot do this because search throws OSD error when arr_contents is empty)
+function parse_8601(timestamp)
+	if not string.match(timestamp, '^(%d%d%d%d)-(%d%d)-(%d%d)T(%d%d):(%d%d):(%d%d)(.-)$') then return false end
+	local inYear, inMonth, inDay, inHour, inMinute, inSecond, inZone = string.match(timestamp, '^(%d%d%d%d)-(%d%d)-(%d%d)T(%d%d):(%d%d):(%d%d)(.-)$')
+
+	local zHours, zMinutes = string.match(inZone, '^(.-):(%d%d)$')
+	
+	local returnTime = os.time({year=inYear, month=inMonth, day=inDay, hour=inHour, min=inMinute, sec=inSecond, isdst=false})
+	
+	if zHours then
+		returnTime = returnTime - ((tonumber(zHours)*3600) + (tonumber(zMinutes)*60))
+	end
+	
+	return returnTime
+	
+end
+
+function draw_list(arr_contents)
 	local osd_msg = ''
-	local osd_index = ''
-	local osd_key = ''
 	local osd_color = ''
 	local key = 0
 	local osd_text = string.format("{\\an%f{\\fscx%f}{\\fscy%f}{\\bord%f}{\\1c&H%s}", o.list_alignment, o.text_scale, o.text_scale, o.text_border, o.text_color)
 	local osd_cursor = string.format("{\\an%f}{\\fscx%f}{\\fscy%f}{\\bord%f}{\\1c&H%s}", o.list_alignment, o.text_cursor_scale, o.text_cursor_scale, o.text_cursor_border, o.text_cursor_color)
 	local osd_header = string.format("{\\an%f}{\\fscx%f}{\\fscy%f}{\\bord%f}{\\1c&H%s}", o.list_alignment, o.header_scale, o.header_scale, o.header_border, o.header_color)
 	local osd_msg_end = "{\\1c&HFFFFFF}"
-	local osd_time_type = 'found_time'
-	
-	if o.text_time_type == 'length' then
-		osd_time_type = 'found_length'
-	elseif o.text_time_type == 'remaining' then
-		osd_time_type = 'found_remaining'
-	end
+	local item_properties = {} --1.3# to hold all of the stuff that we extract from within this table, such as the osd_index, etc..
 	
 	if o.header_text ~= '' then
 		osd_msg = osd_msg .. osd_header .. parse_header(o.header_text)
@@ -1008,12 +1152,12 @@ function draw_list(arr_contents) --1.3#added contents table to be able to pass t
 		osd_msg = osd_msg .. 'No search results found' .. osd_msg_end
 	end
 	
+	local list_start
 	if o.list_middle_loader then
 		list_start = list_cursor - math.floor(o.list_show_amount / 2)
 	else
 		list_start = list_cursor - o.list_show_amount
 	end
-	
 	local showall = false
 	local showrest = false
 	if list_start < 0 then list_start = 0 end
@@ -1030,60 +1174,33 @@ function draw_list(arr_contents) --1.3#added contents table to be able to pass t
 	end
 	for i = list_start, list_start + o.list_show_amount - 1, 1 do
 		if i == #arr_contents then break end
-		
-		if o.show_paths then
-			p = arr_contents[#arr_contents - i].found_path or arr_contents[#arr_contents - i].found_name or ""
-		else
-			p = arr_contents[#arr_contents - i].found_name or arr_contents[#arr_contents - i].found_path or ""
-		end
-		
-		if o.slice_longfilenames and p:len() > o.slice_longfilenames_amount then
-			p = p:sub(1, o.slice_longfilenames_amount) .. "..."
-		end
-		
-		if o.quickselect_0to9_keybind and o.list_show_amount <= 10 and o.quickselect_0to9_pre_text then
-			key = 1 + key
+		item_properties["item"] = arr_contents[#arr_contents - i] --1.3# stores the targetted item
+		item_properties['index'] = i --1.3# stores the index of which the item is found in the arr_contents table
+
+		if o.quickselect_0to9_keybind and o.list_show_amount <= 10 then
+			key = key + 1
 			if key == 10 then key = 0 end
-			osd_key = '(' .. key .. ')  '
+			item_properties['quickselect'] = key --1.3# added osd_key to item_properties to call it in parse_list_item
 		end
-		
-		if o.show_item_number then
-			osd_index = (i + 1) .. '. '
-		end
-		
+
 		if i + 1 == list_cursor then
 			osd_color = osd_cursor
 		else
 			osd_color = osd_text
 		end
-		
+
 		for j = 1, #list_highlight_cursor do
 			if list_highlight_cursor[j] and list_highlight_cursor[j][1] == i+1 then
 				osd_msg = osd_msg..osd_color..esc_string(o.text_highlight_pre_text)
 			end
 		end
-		
-		-- example in the mpv source suggests this escape method for set_osd_ass:
-		-- https://github.com/mpv-player/mpv/blob/94677723624fb84756e65c8f1377956667244bc9/player/lua/stats.lua#L145
-		p = p:gsub("\\", "/")
-		   :gsub("{", "\\{")
-		   :gsub("^ ", "\\h")
-		osd_msg = osd_msg .. osd_color .. osd_key .. osd_index .. p
-		
-		if arr_contents[#arr_contents - i][osd_time_type] and tonumber(arr_contents[#arr_contents - i][osd_time_type]) > 0 then
-			osd_msg = osd_msg .. o.time_seperator .. format_time(arr_contents[#arr_contents - i][osd_time_type], o.list_time_format[3], o.list_time_format[2], o.list_time_format[1])
+
+		if o.list_content_text ~= '' then --1.3# use parse_list_item to make the list customizable
+			osd_msg = osd_msg..osd_color..parse_list_item(o.list_content_text, item_properties)
 		end
-		
-		if arr_contents[#arr_contents - i].found_slot then
-			osd_msg = osd_msg .. o.keybinds_seperator .. get_slot_keybind(tonumber(arr_contents[#arr_contents - i].found_slot))
-		end
-		
-		if arr_contents[#arr_contents - i].found_group then
-			osd_msg = osd_msg .. o.groups_seperator .. get_group_properties(tonumber(arr_contents[#arr_contents - i].found_group)).name
-		end
-		
+
 		osd_msg = osd_msg .. '\\h\\N\\N' .. osd_msg_end
-		
+
 		if i == list_start + o.list_show_amount - 1 and not showall and not showrest then
 			osd_msg = osd_msg .. o.list_sliced_suffix
 		end
@@ -1107,7 +1224,6 @@ function list_empty_error_msg()
 end
 
 function display_list(filter, sort, action)
-	--if not filter or not has_value(available_filters, filter) then filter = 'all' end --1.3#temp: remove available_filters
 	if not filter then filter = 'all' end
 	if not sortName then sortName = get_list_sort(filter) end
 	
@@ -1215,13 +1331,13 @@ function select(pos, action)
 					for i = pos, 1, -1 do
 						if not has_value(list_highlight_cursor, list_cursor-i, 1) then
 							table.insert(list_highlight_cursor, {list_cursor-i, osd_log_contents[#osd_log_contents+1+i - list_cursor]})
-						end 
+						end
 					end
 				else
 					for i = pos, -1, 1 do
 						if not has_value(list_highlight_cursor, list_cursor-i, 1) then
 							table.insert(list_highlight_cursor, {list_cursor-i, osd_log_contents[#osd_log_contents+1+i - list_cursor]})
-						end 
+						end
 					end
 				end
 				table.insert(list_highlight_cursor, {list_cursor, osd_log_contents[#osd_log_contents+1 - list_cursor]})
@@ -1260,7 +1376,7 @@ function select(pos, action)
 		end
 	end
 	
-	draw_list(osd_log_contents)--1.3# passed table
+	draw_list(osd_log_contents)
 end
 
 function list_move_up(action)
@@ -1360,6 +1476,7 @@ function load(list_cursor, add_playlist, target_time)
 		seekTime = target_time
 	end
 	if file_exists(osd_log_contents[#osd_log_contents - list_cursor + 1].found_path) or starts_protocol(protocols, osd_log_contents[#osd_log_contents - list_cursor + 1].found_path) then
+		local list_filename, list_filepath, list_filetitle = get_local_names(osd_log_contents[#osd_log_contents - list_cursor + 1]) --1.3# use the name that automatically falls back instead for osd printing or msg (solves the issue that causes concatinating found_name to crash because it sometimes doesn't exist due to parsing changes)
 		if not add_playlist then
 			if filePath ~= osd_log_contents[#osd_log_contents - list_cursor + 1].found_path then
 				mp.commandv('loadfile', osd_log_contents[#osd_log_contents - list_cursor + 1].found_path)
@@ -1369,19 +1486,19 @@ function load(list_cursor, add_playlist, target_time)
 				list_close_and_trash_collection()
 			end
 			if o.osd_messages == true then
-				mp.osd_message('Loaded:\n' .. osd_log_contents[#osd_log_contents - list_cursor + 1].found_name.. o.time_seperator .. format_time(seekTime, o.osd_time_format[3], o.osd_time_format[2], o.osd_time_format[1]))
+				mp.osd_message('Loaded:\n' .. list_filename.. ' 🕒 ' .. format_time(seekTime, o.osd_time_format[3], o.osd_time_format[2], o.osd_time_format[1]))
 			end
-			msg.info('Loaded the below file:\n' .. osd_log_contents[#osd_log_contents - list_cursor + 1].found_name  .. ' | '.. format_time(seekTime))
+			msg.info('Loaded the below file:\n' .. list_filename  .. ' | '.. format_time(seekTime))
 		else
 			mp.commandv('loadfile', osd_log_contents[#osd_log_contents - list_cursor + 1].found_path, 'append-play')
 			if o.osd_messages == true then
-				mp.osd_message('Added into Playlist:\n'..osd_log_contents[#osd_log_contents - list_cursor + 1].found_name..' ')
+				mp.osd_message('Added into Playlist:\n'..list_filename..' ')
 			end
-			msg.info('Added the below file into playlist:\n' .. osd_log_contents[#osd_log_contents - list_cursor + 1].found_path)
+			msg.info('Added the below file into playlist:\n' .. list_filepath)
 		end
 	else
 		if o.osd_messages == true then
-			mp.osd_message('File Doesn\'t Exist:\n' .. osd_log_contents[#osd_log_contents - list_cursor + 1].found_path)
+			mp.osd_message('File Doesn\'t Exist:\n' .. osd_log_contents[#osd_log_contents - list_cursor + 1].found_path) --1.3# cant use the list_filepath because file doesn't exist so it returns nil
 		end
 		msg.info('The file below doesn\'t seem to exist:\n' .. osd_log_contents[#osd_log_contents - list_cursor + 1].found_path)
 		return
@@ -1521,7 +1638,7 @@ end
 
 function delete_log_entry_highlighted()
 	if not list_highlight_cursor or not list_highlight_cursor[1] then return end
-	local temp_log_contents = read_log_table() --1.3# changed it so that it doesn't update the global variable
+	local temp_log_contents = read_log_table()
 	if not temp_log_contents or not temp_log_contents[1] then return end
 	
 	local log_contents_length = #temp_log_contents
@@ -1570,9 +1687,9 @@ function list_delete(action)
 		delete_log_entry_highlighted()
 	end
 	get_osd_log_contents()
-	if #osd_log_contents == 0 then --1.3# instead of closing list, if the content is filtered, it will instead go to 'all'. Otherwise it will close like before
+	if #osd_log_contents == 0 then
 		display_list('all')
-		select(0) --1.3# instead of return do select(0) to avoid issue when deleting last item
+		select(0)
 	elseif list_cursor < #osd_log_contents + 1 then
 		select(0)
 	else
@@ -1749,7 +1866,7 @@ function get_list_keybinds()
 		if not o.groups_list_and_keybind[i][2] then break end
 		mp.add_forced_key_binding(o.groups_list_and_keybind[i][2], 'group-add-'..i, function()group_add(i)end)
 	end
-	for i = 1, #o.groups_list_and_keybind do --1.3# bind keys to add highlighted items to group
+	for i = 1, #o.groups_list_and_keybind do
 		if not o.groups_list_and_keybind[i][3] then break end
 		mp.add_forced_key_binding(o.groups_list_and_keybind[i][3], 'group-add-highlight-'..i, function()group_add(i, 'highlight')end)
 	end
@@ -1828,7 +1945,7 @@ function unbind_list_keys()
 	unbind_keys(o.keybinds_remove_keybind, 'keybind-slot-remove-highlight')
 	
 	unbind_keys(o.list_group_add_cycle_keybind, 'group-add-cycle')
-	unbind_keys(o.list_group_add_cycle_highlighted_keybind, 'group-add-cycle-highlight') --1.3#unbind group cycle
+	unbind_keys(o.list_group_add_cycle_highlighted_keybind, 'group-add-cycle-highlight')
 	unbind_keys(o.list_groups_remove_keybind, 'group-remove')
 	unbind_keys(o.list_groups_remove_highlighted_keybind, 'group-remove-highlight')
 	
@@ -1836,7 +1953,7 @@ function unbind_list_keys()
 		if not o.groups_list_and_keybind[i][2] then break end
 		mp.remove_key_binding('group-add-'..i)
 	end
-	for i = 1, #o.groups_list_and_keybind do --1.3# unbind keys to add highlighted items to group
+	for i = 1, #o.groups_list_and_keybind do
 		if not o.groups_list_and_keybind[i][3] then break end
 		mp.remove_key_binding('group-add-highlight-'..i)
 	end
@@ -2200,8 +2317,8 @@ end
 --Modify Additional Log Parameters--
 function remove_all_additional_log_entry(index, log_text)
 	if not index or not log_text then return end
-	local temp_log_contents = read_log_table() --1.3# fixes critical issue that caused search or filter to save their changes
-	if not temp_log_contents or not temp_log_contents[1] then return end --1.3# return if log is empty
+	local temp_log_contents = read_log_table()
+	if not temp_log_contents or not temp_log_contents[1] then return end
 
 	for i = #temp_log_contents, 1, -1 do
 		if temp_log_contents[i].found_line:find(log_text..index) then
@@ -2221,10 +2338,10 @@ end
 function remove_additional_log_entry(index, target, log_text)
 	if not index or not target or not log_text then return msg.error('remove_additional_log_entry parameters not defined') end
 	if not osd_log_contents or not osd_log_contents[1] then return end
-	local temp_log_contents = read_log_table() --1.3# fixes critical issue that caused search or filter to save their changes
-	if not temp_log_contents or not temp_log_contents[1] then return end --1.3# return if log is empty
+	local temp_log_contents = read_log_table()
+	if not temp_log_contents or not temp_log_contents[1] then return end
 	
-	local log_index = osd_log_contents[target].found_sequence --1.3# finds the log_index that needs modification. No need for loop anymore
+	local log_index = osd_log_contents[target].found_sequence
 
 	if temp_log_contents[log_index].found_line:find(log_text..index) then
 		temp_log_contents[log_index].found_line = string.gsub(temp_log_contents[log_index].found_line, ' | '..log_text..index, "")
@@ -2241,12 +2358,12 @@ function remove_additional_log_entry(index, target, log_text)
 	f:close()
 end
 
-function add_additional_log_entry(index, target, log_text) --1.3# migrated to the new method using target just like remove_additional_log_entry to fix critical bug
+function add_additional_log_entry(index, target, log_text)
 	if not index or not target or not log_text then return msg.error('add_additional_log_entry parameters not defined') end
 	if not osd_log_contents or not osd_log_contents[1] then return end
-	local temp_log_contents = read_log_table() --1.3# fixes critical issue that caused search or filter to save their changes
-	if not temp_log_contents or not temp_log_contents[1] then return end --1.3# return if log is empty
-	local log_index = osd_log_contents[target].found_sequence --1.3# finds the log_index that needs modification. No need for loop anymore
+	local temp_log_contents = read_log_table()
+	if not temp_log_contents or not temp_log_contents[1] then return end
+	local log_index = osd_log_contents[target].found_sequence
 
 	if temp_log_contents[log_index].found_line then
 		if temp_log_contents[log_index].found_line:sub(-1) ~= ' ' then
@@ -2308,9 +2425,9 @@ function list_slot_add(index)
 	if not osd_log_contents or not osd_log_contents[1] then return end
 	if not index then return end
 	
-	local cursor_filetitle = osd_log_contents[#osd_log_contents - list_cursor + 1].found_name
+	local cursor_filename, cursor_filepath, cursor_filetitle = get_local_names(osd_log_contents[#osd_log_contents - list_cursor + 1]) --1.2.4# added the new name calling method to fix issue of unable to add urls into groups or slots
 	local cursor_seektime = tonumber(osd_log_contents[#osd_log_contents - list_cursor + 1].found_time)
-	if not cursor_filetitle or not cursor_seektime then
+	if not cursor_filename or not cursor_seektime then
 		msg.info("Failed to add slot")
 		return
 	end
@@ -2322,8 +2439,8 @@ function list_slot_add(index)
 	end
 	
 	list_slot_remove(index, 'silent')
-	add_additional_log_entry(index, #osd_log_contents-list_cursor+1, log_keybind_text)--1.3# added target since there is no loop anymore
-	msg.info('Added Keybind:\n' .. cursor_filetitle .. o.time_seperator .. format_time(cursor_seektime) .. o.keybinds_seperator .. get_slot_keybind(index))
+	add_additional_log_entry(index, #osd_log_contents-list_cursor+1, log_keybind_text)
+	msg.info('Added Keybind:\n' .. cursor_filetitle .. ' 🕒 ' .. format_time(cursor_seektime) .. ' ⌨ ' .. get_slot_keybind(index))
 end
 
 function slot_remove(action)
@@ -2333,7 +2450,7 @@ function slot_remove(action)
 		list_slot_remove_highlighted()
 	end
 	get_osd_log_contents()
-	if #osd_log_contents == 0 then --1.3# instead of closing list, if the content is filtered, it will instead go to 'all'. Otherwise it will close like before
+	if #osd_log_contents == 0 then
 		display_list('all')
 		return
 	elseif list_cursor ~= #osd_log_contents + 1 then
@@ -2399,24 +2516,24 @@ function list_group_add(index)
 	if not osd_log_contents or not osd_log_contents[1] then return end
 	if not index then return end
 	
-	local cursor_filetitle = osd_log_contents[#osd_log_contents - list_cursor + 1].found_name
+	local cursor_filename, cursor_filepath, cursor_filetitle = get_local_names(osd_log_contents[#osd_log_contents - list_cursor + 1]) --1.2.4# added the new name calling method to fix issue of unable to add urls into groups or slots
 	local cursor_seektime = tonumber(osd_log_contents[#osd_log_contents - list_cursor + 1].found_time)
-	if not cursor_filetitle or not cursor_seektime then
+	if not cursor_filename or not cursor_seektime then
 		msg.info("Failed to add group")
 		return
 	end
 	
 	list_group_remove('silent')
-	add_additional_log_entry(index, #osd_log_contents-list_cursor+1, log_group_text)--1.3# added target since there is no loop anymore
-	msg.info('Added Group:\n' .. cursor_filetitle .. o.time_seperator .. format_time(cursor_seektime) .. o.groups_seperator .. get_group_properties(index).name)
+	add_additional_log_entry(index, #osd_log_contents-list_cursor+1, log_group_text)
+	msg.info('Added Group:\n' .. cursor_filename .. ' 🕒 ' .. format_time(cursor_seektime) .. ' 🖿 ' .. get_group_properties(index).name)
 end
 
-function list_group_add_highlighted(index) --1.3# add all highlighted items to specified group based on index
+function list_group_add_highlighted(index)
 	if not list_drawn then return end
 	if not list_highlight_cursor or not list_highlight_cursor[1] then return end
 	if not osd_log_contents or not osd_log_contents[1] then return end
-	if not index then return end --1.3# 
-	list_group_remove_highlighted() --1.3# remove highlighted groups if they are available
+	if not index then return end
+	list_group_remove_highlighted()
 	
 	for i = 1, #osd_log_contents do
 		for j=1, #list_highlight_cursor do
@@ -2440,7 +2557,7 @@ function list_group_add_cycle(action)
 		next_index = 1
 	end
 	
-	if not action then --1.3# add option for highlight
+	if not action then
 		group_add(next_index)
 	elseif action == 'highlight' then
 		group_add(next_index, action)
@@ -2454,7 +2571,7 @@ function group_remove(action)
 		list_group_remove_highlighted()
 	end
 	get_osd_log_contents()
-	if #osd_log_contents == 0 then --1.3# instead of closing list, if the content is filtered, it will instead go to 'all'. Otherwise it will close like before
+	if #osd_log_contents == 0 then
 		display_list('all')
 		return
 	elseif list_cursor ~= #osd_log_contents + 1 then
@@ -2530,15 +2647,15 @@ function write_log(target_time, key_index, update_seekTime, entry_limit)
 	if key_index then
 		remove_all_additional_log_entry(key_index, log_keybind_text)
 	end
-	local f = io.open(log_fullpath, "a+")
+	local f = io.open(log_fullpath, "a+")--1.3# dont allow customization to date_format so it can be saved in a standard in which I can parse for search results, etc..
 	if o.file_title_logging == 'all' then
-		f:write(("[%s] \"%s\" | %s | %s | %s | "):format(os.date(o.date_format), fileTitle, filePath, log_length_text .. tostring(fileLength), log_time_text .. tostring(seekTime)))
-	elseif o.file_title_logging == 'protocols' and (starts_protocol(o.logging_protocols, filePath)) then
-		f:write(("[%s] \"%s\" | %s | %s | %s | "):format(os.date(o.date_format), fileTitle, filePath, log_length_text .. tostring(fileLength), log_time_text .. tostring(seekTime)))
+		f:write(("[%s] \"%s\" | %s | %s | %s | "):format(os.date("%Y-%m-%dT%H:%M:%S"), fileTitle, filePath, log_length_text .. tostring(fileLength), log_time_text .. tostring(seekTime)))
+	elseif o.file_title_logging == 'protocols' and (starts_protocol(o.logging_protocols, filePath))  or o.file_title_logging == 'local' and not (starts_protocol(o.logging_protocols, filePath)) then --1.3# added file_title_logging for local
+		f:write(("[%s] \"%s\" | %s | %s | %s | "):format(os.date("%Y-%m-%dT%H:%M:%S"), fileTitle, filePath, log_length_text .. tostring(fileLength), log_time_text .. tostring(seekTime)))
 	elseif o.file_title_logging == 'protocols' and not (starts_protocol(o.logging_protocols, filePath)) then
-		f:write(("[%s] %s | %s | %s | "):format(os.date(o.date_format), filePath, log_length_text .. tostring(fileLength), log_time_text .. tostring(seekTime)))
+		f:write(("[%s] %s | %s | %s | "):format(os.date("%Y-%m-%dT%H:%M:%S"), filePath, log_length_text .. tostring(fileLength), log_time_text .. tostring(seekTime)))
 	else
-		f:write(("[%s] %s | %s | %s | "):format(os.date(o.date_format), filePath, log_length_text .. tostring(fileLength), log_time_text .. tostring(seekTime)))
+		f:write(("[%s] %s | %s | %s | "):format(os.date("%Y-%m-%dT%H:%M:%S"), filePath, log_length_text .. tostring(fileLength), log_time_text .. tostring(seekTime)))
 	end
 	if key_index then
 		f:write(' | ' .. log_keybind_text .. key_index)
@@ -2587,14 +2704,14 @@ function add_load_slot(key_index)
 					end
 					if o.keybinds_auto_resume then
 						if o.osd_messages == true then
-							mp.osd_message('Loaded slot:' .. o.keybinds_seperator .. get_slot_keybind(key_index) .. '\n' .. list_filetitle .. o.time_seperator .. format_time(list_seektime, o.osd_time_format[3], o.osd_time_format[2], o.osd_time_format[1]))
+							mp.osd_message('Loaded slot:' .. ' ⌨ ' .. get_slot_keybind(key_index) .. '\n' .. list_filetitle .. ' 🕒 ' .. format_time(list_seektime, o.osd_time_format[3], o.osd_time_format[2], o.osd_time_format[1]))
 						end
-						msg.info('Loaded slot:' .. o.keybinds_seperator .. get_slot_keybind(key_index) .. '\n' .. list_filetitle .. o.time_seperator .. format_time(list_seektime))						
+						msg.info('Loaded slot:' .. ' ⌨ ' .. get_slot_keybind(key_index) .. '\n' .. list_filetitle .. ' 🕒 ' .. format_time(list_seektime))						
 					else
 						if o.osd_messages == true then
-							mp.osd_message('Loaded slot:' .. o.keybinds_seperator .. get_slot_keybind(key_index) .. '\n' .. list_filetitle)
+							mp.osd_message('Loaded slot:' .. ' ⌨ ' .. get_slot_keybind(key_index) .. '\n' .. list_filetitle)
 						end
-						msg.info('Loaded slot:' .. o.keybinds_seperator .. get_slot_keybind(key_index) .. '\n' .. list_filetitle)																	
+						msg.info('Loaded slot:' .. ' ⌨ ' .. get_slot_keybind(key_index) .. '\n' .. list_filetitle)																	
 					end
 				else
 					if o.osd_messages == true then
@@ -2612,9 +2729,9 @@ function add_load_slot(key_index)
 							write_log(false, key_index)
 						end
 						if o.osd_messages == true then
-							mp.osd_message('Bookmarked & Added Keybind:\n' .. fileTitle .. o.time_seperator .. format_time(mp.get_property_number('time-pos'), o.osd_time_format[3], o.osd_time_format[2], o.osd_time_format[1]) .. o.keybinds_seperator .. get_slot_keybind(key_index))
+							mp.osd_message('Bookmarked & Added Keybind:\n' .. fileTitle .. ' 🕒 ' .. format_time(mp.get_property_number('time-pos'), o.osd_time_format[3], o.osd_time_format[2], o.osd_time_format[1]) .. ' ⌨ ' .. get_slot_keybind(key_index))
 						end
-						msg.info('Bookmarked the below & added keybind:\n' .. fileTitle .. o.time_seperator .. format_time(mp.get_property_number('time-pos')) .. o.keybinds_seperator .. get_slot_keybind(key_index))
+						msg.info('Bookmarked the below & added keybind:\n' .. fileTitle .. ' 🕒 ' .. format_time(mp.get_property_number('time-pos')) .. ' ⌨ ' .. get_slot_keybind(key_index))
 					else
 						if o.osd_messages == true then
 							mp.osd_message('Failed to Bookmark & Auto Create Keybind\nNo Video Found')
@@ -2623,16 +2740,16 @@ function add_load_slot(key_index)
 					end
 				else
 					if o.osd_messages == true then
-						mp.osd_message('No Bookmark Slot For' .. o.keybinds_seperator .. get_slot_keybind(key_index) .. ' Yet')
+						mp.osd_message('No Bookmark Slot For' .. ' ⌨ ' .. get_slot_keybind(key_index) .. ' Yet')
 					end
-					msg.info('No bookmark slot has been assigned for' .. o.keybinds_seperator .. get_slot_keybind(key_index) .. ' keybind yet')
+					msg.info('No bookmark slot has been assigned for' .. ' ⌨ ' .. get_slot_keybind(key_index) .. ' keybind yet')
 				end
 			end
 		else
 			if o.osd_messages == true then
-				mp.osd_message('No Bookmark Slot For' .. o.keybinds_seperator .. get_slot_keybind(key_index) .. ' Yet')
+				mp.osd_message('No Bookmark Slot For' .. ' ⌨ ' .. get_slot_keybind(key_index) .. ' Yet')
 			end
-			msg.info('No bookmark slot has been assigned for' .. o.keybinds_seperator .. get_slot_keybind(key_index) .. ' keybind yet')
+			msg.info('No bookmark slot has been assigned for' .. ' ⌨ ' .. get_slot_keybind(key_index) .. ' keybind yet')
 		end
 	end
 end
@@ -2647,15 +2764,15 @@ function quicksave_slot(key_index)
 			if o.keybinds_quicksave_fileonly then
 				write_log(0, key_index)
 				if o.osd_messages == true then
-					mp.osd_message('Bookmarked Fileonly & Added Keybind:\n' .. fileTitle .. o.keybinds_seperator .. get_slot_keybind(key_index))
+					mp.osd_message('Bookmarked Fileonly & Added Keybind:\n' .. fileTitle .. ' ⌨ ' .. get_slot_keybind(key_index))
 				end
-				msg.info('Bookmarked the below & added keybind:\n' .. fileTitle .. o.keybinds_seperator .. get_slot_keybind(key_index))
+				msg.info('Bookmarked the below & added keybind:\n' .. fileTitle .. ' ⌨ ' .. get_slot_keybind(key_index))
 			else
 				write_log(false, key_index, true)
 				if o.osd_messages == true then
-					mp.osd_message('Bookmarked & Added Keybind:\n' .. fileTitle .. o.time_seperator .. format_time(seekTime, o.osd_time_format[3], o.osd_time_format[2], o.osd_time_format[1]) .. o.keybinds_seperator .. get_slot_keybind(key_index))
+					mp.osd_message('Bookmarked & Added Keybind:\n' .. fileTitle .. ' 🕒 ' .. format_time(seekTime, o.osd_time_format[3], o.osd_time_format[2], o.osd_time_format[1]) .. ' ⌨ ' .. get_slot_keybind(key_index))
 				end
-				msg.info('Bookmarked the below & added keybind:\n' .. fileTitle .. o.time_seperator .. format_time(seekTime) .. o.keybinds_seperator .. get_slot_keybind(key_index))
+				msg.info('Bookmarked the below & added keybind:\n' .. fileTitle .. ' 🕒 ' .. format_time(seekTime) .. ' ⌨ ' .. get_slot_keybind(key_index))
 			end
 		else
 			if o.osd_messages == true then
@@ -2674,9 +2791,9 @@ function bookmark_save()
 			select(0)
 		end
 		if o.osd_messages == true then
-			mp.osd_message('Bookmarked:\n' .. fileTitle .. o.time_seperator .. format_time(seekTime, o.osd_time_format[3], o.osd_time_format[2], o.osd_time_format[1]))
+			mp.osd_message('Bookmarked:\n' .. fileTitle .. ' 🕒 ' .. format_time(seekTime, o.osd_time_format[3], o.osd_time_format[2], o.osd_time_format[1]))
 		end
-		msg.info('Added the below to bookmarks\n' .. fileTitle .. o.time_seperator .. format_time(seekTime))
+		msg.info('Added the below to bookmarks\n' .. fileTitle .. ' 🕒 ' .. format_time(seekTime))
 	elseif filePath == nil and o.bookmark_loads_last_idle then
 		osd_log_contents = read_log_table()
 		load(1)
@@ -2721,7 +2838,6 @@ mp.register_event('file-loaded', function()
 end)
 
 mp.observe_property("idle-active", "bool", function(_, v)
-	--if v and has_value(available_filters, o.auto_run_list_idle) then--1.3#temp: remove available_filters
 	if v and o.auto_run_list_idle ~= 'none' then
 		display_list(o.auto_run_list_idle, nil, 'hide-osd')
 	end

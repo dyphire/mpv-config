@@ -23,6 +23,22 @@ local o = {
     -- header of the list
     -- %cursor% and %total% to be used to display the cursor position and the total number of lists
     header = "Edition List [%cursor%/%total%]\\N ------------------------------------",
+    --list ass style overrides inside curly brackets
+    --these styles will be used for the whole list. so you need to reset them for every line
+    --read http://docs.aegisub.org/3.2/ASS_Tags/ for reference of tags
+    global_style = [[]],
+    header_style = [[{\q2\fs35\c&00ccff&}]],
+    list_style = [[{\q2\fs25\c&Hffffff&}]],
+    wrapper_style = [[{\c&00ccff&\fs16}]],
+    cursor_style = [[{\c&00ccff&}]],
+    selected_style = [[{\c&Hfce788&}]],
+    active_style = [[{\c&H33ff66&}]],
+    cursor = [[➤\h]],
+    indent = [[\h\h\h\h]],
+    --amount of entries to show before slicing. Optimal value depends on font/video size etc.
+    num_entries = 16,
+    --slice long filenames, and how many chars to show
+    slice_longfilenames_amount = 100,
     -- wrap the cursor around the top and bottom of the list
     wrap = true,
     -- reset cursor navigation when open the list
@@ -101,7 +117,16 @@ end
 --modifying the list settings
 local original_open = list.open
 list.header = o.header
+list.cursor = o.cursor
+list.indent = o.indent
 list.wrap = o.wrap
+list.num_entries = o.num_entries
+list.global_style = o.global_style
+list.header_style = o.header_style
+list.list_style = o.list_style
+list.wrapper_style = o.wrapper_style
+list.cursor_style = o.cursor_style
+list.selected_style = o.selected_style
 
 --escape header specifies the format
 --display the cursor position and the total number of lists in the header
@@ -113,22 +138,27 @@ function list:format_header_string(str)
 end
 
 --update the list when the current edition changes
-mp.observe_property('current-edition', 'number', function(_, curr_edition)
+function edition_list(curr_edition)
     list.list = {}
     local edition_list = mp.get_property_native('edition-list', {})
     for i = 1, #edition_list do
         local item = {}
+        local title = edition_list[i].title
+        if not title then title = "Edition " .. string.format("%02.f", i) end
+        if title and title:len() > o.slice_longfilenames_amount + 5 then
+            title = title:sub(1, o.slice_longfilenames_amount) .. " ..."
+        end
         if (i - 1 == curr_edition) then
             list.selected = curr_edition + 1
-            item.style = [[{\c&H33ff66&}]]
-            item.ass = "● " .. (edition_list[i].title and list.ass_escape(edition_list[i].title) or "Edition " .. string.format("%02.f", i))
+            item.style = o.active_style
+            item.ass = "● " .. list.ass_escape(title)
         else
-            item.ass = "○ " .. (edition_list[i].title and list.ass_escape(edition_list[i].title) or "Edition " .. string.format("%02.f", i))
+            item.ass = "○ " .. list.ass_escape(title)
         end
         list.list[i] = item
     end
     list:update()
-end)
+end
 
 --jump to the selected edition
 local function select_edition()
@@ -174,6 +204,9 @@ add_keys(o.key_close_browser, 'close_browser', function() list:close() end, {})
 
 mp.register_script_message("toggle-edition-browser", function() list:toggle() end)
 
-mp.observe_property('current-edition', nil, editionChanged)
+mp.observe_property('current-edition', 'number', function(_, curr_edition)
+    editionChanged()
+    edition_list(curr_edition)
+end)
 
 mp.register_event('file-loaded', main)

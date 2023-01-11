@@ -66,6 +66,7 @@ function hideOverlays() {
   hideOverlay("playlist-overlay");
   hideOverlay("shortcuts-overlay");
   hideOverlay("settings-overlay");
+  hideOverlay("uri-loader-overlay");
 }
 
 function createPlaylistTable(entry, position, pause, first) {
