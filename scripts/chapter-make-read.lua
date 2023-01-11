@@ -1,5 +1,5 @@
 --[[
-  * chapter-make-read.lua v.2022-11-5
+  * chapter-make-read.lua v.2022-12-02
   *
   * AUTHORS: dyphire
   * License: MIT
@@ -20,7 +20,7 @@
 --]]
 
 -- This script also supports marks and creates external chapter files, usage:
--- Note: It can also be used to export the existing chapter information of the playing file.
+-- Note: It can also be used to export the existing chapter information of the playback file.
 -- add bindings to input.conf:
 -- key script-message-to chapter_make_read create_chapter
 -- key script-message-to chapter_make_read write_chapter
@@ -34,13 +34,53 @@ local o = {
     read_external_chapter = true,
     -- Specifies the extension of the external chapter file.
     chapter_flie_ext = "_chapter.chp",
-    -- Specifies the subpath of the same directory as the playing file as the external chapter file path.
+    -- Specifies the subpath of the same directory as the playback file as the external chapter file path.
     -- Note: The external chapter file is read from the subdirectory first.
-    -- If the file does not exist, it will next be read from the same directory as the playing file.
+    -- If the file does not exist, it will next be read from the same directory as the playback file.
     external_chapter_subpath = "chapters",
+    -- Specifies the path of the external chapter file for the network playback file.
+    network_chap_dir = "~~/chapters",
 }
 
 (require 'mp.options').read_options(o)
+
+local function is_protocol(path)
+    return type(path) == 'string' and (path:match('^%a[%a%d-_]+://') ~= nil or path:match('^%a[%a%d-_]+:\\?') ~= nil)
+end
+
+function str_decode(str)
+    local function hex_to_char(x)
+        return string.char(tonumber(x, 16))
+    end
+
+    if str ~= nil then
+        str = str:gsub('^%a[%a%d-_]+://', '')
+        str = str:gsub('^%a[%a%d-_]+:\\?', '')
+        str = str:gsub('%%(%x%x)', hex_to_char)
+        if str:match('://localhost:?') then
+            str = str:gsub('^.*/', '')
+        end
+        str = str:gsub('[\\/:%?]*', '')
+        return str
+    else
+        return
+    end
+end
+
+--create network_chap_dir if it doesn't exist
+network_chap_dir = mp.command_native({ "expand-path", o.network_chap_dir })
+if utils.readdir(network_chap_dir) == nil then
+    local is_windows = package.config:sub(1, 1) == "\\"
+    local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', network_chap_dir }
+    local unix_args = { 'mkdir', '-p', network_chap_dir }
+    local args = is_windows and windows_args or unix_args
+    local res = mp.command_native({ name = "subprocess", capture_stdout = true, playback_only = false, args = args })
+    if res.status ~= 0 then
+        msg.error("Failed to create network_chap_dir save directory " .. network_chap_dir ..
+            ". Error: " .. (res.error or "unknown"))
+        return
+    end
+end
 
 local function read_chapter(func)
     local f = io.open(chapter_fullpath, "r")
@@ -90,13 +130,19 @@ local function mark_chapter()
     local chapters_title = {}
     local path = mp.get_property("path")
     local dir, filename = utils.split_path(path)
-    local fname = mp.get_property("filename/no-ext")
-    local chapter_fliename = fname .. o.chapter_flie_ext
+    local fname = str_decode(mp.get_property("filename/no-ext"))
+    if is_protocol(path) or utils.readdir(dir) == nil then
+        dir = network_chap_dir
+        fname = str_decode(mp.get_property("media-title"))
+    end
     local fpath = dir
-    if o.external_chapter_subpath ~= '' then fpath = dir .. o.external_chapter_subpath end
+    local chapter_fliename = fname .. o.chapter_flie_ext
+    if o.external_chapter_subpath ~= '' and not is_protocol(path) then
+        fpath = utils.join_path(dir, o.external_chapter_subpath)
+    end
     chapter_fullpath = utils.join_path(fpath, chapter_fliename)
     if io.open(chapter_fullpath, "r") == nil then
-        chapter_fullpath = dir .. chapter_fliename
+        chapter_fullpath = utils.join_path(dir, chapter_fliename)
     end
     list_contents = read_chapter_table()
 
@@ -194,13 +240,14 @@ local function write_chapter()
     local chapters = insert_chapters
 
     local path = mp.get_property("path")
-    dir, name_ext = utils.split_path(path)
-    local name = string.sub(name_ext, 1, (string.len(name_ext) - 4))
+    local dir, name_ext = utils.split_path(path)
+    local name = str_decode(mp.get_property("filename/no-ext"))
     local out_path = utils.join_path(dir, name .. o.chapter_flie_ext)
     local file = io.open(out_path, "w")
     if file == nil then
-        dir = utils.getcwd()
-        out_path = utils.join_path(dir, "create" .. o.chapter_flie_ext)
+        dir = network_chap_dir
+        name = str_decode(mp.get_property("media-title"))
+        out_path = utils.join_path(dir, name .. o.chapter_flie_ext)
         file = io.open(out_path, "w")
     end
     if file == nil then
@@ -245,13 +292,14 @@ local function write_chapter_xml()
         .. euid .. "</EditionUID>\n" .. insert_chapters .. "  </EditionEntry>\n</Chapters>"
 
     local path = mp.get_property("path")
-    dir, name_ext = utils.split_path(path)
-    local name = string.sub(name_ext, 1, (string.len(name_ext) - 4))
+    local dir, name_ext = utils.split_path(path)
+    local name = str_decode(mp.get_property("filename/no-ext"))
     local out_path = utils.join_path(dir, name .. "_chapter.xml")
     local file = io.open(out_path, "w")
     if file == nil then
-        dir = utils.getcwd()
-        out_path = utils.join_path(dir, "create_chapter.xml")
+        dir = network_chap_dir
+        name = str_decode(mp.get_property("media-title"))
+        out_path = utils.join_path(dir, name .. "_chapter.xml")
         file = io.open(out_path, "w")
     end
     if file == nil then

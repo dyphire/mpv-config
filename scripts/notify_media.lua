@@ -206,7 +206,9 @@ function notify_metadata_updated()
     path = encode_element(path)
 
     shot_path = o.shot_path .. "\\" .. pid .. ".jpg"
-    save_shot(shot_path)
+    if mp.get_property("video-codec") and not mp.get_property_native("current-tracks/video/image") then
+        save_shot(shot_path)
+    end
 
     message_content = "^[setFile](pid=" .. pid .. ")(title=" .. title .. ")(artist=" .. artist .. ")(path=" .. path .. ")(type=" .. media_type() .. ")$"
     write_to_socket(message_content)

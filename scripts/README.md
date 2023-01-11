@@ -17,15 +17,15 @@
 | chapter-make-read.lua* | 标记/制作/自动读取并加载外部章节文件（配置文件 [chapter_make_read.conf](../script-opts/chapter_make_read.conf)） |
 | chapter-list.lua* | OSD 交互式章节菜单（依赖 [scroll-list.lua](../script-modules/scroll-list.lua)） |
 | chapterskip.lua* | 可实现自动跳过指定章节（配置文件 [chapterskip.conf](../script-opts/chapterskip.conf)） |
-| copy_subortime.lua* | 复制当前字幕内容或播放时间 |
+| copyStuff.lua* | 选择复制当前文件信息（源自：[0xR3V/mpv-copyStuff](https://github.com/0xR3V/mpv-copyStuff)） |
 | cycle-commands.lua | 快捷键循环切换命令，使用方法见脚本内说明 |
-| delete-current-file.lua | 删除当前播放文件（windows 可在回收站恢复） |
-| display-profiles.lua | 实现 mpv 窗口按显示器自动切换参数及配置文件，详见脚本内说明（配置文件 [display_profiles.conf](../script-opts/display_profiles.conf)） |
+| delete-current-file.lua* | 删除当前播放文件（windows 可在回收站恢复） |
+| display-name.lua | 实现 mpv 窗口按显示器名称自动切换参数及配置文件，详见脚本内说明（依赖 MultiMonitorTool.exe） |
 | drcbox.lua*   | 使用并调整 dynaudnorm 过滤器混音的可视化脚本（配置文件 [drcbox.conf](../script-opts/drcboxp.conf)） |
 | dynamic-crop.lua* | 自动检测可变化黑边并裁切（[autocrop.lua](https://github.com/mpv-player/mpv/blob/master/TOOLS/lua/autocrop.lua) 改进版；配置文件 [dynamic_crop.conf](../script-opts/dynamic_crop.conf)） |
 | edition-list.lua* | OSD 交互式 edition 菜单（如果检测到播放文件存在多个edition则在OSD 上提示; 配置文件 [edition_list.conf](../script-opts/edition_list.conf)） |
 | evafast.lua | 实现比 mpv 内置更高级的倍速功能，遇到字幕（非内嵌）时会减缓速度（配置文件 [evafast.conf](../script-opts/evafast.conf)） |
-| file-browser.lua | OSD 交互式文件浏览器（依赖 [user-input.lua](../scripts/user-input.lua); [user-input-module.lua](../script-modules/user-input-module.lua) ；配置文件 [file_browser.conf](../script-opts/file_browser.conf)） |
+| file-browser.lua* | OSD 交互式文件浏览器（依赖 [user-input.lua](../scripts/user-input.lua); [user-input-module.lua](../script-modules/user-input-module.lua) ；配置文件 [file_browser.conf](../script-opts/file_browser.conf)） |
 | fix-avsync.lua* | 修复存在 af 过滤器时切换音轨和调整播放速度带来的视频冻结 |
 | fuzzydir.lua* | 增强外挂音轨/字幕的路径检测及配置（配置文件 [fuzzydir.conf](../script-opts/fuzzydir.conf)） |
 | history-bookmark.lua* | 记录并恢复视频目录播放记录（可确认是否恢复该目录上次播放进度; 配置文件 [history_bookmark.conf](../script-opts/history_bookmark.conf)） |
@@ -46,6 +46,7 @@
 | skiptosilence.lua | 可实现跳至当前播放文件的下一个静音位置（另类地实现跳 op/ed 的方法；配置文件 [skiptosilence.conf](../script-opts/skiptosilence.conf)） |
 | slicing_copy.lua* | 剪切视频片段（依赖 ffmpeg；配置文件 [slicing_copy.conf](../script-opts/slicing_copy.conf)） |
 | smartcopypaste_II.lua*       | OSD 交互式剪贴菜单，智能复制粘贴视频路径及进度（配置文件 [smartcopypaste_II.conf](../script-opts/smartcopypaste_II.conf)）；动态键位绑定在同名配置文件中 |
+| sponsorblock_minimal.lua* | 跳过 YouTube 视频的赞助片段（依赖 curl；配置文件 [sponsorblock_minimal.conf](../script-opts/sponsorblock_minimal.conf)） |
 | sub_export.lua* | 导出当前视频的内封字幕（依赖 ffmpeg，脚本支持 srt、ass 和 sup 格式的字幕；配置文件 [sub_export.conf](../script-opts/sub_export.conf)） |
 | sub-fonts-dir-auto.lua | 在播放目录下自动查找 fonts 子目录并写入 `sub-fonts-dir` 参数以实现自动加载特定字体路径。**注意**：mpv 必须以包含pr [mpv-player/#9856](https://github.com/mpv-player/mpv/pull/9856) 的版本编译方可使用此脚本，可在此处下载: [Releases · dyphire/mpv-winbuild](https://github.com/dyphire/mpv-winbuild/releases) |
 | sub-select.lua | 指定字幕轨道优先级/黑白名单（配置文件 [sub_select.conf](../script-opts/sub_select.conf)；[sub-select.json](../script-opts/sub-select.json)） |

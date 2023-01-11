@@ -186,7 +186,7 @@
     {
         "key": "Ctrl+r",
         "command": [
-            ["script-message", "windrives/import_root_drives"]
+            ["script-message", "winroot/import_root_drives"]
         ],
         "parser": "root"
     }

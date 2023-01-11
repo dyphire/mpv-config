@@ -43,6 +43,11 @@ local opts = {
     -- set to "current" to download the same quality that is currently playing
     video_format = "",
 
+    -- Remux the video into another container if necessary: "avi", "flv",
+    -- "gif", "mkv", "mov", "mp4", "webm", "aac", "aiff", "alac", "flac",
+    -- "m4a", "mka", "mp3", "ogg", "opus", "vorbis", "wav"
+    remux_video = "",
+
     -- Encode the video to another format if necessary: "mp4", "flv", "ogg", "webm", "mkv", "avi"
     recode_video = "",
 
@@ -402,6 +407,10 @@ local function download(download_type, config_file)
               else
                 table.insert(command, opts.video_format)
               end
+            end
+            if not_empty(opts.remux_video) then
+              table.insert(command, "--remux-video")
+              table.insert(command, opts.remux_video)
             end
             if not_empty(opts.recode_video) then
               table.insert(command, "--recode-video")

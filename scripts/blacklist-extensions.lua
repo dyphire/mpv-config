@@ -45,7 +45,7 @@ function should_remove(filename)
     if string.find(filename, "://") then
         return false
     end
-    local extension = string.match(filename, "%.([^./]+)$")
+    local extension = string.match(filename, "%.([^%.]+)$")
     if not extension and opts.remove_file_without_extension then
         return true
     end

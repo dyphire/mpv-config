@@ -21,12 +21,6 @@
     "dest":"~~/scripts"
   },
   {
-    "git":"https://github.com/stax76/mpv-scripts",
-    "whitelist":"delete%-current%-file%.lua$",
-    "dest":"~~/scripts",
-    "branch":"main"
-  },
-  {
     "git":"https://github.com/snylonue/mpv_slicing_copy",
     "whitelist":"%.lua$",
     "dest":"~~/scripts"
@@ -124,6 +118,11 @@
     "branch":"main"
   },
   {
+    "git":"https://codeberg.org/jouni/mpv_sponsorblock_minimal",
+    "whitelist":"sponsorblock_minimal%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
     "git":"https://github.com/CogentRedTester/mpv-file-browser",
     "whitelist":"file%-browser%.lua$",
     "dest":"~~/scripts"
@@ -145,7 +144,7 @@
   },
   {
     "git":"https://github.com/CogentRedTester/mpv-scripts",
-    "whitelist":"cycle%-commands%.lua$|display%-profiles%.lua$|ordered%-chapters%-playlist%.lua$",
+    "whitelist":"cycle%-commands%.lua$|display%-name%.lua$|ordered%-chapters%-playlist%.lua$",
     "dest":"~~/scripts"
   },
   {

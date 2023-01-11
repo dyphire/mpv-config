@@ -151,10 +151,10 @@ function make_webp_internal(burn_subtitles)
 
     -- make the webp
     local filename = mp.get_property("filename/no-ext")
-    local file_path = output_directory .. "/" .. filename
+    local file_path = utils.join_path(output_directory, filename)
 
     -- increment filename
-    for i=0,999 do
+    for i = 0, 999 do
         local fn = string.format('%s_%03d.webp', file_path, i)
         if not file_exists(fn) then
             webpname = fn

@@ -25,7 +25,7 @@ local options = require "mp.options"
 local o = {
     ffmpeg_path = "ffmpeg",
     -- eng=English, chs=Chinese
-    language = 'eng',
+    language = "eng",
 }
 
 options.read_options(o)
@@ -59,7 +59,7 @@ local function export_selected_subtitles()
                 return
             end
 
-            local video_file = dir .. filename
+            local video_file = utils.join_path(dir, filename)
 
             local subtitles_ext = ".srt"
             if string.match(track_codec, "ass") ~= nil then
@@ -76,7 +76,7 @@ local function export_selected_subtitles()
                 end
             end
 
-            subtitles_file = dir .. fname .. subtitles_ext
+            subtitles_file = utils.join_path(dir, fname .. subtitles_ext)
 
             if o.language == 'chs' then
                 msg.info("正在导出当前字幕")

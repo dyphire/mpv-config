@@ -141,7 +141,7 @@ local function get_segments_metafile(path, fail_silently)
             --if the line is a `<filename>` statement
             else
                 file_uids = {}
-                file_uids.file = join_path(directory, line):gsub("[/\\].[/\\]", "/")
+                file_uids.file = join_path(directory, line):gsub("[/\\]%.[/\\]", "/")
             end
         end
     end
@@ -162,7 +162,7 @@ local function get_segments_filesystem(path)
         local file_ext = file:match("%.(%w+)$")
 
         if file_extensions[file_ext] then
-            file = utils.join_path(directory,file):gsub("[/\\].[/\\]", "/")
+            file = utils.join_path(directory,file):gsub("[/\\]%.[/\\]", "/")
             local uid, prev, next = get_uids(file)
             if uid ~= nil then
                 files_segments[uid] = {
@@ -179,8 +179,8 @@ end
 
 --returns the uids for the specified path from the table
 local function get_uids_from_table(path, uids)
-    path = path:gsub("^./", "")
-    path = path:gsub("\\", "/"):gsub("/./", "/")
+    path = path:gsub("^%./", "")
+    path = path:gsub("\\", "/"):gsub("/%./", "/")
     path = decodeURI(path)
     local in_working = get_directory(path) == WORKING_DIRECTORY
 

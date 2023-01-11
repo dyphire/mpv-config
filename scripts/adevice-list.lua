@@ -1,5 +1,5 @@
 --[[
-    * adevice-list.lua v.2022-10-27
+    * adevice-list.lua v.2022-12-17
     *
     * AUTHORS: dyphire
     * License: MIT
@@ -20,6 +20,20 @@ local o = {
     -- header of the list
     -- %cursor% and %total% to be used to display the cursor position and the total number of lists
     header = "Adevice List [%cursor%/%total%]\\N ------------------------------------",
+    --list ass style overrides inside curly brackets
+    --these styles will be used for the whole list. so you need to reset them for every line
+    --read http://docs.aegisub.org/3.2/ASS_Tags/ for reference of tags
+    global_style = [[]],
+    header_style = [[{\q2\fs35\c&00ccff&}]],
+    list_style = [[{\q2\fs25\c&Hffffff&}]],
+    wrapper_style = [[{\c&00ccff&\fs16}]],
+    cursor_style = [[{\c&00ccff&}]],
+    selected_style = [[{\c&Hfce788&}]],
+    active_style = [[{\c&H33ff66&}]],
+    cursor = [[➤\h]],
+    indent = [[\h\h\h\h]],
+    --amount of entries to show before slicing. Optimal value depends on font/video size etc.
+    num_entries = 16,
     -- wrap the cursor around the top and bottom of the list
     wrap = true,
     -- reset cursor navigation when open the list
@@ -43,7 +57,16 @@ local list = dofile(mp.command_native({ "expand-path", "~~/script-modules/scroll
 --modifying the list settings
 local original_open = list.open
 list.header = o.header
+list.cursor = o.cursor
+list.indent = o.indent
 list.wrap = o.wrap
+list.num_entries = o.num_entries
+list.global_style = o.global_style
+list.header_style = o.header_style
+list.list_style = o.list_style
+list.wrapper_style = o.wrapper_style
+list.cursor_style = o.cursor_style
+list.selected_style = o.selected_style
 
 --escape header specifies the format
 --display the cursor position and the total number of lists in the header
@@ -62,7 +85,7 @@ local function adevice_list()
         local item = {}
         if (i == list.selected) then
             current_name = adeviceList[i].name
-            item.style = [[{\c&H33ff66&}]]
+            item.style = o.active_style
             item.ass = "■ " .. list.ass_escape(adeviceList[i].description)
         else
             item.ass = "□ " .. list.ass_escape(adeviceList[i].description)

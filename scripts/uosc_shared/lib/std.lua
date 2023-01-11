@@ -26,7 +26,6 @@ function url_decode(str)
 	end
 	if str ~= nil then
 		str = str:gsub('^file://', '')
-		str = str:gsub('+', ' ')
 		str = str:gsub('%%(%x%x)', hex_to_char)
 		if str:match('://localhost:?') then
 			str = str:gsub('^.*/', '')
