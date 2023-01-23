@@ -26,7 +26,7 @@
 | edition-list.lua* | OSD 交互式 edition 菜单（如果检测到播放文件存在多个edition则在OSD 上提示; 配置文件 [edition_list.conf](../script-opts/edition_list.conf)） |
 | evafast.lua | 实现比 mpv 内置更高级的倍速功能，遇到字幕（非内嵌）时会减缓速度（配置文件 [evafast.conf](../script-opts/evafast.conf)） |
 | file-browser.lua* | OSD 交互式文件浏览器（依赖 [user-input.lua](../scripts/user-input.lua); [user-input-module.lua](../script-modules/user-input-module.lua) ；配置文件 [file_browser.conf](../script-opts/file_browser.conf)） |
-| fix-avsync.lua* | 修复存在 af 过滤器时切换音轨和调整播放速度带来的视频冻结 |
+| fix-avsync.lua* | 修复切换音轨时伴随的视频冻结卡顿的问题 |
 | fuzzydir.lua* | 增强外挂音轨/字幕的路径检测及配置（配置文件 [fuzzydir.conf](../script-opts/fuzzydir.conf)） |
 | history-bookmark.lua* | 记录并恢复视频目录播放记录（可确认是否恢复该目录上次播放进度; 配置文件 [history_bookmark.conf](../script-opts/history_bookmark.conf)） |
 | inputevent.lua | 可用于增强 input.conf 中的键位绑定功能，具体用法及示例见脚本仓库说明：[InputEvent](https://github.com/Natural-Harmonia-Gropius/InputEvent) |
@@ -62,4 +62,3 @@
    - 本配置绑定的快捷键及功能请参考 [快捷键说明.md](../快捷键说明.md) 文件
 3. 部分脚本存在动态绑定键位，可查看对应脚本及配置文件相关部分（或 [快捷键说明.md](../快捷键说明.md) 中相关说明）
 4. **MPV已知问题**：当 scripts 文件夹内脚本绑定的`mp.add_key_binding`总数超过一定阈值时，会导致 osc.lua 交互功能失效。本配置已针对该问题进行脚本优化
-
