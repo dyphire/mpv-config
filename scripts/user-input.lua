@@ -719,7 +719,7 @@ local function format_request_fields(req)
 
     if req.cursor_pos ~= 1 then
         if req.cursor_pos  < 1 then req.cursor_pos  = 1
-        elseif req.cursor_pos  > #req.default_input then req.cursor_pos  = #req.default_input end
+        elseif req.cursor_pos  > #req.default_input then req.cursor_pos  = #req.default_input + 1 end
     end
 
     if not histories[req.id] then histories[req.id] = {pos = 1, list = {}} end

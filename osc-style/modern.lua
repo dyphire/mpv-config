@@ -41,6 +41,7 @@ local user_opts = {
     volumecontrol = true,       -- whether to show mute button and volumne slider
     processvolume = true,		-- volue slider show processd volume
     language = 'eng',            -- eng=English, chs=Chinese
+    thumbpad = 4,               -- thumbnail border size
 }
 
 -- Localization
@@ -143,7 +144,8 @@ local state = {
 local thumbfast = {
     width = 0,
     height = 0,
-    disabled = false
+    disabled = true,
+    available = false
 }
 
 local window_control_box_width = 138
@@ -663,12 +665,12 @@ function render_elements(master_ass)
                     elem_ass:append(tooltiplabel)
 
                     -- thumbnail
-                    if element.thumbnail and not thumbfast.disabled and thumbfast.width ~= 0 and thumbfast.height ~= 0 then
-                        local osd_w = mp.get_property_number("osd-dimensions/w")
+                    if element.thumbnail and not thumbfast.disabled then
+                        local osd_w = mp.get_property_number("osd-width")
                         if osd_w then
                             local r_w, r_h = get_virt_scale_factor()
 
-                            local thumbPad = 4
+                            local thumbPad = user_opts.thumbpad
                             local thumbMarginX = 18 / r_w
                             local thumbMarginY = 30
                             local tooltipBgColor = "FFFFFF"
@@ -676,11 +678,14 @@ function render_elements(master_ass)
                             local thumbX = math.min(osd_w - thumbfast.width - thumbMarginX, math.max(thumbMarginX, tx / r_w - thumbfast.width / 2))
                             local thumbY = ((ty - thumbMarginY) / r_h - thumbfast.height)
 
+                            thumbX = math.floor(thumbX + 0.5)
+                            thumbY = math.floor(thumbY + 0.5)
+
                             elem_ass:new_event()
                             elem_ass:pos(thumbX * r_w, ty - thumbMarginY - thumbfast.height * r_h)
                             elem_ass:append(osc_styles.Tooltip)
                             elem_ass:draw_start()
-                            elem_ass:rect_cw(-thumbPad * r_h, -thumbPad * r_h, (thumbfast.width + thumbPad) * r_w, (thumbfast.height + thumbPad) * r_h)
+                            elem_ass:rect_cw(-thumbPad * r_w, -thumbPad * r_h, (thumbfast.width + thumbPad) * r_w, (thumbfast.height + thumbPad) * r_h)
                             elem_ass:draw_stop()
 
                             mp.commandv("script-message-to", "thumbfast", "thumb",
@@ -691,7 +696,7 @@ function render_elements(master_ass)
                         end
                     end
                 else
-                    if element.thumbnail and thumbfast.width ~= 0 and thumbfast.height ~= 0 then
+                    if element.thumbnail and thumbfast.available then
                         mp.commandv("script-message-to", "thumbfast", "clear")
                     end
                 end
