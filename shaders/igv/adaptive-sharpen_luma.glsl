@@ -223,7 +223,7 @@ vec4 hook() {
               - wpmean(min(sharpdiff, 0.0), soft_lim( min(sharpdiff, 0.0), min_dist ), cs.y );
     
     float sharpdiff_lim = sat(c0_Y + sharpdiff) - c0_Y;
-    /*float satmul = (c0_Y + max(sharpdiff_lim*0.9, sharpdiff_lim)*0.3 + 0.03)/(c0_Y + 0.03);
+    /*float satmul = (c0_Y + max(sharpdiff_lim*0.9, sharpdiff_lim)*1.03 + 0.03)/(c0_Y + 0.03);
     vec3 res = c0_Y + sharpdiff_lim + (c[0] - c0_Y)*satmul;
     */
     return vec4(sharpdiff_lim + c[0], HOOKED_texOff(0).a);

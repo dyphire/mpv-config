@@ -148,7 +148,7 @@ vec4 hook() {
 //!WHEN NATIVE_CROPPED.h OUTPUT.h <
 //!DESC SSSR final pass
 
-#define oversharp   0.4
+#define oversharp   0.5
 
 // -- Window Size --
 #define taps        3.0
