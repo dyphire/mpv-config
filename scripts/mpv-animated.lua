@@ -1,7 +1,7 @@
 -- Original by Scheliux, Dragoner7 which was ported from Ruin0x11
 -- Adapted to webp by DonCanjas
 
--- Create animated webps with mpv
+-- Create animated webps or gifs with mpv
 -- Requires ffmpeg.
 -- Adapted from https://github.com/Scheliux/mpv-gif-generator
 -- Usage: "w" to set start frame, "W" to set end frame, "Ctrl+w" to create.
@@ -17,6 +17,7 @@ local msg = require 'mp.msg'
 local utils = require "mp.utils"
 
 local options = {
+    type = "webp",
     ffmpeg_path = "ffmpeg",
     dir = "~~desktop/",
     rez = 600,
@@ -27,10 +28,20 @@ local options = {
     loop = 0,
 }
 
-read_options(options, "webp")
+read_options(options)
 
 
 local fps
+local ext
+local text
+
+if options.type == "webp" then 
+    ext = "webp"
+    text = "webP"
+else
+    ext = "gif"
+    text = "GIF"
+end
 
 -- Check for invalid fps values
 -- Can you believe Lua doesn't have a proper ternary operator in the year of our lord 2020?
@@ -51,7 +62,7 @@ if utils.readdir(output_directory) == nil then
     local args = { 'powershell', '-NoProfile', '-Command', 'mkdir', output_directory }
     local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})
     if res.status ~= 0 then
-        msg.error("Failed to create webp_dir save directory "..output_directory..". Error: "..(res.error or "unknown"))
+        msg.error("Failed to create animated_dir save directory "..output_directory..". Error: "..(res.error or "unknown"))
         return
     end
 end
@@ -59,12 +70,12 @@ end
 start_time = -1
 end_time = -1
 
-function make_webp_with_subtitles()
-    make_webp_internal(true)
+function make_animated_with_subtitles()
+    make_animated_internal(true)
 end
 
-function make_webp()
-    make_webp_internal(false)
+function make_animated()
+    make_animated_internal(false)
 end    
 
 function table_length(t)
@@ -74,7 +85,7 @@ function table_length(t)
 end
 
 
-function make_webp_internal(burn_subtitles)
+function make_animated_internal(burn_subtitles)
     local start_time_l = start_time
     local end_time_l = end_time
     if start_time_l == -1 or end_time_l == -1 or start_time_l >= end_time_l then
@@ -82,8 +93,8 @@ function make_webp_internal(burn_subtitles)
         return
     end
 
-    msg.info("Creating webP.")
-    mp.osd_message("Creating webP.")
+    msg.info("Creating " .. text)
+    mp.osd_message("Creating " .. text)
 
     -- shell escape
     function esc_for_sub(s)
@@ -149,19 +160,19 @@ function make_webp_internal(burn_subtitles)
 
     end
 
-    -- make the webp
+    -- make the animated
     local filename = mp.get_property("filename/no-ext")
     local file_path = utils.join_path(output_directory, filename)
 
     -- increment filename
     for i = 0, 999 do
-        local fn = string.format('%s_%03d.webp', file_path, i)
+        local fn = string.format('%s_%03d.%s', file_path, i, ext)
         if not file_exists(fn) then
-            webpname = fn
+            animated_name = fn
             break
         end
     end
-    if not webpname then
+    if not animated_name then
         mp.osd_message('No available filenames!')
         return
     end
@@ -172,37 +183,41 @@ function make_webp_internal(burn_subtitles)
         copyts = "-copyts"
     end
 
-    cmd = string.format("%s -y -hide_banner -loglevel error -ss %s %s -t %s -i '%s' -lavfi %s -lossless %s -q:v %s -compression_level %s -loop %s '%s'", options.ffmpeg_path, position, copyts, duration, pathname, trim_filters, options.lossless, options.quality, options.compression_level, options.loop, webpname)
-    args =  { 'powershell', '-NoProfile', '-Command', cmd }
+    if options.type == "webp" then
+        arg = string.format("%s -y -hide_banner -loglevel error -ss %s %s -t %s -i '%s' -lavfi %s -lossless %s -q:v %s -compression_level %s -loop %s '%s'", options.ffmpeg_path, position, copyts, duration, pathname, trim_filters, options.lossless, options.quality, options.compression_level, options.loop, animated_name)
+    else
+        arg = string.format("%s -y -hide_banner -loglevel error -ss %s %s -t %s -i '%s' -lavfi 'split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse',%s -loop %s '%s'", options.ffmpeg_path, position, copyts, duration, pathname, trim_filters, options.loop, animated_name)
+    end
+    args =  { 'powershell', '-NoProfile', '-Command', arg }
     local screenx, screeny, aspect = mp.get_osd_size()
     mp.set_osd_ass(screenx, screeny, "{\\an9}● ")
     local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})
     mp.set_osd_ass(screenx, screeny, "")
     if res.status ~= 0 then
-        msg.info("Failed to creat webP.")
-        mp.osd_message("Error creating webP, check console for more info.")
+        msg.info("Failed to creat " .. text)
+        mp.osd_message("Error creating " .. text .. ", check console for more info.")
         return
     end
-    msg.info("webP created.")
-    mp.osd_message("webP created.")
+    msg.info(text .. " created.")
+    mp.osd_message(text .. " created.")
 end
 
-function set_webp_start()
+function set_animated_start()
     start_time = mp.get_property_number("time-pos", -1)
-    mp.osd_message("webP Start: " .. start_time)
+    mp.osd_message(text .. " Start: " .. start_time)
 end
 
-function set_webp_end()
+function set_animated_end()
     end_time = mp.get_property_number("time-pos", -1)
-    mp.osd_message("webP End: " .. end_time)
+    mp.osd_message(text .. " End: " .. end_time)
 end
 
 function file_exists(name)
-    local f=io.open(name,"r")
-    if f~=nil then io.close(f) return true else return false end
+    local f = io.open(name, "r")
+    if f ~= nil then io.close(f) return true else return false end
 end
 
-mp.add_key_binding("w", "set_webp_start", set_webp_start)
-mp.add_key_binding("W", "set_webp_end", set_webp_end)
-mp.add_key_binding("Ctrl+w", "make_webp", make_webp)
-mp.add_key_binding("Ctrl+W", "make_webp_with_subtitles", make_webp_with_subtitles) --only works with srt for now
+mp.add_key_binding("w", "set_animated_start", set_animated_start)
+mp.add_key_binding("W", "set_animated_end", set_animated_end)
+mp.add_key_binding("Ctrl+w", "make_animated", make_animated)
+mp.add_key_binding("Ctrl+W", "make_animated_with_subtitles", make_animated_with_subtitles) --only works with srt for now

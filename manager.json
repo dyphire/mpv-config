@@ -26,12 +26,6 @@
     "dest":"~~/scripts"
   },
   {
-    "git":"https://github.com/DonCanjas/mpv-webp-generator",
-    "whitelist":"mpv%-webp%.lua$",
-    "dest":"~~/scripts",
-    "branch":"main"
-  },
-  {
     "git":"https://github.com/zhongfly/InputEvent",
     "whitelist":"%.lua$",
     "dest":"~~/scripts",
