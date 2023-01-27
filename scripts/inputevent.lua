@@ -259,11 +259,11 @@ function InputEvent:new(key, on)
     self.__index = self;
 
     Instance.key = key
-    Instance.name = "@" .. key
     Instance.on = table.assign({ click = {} }, on)  -- event -> actions {cmd="",cond=function}
     Instance.queue = {}
     Instance.queue_max = { length = 0 }
     Instance.duration = mp.get_property_number("input-doubleclick-time", 300)
+    Instance.ignored = {}
 
     for _, event in ipairs(event_pattern) do
         if Instance.on[event.to] and event.length > 1 then
@@ -308,13 +308,12 @@ end
 local function cmd_filter(i,v) return (v.cmd ~= nil and v.cmd ~= "ignore") end
 
 function InputEvent:emit(event)
-    local ignore = event .. "-ignore"
-    if self.on[ignore] then
-        if now() - self.on[ignore] < self.duration then
+    if self.ignored[event] then
+        if now() - self.ignored[event] < self.duration then
             return
         end
 
-        self.on[ignore] = nil
+        self.ignored[event] = nil
     end
 
     if event == "release" and (
@@ -324,6 +323,10 @@ function InputEvent:emit(event)
         )
     then
         event = "release-auto"
+    end
+
+    if event == "repeat" and self.on[event] == "ignore" then
+        event = "click"
     end
 
     local cmd = self:evaluate(event)
@@ -359,7 +362,7 @@ function InputEvent:handler(event)
     end
 
     if event == "down" then
-        self.on["repeat-ignore"] = now()
+        self:ignore("repeat")
     end
 
     if event == "repeat" then
@@ -406,13 +409,19 @@ function InputEvent:exec()
     self.queue = {}
 end
 
+function InputEvent:ignore(event, timeout)
+    timeout = timeout or 0
+
+    self.ignored[event] = now() + timeout
+end
+
 function InputEvent:bind()
     self.exec_debounced = debounce(function() self:exec() end, self.duration)
-    mp.add_forced_key_binding(self.key, self.name, function(e) self:handler(e.event) end, { complex = true })
+    mp.add_forced_key_binding(self.key, self.key, function(e) self:handler(e.event) end, { complex = true })
 end
 
 function InputEvent:unbind()
-    mp.remove_key_binding(self.name)
+    mp.remove_key_binding(self.key)
 end
 
 function InputEvent:rebind(diff)
@@ -456,9 +465,9 @@ local function read_conf(conf_path)
     local parsed = {}
     for line in io.lines(conf_path) do
         line = line:trim()
-        if line ~= "" then
+        if line ~= "" and line:sub(1, 1) ~= "#" then
             local key, cmd, comments = line:match("%s*([%S]+)%s+(.-)%s+#%s*(.-)%s*$")
-            if comments and key:sub(1, 1) ~= "#" then
+            if comments then
                 local comment = table.filter(comments:split("#"), comment_filter)
                 if comment and #comment > 0 then
                     local statement = comment[1]:match("^@(.*)"):trim()
@@ -500,7 +509,7 @@ end)
 mp.observe_property("focused", "native", function(_, focused)
     local binding = bind_map["MBTN_LEFT"]
     if not binding or not focused then return end
-    binding.on["click-ignore"] = now() + 100
+    binding:ignore("click", 100)
 end)
 
 mp.register_script_message("bind", bind)

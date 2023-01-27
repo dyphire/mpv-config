@@ -2,7 +2,7 @@
 -- License: BSD 2-Clause License
 -- Creator: Eisa AlAwadhi
 -- Project: SimpleBookmark
--- Version: 1.2.4
+-- Version: 1.2.8
 
 local o = {
 ---------------------------USER CUSTOMIZATION SETTINGS---------------------------
@@ -15,7 +15,7 @@ local o = {
 	--Filters can also be stacked by using %+% or omitted by using %-%. e.g.: "groups%+%keybinds" shows only groups and keybinds, "all%-%groups%-%keybinds" shows all items without groups and without keybinds.
 	--Also defined groups can be called by using /:group%Group Name%
 	auto_run_list_idle = 'none',  --Auto run the list when opening mpv and there is no video / file loaded. 'none' for disabled. Or choose between available filters.
-	toggle_idlescreen = false, --hides OSC idle screen message when opening and closing menu (could cause unexpected behavior if multiple scripts are triggering osc-idlescreen off)
+	toggle_idlescreen = true, --hides OSC idle screen message when opening and closing menu (could cause unexpected behavior if multiple scripts are triggering osc-idlescreen off)
 	resume_offset = -0.65, --change to 0 so item resumes from the exact position, or decrease the value so that it gives you a little preview before loading the resume point
 	osd_messages = true, --true is for displaying osd messages when actions occur. Change to false will disable all osd messages generated from this script
 	bookmark_loads_last_idle = true, --When attempting to bookmark, if there is no video / file loaded, it will instead jump to your last bookmarked item and resume it.
@@ -77,6 +77,7 @@ local o = {
 	["://", "magnet:"]
 	]], --add above (after a comma) any protocol you want its title to be stored in the log file. This is valid only for (file_title_logging = 'protocols' or file_title_logging = 'all')
 	same_entry_limit = -1, --Limit saving entries with same path: -1 for unlimited, 0 will always update entries of same path, e.g. value of 3 will have the limit of 3 then it will start updating old values on the 4th entry.
+	overwrite_preserve_properties = true, --true is to preserve groups / slots or any other property when an entry is overwritten.
 
 	-----List Settings-----
 	loop_through_list = false, --true is for going up on the first item loops towards the last item and vise-versa. false disables this behavior.
@@ -1538,89 +1539,26 @@ function list_add_playlist(action)
 	end
 end
 
-function delete_log_entry_specific(target_index, target_path, target_time)
-	local trigger_delete = false
-	osd_log_contents = read_log_table()
-	if not osd_log_contents or not osd_log_contents[1] then return end
-	if target_index == 'last' then target_index = #osd_log_contents end
-	if not target_index then return end
-	
-	if target_index and target_path and target_time then
-		if osd_log_contents[target_index].found_path == target_path and tonumber(osd_log_contents[target_index].found_time) == target_time then
-			table.remove(osd_log_contents, target_index)
-			trigger_delete = true
-		end
-	elseif target_index and target_path and not target_time then
-		if osd_log_contents[target_index].found_path == target_path then
-			table.remove(osd_log_contents, target_index)
-			trigger_delete = true
-		end
-	elseif target_index and target_time and not target_path then
-		if tonumber(osd_log_contents[target_index].found_time) == target_time then
-			table.remove(osd_log_contents, target_index)
-			trigger_delete = true
-		end
-	elseif target_index and not target_path and not target_time then
-		table.remove(osd_log_contents, target_index)
-		trigger_delete = true
+function same_path_log_delete(target_path, entry_limit, arr_contents)
+	--1.2.5# seperate function for entry_limit
+	if not target_path then return msg.error('same_path_log_delete no target_path defined') end
+	if not arr_contents then --1.2.6# ability to pass array (usually automatically defining array here is fine, but just for performance sake when calling multiple functions that use the same array)
+		arr_contents = read_log_table()
+		if not arr_contents or not arr_contents[1] then return end
 	end
-	
-	if not trigger_delete then return end
-	local f = io.open(log_fullpath, "w+")
-	if osd_log_contents ~= nil and osd_log_contents[1] then
-		for i = 1, #osd_log_contents do
-			f:write(("%s\n"):format(osd_log_contents[i].found_line))
-		end
-	end
-	f:close()
-end
 
-function delete_log_entry(multiple, round, target_path, target_time, entry_limit)
-	if not target_path then target_path = filePath end
-	if not target_time then target_time = seekTime end
-	osd_log_contents = read_log_table()
-	if not osd_log_contents or not osd_log_contents[1] then return end
+	--1.2.7# return deleted_entries for o.overwrite_preserve_properties option
+	local deleted_entries = {}
 	local trigger_delete = false
-	
-	if not multiple then
-		for i = #osd_log_contents, 1, -1 do
-			if not round then
-				if osd_log_contents[i].found_path == target_path and tonumber(osd_log_contents[i].found_time) == target_time then
-					table.remove(osd_log_contents, i)
-					trigger_delete = true
-					break
-				end
-			else
-				if osd_log_contents[i].found_path == target_path and math.floor(tonumber(osd_log_contents[i].found_time)) == target_time then
-					table.remove(osd_log_contents, i)
-					trigger_delete = true
-					break
-				end
-			end
-		end
-	else
-		for i = #osd_log_contents, 1, -1 do
-			if not round then
-				if osd_log_contents[i].found_path == target_path and tonumber(osd_log_contents[i].found_time) == target_time then
-					table.remove(osd_log_contents, i)
-					trigger_delete = true
-				end
-			else
-				if osd_log_contents[i].found_path == target_path and math.floor(tonumber(osd_log_contents[i].found_time)) == target_time then
-					table.remove(osd_log_contents, i)
-					trigger_delete = true
-				end
-			end
-		end
-	end
-	
+
 	if entry_limit and entry_limit > -1 then
 		local entries_found = 0
-		for i = #osd_log_contents, 1, -1 do
-			if osd_log_contents[i].found_path == target_path and entries_found < entry_limit then
+		for i = #arr_contents, 1, -1 do
+			if arr_contents[i].found_path == target_path and entries_found < entry_limit then
 				entries_found = entries_found + 1
-			elseif osd_log_contents[i].found_path == target_path and entries_found >= entry_limit then
-				table.remove(osd_log_contents,i)
+			elseif arr_contents[i].found_path == target_path and entries_found >= entry_limit then
+				table.insert(deleted_entries, arr_contents[i]) --1.2.7# store entries that will be deleted in a new array
+				table.remove(arr_contents,i)
 				trigger_delete = true
 			end
 		end
@@ -1628,9 +1566,50 @@ function delete_log_entry(multiple, round, target_path, target_time, entry_limit
 	
 	if not trigger_delete then return end
 	local f = io.open(log_fullpath, "w+")
-	if osd_log_contents ~= nil and osd_log_contents[1] then
-		for i = 1, #osd_log_contents do
-			f:write(("%s\n"):format(osd_log_contents[i].found_line))
+	if arr_contents ~= nil and arr_contents[1] then
+		for i = 1, #arr_contents do
+			f:write(("%s\n"):format(arr_contents[i].found_line))
+		end
+	end
+	f:close()
+	return deleted_entries
+end
+
+
+function find_entry(round, target_path, target_time) --1.2.6# changed it to find_entry to have the sequence and any other additional property
+	--1.2.5# get the entry log sequence which is basically the id using path and time
+	if not target_path or not target_time then return msg.error('find_entry no target_path or target_time defined') end
+	local temp_log_contents = read_log_table()
+	if not temp_log_contents or not temp_log_contents[1] then return end
+	
+	for i = #temp_log_contents, 1, -1 do
+		if not round then
+			if temp_log_contents[i].found_path == target_path and tonumber(temp_log_contents[i].found_time) == target_time then
+				return temp_log_contents[i]
+			end
+		else
+			if temp_log_contents[i].found_path == target_path and math.floor(tonumber(temp_log_contents[i].found_time)) == target_time then
+				return temp_log_contents[i]
+			end
+		end
+	end
+end
+
+
+function delete_log_entry(target_sequence, arr_contents)
+	--1.2.5# new function to delete based on sequence which is (id)
+	if not target_sequence then return end --1.2.5# if no sequence found then just exit the function
+	if not arr_contents then  --1.2.5# ability to pass an array instead of looping through
+		arr_contents = read_log_table()
+		if not arr_contents or not arr_contents[1] then return end
+	end
+
+	table.remove(arr_contents, target_sequence)
+	
+	local f = io.open(log_fullpath, "w+")
+	if arr_contents ~= nil and arr_contents[1] then
+		for i = 1, #arr_contents do
+			f:write(("%s\n"):format(arr_contents[i].found_line))
 		end
 	end
 	f:close()
@@ -1668,16 +1647,17 @@ function delete_log_entry_highlighted()
 end
 
 function delete_selected()
-	filePath = osd_log_contents[#osd_log_contents - list_cursor + 1].found_path
-	fileTitle = osd_log_contents[#osd_log_contents - list_cursor + 1].found_name
-	seekTime = tonumber(osd_log_contents[#osd_log_contents - list_cursor + 1].found_time)
-	if not filePath and not seekTime then
+	--1.2.5# replace with new delete_log_entry that uses sequence id, and used local variables with or statement just in case
+	local list_sequence = osd_log_contents[#osd_log_contents - list_cursor + 1].found_sequence
+	local list_filepath = osd_log_contents[#osd_log_contents - list_cursor + 1].found_path or ""
+	local list_seektime = tonumber(osd_log_contents[#osd_log_contents - list_cursor + 1].found_time) or 0
+
+	if not list_sequence then
 		msg.info("Failed to delete")
 		return
 	end
-	delete_log_entry()
-	msg.info("Deleted \"" .. filePath .. "\" | " .. format_time(seekTime))
-	filePath, fileTitle, fileLength = get_file()
+	delete_log_entry(list_sequence)
+	msg.info("Deleted \"" .. list_filepath .. "\" | " .. format_time(list_seektime))
 end
 
 function list_delete(action)
@@ -2315,7 +2295,7 @@ end
 ---------End of LogManager---------
 
 --Modify Additional Log Parameters--
-function remove_all_additional_log_entry(index, log_text)
+function remove_all_additional_param_log_entry(index, log_text)
 	if not index or not log_text then return end
 	local temp_log_contents = read_log_table()
 	if not temp_log_contents or not temp_log_contents[1] then return end
@@ -2335,8 +2315,8 @@ function remove_all_additional_log_entry(index, log_text)
 	f:close()
 end
 
-function remove_additional_log_entry(index, target, log_text)
-	if not index or not target or not log_text then return msg.error('remove_additional_log_entry parameters not defined') end
+function remove_additional_param_log_entry(index, target, log_text)
+	if not index or not target or not log_text then return msg.error('remove_additional_param_log_entry parameters not defined') end
 	if not osd_log_contents or not osd_log_contents[1] then return end
 	local temp_log_contents = read_log_table()
 	if not temp_log_contents or not temp_log_contents[1] then return end
@@ -2358,8 +2338,8 @@ function remove_additional_log_entry(index, target, log_text)
 	f:close()
 end
 
-function add_additional_log_entry(index, target, log_text)
-	if not index or not target or not log_text then return msg.error('add_additional_log_entry parameters not defined') end
+function add_additional_param_log_entry(index, target, log_text)
+	if not index or not target or not log_text then return msg.error('add_additional_param_log_entry parameters not defined') end
 	if not osd_log_contents or not osd_log_contents[1] then return end
 	local temp_log_contents = read_log_table()
 	if not temp_log_contents or not temp_log_contents[1] then return end
@@ -2395,7 +2375,7 @@ function list_slot_remove(index, action)
 		if action ~= 'silent' then msg.info("Failed to remove") end
 		return
 	end
-	remove_all_additional_log_entry(index, log_keybind_text)
+	remove_all_additional_param_log_entry(index, log_keybind_text)
 	if action ~= 'silent' then msg.info('Removed Keybind: ' .. get_slot_keybind(index)) end
 end
 
@@ -2411,7 +2391,7 @@ function list_slot_remove_highlighted()
 				if osd_log_contents[#osd_log_contents+1-i].found_sequence == list_highlight_cursor[j][2].found_sequence then
 					slotIndex = tonumber(osd_log_contents[#osd_log_contents+1-i].found_slot)
 					if slotIndex then
-						remove_all_additional_log_entry(slotIndex, log_keybind_text)
+						remove_all_additional_param_log_entry(slotIndex, log_keybind_text)
 						msg.info('Removed Keybind: ' .. get_slot_keybind(slotIndex))
 					end
 				end
@@ -2435,11 +2415,11 @@ function list_slot_add(index)
 	
 	local slotIndex = osd_log_contents[#osd_log_contents - list_cursor + 1].found_slot
 	if slotIndex then
-		remove_additional_log_entry(slotIndex,#osd_log_contents-list_cursor+1, log_keybind_text)
+		remove_additional_param_log_entry(slotIndex,#osd_log_contents-list_cursor+1, log_keybind_text)
 	end
 	
 	list_slot_remove(index, 'silent')
-	add_additional_log_entry(index, #osd_log_contents-list_cursor+1, log_keybind_text)
+	add_additional_param_log_entry(index, #osd_log_contents-list_cursor+1, log_keybind_text)
 	msg.info('Added Keybind:\n' .. cursor_filetitle .. ' 🕒 ' .. format_time(cursor_seektime) .. ' ⌨ ' .. get_slot_keybind(index))
 end
 
@@ -2486,7 +2466,7 @@ function list_group_remove(action)
 		if action ~= 'silent' then msg.info("Failed to remove") end
 		return
 	end
-	remove_additional_log_entry(groupCursorIndex, #osd_log_contents-list_cursor+1, log_group_text)
+	remove_additional_param_log_entry(groupCursorIndex, #osd_log_contents-list_cursor+1, log_group_text)
 	if action ~= 'silent' then msg.info('Removed Group: ' .. get_group_properties(groupCursorIndex).name) end
 end
 
@@ -2502,7 +2482,7 @@ function list_group_remove_highlighted()
 				if osd_log_contents[#osd_log_contents+1-i].found_sequence == list_highlight_cursor[j][2].found_sequence then
 					groupIndex = tonumber(osd_log_contents[#osd_log_contents+1-i].found_group)
 					if groupIndex then
-						remove_additional_log_entry(groupIndex, #osd_log_contents+1-i, log_group_text)
+						remove_additional_param_log_entry(groupIndex, #osd_log_contents+1-i, log_group_text)
 						msg.info('Removed Group: ' .. get_group_properties(groupIndex).name)
 					end
 				end
@@ -2524,7 +2504,7 @@ function list_group_add(index)
 	end
 	
 	list_group_remove('silent')
-	add_additional_log_entry(index, #osd_log_contents-list_cursor+1, log_group_text)
+	add_additional_param_log_entry(index, #osd_log_contents-list_cursor+1, log_group_text)
 	msg.info('Added Group:\n' .. cursor_filename .. ' 🕒 ' .. format_time(cursor_seektime) .. ' 🖿 ' .. get_group_properties(index).name)
 end
 
@@ -2539,7 +2519,7 @@ function list_group_add_highlighted(index)
 		for j=1, #list_highlight_cursor do
 			if osd_log_contents[#osd_log_contents+1-i] then
 				if osd_log_contents[#osd_log_contents+1-i].found_sequence == list_highlight_cursor[j][2].found_sequence then
-					add_additional_log_entry(index, #osd_log_contents+1-i, log_group_text)
+					add_additional_param_log_entry(index, #osd_log_contents+1-i, log_group_text)
 					msg.info('Added Group: ' .. get_group_properties(index).name)
 				end
 			end
@@ -2636,6 +2616,7 @@ end
 function write_log(target_time, key_index, update_seekTime, entry_limit)
 	if not filePath then return end
 	local prev_seekTime = seekTime
+	local deleted_entries = {} --1.2.7# add it above since we need to call it later for preserving properties
 
 	seekTime = (mp.get_property_number('time-pos') or 0)
 	if target_time then
@@ -2643,10 +2624,17 @@ function write_log(target_time, key_index, update_seekTime, entry_limit)
 	end
 	if seekTime < 0 then seekTime = 0 end
 	
-	delete_log_entry(false, true, filePath, math.floor(seekTime), entry_limit)
-	if key_index then
-		remove_all_additional_log_entry(key_index, log_keybind_text)
+	local found_entry = find_entry(true, filePath, math.floor(seekTime)) --1.2.5# finds entry_sequence using new function --1.2.6# updated to find_entry
+	--1.2.8# first delete_log_entry to correctly overwrite the data (having same_path_log_delete() function runs first will result in overwriting wrong entry)
+	if found_entry and found_entry['found_sequence'] ~= nil then --1.2.6# if the entry exists then proceed to delete it
+		delete_log_entry(found_entry['found_sequence']) --1.2.5# deletes log entry using new function that uses sequence to delete --1.2.8# removed calling the array earlier and automatically call inside function
 	end
+	deleted_entries = same_path_log_delete(filePath, entry_limit) --1.2.5# seperate function to delete any additional entries based on the same_entry_limit set by user --1.2.7# assign it to varible since function now returns status and an array of deleted_entries --1.2.8# removed calling the array earlier and automatically call inside function
+
+	if key_index then
+		remove_all_additional_param_log_entry(key_index, log_keybind_text)
+	end
+
 	local f = io.open(log_fullpath, "a+")--1.3# dont allow customization to date_format so it can be saved in a standard in which I can parse for search results, etc..
 	if o.file_title_logging == 'all' then
 		f:write(("[%s] \"%s\" | %s | %s | %s | "):format(os.date("%Y-%m-%dT%H:%M:%S"), fileTitle, filePath, log_length_text .. tostring(fileLength), log_time_text .. tostring(seekTime)))
@@ -2662,6 +2650,45 @@ function write_log(target_time, key_index, update_seekTime, entry_limit)
 	end
 	f:write('\n')
 	f:close()
+
+	
+	--1.2.6# restore properties if o.overwrite_preserve_properties is enabled
+	if found_entry and o.overwrite_preserve_properties then
+		local temp_log_contents = read_log_table() --1.2.6# loop through table with the new additions
+		if not temp_log_contents or not temp_log_contents[1] then return end
+		--1.2.6# when a slot or group was found previously, then add it
+		if found_entry['found_slot'] then
+			list_slot_remove(found_entry['found_slot'], 'silent') --1.2.7# remove all other same slots
+			add_additional_param_log_entry(found_entry['found_slot'], #temp_log_contents, log_keybind_text)
+		end
+		if found_entry['found_group'] then
+			add_additional_param_log_entry(found_entry['found_group'], #temp_log_contents, log_group_text)
+		end
+	end
+
+	--1.2.7# if an exact match is not found, and there are multiple deleted entries because of same_path_log_delete then add the latest deleted property to the newly added entry
+	if not found_entry and deleted_entries ~= nil and deleted_entries[1] and o.overwrite_preserve_properties then
+		local temp_log_contents = read_log_table() --1.2.6# loop through table with the new additions
+		if not temp_log_contents or not temp_log_contents[1] then return end
+		--1.2.7# loop through all deleted entries and get the first found slot and group then append it to the latest entry and then break loop
+		local break_table = false
+		for i = 1, #deleted_entries do
+			if deleted_entries[i] then
+				if deleted_entries[i].found_slot then
+					list_slot_remove(deleted_entries[i].found_slot, 'silent') --1.2.7# remove all other same slots
+					add_additional_param_log_entry(deleted_entries[i].found_slot, #temp_log_contents, log_keybind_text)
+					break_table = true --1.2.7# break the table after addition is added since no need to continue looking for more
+				end
+				if deleted_entries[i].found_group then
+					add_additional_param_log_entry(deleted_entries[i].found_group, #temp_log_contents, log_group_text)
+					break_table = true --1.2.7# break the table after addition is added since no need to continue looking for more
+				end
+				if break_table then --1.2.7# if it found a slot and group or just slot or just a group then break the table
+					break
+				end
+			end
+		end
+	end
 	
 	if not update_seekTime then
 		seekTime = prev_seekTime

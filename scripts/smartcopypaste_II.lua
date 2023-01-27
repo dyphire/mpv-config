@@ -2,7 +2,7 @@
 -- License: BSD 2-Clause License
 -- Creator: Eisa AlAwadhi
 -- Project: SmartCopyPaste_II
--- Version: 3.1.1
+-- Version: 3.2
 
 local o = {
 ---------------------------USER CUSTOMIZATION SETTINGS---------------------------
@@ -2279,24 +2279,42 @@ function parse_clipboard(text)
 	local clip, clip_file, clip_time, pre_attribute
 	local clip_table = {}
 	clip = text
-	
+
+
 	for c in clip:gmatch("[^\n\r+]+") do
 		local c_pre_attribute, c_clip_file, c_clip_time, c_clip_extension
 		c = make_raw(c)
 		
-		c_pre_attribute = get_time_attribute(c)
-		if string.match(c, '(.*)'..c_pre_attribute) then
-			c_clip_file = string.match(c, '(.*)'..c_pre_attribute)
-			c_clip_time = tonumber(string.match(c, c_pre_attribute..'(%d*%.?%d*)'))
-		elseif string.match(c, '^\"(.*)\"$') then
-			c_clip_file = string.match(c, '^\"(.*)\"$')
-		else
-			c_clip_file = c
+		if starts_protocol(protocols, c) then --3.2# handle protocols to allow for space as a seperator
+			for c_protocols in c:gmatch("[^%s]+") do --3.2# loop iterator using space
+				if starts_protocol(protocols, c_protocols) then --3.2# check if it starts with protocols again after a space
+					c_pre_attribute = get_time_attribute(c)
+					if string.match(c, '(.*)'..c_pre_attribute) then
+						c_clip_file = string.match(c_protocols, '(.*)'..c_pre_attribute)
+						c_clip_time = tonumber(string.match(c_protocols, c_pre_attribute..'(%d*%.?%d*)'))
+					elseif string.match(c, '^\"(.*)\"$') then
+						c_clip_file = string.match(c, '^\"(.*)\"$')
+					else
+						c_clip_file = c_protocols
+					end			
+					c_clip_extension = get_extension(c_clip_file)
+					table.insert(clip_table, {c_clip_file, c_clip_time, c_clip_extension})
+				end
+			end
+		else --3.2# otherwise continue as usual with new line seperators only
+			c_pre_attribute = get_time_attribute(c)
+			if string.match(c, '(.*)'..c_pre_attribute) then
+				c_clip_file = string.match(c, '(.*)'..c_pre_attribute)
+				c_clip_time = tonumber(string.match(c, c_pre_attribute..'(%d*%.?%d*)'))
+			elseif string.match(c, '^\"(.*)\"$') then
+				c_clip_file = string.match(c, '^\"(.*)\"$')
+			else
+				c_clip_file = c
+			end
+			
+			c_clip_extension = get_extension(c_clip_file)
+			table.insert(clip_table, {c_clip_file, c_clip_time, c_clip_extension})
 		end
-		
-		c_clip_extension = get_extension(c_clip_file)
-		
-		table.insert(clip_table, {c_clip_file, c_clip_time, c_clip_extension})
 	end
 
 	clip = make_raw(clip)

@@ -1,5 +1,6 @@
 -- Original by Scheliux, Dragoner7 which was ported from Ruin0x11
 -- Adapted to webp by DonCanjas
+-- Modify_: https://github.com/dyphire/mpv-scripts
 
 -- Create animated webps or gifs with mpv
 -- Requires ffmpeg.
