@@ -17,7 +17,7 @@
 //!BIND HOOKED
 //!HEIGHT 2 HOOKED.h *
 //!OFFSET 0.000000 -0.500000
-//!WHEN HOOKED.h OUTPUT.h / 0.707106 <
+//!WHEN HOOKED.h OUTPUT.h / 0.833333 <
 //!COMPUTE 32 16 32 8
 #pragma optionNV(inline none)
 float nnedi3(vec4 samples[12]) {
@@ -235,7 +235,7 @@ imageStore(out_image, ivec2(gl_GlobalInvocationID) * ivec2(1, 2) + ivec2(0, 1), 
 //!BIND HOOKED
 //!WIDTH 2 HOOKED.w *
 //!OFFSET -0.500000 0.000000
-//!WHEN HOOKED.w OUTPUT.w / 0.707106 <
+//!WHEN HOOKED.w OUTPUT.w / 0.833333 <
 //!COMPUTE 64 8 32 8
 #pragma optionNV(inline none)
 float nnedi3(vec4 samples[12]) {

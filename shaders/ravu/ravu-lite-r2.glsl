@@ -18,7 +18,7 @@
 //!BIND ravu_lite_lut2
 //!WIDTH 2 HOOKED.w *
 //!HEIGHT 2 HOOKED.h *
-//!WHEN HOOKED.w OUTPUT.w / 0.707106 < HOOKED.h OUTPUT.h / 0.707106 < *
+//!WHEN HOOKED.w OUTPUT.w / 0.833333 < HOOKED.h OUTPUT.h / 0.833333 < *
 //!COMPUTE 64 16 32 8
 shared float inp[340];
 void hook() {
