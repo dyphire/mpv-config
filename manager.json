@@ -200,5 +200,11 @@
     "git":"https://github.com/bloc97/Anime4K",
     "whitelist":"%.glsl$",
     "dest":"~~/shaders/Anime4k"
+  },
+  {
+    "git":"https://github.com/Natural-Harmonia-Gropius/mpv_config",
+    "whitelist":"%.glsl$",
+    "dest":"~~/portable_config/shaders/hdr-toys",
+    "branch":"main"
   }
 ]
