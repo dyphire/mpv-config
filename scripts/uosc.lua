@@ -74,6 +74,7 @@ defaults = {
 	window_border_opacity = 0.8,
 
 	autoload = false,
+	autoload_types = 'video,audio,image',
 	shuffle = false,
 
 	ui_scale = 1,
@@ -100,7 +101,9 @@ defaults = {
 	pause_indicator = 'flash',
 	curtain_opacity = 0.5,
 	stream_quality_options = '4320,2160,1440,1080,720,480,360,240,144',
-	media_types = '3g2,3gp,aac,aiff,ape,apng,asf,au,avi,avif,bmp,dsf,dts,f4v,flac,flv,gif,h264,h265,j2k,jp2,jfif,jpeg,jpg,jxl,m2ts,m4a,m4v,mid,midi,mj2,mka,mkv,mov,mp3,mp4,mp4a,mp4v,mpeg,mpg,oga,ogg,ogm,ogv,opus,png,rm,rmvb,spx,svg,tak,tga,tta,tif,tiff,ts,vob,wav,weba,webm,webp,wma,wmv,wv,y4m',
+	video_types= '3g2,3gp,asf,avi,f4v,flv,h264,h265,m2ts,m4v,mkv,mov,mp4,mp4v,mpeg,mpg,ogm,ogv,rm,rmvb,ts,vob,webm,wmv,y4m',
+	audio_types= 'aac,aiff,ape,au,dsf,dts,flac,m4a,mid,midi,mka,mp3,mp4a,oga,ogg,opus,spx,tak,tta,wav,weba,wma,wv',
+	image_types= 'apng,avif,bmp,gif,j2k,jp2,jfif,jpeg,jpg,jxl,mj2,png,svg,tga,tif,tiff,webp',
 	subtitle_types = 'aqt,ass,gsub,idx,jss,lrc,mks,pgs,pjs,psb,rt,slt,smi,sub,sup,srt,ssa,ssf,ttxt,txt,usf,vt,vtt',
 	default_directory = '~/',
 	use_trash = false,
@@ -168,8 +171,22 @@ config = {
 	-- native rendering frequency could not be detected
 	render_delay = 1 / 60,
 	font = options.font ~= '' and options.font or mp.get_property('options/osd-font'),
-	media_types = split(options.media_types, ' *, *'),
-	subtitle_types = split(options.subtitle_types, ' *, *'),
+	types = {
+		video = split(options.video_types, ' *, *'),
+		audio = split(options.audio_types, ' *, *'),
+		image = split(options.image_types, ' *, *'),
+		subtitle = split(options.subtitle_types, ' *, *'),
+		media = split(options.video_types .. ',' .. options.audio_types .. ',' .. options.image_types, ' *, *'),
+		autoload = (function()
+			---@type string[]
+			local option_values = {}
+			for _, name in ipairs(split(options.autoload_types, ' *, *')) do
+				local value = options[name .. '_types']
+				if type(value) == 'string' then option_values[#option_values + 1] = value end
+			end
+			return split(table.concat(option_values, ','), ' *, *')
+		end)(),
+	},
 	stream_quality_options = split(options.stream_quality_options, ' *, *'),
 	menu_items = (function()
 		local input_conf_property = mp.get_property_native('input-conf')
@@ -378,15 +395,15 @@ end
 
 function update_human_times()
 	if state.time then
-		state.time_human = format_time(state.time)
+		state.time_human = format_time(state.time, state.duration)
 		if state.duration then
 			local speed = state.speed or 1
 			if options.destination_time == 'playtime-remaining' then
-				state.destination_time_human = format_time((state.time - state.duration) / speed)
+				state.destination_time_human = format_time((state.time - state.duration) / speed, state.duration)
 			elseif options.destination_time == 'total' then
-				state.destination_time_human = format_time(state.duration)
+				state.destination_time_human = format_time(state.duration, state.duration)
 			else
-				state.destination_time_human = format_time(state.time - state.duration)
+				state.destination_time_human = format_time(state.time - state.duration, state.duration)
 			end
 		else
 			state.destination_time_human = nil
@@ -496,7 +513,7 @@ function load_file_index_in_current_directory(index)
 
 	local serialized = serialize_path(state.path)
 	if serialized and serialized.dirname then
-		local files = read_directory(serialized.dirname, config.media_types)
+		local files = read_directory(serialized.dirname, config.types.autoload)
 
 		if not files then return end
 		sort_filenames(files)
@@ -787,9 +804,9 @@ bind_command('decide-pause-indicator', function() Elements.pause_indicator:decid
 bind_command('menu', function() toggle_menu_with_items() end)
 bind_command('menu-blurred', function() toggle_menu_with_items({mouse_nav = true}) end)
 local track_loaders = {
-	{name = 'subtitles', prop = 'sub', allowed_types = config.subtitle_types},
-	{name = 'audio', prop = 'audio', allowed_types = config.media_types},
-	{name = 'video', prop = 'video', allowed_types = config.media_types},
+	{name = 'subtitles', prop = 'sub', allowed_types = itable_join(config.types.video, config.types.subtitle)},
+	{name = 'audio', prop = 'audio', allowed_types = itable_join(config.types.video, config.types.audio)},
+	{name = 'video', prop = 'video', allowed_types = config.types.video},
 }
 for _, loader in ipairs(track_loaders) do
 	local menu_type = 'load-' .. loader.name
@@ -856,7 +873,7 @@ bind_command('chapters', create_self_updating_menu_opener({
 		for index, chapter in ipairs(chapters) do
 			items[index] = {
 				title = chapter.title or '',
-				hint = mp.format_time(chapter.time),
+				hint = format_time(chapter.time, state.duration),
 				value = index,
 				active = index - 1 == current_chapter,
 			}
@@ -976,7 +993,7 @@ bind_command('open-file', function()
 		function(path) mp.commandv('loadfile', path) end,
 		{
 			type = 'open-file',
-			allowed_types = config.media_types,
+			allowed_types = config.types.media,
 			active_path = active_file,
 			on_open = function() mp.register_event('file-loaded', handle_file_loaded) end,
 			on_close = function() mp.unregister_event(handle_file_loaded) end,
@@ -1023,7 +1040,7 @@ bind_command('delete-file-next', function()
 		mp.commandv('playlist-remove', 'current')
 	else
 		if is_local_file then
-			local paths, current_index = get_adjacent_files(state.path, config.media_types)
+			local paths, current_index = get_adjacent_files(state.path, config.types.autoload)
 			if paths and current_index then
 				local index, path = decide_navigation_in_list(paths, current_index, 1)
 				if path then next_file = path end
@@ -1090,6 +1107,9 @@ end)
 --[[ MESSAGE HANDLERS ]]
 
 mp.register_script_message('show-submenu', function(id) toggle_menu_with_items({submenu = id}) end)
+mp.register_script_message('show-submenu-blurred', function(id)
+	toggle_menu_with_items({submenu = id, mouse_nav = true})
+end)
 mp.register_script_message('get-version', function(script)
 	mp.commandv('script-message-to', script, 'uosc-version', config.version)
 end)

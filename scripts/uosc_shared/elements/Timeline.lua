@@ -298,8 +298,30 @@ function Timeline:render()
 				end
 			end
 
-			if state.ab_loop_a and state.ab_loop_a > 0 then draw_chapter(state.ab_loop_a, diamond_radius) end
-			if state.ab_loop_b and state.ab_loop_b > 0 then draw_chapter(state.ab_loop_b, diamond_radius) end
+			-- A-B loop indicators
+			local has_a, has_b = state.ab_loop_a and state.ab_loop_a >= 0, state.ab_loop_b and state.ab_loop_b > 0
+			local ab_radius = round(math.min(math.max(8, foreground_size * 0.25), foreground_size))
+
+			---@param time number
+			---@param kind 'a'|'b'
+			local function draw_ab_indicator(time, kind)
+				local x = t2x(time)
+				ass:new_event()
+				ass:append(string.format(
+					'{\\pos(0,0)\\rDefault\\an7\\blur0\\yshad0.01\\bord%f\\1c&H%s\\3c&H%s\\4c&H%s\\1a&H%X&\\3a&H00&\\4a&H00&}',
+					diamond_border, fg, bg, bg, opacity_to_alpha(options.timeline_opacity * options.timeline_chapters_opacity)
+				))
+				ass:draw_start()
+				ass:move_to(x, fby - ab_radius)
+				if kind == 'b' then ass:line_to(x + 3, fby - ab_radius) end
+				ass:line_to(x + (kind == 'a' and 0 or ab_radius), fby)
+				ass:line_to(x - (kind == 'b' and 0 or ab_radius), fby)
+				if kind == 'a' then ass:line_to(x - 3, fby - ab_radius) end
+				ass:draw_stop()
+			end
+
+			if has_a then draw_ab_indicator(state.ab_loop_a, 'a') end
+			if has_b then draw_ab_indicator(state.ab_loop_b, 'b') end
 		end
 	end
 
@@ -322,9 +344,8 @@ function Timeline:render()
 			local cache_opts = {size = self.font_size * 0.8, opacity = text_opacity * 0.6, border = 1}
 			local human = round(math.max(buffered_playtime, 0)) .. 's'
 			local width = text_width(human, cache_opts)
-			local time_width = text_width('00:00:00', time_opts)
-			local time_width_end = options.destination_time == 'total' and time_width
-				or text_width('-00:00:00', time_opts)
+			local time_width = timestamp_width(state.time_human, time_opts)
+			local time_width_end = timestamp_width(state.destination_time_human, time_opts)
 			local min_x, max_x = bax + spacing + 5 + time_width, bbx - spacing - 5 - time_width_end
 			if x < min_x then x = min_x elseif x + width > max_x then x, align = max_x, 6 end
 			draw_timeline_text(x, fcy, align, human, cache_opts)
@@ -357,8 +378,9 @@ function Timeline:render()
 		-- Timestamp
 		local offset = #state.chapters > 0 and 10 or 4
 		local opts = {size = self.font_size, offset = offset}
-		opts.width_overwrite = text_width('00:00:00', opts)
-		ass:tooltip(tooltip_anchor, format_time(hovered_seconds), opts)
+		local hovered_time_human = format_time(hovered_seconds, state.duration)
+		opts.width_overwrite = timestamp_width(hovered_time_human, opts)
+		ass:tooltip(tooltip_anchor, hovered_time_human, opts)
 		tooltip_anchor.ay = tooltip_anchor.ay - self.font_size - offset
 
 		-- Thumbnail

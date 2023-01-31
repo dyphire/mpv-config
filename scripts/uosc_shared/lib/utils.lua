@@ -130,12 +130,21 @@ function ass_escape(str)
 end
 
 ---@param seconds number
+---@param max_seconds number|nil Trims unnecessary `00:` if time is not expected to reach it.
 ---@return string
-function format_time(seconds)
+function format_time(seconds, max_seconds)
 	local human = mp.format_time(seconds)
 	if options.time_precision > 0 then
 		local formatted = string.format('%.' .. options.time_precision .. 'f', math.abs(seconds) % 1)
 		human = human .. '.' .. string.sub(formatted, 3)
+	end
+	if max_seconds then
+		local trim_length = (max_seconds < 60 and 7 or (max_seconds < 3600 and 4 or 0))
+		if trim_length > 0 then
+			local has_minus = seconds < 0
+			human = string.sub(human, trim_length + (has_minus and 1 or 0))
+			if has_minus then human = '-' .. human end
+		end
 	end
 	return human
 end
@@ -303,21 +312,25 @@ function read_directory(path, allowed_types)
 	return files, directories
 end
 
--- Returns full absolute paths of files in the same directory as file_path,
+-- Returns full absolute paths of files in the same directory as `file_path`,
 -- and index of the current file in the table.
+-- Returned table will always contain `file_path`, regardless of `allowed_types`.
 ---@param file_path string
----@param allowed_types? string[]
+---@param allowed_types? string[] Filter adjacent file types. Does NOT filter out the `file_path`.
 function get_adjacent_files(file_path, allowed_types)
-	local current_file = serialize_path(file_path)
-	if not current_file then return end
-	local files = read_directory(current_file.dirname, allowed_types)
+	local current_meta = serialize_path(file_path)
+	if not current_meta then return end
+	local files = read_directory(current_meta.dirname)
 	if not files then return end
 	sort_filenames(files)
 	local current_file_index
 	local paths = {}
-	for index, file in ipairs(files) do
-		paths[#paths + 1] = join_path(current_file.dirname, file)
-		if current_file.basename == file then current_file_index = index end
+	for _, file in ipairs(files) do
+		local is_current_file = current_meta.basename == file
+		if is_current_file or not allowed_types or has_any_extension(file, allowed_types) then
+			paths[#paths + 1] = join_path(current_meta.dirname, file)
+			if is_current_file then current_file_index = #paths end
+		end
 	end
 	if not current_file_index then return end
 	return paths, current_file_index
@@ -352,7 +365,7 @@ end
 ---@param delta number
 function navigate_directory(delta)
 	if not state.path or is_protocol(state.path) then return false end
-	local paths, current_index = get_adjacent_files(state.path, config.media_types)
+	local paths, current_index = get_adjacent_files(state.path, config.types.autoload)
 	if paths and current_index then
 		local _, path = decide_navigation_in_list(paths, current_index, delta)
 		if path then mp.commandv('loadfile', path) return true end
@@ -382,12 +395,12 @@ end
 function delete_file(path)
 	if state.os == 'windows' then
 		if options.use_trash then
-            local ps_code = [[
+			local ps_code = [[
 				Add-Type -AssemblyName Microsoft.VisualBasic
 				[Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('__path__', 'OnlyErrorDialogs', 'SendToRecycleBin')
 			]]
 
-            local escaped_path = string.gsub(path, "'", "''")
+			local escaped_path = string.gsub(path, "'", "''")
             escaped_path = string.gsub(escaped_path, "’", "’’")
             escaped_path = string.gsub(escaped_path, "%%", "%%%%")
             ps_code = string.gsub(ps_code, "__path__", escaped_path)
@@ -399,7 +412,7 @@ function delete_file(path)
 		if options.use_trash then
 			--On Linux and Macos the app trash-cli/trash must be installed first.
 		    args = { 'trash', path }
-	    else
+		else
 		    args = { 'rm', path }
 		end
 	end
