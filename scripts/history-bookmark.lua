@@ -228,6 +228,36 @@ local function get_playlist_idx(dst_file)
     return idx
 end
 
+local function unbind_key()
+    msg.info('Unbinding keys')
+    mp.remove_key_binding('resume_yes')
+    mp.remove_key_binding('resume_not')
+end
+
+local function jump_resume()
+    mp.unregister_event(jump_resume)
+    prompt_msg("resume successfully", 1500)
+end
+
+local function key_jump()
+    unbind_key()
+    on_key = true
+    wait_jump_timer:kill()
+    current_idx = pl_idx
+    mp.register_event('file-loaded', jump_resume)
+    msg.info('Jumping to ' .. pl_path)
+    mp.commandv('loadfile', pl_path)
+end
+
+local function bind_key()
+    mp.register_script_message('resume_yes', key_jump)
+    mp.register_script_message('resume_not', function()
+        unbind_key()
+        on_key = true
+        wait_jump_timer:kill()
+    end)
+end
+
 -- creat a .history file
 local function record_history()
     refresh_globals()
@@ -268,36 +298,6 @@ local function pause(name, paused)
     else
         timer4saving_history:resume()
     end
-end
-
-local function unbind_key()
-    msg.info('Unbinding keys')
-    mp.remove_key_binding('resume_yes')
-    mp.remove_key_binding('resume_not')
-end
-
-local function key_jump()
-    unbind_key()
-    on_key = true
-    wait_jump_timer:kill()
-    current_idx = pl_idx
-    mp.register_event('file-loaded', jump_resume)
-    msg.info('Jumping to ' .. pl_path)
-    mp.commandv('loadfile', pl_path)
-end
-
-local function bind_key()
-    mp.register_script_message('resume_yes', key_jump)
-    mp.register_script_message('resume_not', function()
-        unbind_key()
-        on_key = true
-        wait_jump_timer:kill()
-    end)
-end
-
-local function jump_resume()
-    mp.unregister_event(jump_resume)
-    prompt_msg("resume successfully", 1500)
 end
 
 -- main function of the file
