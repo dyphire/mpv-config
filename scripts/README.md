@@ -31,7 +31,6 @@
 | history-bookmark.lua* | 记录并恢复视频目录播放记录（可确认是否恢复该目录上次播放进度; 配置文件 [history_bookmark.conf](../script-opts/history_bookmark.conf)） |
 | inputevent.lua | 可用于增强 input.conf 中的键位绑定功能，具体用法及示例见脚本仓库说明：[InputEvent](https://github.com/Natural-Harmonia-Gropius/InputEvent) |
 | manager.lua | 一键更新指定脚本和着色器（配置文件 [manager.json](../manager.json)） |
-| mediainfo.lua* | 通过`MediaInfo`获取媒体信息并共享 HDR(Dolby Vision) 属性（依赖 MediaInfo；配置文件 [mediainfo.conf](../script-opts/mediainfo.conf)） |
 | mpv_sort_script.lua* | 使用 mpv 直接加载目录时实现高级排序功能：名称、日期、大小和随机排序（配置文件 [mpv_sort_script.conf](../script-opts/mpv_sort_script.conf)） |
 | mpv-animated.lua* | 剪切指定片段为 webp/gif 动图（依赖 ffmpeg；配置文件 [mpv_animated.conf](../script-opts/mpv_animated.conf)） |
 | notify_media.lua* | 基于 IPC 管道实现 SMTC 功能（依赖 [MPVMediaControl.exe](https://github.com/dyphire/MPVMediaControl/releases)；配置文件 [notify_media.conf](../script-opts/notify_media.conf)） |
