@@ -1,4 +1,4 @@
--- quality-menu 3.0.2 - 2023-Jan-10
+-- quality-menu 3.1.1 - 2023-Feb-04
 -- https://github.com/christoph-heinrich/mpv-quality-menu
 --
 -- Change the stream video and audio quality on the fly.
@@ -98,6 +98,10 @@ local opts = {
     --which columns are shown in which order
     --comma separated list, prefix column with "-" to align left
     --
+    --for the uosc integration it is possible to split the text up into a title and a hint
+    --this is done by separating two columns with a "|" instead of a comma
+    --column order in the hint is reversed
+    --
     --columns that might be useful are:
     --resolution, width, height, fps, dynamic_range, tbr, vbr, abr, asr,
     --filesize, filesize_approx, vcodec, acodec, ext, video_ext, audio_ext,
@@ -114,8 +118,8 @@ local opts = {
     --
     --Not all videos have all columns available.
     --Be careful, misspelled columns simply won't be displayed, there is no error.
-    columns_video = '-resolution,frame_rate,dynamic_range,language,bitrate_total,size,-codec_video,-codec_audio',
-    columns_audio = 'audio_sample_rate,bitrate_total,size,language,-codec_audio',
+    columns_video = '-resolution,frame_rate,dynamic_range|language,bitrate_total,size,-codec_video,-codec_audio',
+    columns_audio = 'audio_sample_rate,bitrate_total|size,language,-codec_audio',
 
     --columns used for sorting, see "columns_video" for available columns
     --comma separated list, prefix column with "-" to reverse sorting order
@@ -173,7 +177,7 @@ local function process_json(json)
 
     local vfmt = nil
     local afmt = nil
-    local requested_formats = json["requested_formats"] or json["requested_downloads"]
+    local requested_formats = json["requested_formats"] or json["requested_downloads"] or {}
     for _, format in ipairs(requested_formats) do
         if is_video(format) then
             vfmt = format["format_id"]
@@ -315,31 +319,46 @@ local function process_json(json)
         format_special_fields(format)
     end
 
-    local function format_table(formats, columns)
-        local function calc_shown_columns()
-            local display_col = {}
-            local column_widths = {}
-            local column_values = {}
-            local columns, column_align_left = strip_minus(columns)
+    local function format_formats(formats, column_definition)
+        local columns, column_align_left = strip_minus(string_split(column_definition, '|,'))
 
+        -- ensure all column props are strings
+        for _, format in pairs(formats) do
+            for _, prop in ipairs(columns) do
+                format[prop] = tostring(format[prop] or "")
+            end
+        end
+
+        local identical_props = {}
+        do
+            local function all_formats_same_value(formats, prop)
+                local first_value = nil
+                for _, format in pairs(formats) do
+                    first_value = first_value or format[prop]
+                    if format[prop] ~= first_value then return false end
+                end
+                return true
+            end
+
+            for _, prop in ipairs(columns) do
+                identical_props[prop] = all_formats_same_value(formats, prop)
+            end
+        end
+
+        local function format_table(formats, columns, column_align_left, identical_columns)
+            local column_widths = {}
             for _, format in pairs(formats) do
                 for col, prop in ipairs(columns) do
-                    local label = tostring(format[prop] or "")
-                    format[prop] = label
-
-                    if not column_widths[col] or column_widths[col] < label:len() then
-                        column_widths[col] = label:len()
+                    if not column_widths[col] or column_widths[col] < format[prop]:len() then
+                        column_widths[col] = format[prop]:len()
                     end
-
-                    column_values[col] = column_values[col] or label
-                    display_col[col] = display_col[col] or (column_values[col] ~= label)
                 end
             end
 
             local show_columns = {}
             for i, width in ipairs(column_widths) do
-                if width > 0 and not opts.hide_identical_columns or display_col[i] then
-                    local prop = columns[i]
+                local prop = columns[i]
+                if width > 0 and not (opts.hide_identical_columns and identical_columns[prop]) then
                     show_columns[#show_columns + 1] = {
                         prop = prop,
                         width = width,
@@ -347,30 +366,60 @@ local function process_json(json)
                     }
                 end
             end
-            return show_columns
+
+            local spacing = 2
+            local rows = {}
+            for i, f in ipairs(formats) do
+                local row = {}
+                for j, column in ipairs(show_columns) do
+                    -- lua errors out with width > 99 ("invalid conversion specification")
+                    local width = math.min(column.width * (column.align_left and -1 or 1), 99)
+                    row[j] = string.format('%' .. width .. 's', f[column.prop] or "")
+                end
+                rows[i] = table.concat(row, string.format('%' .. spacing .. 's', '')):gsub('%s+$', '')
+            end
+            return rows
         end
 
-        local show_columns = calc_shown_columns()
+        local labels = format_table(formats, columns, column_align_left, identical_props)
 
-        local spacing = 2
-        local res = {}
-        for _, f in ipairs(formats) do
-            local row = ''
-            for i, column in ipairs(show_columns) do
-                -- lua errors out with width > 99 ("invalid conversion specification")
-                local width = math.min(column.width * (column.align_left and -1 or 1), 99)
-                row = row .. (i > 1 and string.format('%' .. spacing .. 's', '') or '')
-                    .. string.format('%' .. width .. 's', f[column.prop] or "")
+        local title_hint_columns = string_split(column_definition, '|')
+        local title_columns, title_column_align_left = strip_minus(string_split(title_hint_columns[1], ','))
+        local titles = format_table(formats, title_columns, title_column_align_left, identical_props)
+
+        local hints = nil
+        if title_hint_columns[2] then
+            local hint_columns, _ = strip_minus(string_split(title_hint_columns[2], ','))
+
+            -- reverse column order
+            local n = #hint_columns
+            for i = 1, n / 2 do
+                hint_columns[i], hint_columns[n - i + 1] = hint_columns[n - i + 1], hint_columns[i]
             end
-            res[#res + 1] = { label = row:gsub('%s+$', ''), format = f.format_id }
+
+            hints = {}
+            for i, f in ipairs(formats) do
+                local row = {}
+                for _, prop in ipairs(hint_columns) do
+                    local val = f[prop]
+                    if #val > 0 and not (opts.hide_identical_columns and identical_props[prop]) then
+                        row[#row + 1] = val
+                    end
+                end
+                hints[i] = table.concat(row, ', ')
+            end
+        end
+
+        local res = {}
+        for i, f in ipairs(formats) do
+            res[i] = { label = labels[i], title = titles[i], hint = hints and hints[i] or nil, format = f.format_id }
         end
         return res
     end
 
-    local columns_video = string_split(opts.columns_video, ',')
-    local columns_audio = string_split(opts.columns_audio, ',')
-    local vres = format_table(video_formats, columns_video)
-    local ares = format_table(audio_formats, columns_audio)
+    local vres = format_formats(video_formats, opts.columns_video)
+    local ares = format_formats(audio_formats, opts.columns_audio)
+
     return vres, ares, vfmt, afmt
 end
 
@@ -479,12 +528,12 @@ local function download_formats(url)
     end
 
     local ytdl_format = mp.get_property("ytdl-format")
-    local command = nil
-    if (ytdl_format == nil or ytdl_format == "") then
-        command = { ytdl.path, "--no-warnings", "--no-playlist", "-J", url }
-    else
-        command = { ytdl.path, "--no-warnings", "--no-playlist", "-J", "-f", ytdl_format, url }
+    local command = { ytdl.path, "--no-warnings", "--no-playlist", "-J", url }
+    if ytdl_format and #ytdl_format > 0 then
+        command[#command + 1] = "-f"
+        command[#command + 1] = ytdl_format
     end
+    if opts.ytdl_ver == "yt-dlp" then command[#command + 1] = "--no-match-filter" end
 
     msg.verbose("calling youtube-dl with command: " .. table.concat(command, " "))
 
@@ -597,6 +646,8 @@ local function set_format(url, vfmt, afmt)
     end
 end
 
+local video_formats_toggle
+local audio_formats_toggle
 local destroyer = nil
 local function show_menu(isvideo)
 
@@ -641,9 +692,6 @@ local function show_menu(isvideo)
                 break
             end
         end
-    else
-        active = #options + 1
-        selected = active
     end
 
     if uosc then
@@ -652,9 +700,35 @@ local function show_menu(isvideo)
             items = {},
             type = (isvideo and 'video' or 'audio') .. '_formats',
         }
+
+        menu.items[#menu.items + 1] = {
+            title = isvideo and 'Audio' or 'Video',
+            italic = true,
+            bold = true,
+            hint = 'open menu',
+            value = {
+                'script-message-to',
+                'quality_menu',
+                isvideo and 'audio_formats_toggle' or 'video_formats_toggle',
+            }
+        }
+        menu.items[#menu.items + 1] = {
+            title = 'Disabled',
+            italic = true,
+            muted = true,
+            hint = '—',
+            value = {
+                'script-message-to',
+                'quality_menu',
+                (isvideo and 'video' or 'audio') .. '-format-set',
+                url
+            }
+        }
+
         for i, option in ipairs(options) do
-            menu.items[i] = {
-                title = option.label,
+            menu.items[#menu.items + 1] = {
+                title = option.title,
+                hint = option.hint,
                 active = i == active,
                 value = {
                     'script-message-to',
@@ -665,15 +739,7 @@ local function show_menu(isvideo)
                 }
             }
         end
-        menu.items[#menu.items + 1] = {
-            title = 'None',
-            value = {
-                'script-message-to',
-                'quality_menu',
-                (isvideo and 'video' or 'audio') .. '-format-set',
-                url
-            }
-        }
+
         local json = utils.format_json(menu)
         mp.commandv('script-message-to', 'uosc', 'open-menu', json)
         return
@@ -690,7 +756,7 @@ local function show_menu(isvideo)
 
     local width, height
     local margin_top, margin_bottom = 0, 0
-    local num_options = #options + 1
+    local num_options = #options > 0 and #options + 2 or 1
 
     local function get_scrolled_lines()
         local output_height = height - opts.text_padding_y * 2 - margin_top * height - margin_bottom * height
@@ -723,9 +789,11 @@ local function show_menu(isvideo)
             for i, v in ipairs(options) do
                 ass:append(choose_prefix(i) .. v.label .. "\\N")
             end
-            ass:append(choose_prefix(#options + 1) .. "None")
+            ass:append(choose_prefix(#options + 1) .. "Disabled\\N")
+            ass:append(choose_prefix(#options + 2) .. (isvideo and 'Audio' or 'Video') .. ' menu')
         else
-            ass:append("no formats found")
+            ass:append("no formats found\\N")
+            ass:append(opts.selected_and_inactive .. (isvideo and 'Audio' or 'Video') .. ' menu')
         end
 
         mp.set_osd_ass(width, height, ass.text)
@@ -802,11 +870,12 @@ local function show_menu(isvideo)
         end
     end
 
+    local reset_osd = true
     local function destroy()
         if timeout then
             timeout:kill()
         end
-        mp.set_osd_ass(0, 0, "")
+        if reset_osd then mp.set_osd_ass(0, 0, "") end
         unbind_keys(opts.up_binding, "move_up")
         unbind_keys(opts.down_binding, "move_down")
         unbind_keys(opts.select_binding, "select")
@@ -823,20 +892,25 @@ local function show_menu(isvideo)
 
     bind_keys(opts.up_binding, "move_up", function() selected_move(-1) end, { repeatable = true })
     bind_keys(opts.down_binding, "move_down", function() selected_move(1) end, { repeatable = true })
-    if #options > 0 then
-        bind_keys(opts.select_binding, "select", function()
+    bind_keys(opts.select_binding, "select", function()
+        if selected == num_options then
+            reset_osd = false
             destroy()
-            if selected == active then return end
+            if isvideo then audio_formats_toggle()
+            else video_formats_toggle() end
+            return
+        end
+        destroy()
+        if selected == active then return end
 
-            fmt = options[selected] and options[selected].format or nil
-            if isvideo then
-                vfmt = fmt
-            else
-                afmt = fmt
-            end
-            set_format(url, vfmt, afmt)
-        end)
-    end
+        fmt = options[selected] and options[selected].format or nil
+        if isvideo then
+            vfmt = fmt
+        else
+            afmt = fmt
+        end
+        set_format(url, vfmt, afmt)
+    end)
     bind_keys(opts.close_menu_binding, "close", destroy) --close menu using ESC
     mp.osd_message("", 0)
     draw_menu()
@@ -844,7 +918,7 @@ end
 
 local ui_callback = {}
 
-local function video_formats_toggle()
+function video_formats_toggle()
     if #ui_callback > 0 then
         for _, name in ipairs(ui_callback) do
             mp.commandv('script-message-to', name, 'video-formats-menu')
@@ -854,7 +928,7 @@ local function video_formats_toggle()
     end
 end
 
-local function audio_formats_toggle()
+function audio_formats_toggle()
     if #ui_callback > 0 then
         for _, name in ipairs(ui_callback) do
             mp.commandv('script-message-to', name, 'audio-formats-menu')
@@ -940,5 +1014,14 @@ mp.register_script_message('uosc-version', function(version)
     ---@diagnostic disable-next-line: cast-local-type
     uosc = version and version >= 400
     uosc_set_format_counts()
+    if version and version >= 451 then
+        mp.commandv(
+            'script-message-to',
+            'uosc',
+            'overwrite-binding',
+            'stream-quality',
+            'script-binding quality_menu/video_formats_toggle'
+        )
+    end
 end)
 mp.commandv('script-message-to', 'uosc', 'get-version', mp.get_script_name())
