@@ -7,7 +7,8 @@
     https://github.com/CogentRedTester/mpv-scroll-list
 ]]
 
-local mp = require 'mp'
+local msg = require 'mp.msg'
+local utils = require 'mp.utils'
 local opts = require("mp.options")
 
 local o = {
@@ -18,8 +19,8 @@ local o = {
     --these styles will be used for the whole list. so you need to reset them for every line
     --read http://docs.aegisub.org/3.2/ASS_Tags/ for reference of tags
     global_style = [[]],
-    header_style = [[{\q2\fs35\c&00ccff&}]],
-    list_style = [[{\q2\fs25\c&Hffffff&}]],
+    header_style = [[{\q2\fs30\c&00ccff&}]],
+    list_style = [[{\q2\fs20\c&Hffffff&}]],
     wrapper_style = [[{\c&00ccff&\fs16}]],
     cursor_style = [[{\c&00ccff&}]],
     selected_style = [[{\c&Hfce788&}]],
@@ -43,12 +44,21 @@ local o = {
     key_scroll_up = "UP WHEEL_UP",
     key_open_chapter = "ENTER MBTN_LEFT",
     key_close_browser = "ESC MBTN_RIGHT",
+    key_remove_chapter = "DEL BS",
+    key_edit_chapter = "r R e E",
+    -- pause the playback when editing for chapter title
+    pause_on_input = true,
 }
 
 opts.read_options(o)
 
+local reset_curr = true
+local paused = false
+
 --adding the source directory to the package path and loading the module
-local list = dofile(mp.command_native({ "expand-path", "~~/script-modules/scroll-list.lua" }))
+package.path = mp.command_native({"expand-path", "~~/script-modules/?.lua;"}) .. package.path
+local list = require "scroll-list"
+local user_input_module, input = pcall(require, "user-input-module")
 
 --modifying the list settings
 local original_open = list.open
@@ -80,7 +90,7 @@ function chapter_list(curr_chapter)
     for i = 1, #chapter_list do
         local item = {}
         if (i - 1 == curr_chapter) then
-            list.selected = curr_chapter + 1
+            if reset_curr then list.selected = curr_chapter + 1 end
             item.style = o.active_style
         end
 
@@ -97,6 +107,70 @@ function chapter_list(curr_chapter)
         list.list[i] = item
     end
     list:update()
+end
+
+local function change_title_callback(user_input, err, chapter_index)
+    if user_input == nil or err ~= nil then
+        if paused then return elseif o.pause_on_input then mp.set_property_native("pause", false) end
+        msg.warn("no chapter title provided:", err)
+        return
+    end
+
+    local chapter_list = mp.get_property_native("chapter-list")
+
+    if chapter_index > mp.get_property_number("chapter-list/count") then
+        msg.warn("can't set chapter title")
+        return
+    end
+
+    chapter_list[chapter_index].title = user_input
+
+    mp.set_property_native("chapter-list", chapter_list)
+    if paused then return elseif o.pause_on_input then mp.set_property_native("pause", false) end
+end
+
+--edit the selected chapter title
+local function edit_chapter()
+    local mpv_chapter_index = list.selected - 1
+    local chapter_list = mp.get_property_native("chapter-list")
+
+    if mpv_chapter_index == nil or mpv_chapter_index == -1 then
+        msg.verbose("no chapter selected, nothing to edit")
+        return
+    end
+
+    if not user_input_module then
+        msg.error("no mpv-user-input, can't get user input, install: https://github.com/CogentRedTester/mpv-user-input")
+        return
+    end
+    -- ask user for chapter title
+    -- (+1 because mpv indexes from 0, lua from 1)
+    reset_curr = false
+    input.get_user_input(change_title_callback, {
+        request_text = "title of the chapter:",
+        default_input = chapter_list[mpv_chapter_index + 1].title,
+        cursor_pos = #(chapter_list[mpv_chapter_index + 1].title) + 1,
+    }, mpv_chapter_index + 1)
+
+    if o.pause_on_input then
+        paused = mp.get_property_native("pause")
+        mp.set_property_bool("pause", true)
+        -- FIXME: for whatever reason osd gets hidden when we pause the
+        -- playback like that, workaround to make input prompt appear
+        -- right away without requiring mouse or keyboard action
+        mp.osd_message(" ", 0.1)
+    end
+end
+
+--remove the selected chapter
+local function remove_chapter()
+    local chapter_list = mp.get_property_native("chapter-list")
+    if list.selected > 0 then
+        reset_curr = false
+        table.remove(chapter_list, list.selected)
+        msg.debug("removing chapter", list.selected)
+        mp.set_property_native("chapter-list", chapter_list)
+    end
 end
 
 --jump to the selected chapter
@@ -140,9 +214,20 @@ add_keys(o.key_move_begin, 'move_begin', function() list:move_begin() end, {})
 add_keys(o.key_move_end, 'move_end', function() list:move_end() end, {})
 add_keys(o.key_open_chapter, 'open_chapter', open_chapter, {})
 add_keys(o.key_close_browser, 'close_browser', function() list:close() end, {})
+add_keys(o.key_remove_chapter, 'remove_chapter', remove_chapter, {})
+add_keys(o.key_edit_chapter, 'edit_chapter', edit_chapter, {})
 
 mp.register_script_message("toggle-chapter-browser", function() list:toggle() end)
 
 mp.observe_property('chapter', 'number', function(_, curr_chapter)
     chapter_list(curr_chapter)
 end)
+
+mp.observe_property('chapter-list', 'native', function()
+    local curr_chapter = mp.get_property_number("chapter")
+    if curr_chapter then chapter_list(curr_chapter) end
+end)
+
+if user_input_module then
+    mp.add_hook("on_unload", 50, function() input.cancel_user_input() end)
+end

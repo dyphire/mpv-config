@@ -1,5 +1,5 @@
 --[[
-  * chapter-make-read.lua v.2023-02-05
+  * chapter-make-read.lua v.2023-02-06
   *
   * AUTHORS: dyphire
   * License: MIT
@@ -347,12 +347,12 @@ local function remove_chapter()
 end
 
 local function write_chapter(force_write)
-    if not force_write and mp.get_property_number("chapter-list/count") == 0 or not chapters_modified then
+    refresh_globals()
+    if not force_write and chapter_count == 0 or not chapters_modified then
         msg.debug("nothing to write")
         return
     end
 
-    refresh_globals()
     local out_path = utils.join_path(dir, fname .. o.chapter_flie_ext)
     for i = 1, chapter_count, 1 do
         curr = all_chapters[i]
@@ -382,6 +382,7 @@ local function write_chapter(force_write)
     file:close()
     if not force_write then
         mp.osd_message("Export chapter file to: " .. out_path, 3)
+        msg.info("Export chapter file to: " .. out_path)
     else
         msg.info("Auto save chapter file to: " .. out_path)
     end
@@ -389,6 +390,11 @@ end
 
 local function write_chapter_ogm()
     refresh_globals()
+    if chapter_count == 0 then
+        msg.debug("nothing to write")
+        return
+    end
+
     local out_path = utils.join_path(dir, fname .. o.chapter_flie_ext)
     for i = 1, chapter_count, 1 do
         curr = all_chapters[i]
@@ -418,10 +424,16 @@ local function write_chapter_ogm()
     file:write(chapters)
     file:close()
     mp.osd_message("Export chapter file to: " .. out_path, 3)
+    msg.info("Export chapter file to: " .. out_path)
 end
 
 local function write_chapter_xml()
     refresh_globals()
+    if chapter_count == 0 then
+        msg.debug("nothing to write")
+        return
+    end
+
     local out_path = utils.join_path(dir, fname .. o.chapter_flie_ext)
     for i = 1, chapter_count, 1 do
         curr = all_chapters[i]
@@ -462,6 +474,7 @@ local function write_chapter_xml()
     file:write(chapters)
     file:close()
     mp.osd_message("Export chapter file to: " .. out_path, 3)
+    msg.info("Export chapter file to: " .. out_path)
 end
 
 -- HOOKS -----------------------------------------------------------------------

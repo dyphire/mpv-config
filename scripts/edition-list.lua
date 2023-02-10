@@ -27,8 +27,8 @@ local o = {
     --these styles will be used for the whole list. so you need to reset them for every line
     --read http://docs.aegisub.org/3.2/ASS_Tags/ for reference of tags
     global_style = [[]],
-    header_style = [[{\q2\fs35\c&00ccff&}]],
-    list_style = [[{\q2\fs25\c&Hffffff&}]],
+    header_style = [[{\q2\fs30\c&00ccff&}]],
+    list_style = [[{\q2\fs20\c&Hffffff&}]],
     wrapper_style = [[{\c&00ccff&\fs16}]],
     cursor_style = [[{\c&00ccff&}]],
     selected_style = [[{\c&Hfce788&}]],
@@ -57,7 +57,8 @@ local o = {
 opts.read_options(o)
 
 --adding the source directory to the package path and loading the module
-local list = dofile(mp.command_native({ "expand-path", "~~/script-modules/scroll-list.lua" }))
+package.path = mp.command_native({"expand-path", "~~/script-modules/?.lua;"}) .. package.path
+local list = require "scroll-list"
 
 playingMessage = mp.get_property('options/osd-playing-msg')
 editionSwitching = false
@@ -207,6 +208,11 @@ mp.register_script_message("toggle-edition-browser", function() list:toggle() en
 mp.observe_property('current-edition', 'number', function(_, curr_edition)
     editionChanged()
     edition_list(curr_edition)
+end)
+
+mp.observe_property('edition-list', 'native', function()
+    local curr_edition = mp.get_property_number("current-edition")
+    if curr_edition then edition_list(curr_edition) end
 end)
 
 mp.register_event('file-loaded', main)

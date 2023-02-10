@@ -1,5 +1,5 @@
 --[[
-    * adevice-list.lua v.2022-12-17
+    * adevice-list.lua v.2023-02-05
     *
     * AUTHORS: dyphire
     * License: MIT
@@ -24,8 +24,8 @@ local o = {
     --these styles will be used for the whole list. so you need to reset them for every line
     --read http://docs.aegisub.org/3.2/ASS_Tags/ for reference of tags
     global_style = [[]],
-    header_style = [[{\q2\fs35\c&00ccff&}]],
-    list_style = [[{\q2\fs25\c&Hffffff&}]],
+    header_style = [[{\q2\fs30\c&00ccff&}]],
+    list_style = [[{\q2\fs20\c&Hffffff&}]],
     wrapper_style = [[{\c&00ccff&\fs16}]],
     cursor_style = [[{\c&00ccff&}]],
     selected_style = [[{\c&Hfce788&}]],
@@ -52,7 +52,8 @@ local o = {
 opts.read_options(o)
 
 --adding the source directory to the package path and loading the module
-local list = dofile(mp.command_native({ "expand-path", "~~/script-modules/scroll-list.lua" }))
+package.path = mp.command_native({"expand-path", "~~/script-modules/?.lua;"}) .. package.path
+local list = require "scroll-list"
 
 --modifying the list settings
 local original_open = list.open
