@@ -45,6 +45,22 @@ vec3 XYZ_to_RGB(float X, float Y, float Z) {
     return vec3(X, Y, Z) * M;
 }
 
+vec3 XYZD65_to_XYZD50(float X, float Y, float Z) {
+    mat3 M = mat3(
+         1.0479298208405488,   0.022946793341019088, -0.05019222954313557,
+         0.029627815688159344, 0.990434484573249,    -0.01707382502938514,
+        -0.009243058152591178, 0.015055144896577895,  0.7518742899580008);
+    return vec3(X, Y, Z) * M;
+}
+
+vec3 XYZD50_to_XYZD65(float X, float Y, float Z) {
+    mat3 M = mat3(
+         0.9554734527042182,   -0.023098536874261423, 0.0632593086610217,
+        -0.028369706963208136,  1.0099954580058226,   0.021041398966943008,
+         0.012314001688319899, -0.020507696433477912, 1.3303659366080753);
+    return vec3(X, Y, Z) * M;
+}
+
 float delta = 6.0 / 29.0;
 float deltac = delta * 2.0 / 3.0;
 
@@ -125,11 +141,13 @@ vec4 hook() {
 
     color.rgb *= L_sdr;
     color.rgb = RGB_to_XYZ(color.r, color.g, color.b);
+    color.rgb = XYZD65_to_XYZD50(color.r, color.g, color.b);
     color.rgb = XYZ_to_Lab(color.r, color.g, color.b);
     color.rgb = Lab_to_LCHab(color.r, color.g, color.b);
     color.g  *= chroma_correction(color.r, L_ref.r, L_max.r, sigma);
     color.rgb = LCHab_to_Lab(color.r, color.g, color.b);
     color.rgb = Lab_to_XYZ(color.r, color.g, color.b);
+    color.rgb = XYZD50_to_XYZD65(color.r, color.g, color.b);
     color.rgb = XYZ_to_RGB(color.r, color.g, color.b);
     color.rgb /= L_sdr;
     return color;

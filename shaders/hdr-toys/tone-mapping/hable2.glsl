@@ -19,28 +19,28 @@
 
 float curve_segment_eval(float x, float lnA, float B, float offsetX, float offsetY, float scaleX, float scaleY) {
     float x0 = (x - offsetX) * scaleX;
-	float y0 = 0.0;
+    float y0 = 0.0;
 
     // log(0) is undefined but our function should evaluate to 0. There are better ways to handle this,
-	// but it's doing it the slow way here for clarity.
-	if (x0 > 0.0) {
-		y0 = exp(lnA + B * log(x0));
-	}
+    // but it's doing it the slow way here for clarity.
+    if (x0 > 0.0) {
+        y0 = exp(lnA + B * log(x0));
+    }
 
     return y0 * scaleY + offsetY;
 }
 
 float curve_segment_eval_inv(float y, float lnA, float B, float offsetX, float offsetY, float scaleX, float scaleY) {
-	float y0 = (y - offsetY) / scaleY;
-	float x0 = 0.0;
+    float y0 = (y - offsetY) / scaleY;
+    float x0 = 0.0;
 
-	// watch out for log(0) again
-	if (y0 > 0.0) {
-		x0 = exp((log(y0) - lnA) / B);
-	}
-	float x = x0 / scaleX + offsetX;
+    // watch out for log(0) again
+    if (y0 > 0.0) {
+        x0 = exp((log(y0) - lnA) / B);
+    }
+    float x = x0 / scaleX + offsetX;
 
-	return x;
+    return x;
 }
 
 // find a function of the form:
@@ -92,11 +92,11 @@ float curve(float x) {
     float perceptualGamma = 2.4;
 
     // constraints
-    toeLength = pow(clamp(toeLength, 0.0, 1.0), perceptualGamma);
+    toeLength = clamp(pow(toeLength, perceptualGamma), 0.0, 1.0);
     toeStrength = clamp(toeStrength, 0.0, 1.0);
     shoulderAngle = clamp(shoulderAngle, 0.0, 1.0);
-    shoulderLength = max(1e-5, clamp(shoulderLength, 0.0, 1.0));
-    shoulderStrength = max(0.0, shoulderStrength);
+    shoulderLength = clamp(shoulderLength, 1e-5, 0.999 - 0.5 * toeLength);
+    shoulderStrength = clamp(shoulderStrength, 0.0, 10.0);
 
     // apply base params
     x0 = toeLength * 0.5; // toe goes from 0 to 0.5
@@ -120,7 +120,7 @@ float curve(float x) {
 
     // CreateCurve
 
-	// normalize params to 1.0 range
+    // normalize params to 1.0 range
     float invW = 1.0 / W;
     x0 /= W;
     x1 /= W;

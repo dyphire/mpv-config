@@ -202,9 +202,8 @@
     "dest":"~~/shaders/Anime4k"
   },
   {
-    "git":"https://github.com/Natural-Harmonia-Gropius/mpv_config",
+    "git":"https://github.com/natural-harmonia-gropius/hdr-toys",
     "whitelist":"%.glsl$",
-    "dest":"~~/portable_config/shaders/hdr-toys",
-    "branch":"main"
+    "dest":"~~/portable_config/shaders/hdr-toys"
   }
 ]
