@@ -63,20 +63,20 @@ local opts = {
     --list of ytdl-format strings to choose from
     quality_strings_video = [[
     [
-    {'4320p' : 'bestvideo[height<=?4320p]'},
-    {'2160p' : 'bestvideo[height<=?2160]'},
-    {'1440p' : 'bestvideo[height<=?1440]'},
-    {'1080p' : 'bestvideo[height<=?1080]'},
-    {'720p' : 'bestvideo[height<=?720]'},
-    {'480p' : 'bestvideo[height<=?480]'},
-    {'360p' : 'bestvideo[height<=?360]'},
-    {'240p' : 'bestvideo[height<=?240]'},
-    {'144p' : 'bestvideo[height<=?144]'}
+    {"4320p" : "bestvideo[height<=?4320p]"},
+    {"2160p" : "bestvideo[height<=?2160]"},
+    {"1440p" : "bestvideo[height<=?1440]"},
+    {"1080p" : "bestvideo[height<=?1080]"},
+    {"720p" : "bestvideo[height<=?720]"},
+    {"480p" : "bestvideo[height<=?480]"},
+    {"360p" : "bestvideo[height<=?360]"},
+    {"240p" : "bestvideo[height<=?240]"},
+    {"144p" : "bestvideo[height<=?144]"}
     ]
     ]],
     quality_strings_audio = [[
     [
-    {'default' : 'bestaudio/best'}
+    {"default" : "bestaudio/best"}
     ]
     ]],
 
@@ -143,10 +143,15 @@ opt.read_options(opts, 'quality-menu')
 
 do
     ---@param option_string string
+    ---@param option_name string
     ---@return Format[]
-    local function parse_predefined(option_string)
+    local function parse_predefined(option_string, option_name)
         ---@type {[string]: string}[]
-        local json = utils.parse_json(option_string)
+        local json, error = utils.parse_json(option_string)
+        if error then
+            msg.error('Error while parsing JSON of option ' .. option_name .. ': ' .. error)
+            return {}
+        end
         ---@type Format[]
         local formats = {}
         for i, format in ipairs(json) do
@@ -162,8 +167,8 @@ do
 
     ---@type Data
     opts.predefined_data = {
-        video_formats = parse_predefined(opts.quality_strings_video),
-        audio_formats = parse_predefined(opts.quality_strings_audio),
+        video_formats = parse_predefined(opts.quality_strings_video, 'quality_strings_video'),
+        audio_formats = parse_predefined(opts.quality_strings_audio, 'quality_strings_audio'),
         video_active_id = nil,
         audio_active_id = nil,
     }

@@ -40,8 +40,9 @@ local function delete_watch_later(event)
             print("Deleting state (eof-reached)")
             if demuxer_secs then
                 mp.commandv("change-list", "watch-later-options", "remove", "start")
+            else
+                mp.commandv("delete-watch-later-config", path)
             end
-            mp.commandv("delete-watch-later-config", path)
         end
     end
 
@@ -51,7 +52,7 @@ local function delete_watch_later(event)
 
         if not can_delete then
             can_delete = true
-        elseif event["reason"] == "eof" or event["reason"] == "stop" then
+        elseif event["reason"] == "eof" then
             print("Deleting state (end-file " .. event["reason"] .. ")")
             mp.commandv("delete-watch-later-config", path)
         end

@@ -1,6 +1,6 @@
 --[[
 SOURCE_ https://github.com/mpv-player/mpv/blob/master/player/lua/osc.lua
-COMMIT_ 20221007 cc65b38
+COMMIT_ 20221128 bca516b
 改进版本的OSC，须禁用原始mpv的内置OSC，且不兼容其它OSC类脚本
 集成缩略图脚本功能（thumbfast.lua），需自行下载搭配使用：https://github.com/po5/thumbfast
 示例在 input.conf 中写入：
@@ -2998,6 +2998,9 @@ function tick()
         -- render idle message
         msg.trace("idle message")
         local _, _, display_aspect = mp.get_osd_size()
+        if display_aspect == 0 then
+            return
+        end
         local display_h = 360
         local display_w = display_h * display_aspect
         -- logo is rendered at 2^(6-1) = 32 times resolution with size 1800x1800
