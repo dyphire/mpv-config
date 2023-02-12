@@ -15,8 +15,11 @@
 //!DESC NNEDI3 (double_y, nns256, win8x6)
 //!HOOK LUMA
 //!BIND HOOKED
-//!SAVE nnedi3_int
+//!HEIGHT 2 HOOKED.h *
+//!OFFSET 0.000000 -0.500000
 //!WHEN HOOKED.h OUTPUT.h / 0.833333 <
+//!COMPUTE 32 16 32 8
+#pragma optionNV(inline none)
 float nnedi3(vec4 samples[12]) {
 float sum = 0.0, sumsq = 0.0;
 for (int i = 0; i < 12; i++) {
@@ -289,80 +292,80 @@ sum1=W(0,-1128713579,1048792739,1050333168,-1097949975)+W(1,-1101689274,-1127716
 sum1=W(0,-1114247594,1021500053,1028761377,1044129269)+W(1,-1131183895,-1121682823,999910687,1042624634)+W(2,1005300019,1053438789,-1096850135,1029411807)+W(3,-1112649805,1043096639,-1100727404,1055682820)+W(4,-1106832988,1022343799,1022168820,1034747044)+W(5,1035906940,-1086991443,1038040260,-1113521452)+W(6,1009392321,-1103886814,1062898916,-1084075064)+W(7,1044548897,-1110992968,1025791509,-1101453262)+W(8,1054732110,-1098009154,1037861846,-1110478453)+W(9,-1115410306,1026735815,1042621601,-1097832968)+W(10,1022910341,-1125653940,1020540891,1034256626)+W(11,1041116931,-1117544535,-1121491970,-1112646442);sum2=W(0,-1109856908,1025315462,-1111613060,-1108093549)+W(1,1041489120,-1114414815,995541592,1040254152)+W(2,997512408,-1085520225,-1094645099,1040714423)+W(3,-1107331629,1035675473,-1115826672,-1103361463)+W(4,-1102705141,-1125997775,1043476326,1026228130)+W(5,1067108106,1059978555,-1121534122,1032256197)+W(6,-1104942022,-1101803200,1053887552,-1094292172)+W(7,1039802977,-1130615251,1039471517,-1123010638)+W(8,-1104388416,-1120534147,1017265579,-1129091643)+W(9,-1114856041,1040268905,-1120685867,-1108094032)+W(10,1040793483,-1108206349,1022399907,1028920354)+W(11,-1103458923,1040596394,-1107135380,1027593934);WS(1054796503,-1111794816);
 return clamp(mstd0 + 5.0 * vsum / wsum * mstd1, 0.0, 1.0);
 }  // nnedi3
-vec4 hook() {
-vec4 ret = vec4(0.0);
-vec4 samples[12];
-samples[0][0] = HOOKED_texOff(vec2(-3.0, -2.0)).x;
-samples[0][1] = HOOKED_texOff(vec2(-3.0, -1.0)).x;
-samples[0][2] = HOOKED_texOff(vec2(-3.0, 0.0)).x;
-samples[0][3] = HOOKED_texOff(vec2(-3.0, 1.0)).x;
-samples[1][0] = HOOKED_texOff(vec2(-3.0, 2.0)).x;
-samples[1][1] = HOOKED_texOff(vec2(-3.0, 3.0)).x;
-samples[1][2] = HOOKED_texOff(vec2(-2.0, -2.0)).x;
-samples[1][3] = HOOKED_texOff(vec2(-2.0, -1.0)).x;
-samples[2][0] = HOOKED_texOff(vec2(-2.0, 0.0)).x;
-samples[2][1] = HOOKED_texOff(vec2(-2.0, 1.0)).x;
-samples[2][2] = HOOKED_texOff(vec2(-2.0, 2.0)).x;
-samples[2][3] = HOOKED_texOff(vec2(-2.0, 3.0)).x;
-samples[3][0] = HOOKED_texOff(vec2(-1.0, -2.0)).x;
-samples[3][1] = HOOKED_texOff(vec2(-1.0, -1.0)).x;
-samples[3][2] = HOOKED_texOff(vec2(-1.0, 0.0)).x;
-samples[3][3] = HOOKED_texOff(vec2(-1.0, 1.0)).x;
-samples[4][0] = HOOKED_texOff(vec2(-1.0, 2.0)).x;
-samples[4][1] = HOOKED_texOff(vec2(-1.0, 3.0)).x;
-samples[4][2] = HOOKED_texOff(vec2(0.0, -2.0)).x;
-samples[4][3] = HOOKED_texOff(vec2(0.0, -1.0)).x;
-samples[5][0] = HOOKED_texOff(vec2(0.0, 0.0)).x;
-samples[5][1] = HOOKED_texOff(vec2(0.0, 1.0)).x;
-samples[5][2] = HOOKED_texOff(vec2(0.0, 2.0)).x;
-samples[5][3] = HOOKED_texOff(vec2(0.0, 3.0)).x;
-samples[6][0] = HOOKED_texOff(vec2(1.0, -2.0)).x;
-samples[6][1] = HOOKED_texOff(vec2(1.0, -1.0)).x;
-samples[6][2] = HOOKED_texOff(vec2(1.0, 0.0)).x;
-samples[6][3] = HOOKED_texOff(vec2(1.0, 1.0)).x;
-samples[7][0] = HOOKED_texOff(vec2(1.0, 2.0)).x;
-samples[7][1] = HOOKED_texOff(vec2(1.0, 3.0)).x;
-samples[7][2] = HOOKED_texOff(vec2(2.0, -2.0)).x;
-samples[7][3] = HOOKED_texOff(vec2(2.0, -1.0)).x;
-samples[8][0] = HOOKED_texOff(vec2(2.0, 0.0)).x;
-samples[8][1] = HOOKED_texOff(vec2(2.0, 1.0)).x;
-samples[8][2] = HOOKED_texOff(vec2(2.0, 2.0)).x;
-samples[8][3] = HOOKED_texOff(vec2(2.0, 3.0)).x;
-samples[9][0] = HOOKED_texOff(vec2(3.0, -2.0)).x;
-samples[9][1] = HOOKED_texOff(vec2(3.0, -1.0)).x;
-samples[9][2] = HOOKED_texOff(vec2(3.0, 0.0)).x;
-samples[9][3] = HOOKED_texOff(vec2(3.0, 1.0)).x;
-samples[10][0] = HOOKED_texOff(vec2(3.0, 2.0)).x;
-samples[10][1] = HOOKED_texOff(vec2(3.0, 3.0)).x;
-samples[10][2] = HOOKED_texOff(vec2(4.0, -2.0)).x;
-samples[10][3] = HOOKED_texOff(vec2(4.0, -1.0)).x;
-samples[11][0] = HOOKED_texOff(vec2(4.0, 0.0)).x;
-samples[11][1] = HOOKED_texOff(vec2(4.0, 1.0)).x;
-samples[11][2] = HOOKED_texOff(vec2(4.0, 2.0)).x;
-samples[11][3] = HOOKED_texOff(vec2(4.0, 3.0)).x;
-ret[0] = nnedi3(samples);
-return ret;
-}  // hook
-//!DESC NNEDI3 (combine_y, nns256, win8x6)
-//!HOOK LUMA
-//!BIND HOOKED
-//!BIND nnedi3_int
-//!HEIGHT 2 HOOKED.h *
-//!OFFSET 0.000000 -0.500000
-//!WHEN HOOKED.h OUTPUT.h / 0.833333 <
-vec4 hook() {
-    vec2 dir = fract(HOOKED_pos * HOOKED_size) - 0.5;
-    if (dir.y < 0.0) {
-        return HOOKED_texOff(-dir);
-    } else {
-        return nnedi3_int_texOff(-dir);
-    }
+shared float inp[507];
+void hook() {
+ivec2 group_base = ivec2(gl_WorkGroupID) * ivec2(gl_WorkGroupSize);
+int local_pos = int(gl_LocalInvocationID.x) * 13 + int(gl_LocalInvocationID.y);
+for (int id = int(gl_LocalInvocationIndex); id < 507; id += int(gl_WorkGroupSize.x * gl_WorkGroupSize.y)) {
+int x = id / 13, y = id % 13;
+inp[id] = HOOKED_tex(HOOKED_pt * vec2(float(group_base.x+x-(3))+0.5,float(group_base.y+y-(2))+0.5)).x;
 }
+groupMemoryBarrier();
+barrier();
+vec4 ret = vec4(0.0);
+vec4 ret0 = vec4(0.0);
+vec4 samples[12];
+samples[0][0] = inp[local_pos + 0];
+samples[0][1] = inp[local_pos + 1];
+samples[0][2] = inp[local_pos + 2];
+samples[0][3] = inp[local_pos + 3];
+samples[1][0] = inp[local_pos + 4];
+samples[1][1] = inp[local_pos + 5];
+samples[1][2] = inp[local_pos + 13];
+samples[1][3] = inp[local_pos + 14];
+samples[2][0] = inp[local_pos + 15];
+samples[2][1] = inp[local_pos + 16];
+samples[2][2] = inp[local_pos + 17];
+samples[2][3] = inp[local_pos + 18];
+samples[3][0] = inp[local_pos + 26];
+samples[3][1] = inp[local_pos + 27];
+samples[3][2] = inp[local_pos + 28];
+samples[3][3] = inp[local_pos + 29];
+samples[4][0] = inp[local_pos + 30];
+samples[4][1] = inp[local_pos + 31];
+samples[4][2] = inp[local_pos + 39];
+samples[4][3] = inp[local_pos + 40];
+samples[5][0] = inp[local_pos + 41];
+samples[5][1] = inp[local_pos + 42];
+samples[5][2] = inp[local_pos + 43];
+samples[5][3] = inp[local_pos + 44];
+samples[6][0] = inp[local_pos + 52];
+samples[6][1] = inp[local_pos + 53];
+samples[6][2] = inp[local_pos + 54];
+samples[6][3] = inp[local_pos + 55];
+samples[7][0] = inp[local_pos + 56];
+samples[7][1] = inp[local_pos + 57];
+samples[7][2] = inp[local_pos + 65];
+samples[7][3] = inp[local_pos + 66];
+samples[8][0] = inp[local_pos + 67];
+samples[8][1] = inp[local_pos + 68];
+samples[8][2] = inp[local_pos + 69];
+samples[8][3] = inp[local_pos + 70];
+samples[9][0] = inp[local_pos + 78];
+samples[9][1] = inp[local_pos + 79];
+samples[9][2] = inp[local_pos + 80];
+samples[9][3] = inp[local_pos + 81];
+samples[10][0] = inp[local_pos + 82];
+samples[10][1] = inp[local_pos + 83];
+samples[10][2] = inp[local_pos + 91];
+samples[10][3] = inp[local_pos + 92];
+samples[11][0] = inp[local_pos + 93];
+samples[11][1] = inp[local_pos + 94];
+samples[11][2] = inp[local_pos + 95];
+samples[11][3] = inp[local_pos + 96];
+ret[0] = nnedi3(samples);
+ret0[0] = inp[local_pos + 41];
+imageStore(out_image, ivec2(gl_GlobalInvocationID) * ivec2(1, 2), ret0);
+imageStore(out_image, ivec2(gl_GlobalInvocationID) * ivec2(1, 2) + ivec2(0, 1), ret);
+}  // hook
 //!DESC NNEDI3 (double_x, nns256, win8x6)
 //!HOOK LUMA
 //!BIND HOOKED
-//!SAVE nnedi3_int
+//!WIDTH 2 HOOKED.w *
+//!OFFSET -0.500000 0.000000
 //!WHEN HOOKED.w OUTPUT.w / 0.833333 <
+//!COMPUTE 64 8 32 8
+#pragma optionNV(inline none)
 float nnedi3(vec4 samples[12]) {
 float sum = 0.0, sumsq = 0.0;
 for (int i = 0; i < 12; i++) {
@@ -635,72 +638,69 @@ sum1=W(0,-1128713579,1026709637,1023201012,1030859291)+W(1,1041237492,-115299721
 sum1=W(0,-1114247594,999910687,-1112649805,1022168820)+W(1,1009392321,1025791509,-1115410306,1020540891)+W(2,1021500053,1042624634,1043096639,1034747044)+W(3,-1103886814,-1101453262,1026735815,1034256626)+W(4,1028761377,1005300019,-1100727404,1035906940)+W(5,1062898916,1054732110,1042621601,1041116931)+W(6,1044129269,1053438789,1055682820,-1086991443)+W(7,-1084075064,-1098009154,-1097832968,-1117544535)+W(8,-1131183895,-1096850135,-1106832988,1038040260)+W(9,1044548897,1037861846,1022910341,-1121491970)+W(10,-1121682823,1029411807,1022343799,-1113521452)+W(11,-1110992968,-1110478453,-1125653940,-1112646442);sum2=W(0,-1109856908,995541592,-1107331629,1043476326)+W(1,-1104942022,1039471517,-1114856041,1022399907)+W(2,1025315462,1040254152,1035675473,1026228130)+W(3,-1101803200,-1123010638,1040268905,1028920354)+W(4,-1111613060,997512408,-1115826672,1067108106)+W(5,1053887552,-1104388416,-1120685867,-1103458923)+W(6,-1108093549,-1085520225,-1103361463,1059978555)+W(7,-1094292172,-1120534147,-1108094032,1040596394)+W(8,1041489120,-1094645099,-1102705141,-1121534122)+W(9,1039802977,1017265579,1040793483,-1107135380)+W(10,-1114414815,1040714423,-1125997775,1032256197)+W(11,-1130615251,-1129091643,-1108206349,1027593934);WS(1054796503,-1111794816);
 return clamp(mstd0 + 5.0 * vsum / wsum * mstd1, 0.0, 1.0);
 }  // nnedi3
-vec4 hook() {
-vec4 ret = vec4(0.0);
-vec4 samples[12];
-samples[0][0] = HOOKED_texOff(vec2(-2.0, -3.0)).x;
-samples[0][1] = HOOKED_texOff(vec2(-2.0, -2.0)).x;
-samples[0][2] = HOOKED_texOff(vec2(-2.0, -1.0)).x;
-samples[0][3] = HOOKED_texOff(vec2(-2.0, 0.0)).x;
-samples[1][0] = HOOKED_texOff(vec2(-2.0, 1.0)).x;
-samples[1][1] = HOOKED_texOff(vec2(-2.0, 2.0)).x;
-samples[1][2] = HOOKED_texOff(vec2(-2.0, 3.0)).x;
-samples[1][3] = HOOKED_texOff(vec2(-2.0, 4.0)).x;
-samples[2][0] = HOOKED_texOff(vec2(-1.0, -3.0)).x;
-samples[2][1] = HOOKED_texOff(vec2(-1.0, -2.0)).x;
-samples[2][2] = HOOKED_texOff(vec2(-1.0, -1.0)).x;
-samples[2][3] = HOOKED_texOff(vec2(-1.0, 0.0)).x;
-samples[3][0] = HOOKED_texOff(vec2(-1.0, 1.0)).x;
-samples[3][1] = HOOKED_texOff(vec2(-1.0, 2.0)).x;
-samples[3][2] = HOOKED_texOff(vec2(-1.0, 3.0)).x;
-samples[3][3] = HOOKED_texOff(vec2(-1.0, 4.0)).x;
-samples[4][0] = HOOKED_texOff(vec2(0.0, -3.0)).x;
-samples[4][1] = HOOKED_texOff(vec2(0.0, -2.0)).x;
-samples[4][2] = HOOKED_texOff(vec2(0.0, -1.0)).x;
-samples[4][3] = HOOKED_texOff(vec2(0.0, 0.0)).x;
-samples[5][0] = HOOKED_texOff(vec2(0.0, 1.0)).x;
-samples[5][1] = HOOKED_texOff(vec2(0.0, 2.0)).x;
-samples[5][2] = HOOKED_texOff(vec2(0.0, 3.0)).x;
-samples[5][3] = HOOKED_texOff(vec2(0.0, 4.0)).x;
-samples[6][0] = HOOKED_texOff(vec2(1.0, -3.0)).x;
-samples[6][1] = HOOKED_texOff(vec2(1.0, -2.0)).x;
-samples[6][2] = HOOKED_texOff(vec2(1.0, -1.0)).x;
-samples[6][3] = HOOKED_texOff(vec2(1.0, 0.0)).x;
-samples[7][0] = HOOKED_texOff(vec2(1.0, 1.0)).x;
-samples[7][1] = HOOKED_texOff(vec2(1.0, 2.0)).x;
-samples[7][2] = HOOKED_texOff(vec2(1.0, 3.0)).x;
-samples[7][3] = HOOKED_texOff(vec2(1.0, 4.0)).x;
-samples[8][0] = HOOKED_texOff(vec2(2.0, -3.0)).x;
-samples[8][1] = HOOKED_texOff(vec2(2.0, -2.0)).x;
-samples[8][2] = HOOKED_texOff(vec2(2.0, -1.0)).x;
-samples[8][3] = HOOKED_texOff(vec2(2.0, 0.0)).x;
-samples[9][0] = HOOKED_texOff(vec2(2.0, 1.0)).x;
-samples[9][1] = HOOKED_texOff(vec2(2.0, 2.0)).x;
-samples[9][2] = HOOKED_texOff(vec2(2.0, 3.0)).x;
-samples[9][3] = HOOKED_texOff(vec2(2.0, 4.0)).x;
-samples[10][0] = HOOKED_texOff(vec2(3.0, -3.0)).x;
-samples[10][1] = HOOKED_texOff(vec2(3.0, -2.0)).x;
-samples[10][2] = HOOKED_texOff(vec2(3.0, -1.0)).x;
-samples[10][3] = HOOKED_texOff(vec2(3.0, 0.0)).x;
-samples[11][0] = HOOKED_texOff(vec2(3.0, 1.0)).x;
-samples[11][1] = HOOKED_texOff(vec2(3.0, 2.0)).x;
-samples[11][2] = HOOKED_texOff(vec2(3.0, 3.0)).x;
-samples[11][3] = HOOKED_texOff(vec2(3.0, 4.0)).x;
-ret[0] = nnedi3(samples);
-return ret;
-}  // hook
-//!DESC NNEDI3 (combine_x, nns256, win8x6)
-//!HOOK LUMA
-//!BIND HOOKED
-//!BIND nnedi3_int
-//!WIDTH 2 HOOKED.w *
-//!OFFSET -0.500000 0.000000
-//!WHEN HOOKED.w OUTPUT.w / 0.833333 <
-vec4 hook() {
-    vec2 dir = fract(HOOKED_pos * HOOKED_size) - 0.5;
-    if (dir.x < 0.0) {
-        return HOOKED_texOff(-dir);
-    } else {
-        return nnedi3_int_texOff(-dir);
-    }
+shared float inp[555];
+void hook() {
+ivec2 group_base = ivec2(gl_WorkGroupID) * ivec2(gl_WorkGroupSize);
+int local_pos = int(gl_LocalInvocationID.x) * 15 + int(gl_LocalInvocationID.y);
+for (int id = int(gl_LocalInvocationIndex); id < 555; id += int(gl_WorkGroupSize.x * gl_WorkGroupSize.y)) {
+int x = id / 15, y = id % 15;
+inp[id] = HOOKED_tex(HOOKED_pt * vec2(float(group_base.x+x-(2))+0.5,float(group_base.y+y-(3))+0.5)).x;
 }
+groupMemoryBarrier();
+barrier();
+vec4 ret = vec4(0.0);
+vec4 ret0 = vec4(0.0);
+vec4 samples[12];
+samples[0][0] = inp[local_pos + 0];
+samples[0][1] = inp[local_pos + 1];
+samples[0][2] = inp[local_pos + 2];
+samples[0][3] = inp[local_pos + 3];
+samples[1][0] = inp[local_pos + 4];
+samples[1][1] = inp[local_pos + 5];
+samples[1][2] = inp[local_pos + 6];
+samples[1][3] = inp[local_pos + 7];
+samples[2][0] = inp[local_pos + 15];
+samples[2][1] = inp[local_pos + 16];
+samples[2][2] = inp[local_pos + 17];
+samples[2][3] = inp[local_pos + 18];
+samples[3][0] = inp[local_pos + 19];
+samples[3][1] = inp[local_pos + 20];
+samples[3][2] = inp[local_pos + 21];
+samples[3][3] = inp[local_pos + 22];
+samples[4][0] = inp[local_pos + 30];
+samples[4][1] = inp[local_pos + 31];
+samples[4][2] = inp[local_pos + 32];
+samples[4][3] = inp[local_pos + 33];
+samples[5][0] = inp[local_pos + 34];
+samples[5][1] = inp[local_pos + 35];
+samples[5][2] = inp[local_pos + 36];
+samples[5][3] = inp[local_pos + 37];
+samples[6][0] = inp[local_pos + 45];
+samples[6][1] = inp[local_pos + 46];
+samples[6][2] = inp[local_pos + 47];
+samples[6][3] = inp[local_pos + 48];
+samples[7][0] = inp[local_pos + 49];
+samples[7][1] = inp[local_pos + 50];
+samples[7][2] = inp[local_pos + 51];
+samples[7][3] = inp[local_pos + 52];
+samples[8][0] = inp[local_pos + 60];
+samples[8][1] = inp[local_pos + 61];
+samples[8][2] = inp[local_pos + 62];
+samples[8][3] = inp[local_pos + 63];
+samples[9][0] = inp[local_pos + 64];
+samples[9][1] = inp[local_pos + 65];
+samples[9][2] = inp[local_pos + 66];
+samples[9][3] = inp[local_pos + 67];
+samples[10][0] = inp[local_pos + 75];
+samples[10][1] = inp[local_pos + 76];
+samples[10][2] = inp[local_pos + 77];
+samples[10][3] = inp[local_pos + 78];
+samples[11][0] = inp[local_pos + 79];
+samples[11][1] = inp[local_pos + 80];
+samples[11][2] = inp[local_pos + 81];
+samples[11][3] = inp[local_pos + 82];
+ret[0] = nnedi3(samples);
+ret0[0] = inp[local_pos + 33];
+imageStore(out_image, ivec2(gl_GlobalInvocationID) * ivec2(2, 1), ret0);
+imageStore(out_image, ivec2(gl_GlobalInvocationID) * ivec2(2, 1) + ivec2(1, 0), ret);
+}  // hook

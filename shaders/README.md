@@ -117,22 +117,6 @@ enhance 变体在去除伪影强度上更大
 
 ☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲
 
-### AviSynth AiUpscale
-
-名字奇怪是因为开发者主要移植到 AviSynth + 上用的，和 FSRCNNX 有相似的体系结构，但使用了不同的滤镜。
-
-x2 x3 x4 分别对应 二倍 三倍 四倍 放大 质量上 Fast 弱于 Medium 弱于 HQ 性能需求上 Fast2x 介于 FSRCNNX8 和 FSRCNNX16 之间， 但是 Medium2x 远高于 FSRCNNX16， 变体 HQ 因速度极慢而难以用于高质量片源 LineArt 适合 2D 画面而 Photo 适合现实类画面
-
-🔺 启用将覆盖 **mpv.conf** 中指定的 --scale=xxxxx 算法 
-
-🔺 不同倍率对应的最小缩放触发倍率分别为 1.4 2.4 3.4
-
-出于实用角度，懒人包内仅保留 2x 的变体 相关列表：[https://github.com/Alexkral/AviSynthAiUpscale](https://github.com/Alexkral/AviSynthAiUpscale)
-
- `AiUpscale_Fast_2x_LineArt.glsl` <br/> `AiUpscale_Fast_2x_Photo.glsl` <br/> `AiUpscale_Fast_Sharp_2x_LineArt.glsl` <br/> `AiUpscale_Fast_Sharp_2x_Photo.glsl` <br/> `AiUpscale_Medium_2x_LineArt.glsl` <br/> `AiUpscale_Medium_2x_Photo.glsl` <br/> `AiUpscale_Medium_Sharp_2x_LineArt.glsl` <br/> `AiUpscale_Medium_Sharp_2x_Photo.glsl` <br/> `AiUpscale_HQ_2x_LineArt.glsl` <br/> `AiUpscale_HQ_2x_Photo.glsl` <br/> `AiUpscale_HQ_Sharp_2x_LineArt.glsl` <br/> `AiUpscale_HQ_Sharp_2x_Photo.glsl`
-
-☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲
-
 ### Adaptive Sharpen
 
 自适应锐化
@@ -211,12 +195,6 @@ r2 → r3 → r4； nns16 → nns32 → nns64 → nns128 → nns256；win8x4 →
 
 ☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲
 
-### AMD-CAS
-
-   移植自AMD FidelityFX CAS (Contrast Adaptive Sharpening)，原始设计用于游戏，对比度自适应锐化是一种低开销的锐化算法。
-
-🔺  rgb  变体作用于后处理，比常规版本开销微高，速度微慢
-
 ### AMD-FSR
 
    移植自AMD FidelityFX Super Resolution (FSR)，原始设计用于游戏，是一种先执行常规放大后再进行对比度自适应锐化的改良算法。放大部分基于lanczos+bilinear，锐化部分基于cas
@@ -225,52 +203,14 @@ r2 → r3 → r4； nns16 → nns32 → nns64 → nns128 → nns256；win8x4 →
 
 （变体  scaled  功能完整，附带了缩放模块而非纯粹的锐化算法）
 
-`AMD-CAS.glsl` <br/>
-`AMD-CAS-scaled.glsl` <br/>
 `AMD-FSR.glsl` <br/>
 
 相关列表：MOD
 
 （变体  rgb  没有放大倍率的上限；变体  EASU  分离自fsr的放大模块，用作纯粹的放大算法）
 
-`AMD-CAS_rgb.glsl` <br/>
-`AMD-CAS-scaled_rgb.glsl` <br/>
 `AMD-FSR_rgb.glsl` <br/>
 `AMD-FSR-EASU_rgb.glsl` <br/>
-
-相关列表：https://github.com/deus0ww/mpv-conf/tree/master/shaders/cas
-
-（另一种移植的精简cas功能后的版本，更快速和低耗）
-
-`AMD-CAS-lite_luma.glsl` <br/>
-`AMD-CAS-lite_rgb.glsl` <br/>
-
-🔺 无后缀名的版本都只作用于亮度通道（预处理）
-
-☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲
-
-### NV-NIS
-
-   移植自NVIDIA Image Scaling (NIS)，原始设计用于游戏，是一种基于lanczos的常规放大算法，并辅以自适应锐化改变观感。
-
-🔺 此算法的振铃伪影异常明显，并且会随着锐化强度的增加而愈发显著
-
-### NV-NVSharpen
-
-   移植自NIS中的锐化模块，原始设计用于游戏。
-
-相关列表：https://gist.github.com/agyild/7e8951915b2bf24526a9343d951db214
-
-`NVScaler.glsl` <br/>
-`NVSharpen.glsl` <br/>
-
-相关列表：MOD
-
-（变体  rgb  作用于后处理，比常规版本开销微高，速度微慢）
-
-`NVScaler_rgb.glsl` <br/>
-
- 🔺无后缀名的 NVScaler 只作用于亮度通道（预处理），而 NVSharpen 作用于后处理
 
 ☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲☲
 
