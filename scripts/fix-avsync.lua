@@ -7,16 +7,17 @@ local mp = require "mp"
 local msg = require "mp.msg"
 
 local function fix_avsync()
-    local paused = mp.get_property_native("pause")
-    local muted = mp.get_property_native("mute")
+    local aid = mp.get_property_number("aid")
     local vid = mp.get_property_number("vid")
     local image = mp.get_property_native("current-tracks/video/image", false)
     local albumart = image and mp.get_property_native("current-tracks/video/albumart", false)
+    local paused = mp.get_property_native("pause")
+    local muted = mp.get_property_native("mute")
 
-    if not vid or image or albumart then return end
+    if not aid or not vid or image or albumart then return end
     msg.info("fix A/V sync.")
     mp.commandv("frame-step")
-    mp.set_property_native("mute", true)
+    if not muted then mp.set_property_native("mute", true) end
     mp.add_timeout(0.1, function()
         mp.commandv("frame-back-step")
         if paused then return
@@ -28,12 +29,6 @@ local function fix_avsync()
     end)
 end
 
-mp.register_event("file-loaded", function()
-    mp.observe_property("aid", "number", function(_, aid)
-        if aid then fix_avsync() end
-    end)
-end)
-
-mp.register_event("end-file", function()
-    mp.unobserve_property(fix_avsync)
+mp.observe_property("aid", "string", function(_, aid)
+    if aid then fix_avsync() end
 end)

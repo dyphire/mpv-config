@@ -1,5 +1,5 @@
---[[ uosc 4.5.0 - 2022-Dec-07 | https://github.com/tomasklaen/uosc ]]
-local uosc_version = '4.5.0'
+--[[ uosc 4.6.0 - 2023-Feb-15 | https://github.com/tomasklaen/uosc ]]
+local uosc_version = '4.6.0'
 
 assdraw = require('mp.assdraw')
 opt = require('mp.options')
@@ -596,8 +596,7 @@ do
 	local function update_state_with_template(prop, template)
 		-- escape ASS, and strip newlines and trailing slashes and trim whitespace
 		local tmp = mp.command_native({'expand-text', template}):gsub('\\n', ' '):gsub('[\\%s]+$', ''):gsub('^%s+', '')
-		if tmp:match('No file$') then set_state(prop, tmp:gsub('No file$', ''))
-		else set_state(prop, ass_escape(tmp)) end
+		set_state(prop, ass_escape(tmp))
 	end
 
 	local function add_template_listener(template, callback)

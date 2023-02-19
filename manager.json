@@ -26,6 +26,11 @@
     "dest":"~~/scripts"
   },
   {
+    "git":"https://github.com/natural-harmonia-gropius/recent-menu",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
     "git":"https://github.com/zhongfly/InputEvent",
     "whitelist":"%.lua$",
     "dest":"~~/scripts",
@@ -60,11 +65,6 @@
     "branch":"dev"
   },
   {
-    "git":"https://github.com/dyphire/MPVMediaControl",
-    "whitelist":"%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
     "git":"https://github.com/dyphire/chapterskip",
     "whitelist":"%.lua$",
     "dest":"~~/scripts",
@@ -93,6 +93,11 @@
     "whitelist":"main%.lua$|webui%-page",
     "dest":"~~/scripts/simple-mpv-webui",
     "branch":"main"
+  },
+  {
+    "git":"https://github.com/datasone/MPVMediaControl",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts"
   },
   {
     "git":"https://github.com/qwerty12/mpv-taskbar-buttons",

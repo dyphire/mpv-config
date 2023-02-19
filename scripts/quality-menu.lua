@@ -1,4 +1,4 @@
--- quality-menu 3.1.1 - 2023-Feb-04
+-- quality-menu 4.1.0 - 2023-Feb-17
 -- https://github.com/christoph-heinrich/mpv-quality-menu
 --
 -- Change the stream video and audio quality on the fly.
@@ -79,10 +79,6 @@ local opts = {
     {"default" : "bestaudio/best"}
     ]
     ]],
-
-    --reset ytdl-format to the original format string when changing files (e.g. going to the next playlist entry)
-    --if file was opened previously, reset to previously selected format
-    reset_format = true,
 
     --automatically fetch available formats when opening an url
     fetch_on_start = true,
@@ -526,9 +522,7 @@ local url_data = {}
 local function uosc_set_format_counts()
     if not uosc_available then return end
 
-    local new_path = get_url()
-
-    local data = url_data[new_path]
+    local data = url_data[current_url]
     if data then
         mp.commandv('script-message-to', 'uosc', 'set', 'vformats', #data.video_formats)
         mp.commandv('script-message-to', 'uosc', 'set', 'aformats', #data.audio_formats)
@@ -573,12 +567,21 @@ local function download_formats(url)
     end
 
     local ytdl_format = mp.get_property('ytdl-format')
-    local command = { ytdl.path, '--no-warnings', '--no-playlist', '-J', url }
+    local raw_options = mp.get_property_native('ytdl-raw-options')
+    local command = { ytdl.path, '--no-warnings', '--no-playlist', '-J' }
     if ytdl_format and #ytdl_format > 0 then
         command[#command + 1] = '-f'
         command[#command + 1] = ytdl_format
     end
+    for param, arg in pairs(raw_options) do
+        command[#command + 1] = '--' .. param
+        if #arg > 0 then
+            command[#command + 1] = arg
+        end
+    end
     if opts.ytdl_ver == 'yt-dlp' then command[#command + 1] = '--no-match-filter' end
+    command[#command + 1] = '--'
+    command[#command + 1] = url
 
     msg.verbose('calling ytdl with command: ' .. table.concat(command, ' '))
 
@@ -681,10 +684,7 @@ local function set_format(url, video_format, audio_format)
     if (url_data[url].video_active_id ~= video_format or url_data[url].audio_active_id ~= audio_format) then
         url_data[url].video_active_id = video_format
         url_data[url].audio_active_id = audio_format
-        if url == mp.get_property('path') then
-            mp.set_property('ytdl-format', format_string(video_format, audio_format))
-            reload_resume()
-        end
+        if url == mp.get_property('path') then reload_resume() end
     end
 end
 
@@ -1135,11 +1135,7 @@ function menu_open(menu_type)
     if menu_type.is_video then active_format = data.video_active_id
     else active_format = data.audio_active_id end
 
-    msg.verbose('current ytdl-format: ' ..
-        format_string(
-            sanitize_format_id(data.video_active_id, data.video_formats),
-            sanitize_format_id(data.audio_active_id, data.audio_formats)
-        ))
+    msg.verbose('current ytdl-format: ' .. mp.get_property('ytdl-format', ''))
 
     ensure_menu_data_filled(formats, menu_type)
     if uosc_available then uosc_menu_open(formats, active_format, menu_type)
@@ -1185,37 +1181,36 @@ mp.add_key_binding(nil, 'video_formats_toggle', video_formats_toggle)
 mp.add_key_binding(nil, 'audio_formats_toggle', audio_formats_toggle)
 mp.add_key_binding(nil, 'reload', reload_resume)
 
-local original_format = mp.get_property('ytdl-format')
-local function file_start()
+mp.register_event('start-file', function()
+    local new_url = get_url()
+    local url_changed = current_url ~= new_url
+    current_url = new_url
     uosc_set_format_counts()
 
-    local new_url = get_url()
+    -- new path isn't an url
     if not new_url then return menu_close() end
 
-    local data = url_data[new_url]
-
-    if opts.reset_format and current_url and new_url ~= current_url then
-        if data and data.video_active_id and data.audio_active_id then
-            msg.verbose('setting previously set format')
-            mp.set_property('ytdl-format', format_string(data.video_active_id, data.audio_active_id))
-        else
-            msg.verbose('setting original format')
-            mp.set_property('ytdl-format', original_format)
-        end
-        reload_resume()
+    -- open or update menu
+    if opts.start_with_menu and url_changed or open_menu_state then
+        menu_open(open_menu_state or states.video_menu)
     end
+end)
 
-    if opts.fetch_formats and opts.fetch_on_start and not data then
-        download_formats(new_url)
-    end
-    if not open_menu_state and opts.start_with_menu and new_url ~= current_url then
-        video_formats_toggle()
-    end
-    current_url = new_url
-    if open_menu_state then menu_open(open_menu_state) end
-end
+mp.register_event('file-loaded', function()
+    if not (opts.fetch_formats and opts.fetch_on_start) then return end
+    if not current_url or url_data[current_url] then return end
+    download_formats(current_url)
+end)
 
-mp.register_event('start-file', file_start)
+-- run before ytdl_hook, which uses a priority of 10
+mp.add_hook('on_load', 9, function()
+    local path = mp.get_property('path')
+    local data = url_data[path]
+    if not (data and data.video_active_id and data.audio_active_id) then return end
+    local format = format_string(data.video_active_id, data.audio_active_id)
+    msg.verbose('setting ytdl-format: ' .. format)
+    mp.set_property('file-local-options/ytdl-format', format)
+end)
 
 ---@param url string
 ---@param format_id string
@@ -1244,17 +1239,18 @@ mp.register_script_message('uosc-version', function(version)
     local function semver_comp(v1, v2)
         local v1_iterator = v1:gmatch('%d+')
         local v2_iterator = v2:gmatch('%d+')
-        for v2_num in v2_iterator do
-            local v1_num = v1_iterator()
-            if not v1_num then return true end
+        for v2_num_str in v2_iterator do
+            local v1_num_str = v1_iterator()
+            if not v1_num_str then return true end
+            local v1_num = tonumber(v1_num_str)
+            local v2_num = tonumber(v2_num_str)
             if v1_num < v2_num then return true end
             if v1_num > v2_num then return false end
         end
         return false
     end
 
-    local min_version = '4.5.1'
-    min_version = '4.5.0' -- todo: remove for full release
+    local min_version = '4.6.0'
     uosc_available = not semver_comp(version, min_version)
     if not uosc_available then return end
     uosc_set_format_counts()

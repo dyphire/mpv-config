@@ -39,6 +39,7 @@
 | playlistmanager.lua* | OSD 交互式播放列表（配置文件 [playlistmanager.conf](../script-opts/playlistmanager.conf)） |
 | playlistmanager-save-interactive.lua | 用于 playlistmanager.lua 保存播放列表时进行重命名操作的增强性脚本 |
 | quality-menu.lua* | 切换 ytdl 视频/音频质量的 OSD 交互式菜单（依赖 yt-dlp/youtube-dl; 配置文件 [quality-menu.conf](../script-opts/quality-menu.conf)） |
+| recentmenu.lua* | 与 uosc 集成的简单播放历史菜单（依赖 uosc; 配置文件 [recentmenu.conf](../script-opts/recentmenu.conf)） |
 | segment-linking.lua | 实现对 matroska [硬段链接](https://www.ietf.org/archive/id/draft-ietf-cellar-matroska-06.html#name-hard-linking) 的支持（依赖  [read-file.lua](../script-modules/read-file.lua)；配置文件 [segment_linking.conf](../script-opts/segment_linking.conf)） |
 | simplebookmark.lua* | OSD 交互式书签菜单（配置文件 [simplebookmark.conf](../script-opts/simplebookmark.conf)）；动态键位绑定在同名配置文件中 |
 | simplehistory.lua* | OSD 交互式历史菜单，可恢复最后的播放记录并播放（配置文件 [simplehistory.conf](../script-opts/simplehistory.conf)）；动态键位绑定在同名配置文件中 |

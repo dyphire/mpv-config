@@ -1,34 +1,37 @@
+local mp = require 'mp'
 local utils = require 'mp.utils'
-local options = require 'mp.options'
-local msg = require 'mp.msg'
+local opt = require 'mp.options'
 
 local o = {
-    enable = true,
-    -- Change this to the location of MPVMediaControl.exe, use \\ for path separator
-    mpvmc_path = "MPVMediaControl.exe",
-    -- Set '~~/mpvmc' to use mpv config directory, OR specify the absolute path
-    shot_path = "~~/mpvmc"
+    debug = false,
+    -- Path to executable (MPVMediaControl.exe)
+    binary_path = "~~/bin/MPVMediaControl.exe",
+    -- Path for storing temporary screenshots
+    shot_path = "~~/",
+    -- If you want to delay taking screenshot for videos, set this to the number of delayed seconds
+    delayed_sec = 3,
+    -- Name of mpv's input-ipc-server (defaults to mpvsocket_{pid}), string "{pid}" in the value will be automatically replaced with the ID of mpv process
+    socket_name = "mpvsocket_{pid}",
 }
-options.read_options(o)
 
-DEBUG = false
-MPVMC_PATH = o.mpvmc_path
-DELAYED_SEC = 3
+opt.read_options(o, "notify_media")
 
-pid = utils.getpid()
-start_of_file = true
-new_file = false
-yt_thumbnail = false
-yt_failed = false
+o.binary_path = mp.command_native({ "expand-path", o.binary_path })
 
-o.shot_path = mp.command_native({ "expand-path", o.shot_path })
+local pid = utils.getpid()
+local start_of_file = true
+local new_file = false
+local yt_thumbnail = false
+local yt_failed = false
+local mpv_socket_name = o.socket_name:gsub("{pid}", tostring(pid))
+local shot_dir = mp.command_native({ "expand-path", o.shot_path })
 
---create o.shot_path if it doesn't exist
-if utils.readdir(o.shot_path) == nil then
-    local args = { 'powershell', '-NoProfile', '-Command', 'mkdir', o.shot_path }
+--create shot_dir if it doesn't exist
+if utils.readdir(shot_dir) == nil then
+    local args = { 'powershell', '-NoProfile', '-Command', 'mkdir', shot_dir }
     local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})
     if res.status ~= 0 then
-        msg.error("Failed to create shot_path save directory "..o.shot_path..". Error: "..(res.error or "unknown"))
+        msg.error("Failed to create shot_path save directory "..shot_dir..". Error: "..(res.error or "unknown"))
         return
     end
 end
@@ -51,7 +54,7 @@ function tprint (tbl, indent)
 end
 
 function debug_log(message)
-    if DEBUG then
+    if o.debug then
         if not message then
             print("DEBUG: nil")
             return
@@ -100,12 +103,12 @@ end
 function save_shot(path)
     if youtube_thumbail(path) then
         local shot_path_encoded = encode_element(shot_path)
-        message_content = "^[setShot](pid=" .. pid .. ")(shot_path=" .. shot_path_encoded .. ")$"
+        message_content = "^[setShot](pid=" .. pid .. ")(shot_path=" .. shot_path_encoded .. ")(socket_name=" .. mpv_socket_name .. ")$"
         write_to_socket(message_content)
         return
     end
-    if start_of_file and media_type() == "video" and DELAYED_SEC ~= 0 then
-        mp.add_timeout(DELAYED_SEC, function() save_shot(path) end)
+    if start_of_file and media_type() == "video" and o.delayed_sec ~= 0 then
+        mp.add_timeout(o.delayed_sec, function() save_shot(path) end)
         start_of_file = false
         return
     end
@@ -114,7 +117,7 @@ function save_shot(path)
         mp.add_timeout(0.5, function() save_shot(path) end)
     else
         local shot_path_encoded = encode_element(shot_path)
-        message_content = "^[setShot](pid=" .. pid .. ")(shot_path=" .. shot_path_encoded .. ")$"
+        message_content = "^[setShot](pid=" .. pid .. ")(shot_path=" .. shot_path_encoded .. ")(socket_name=" .. mpv_socket_name .. ")$"
         write_to_socket(message_content)
     end
 end
@@ -205,12 +208,12 @@ function notify_metadata_updated()
     end
     path = encode_element(path)
 
-    shot_path = o.shot_path .. "\\" .. pid .. ".jpg"
-    if mp.get_property("video-codec") and not mp.get_property_native("current-tracks/video/image") then
+    shot_path = shot_dir .. "\\" .. pid .. ".jpg"
+    if mp.get_property("video-codec") then
         save_shot(shot_path)
     end
 
-    message_content = "^[setFile](pid=" .. pid .. ")(title=" .. title .. ")(artist=" .. artist .. ")(path=" .. path .. ")(type=" .. media_type() .. ")$"
+    message_content = "^[setFile](pid=" .. pid .. ")(title=" .. title .. ")(artist=" .. artist .. ")(path=" .. path .. ")(type=" .. media_type() .. ")(socket_name=" .. mpv_socket_name .. ")$"
     write_to_socket(message_content)
 end
 
@@ -218,10 +221,8 @@ function play_state_changed()
     idle = mp.get_property_native("core-idle")
     is_playing = not idle
 
-    if o.enable == true then
-        message_content = "^[setState](pid=" .. pid .. ")(playing=" .. tostring(is_playing) .. ")$"
-        write_to_socket(message_content)
-    end
+    message_content = "^[setState](pid=" .. pid .. ")(playing=" .. tostring(is_playing) .. ")(socket_name=" .. mpv_socket_name .. ")$"
+    write_to_socket(message_content)
 
     if not idle then
         mp.add_timeout(10, play_state_changed)
@@ -243,11 +244,11 @@ function run_mpvmc_program()
         capture_stdout = false,
         capture_stderr = false,
         detach = true,
-        args = { MPVMC_PATH },
+        args = { o.binary_path },
     })
 end
 
-mp.set_property("options/input-ipc-server", "\\\\.\\pipe\\mpvsocket_" .. pid)
+mp.set_property("options/input-ipc-server", "\\\\.\\pipe\\" .. mpv_socket_name)
 
 function start_register_event()
     if new_file then
@@ -271,7 +272,7 @@ function on_quit()
     if shot_path then
         os.remove(shot_path)
     end
-    write_to_socket("^[setQuit](pid=" .. pid .. ")(quit=true)$")
+    write_to_socket("^[setQuit](pid=" .. pid .. ")(quit=true)(socket_name=" .. mpv_socket_name .. ")$")
 end
 
 mp.register_event("shutdown", on_quit)

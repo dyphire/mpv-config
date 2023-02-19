@@ -471,7 +471,7 @@ function API.sort(t)
     --appends the letter d or f to the start of the comparison to sort directories and folders as well
     local tuples = {}
     for i, f in ipairs(t) do
-        tuples[i] = {f.type:sub(1, 1) .. ((f.label or f.name)):lower():gsub("0*(%d+)%.?(%d*)", padnum), f}
+        tuples[i] = {f.type:sub(1, 1) .. (f.label or f.name):lower():gsub("0*(%d+)%.?(%d*)", padnum), f}
     end
     table.sort(tuples, function(a, b)
         return a[1] == b[1] and #b[2] < #a[2] or a[1] < b[1]

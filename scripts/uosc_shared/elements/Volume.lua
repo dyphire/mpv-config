@@ -12,7 +12,11 @@ function MuteButton:render()
 	local visibility = self:get_visibility()
 	if visibility <= 0 then return end
 	local ass = assdraw.ass_new()
-	local icon_name = state.mute and 'volume_off' or 'volume_up'
+	local icon_name = 'volume_up'
+	if state.mute then icon_name = 'volume_off'
+	elseif state.volume <= 0 then icon_name = 'volume_mute'
+	elseif state.volume <= 60 then icon_name = 'volume_down'
+	end
 	local width = self.bx - self.ax
 	ass:icon(self.ax + (width / 2), self.by, width * 0.7, icon_name,
 		{border = options.text_border, opacity = options.volume_opacity * visibility, align = 2}

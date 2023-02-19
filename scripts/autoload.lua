@@ -1,11 +1,3 @@
---[[
-SOURCE_ https://github.com/mpv-player/mpv/blob/master/TOOLS/lua/autoload.lua
-COMMIT_20210624_ee27629
-
-自动加载当前目录的所有文件到播放列表
-根据mpv的机制，切换目录会清空当前列表
---]]
-
 -- This script automatically loads playlist entries before and after the
 -- the currently played file. It does so by scanning the directory a file is
 -- located in when starting playback. It sorts the directory entries
@@ -24,6 +16,7 @@ disabled=no
 images=no
 videos=yes
 audio=yes
+directories=no
 sameseries=yes
 ignore_hidden=yes
 
@@ -39,6 +32,7 @@ o = {
     images = true,
     videos = true,
     audio = true,
+    directories = false,
     sameseries = false,
     max_entries = 5000,
     ignore_hidden = true
@@ -104,6 +98,14 @@ table.filter = function(t, iter)
     end
 end
 
+table.append = function(t1, t2)
+    local t1_size = #t1
+    for i = 1, #t2 do
+        t1[t1_size + i] = t2[i]
+    end
+    return t1
+end
+
 -- alphanum sorting for humans in Lua
 -- http://notebook.kulchenko.com/algorithms/alphanumeric-natural-sorting-for-humans-in-lua
 
@@ -124,15 +126,8 @@ function alphanumsort(filenames)
     return filenames
 end
 
-function get_playlist_filenames()
-    local filenames = {}
-    for n = 0, pl_count - 1, 1 do
-        local filename = mp.get_property('playlist/'..n..'/filename')
-        local _, file = utils.split_path(filename)
-        filenames[file] = true
-    end
-    return filenames
-end
+local autoloaded = nil
+local added_entries = {}
 
 function find_and_add_entries()
     local path = mp.get_property("path", "")
@@ -146,12 +141,31 @@ function find_and_add_entries()
         return
     end
 
-    local files = utils.readdir(dir, "files")
-    if files == nil then
-        msg.verbose("no other files in directory")
+    local pl_count = mp.get_property_number("playlist-count", 1)
+    -- check if this is a manually made playlist
+    if (pl_count > 1 and autoloaded == nil) or
+       (pl_count == 1 and EXTENSIONS[string.lower(get_extension(filename))] == nil) then
+        msg.verbose("stopping: manually made playlist")
         return
+    else
+        if pl_count == 1 then
+            autoloaded = true
+            added_entries = {}
+        end
     end
 
+    local pl = mp.get_property_native("playlist", {})
+    local pl_current = mp.get_property_number("playlist-pos-1", 1)
+    msg.trace(("playlist-pos-1: %s, playlist: %s"):format(pl_current,
+        utils.to_string(pl)))
+
+    local files = utils.readdir(dir, "files")
+    local dirs = o.directories and utils.readdir(dir, "dirs") or nil
+    if files == nil and dirs == nil then
+        msg.verbose("no other files or directories in directory")
+        return
+    end
+    files, dirs = files or {}, dirs or {}
     table.filter(files, function (v, k)
         -- The current file could be a hidden file, ignoring it doesn't load other
         -- files from the current directory.
@@ -176,23 +190,14 @@ function find_and_add_entries()
         end
         return EXTENSIONS[string.lower(ext)]
     end)
-    alphanumsort(files)
+    table.filter(dirs, function(d)
+        return not ((o.ignore_hidden and string.match(d, "^%.")))
+    end)
+    alphanumsort(table.append(files, dirs))
 
     if dir == "." then
         dir = ""
     end
-
-    pl_count = mp.get_property_number("playlist-count", 1)
-    -- check if this is a playlist
-    if (pl_count > 1 and #files <= o.max_entries) or
-       (pl_count == 1 and EXTENSIONS[string.lower(get_extension(filename))] == nil) then
-        return
-    end
-
-    local pl = mp.get_property_native("playlist", {})
-    local pl_current = mp.get_property_number("playlist-pos-1", 1)
-    msg.trace(("playlist-pos-1: %s, playlist: %s"):format(pl_current,
-        utils.to_string(pl)))
 
     -- Find the current pl entry (dir+"/"+filename) in the sorted dir list
     local current
@@ -207,8 +212,14 @@ function find_and_add_entries()
     end
     msg.trace("current file position in files: "..current)
 
+    -- treat already existing playlist entries, independent of how they got added
+    -- as if they got added by autoload
+    local playlist = mp.get_property_native("playlist", {})
+    for _, entry in ipairs(playlist) do
+        added_entries[entry.filename] = true
+    end
+
     local append = {[-1] = {}, [1] = {}}
-    local filenames = get_playlist_filenames()
     for direction = -1, 1, 2 do -- 2 iterations, with direction = -1 and +1
         for i = 1, o.max_entries do
             local file = files[current + i * direction]
@@ -217,18 +228,17 @@ function find_and_add_entries()
             end
 
             local filepath = dir .. file
-            -- skip files already in playlist
-            if filenames[file] then break end
+            -- skip files that are/were already in the playlist
+            if added_entries[filepath] then break end
 
             if direction == -1 then
-                if pl_current == 1 then -- never add additional entries in the middle
-                    msg.info("Prepending " .. file)
-                    table.insert(append[-1], 1, filepath)
-                end
+                msg.info("Prepending " .. filepath)
+                table.insert(append[-1], 1, filepath)
             else
-                msg.info("Adding " .. file)
+                msg.info("Adding " .. filepath)
                 table.insert(append[1], filepath)
             end
+            added_entries[filepath] = true
         end
     end
 
