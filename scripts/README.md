@@ -8,7 +8,6 @@
 | mpv-taskbar-buttons（组）* | 为 mpv 实现任务栏媒体控制按钮（依赖 [libtcc.dll](https://github.com/qwerty12/mpv-taskbar-buttons/blob/master/libtcc.dll); 配置文件 [mpv-taskbar-buttons.conf](../script-opts/mpv-taskbar-buttons.conf)） |
 | simple-mpv-webui（组）* | 为 mpv 实现一个简单的 webui（依赖 [luasocket](https://github.com/57op/simple-mpv-webui-windows-libs) ; 配置文件 [webui.conf](../script-opts/webui.conf)） |
 | uosc*（组） | 第三方高级 OSC 脚本，实现了许多实用功能（配置文件 [uosc.conf](../script-opts/uosc.conf)） |
-| adevice-list.lua* | OSD 交互式音频设备菜单 |
 | autoload.lua* | 自动加载同级目录的文件（配置文件 [autoload.conf](../script-opts/autoload.conf)） |
 | autodeint.lua       | 自动检测并切换去交错（默认禁用，需快捷键启用） |
 | auto-save-state.lua* | 每隔 1 分钟自动保存播放进度（而不是退出时），播放完毕时自动删除进度 |
@@ -23,7 +22,6 @@
 | display-name.lua | 实现 mpv 窗口按显示器名称自动切换参数及配置文件，详见脚本内说明（依赖 MultiMonitorTool.exe） |
 | drcbox.lua*   | 使用并调整 dynaudnorm 过滤器混音的可视化脚本（配置文件 [drcbox.conf](../script-opts/drcboxp.conf)） |
 | dynamic-crop.lua* | 自动检测可变化黑边并裁切（[autocrop.lua](https://github.com/mpv-player/mpv/blob/master/TOOLS/lua/autocrop.lua) 改进版；配置文件 [dynamic_crop.conf](../script-opts/dynamic_crop.conf)） |
-| edition-list.lua* | OSD 交互式 edition 菜单（如果检测到播放文件存在多个edition则在OSD 上提示; 配置文件 [edition_list.conf](../script-opts/edition_list.conf)） |
 | evafast.lua | 实现比 mpv 内置更高级的倍速功能，遇到字幕（非内嵌）时会减缓速度（配置文件 [evafast.conf](../script-opts/evafast.conf)） |
 | file-browser.lua* | OSD 交互式文件浏览器（依赖 [user-input.lua](../scripts/user-input.lua); [user-input-module.lua](../script-modules/user-input-module.lua) ；配置文件 [file_browser.conf](../script-opts/file_browser.conf)） |
 | fix-avsync.lua* | 修复切换音轨时伴随的视频冻结卡顿的问题 |
