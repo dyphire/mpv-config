@@ -304,7 +304,7 @@ local log_fullpath = utils.join_path(o.log_path, o.log_file)
 local log_path = utils.split_path(log_fullpath)
 if utils.readdir(log_path) == nil then
     local is_windows = package.config:sub(1, 1) == "\\"
-    local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', log_path }
+    local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', string.format("\"%s\"", log_path) }
     local unix_args = { 'mkdir', '-p', log_path }
     local args = is_windows and windows_args or unix_args
     local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})

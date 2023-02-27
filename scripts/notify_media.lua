@@ -28,7 +28,7 @@ local shot_dir = mp.command_native({ "expand-path", o.shot_path })
 
 --create shot_dir if it doesn't exist
 if utils.readdir(shot_dir) == nil then
-    local args = { 'powershell', '-NoProfile', '-Command', 'mkdir', shot_dir }
+    local args = { 'powershell', '-NoProfile', '-Command', 'mkdir', string.format("\"%s\"", shot_dir) }
     local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})
     if res.status ~= 0 then
         msg.error("Failed to create shot_path save directory "..shot_dir..". Error: "..(res.error or "unknown"))

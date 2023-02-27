@@ -988,7 +988,7 @@ function save_playlist(filename)
 
   --create savepath if it doesn't exist
   if utils.readdir(savepath) == nil then
-    local windows_args = {'powershell', '-NoProfile', '-Command', 'mkdir', savepath}
+    local windows_args = {'powershell', '-NoProfile', '-Command', 'mkdir', string.format("\"%s\"", savepath)}
     local unix_args = { 'mkdir', savepath }
     local args = settings.system == 'windows' and windows_args or unix_args
     local res = utils.subprocess({ args = args, cancellable = false })

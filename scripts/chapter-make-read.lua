@@ -1,5 +1,5 @@
 --[[
-  * chapter-make-read.lua v.2023-02-06
+  * chapter-make-read.lua v.2023-02-26
   *
   * AUTHORS: dyphire
   * License: MIT
@@ -95,7 +95,7 @@ end
 network_chap_dir = mp.command_native({ "expand-path", o.network_chap_dir })
 if utils.readdir(network_chap_dir) == nil then
     local is_windows = package.config:sub(1, 1) == "\\"
-    local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', network_chap_dir }
+    local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', string.format("\"%s\"", network_chap_dir) }
     local unix_args = { 'mkdir', '-p', network_chap_dir }
     local args = is_windows and windows_args or unix_args
     local res = mp.command_native({ name = "subprocess", capture_stdout = true, playback_only = false, args = args })

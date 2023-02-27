@@ -227,7 +227,7 @@ end
 --create opts.download_path if it doesn't exist
 if not_empty(opts.download_path) and utils.readdir(opts.download_path) == nil then
     local is_windows = package.config:sub(1, 1) == "\\"
-    local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', opts.download_path }
+    local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', string.format("\"%s\"", opts.download_path) }
     local unix_args = { 'mkdir', '-p', opts.download_path }
     local args = is_windows and windows_args or unix_args
     local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})
@@ -255,6 +255,7 @@ local process_id = nil
 local should_cancel = false
 local was_cancelled = false
 
+local script_name = mp.get_script_name()
 
 local function disable_select_range()
     -- Disable range mode
@@ -267,7 +268,15 @@ local function disable_select_range()
 end
 
 
-local function download(download_type, config_file)
+local function download(download_type, config_file, overwrite_opts)
+    video_format = opts.video_format
+    if overwrite_opts ~= nil then
+        if overwrite_opts.video_format ~= nil  then
+            video_format = overwrite_opts.video_format
+        end
+    end
+
+
     local start_time = os.date("%c")
     if is_downloading then
         if process_id ~= nil and should_cancel then
@@ -400,12 +409,12 @@ local function download(download_type, config_file)
                     table.insert(command, opts.sub_format)
                 end
             end
-            if not_empty(opts.video_format) then
+            if not_empty(video_format) then
               table.insert(command, "--format")
-              if opts.video_format == "current" then
+              if video_format == "current" then
                 table.insert(command, get_current_format())
               else
-                table.insert(command, opts.video_format)
+                table.insert(command, video_format)
               end
             end
             if not_empty(opts.remux_video) then
@@ -466,7 +475,7 @@ local function download(download_type, config_file)
 
         -- Find a suitable format
         local format = "bestvideo[ext*=mp4]+bestaudio/best[ext*=mp4]/best"
-        local requested_format = opts.video_format
+        local requested_format = video_format
         if requested_format == "current" then
             requested_format = get_current_format()
         end
@@ -481,7 +490,7 @@ local function download(download_type, config_file)
         else
             -- custom format, no "mp4" found -> use default
             msg.warn("Select range mode requires a .mp4 format or \"best\", found "  ..
-            requested_format .. "\n(" .. opts.video_format .. ")" ..
+            requested_format .. "\n(" .. video_format .. ")" ..
                     "\nUsing default format instead: " .. format)
         end
 
@@ -933,6 +942,139 @@ local function select_range()
     select_range_show()
 end
 
+
+function menu_command(str)
+    return string.format('script-message-to %s %s', script_name, str)
+end
+
+function create_menu_data()
+    -- uosc menu
+
+    local current_format = get_current_format()
+
+    local video_format = ""
+    if not_empty(opts.video_format) then
+      video_format = opts.video_format
+    end
+
+    if not_empty(opts.remux_video) then
+        video_format = video_format .. "/" .. tostring(remux_video)
+    end
+
+    if not_empty(opts.recode_video) then
+        video_format = video_format .. "/" .. tostring(recode_video)
+    end
+
+    local audio_format = ""
+    if not_empty(opts.audio_format) then
+      audio_format = opts.audio_format
+    end
+
+    local sub_format = ""
+    if not_empty(opts.sub_format) then
+        sub_format = opts.sub_format
+    end
+    if not_empty(opts.sub_lang) then
+        sub_format = sub_format .. " [" .. opts.sub_lang .. "]"
+    end
+
+    local url = mp.get_property("path")
+    local not_youtube = url == nil or (url:find("ytdl://") ~= 1 and url:find("https?://") ~= 1)
+
+    local items = {
+      {
+        title = 'Audio',
+        hint = tostring(audio_format),
+        icon = 'audiotrack',
+        value = menu_command('audio_default_quality'),
+        keep_open = false
+      },
+      {
+        title = 'Video (Current quality)',
+        hint = tostring(current_format),
+        icon = 'play_circle_filled',
+        value = menu_command('video_current_quality'),
+        keep_open = false
+      },
+      {
+        title = 'Video (Default quality)',
+        hint = tostring(video_format),
+        icon = 'download',
+        value = menu_command('video_default_quality'),
+        keep_open = false
+      },
+      {
+        title = 'Video with subtitles',
+        icon = 'hearing_disabled',
+        value = menu_command('embed_subtitle_default_quality'),
+        keep_open = false
+      },
+      {
+        title = 'Subtitles',
+        hint = tostring(sub_format),
+        icon = 'subtitles',
+        value = menu_command('subtitle'),
+        keep_open = false
+      },
+      {
+        title = 'Select range',
+        icon = 'content_cut',
+        value = menu_command('cut'),
+        keep_open = false
+      },
+    }
+
+    if not_empty(opts.download_video_config_file) then
+        table.insert(items, {
+            title = 'Video (Config file)',
+            icon = 'build',
+            value = menu_command('video_config_file'),
+            keep_open = false
+        })
+    end
+    if not_empty(opts.download_audio_config_file) then
+        table.insert(items, {
+            title = 'Audio (Config file)',
+            icon = 'build',
+            value = menu_command('audio_config_file'),
+            keep_open = false
+        })
+    end
+    if not_empty(opts.download_subtitle_config_file) then
+        table.insert(items, {
+            title = 'Subtitle (Config file)',
+            icon = 'build',
+            value = menu_command('subtitle_config_file'),
+            keep_open = false
+        })
+    end
+    if not_empty(opts.download_video_embed_subtitle_config_file) then
+        table.insert(items, {
+            title = 'Video with subtitles (Config file)',
+            icon = 'build',
+            value = menu_command('video_embed_subtitle_config_file'),
+            keep_open = false
+        })
+    end
+    if not_youtube then
+        table.insert(items, 1, {
+            title = 'Current file is not a youtube video',
+            icon = 'warning',
+            value = menu_command(''),
+            bold = true,
+            active = 1,
+            keep_open = false,
+        })
+    end
+
+    return {
+      type = 'yt_download_menu',
+      title = 'Download',
+      keep_open = true,
+      items = items
+    }
+end
+
 local function download_video()
     if not_empty(opts.download_video_config_file) then
         return download(DOWNLOAD.CONFIG_FILE, opts.download_video_config_file)
@@ -981,3 +1123,52 @@ end
 if not_empty(opts.select_range_binding) then
     mp.add_key_binding(opts.select_range_binding, "select-range-start", select_range)
 end
+
+-- Open the uosc menu:
+
+mp.register_script_message('menu', function()
+    local json = utils.format_json(create_menu_data())
+    mp.commandv('script-message-to', 'uosc', 'open-menu', json)
+end)
+
+-- Messages from uosc menu entries:
+
+mp.register_script_message('audio_default_quality', function()
+    download(DOWNLOAD.AUDIO)
+end)
+
+mp.register_script_message('video_current_quality', function()
+  download(DOWNLOAD.VIDEO, nil, {video_format = "current"})
+end)
+
+mp.register_script_message('video_default_quality', function()
+    download(DOWNLOAD.VIDEO)
+end)
+
+mp.register_script_message('embed_subtitle_default_quality', function()
+    download(DOWNLOAD.VIDEO_EMBED_SUBTITLE)
+end)
+
+mp.register_script_message('subtitle', function()
+    download(DOWNLOAD.SUBTITLE)
+end)
+
+mp.register_script_message('cut', function()
+    select_range()
+end)
+
+mp.register_script_message('video_config_file', function()
+    download(DOWNLOAD.CONFIG_FILE, opts.download_video_config_file)
+end)
+
+mp.register_script_message('audio_config_file', function()
+    download(DOWNLOAD.CONFIG_FILE, opts.download_audio_config_file)
+end)
+
+mp.register_script_message('subtitle_config_file', function()
+    download(DOWNLOAD.CONFIG_FILE, opts.download_subtitle_config_file)
+end)
+
+mp.register_script_message('video_embed_subtitle_config_file', function()
+    download(DOWNLOAD.CONFIG_FILE, opts.download_video_embed_subtitle_config_file)
+end)
