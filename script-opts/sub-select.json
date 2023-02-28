@@ -80,6 +80,10 @@
     },
     {
         "inherit": "^",
+        "whitelist": ["简英"]
+    },
+    {
+        "inherit": "^",
         "whitelist": ["双语"]
     },
     {
@@ -89,6 +93,10 @@
     {
         "inherit": "^",
         "whitelist": ["简体&英文"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["繁英"]
     },
     {
         "inherit": "^",
@@ -190,6 +198,10 @@
     },
     {
         "inherit": "^",
+        "whitelist": ["简英"]
+    },
+    {
+        "inherit": "^",
         "whitelist": ["双语"]
     },
     {
@@ -199,6 +211,10 @@
     {
         "inherit": "^",
         "whitelist": ["简体&英文"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["繁英"]
     },
     {
         "inherit": "^",
