@@ -40,6 +40,17 @@ Most notable features:
 
     _List of all the possible places where it can be located is documented here: https://mpv.io/manual/master/#files_
 
+    On Linux and macOS these terminal commands can be used to install or update uosc and thumbfast (if wget and unzip are installed):
+
+    ```sh
+    mkdir -pv ~/.config/mpv/script-opts/
+    rm -rf ~/.config/mpv/scripts/uosc_shared
+    wget -P /tmp/ https://github.com/tomasklaen/uosc/releases/latest/download/uosc.zip
+    unzip -od ~/.config/mpv/ /tmp/uosc.zip
+    rm -fv /tmp/uosc.zip
+    wget -NP ~/.config/mpv/scripts/ https://raw.githubusercontent.com/po5/thumbfast/master/thumbfast.lua
+    ```
+
 2. **uosc** is a replacement for the built in osc, so that has to be disabled first.
 
     In your `mpv.conf` (file that should already exist in your mpv directory, if not, create it):
@@ -75,23 +86,26 @@ All of the available **uosc** options with their default values and documentatio
 
 To change the font, **uosc** respects the mpv's `osd-font` configuration.
 
-## Keybindings
+## Navigation
 
-The only keybinds **uosc** defines by default are menu navigation keys that are active only when one of the menus (context menu, load/select subtitles,...) is active. They are:
+These bindings are active when any **uosc** menu is open (main menu, playlist, load/select subtitles,...):
 
--   `↑`, `↓`, `←`, `→` - up, down, previous menu or close, select item
--   `enter` - select item
+-   `up`, `down` - select previous/next item
+-   `left`, `right` - back to parent menu or close, activate item
+-   `enter` - activate item
 -   `esc` - close menu
 -   `wheel_up`, `wheel_down` - scroll menu
 -   `pgup`, `pgdwn`, `home`, `end` - self explanatory
+-   `ctrl+up/down` - move selected item in menus that support it (playlist)
+-   `del` - delete selected item in menus that support it (playlist)
+-   `shift+enter`, `shift+right` - activate item without closing the menu
+-   `ctrl+enter`, `ctrl+click` - force activate an item, even if it's a submenu. In practical terms: activates a directory instead of navigation to its contents.
 
 Click on a faded parent menu to go back to it.
 
-Hold `shift` to activate menu item without closing the menu.
-
-**uosc** also provides various commands with useful features to bind your preferred keys to. See [Commands](#commands) section below.
-
 ## Commands
+
+**uosc** provides various commands with useful features to bind your preferred keys to. These are all unbound by default.
 
 To add a keybind to one of this commands, open your `input.conf` file and add one on a new line. The command syntax is `script-binding uosc/{command-name}`.
 
@@ -121,6 +135,12 @@ Under the hood, `toggle-ui` is using `toggle-elements`, and that is in turn usin
 
 Toggles the always visible portion of the timeline. You can look at it as switching `timeline_size_min` option between it's configured value and 0.
 
+#### `toggle-title`
+
+Toggles the top bar title between main and alternative title's. This can also be done by clicking on the top bar.
+
+Only relevant if top bar is enabled, `top_bar_alt_title` is configured, and `top_bar_alt_title_place` is `toggle`.
+
 #### `flash-ui`
 
 Command(s) to briefly flash the whole UI. Elements are revealed for a second and then fade away.
@@ -145,12 +165,12 @@ right        seek  5
 left         seek -5
 shift+right  seek  30; script-binding uosc/flash-timeline
 shift+left   seek -30; script-binding uosc/flash-timeline
-m            cycle mute; script-binding uosc/flash-volume
-up           add volume  10; script-binding uosc/flash-volume
-down         add volume -10; script-binding uosc/flash-volume
-[            add speed -0.25; script-binding uosc/flash-speed
-]            add speed  0.25; script-binding uosc/flash-speed
-\            set speed 1; script-binding uosc/flash-speed
+m            no-osd cycle mute; script-binding uosc/flash-volume
+up           no-osd add volume  10; script-binding uosc/flash-volume
+down         no-osd add volume -10; script-binding uosc/flash-volume
+[            no-osd add speed -0.25; script-binding uosc/flash-speed
+]            no-osd add speed  0.25; script-binding uosc/flash-speed
+\            no-osd set speed 1; script-binding uosc/flash-speed
 >            script-binding uosc/next; script-message-to uosc flash-elements top_bar,timeline
 <            script-binding uosc/prev; script-message-to uosc flash-elements top_bar,timeline
 ```
@@ -171,7 +191,7 @@ Menus to select a track of a requested type.
 
 Displays a file explorer with directory navigation to load a requested track type.
 
-For subtitles, explorer only displays file types defined in `subtitle_types` option.
+For subtitles, the explorer only displays file types defined in `subtitle_types` option. For audio and video, the ones defined in `video_types` and `audio_types` are displayed.
 
 #### `playlist`
 
@@ -191,7 +211,9 @@ Switch stream quality. This is just a basic re-assignment of `ytdl-format` mpv p
 
 #### `open-file`
 
-Open file menu. Browsing starts in current file directory, or user directory when file not available.
+Open file menu. Browsing starts in current file directory, or user directory when file not available. The explorer only displays file types defined in the `video_types`, `audio_types`, and `image_types` options.
+
+You can use `ctrl+enter` or `ctrl+click` to load the whole directory in mpv instead of navigating its contents.
 
 #### `items`
 
@@ -212,6 +234,12 @@ Open next/prev file in current directory. Enable `loop-playlist` to loop around
 #### `first-file`, `last-file`
 
 Open first/last file in current directory.
+
+#### `shuffle`
+
+Toggle uosc's playlist/directory shuffle mode on or off.
+
+This simply makes the next selected playlist or directory item be random, like the shuffle function of most other players. This does not modify the actual playlist in any way, in contrast to the mpv built-in command `playlist-shuffle`.
 
 #### `delete-file-next`
 
@@ -252,7 +280,7 @@ To display a submenu, send a `show-submenu` message to **uosc** with first param
 R    script-message-to uosc show-submenu "Utils > Aspect ratio"
 ```
 
-**\*menu** button is the key between **win** and **right_ctrl** buttons that none uses (might not be on your keyboard).\*
+Note: The **menu** key is the one nobody uses between the **win** and **right_ctrl** keys (it might not be on your keyboard).
 
 ### Adding items to menu
 
@@ -358,9 +386,9 @@ end)
 mp.commandv('script-message-to', 'uosc', 'get-version', mp.get_script_name())
 ```
 
-### `show-submenu <menu_id>`
+### `show-submenu <menu_id>`, `show-submenu-blurred <menu_id>`
 
-Opens one of the submenus defined in `input.conf` (read on how to build those in the Menu documentation above).
+Opens one of the submenus defined in `input.conf` (read on how to build those in the Menu documentation above). To prevent 1st item being preselected, use `show-submenu-blurred` instead.
 
 Parameters
 
@@ -381,6 +409,7 @@ Menu {
   items: Item[];
   selected_index?: integer;
   keep_open?: boolean;
+  on_close: string | string[];
 }
 
 Item = Command | Submenu;
@@ -405,11 +434,12 @@ Command {
 }
 ```
 
-When command value is a string, it'll be passed to `mp.command(value)`. If it's a table (array) of strings, it'll be used as `mp.commandv(table.unpack(value))`.
+When `Command.value` is a string, it'll be passed to `mp.command(value)`. If it's a table (array) of strings, it'll be used as `mp.commandv(table.unpack(value))`. The same goes for `Menu.on_close`.
 
-Menu `type` controls what happens when opening a menu when some other menu is already open. When the new menu type is different, it'll replace the currently opened menu. When it's the same, the currently open menu will simply be closed. This is used to implement toggling of menus with the same type.
+`Menu.type` controls what happens when opening a menu when some other menu is already open. When the new menu type is different, it'll replace the currently opened menu. When it's the same, the currently open menu will simply be closed. This is used to implement toggling of menus with the same type.
 
-`item.icon` property accepts icon names. You can pick one from here: [Google Material Icons](https://fonts.google.com/icons?selected=Material+Icons)
+`item.icon` property accepts icon names. You can pick one from here: [Google Material Icons](https://fonts.google.com/icons?selected=Material+Icons)\
+There is also a special icon name `spinner` which will display a rotating spinner. Along with a no-op command on an item and `keep_open=true`, this can be used to display placeholder menus/items that are still loading.
 
 When `keep_open` is `true`, activating the item will not close the menu. This property can be defined on both menus and items, and is inherited from parent to child if child doesn't overwrite it.
 
@@ -545,6 +575,18 @@ External properties can also be used as control button badges:
 ```
 controls=command:icon_name:command_name#foo@script_name?My foo button
 ```
+
+### `overwrite-binding <name> <command>`
+
+Allows a overwriting handling of uosc built in bindings. Useful for 3rd party scripts that specialize in a specific domain to replace built in menus or behaviors provided by existing bindings.
+
+Example that reroutes uosc's basic stream quality menu to [christoph-heinrich/mpv-quality-menu](https://github.com/christoph-heinrich/mpv-quality-menu):
+
+```lua
+mp.commandv('script-message-to', 'uosc', 'overwrite-binding', 'stream-quality', 'script-binding quality_menu/video_formats_toggle')
+```
+
+To cancel the overwrite and return to default behavior, just omit the `<command>` parameter.
 
 ## Why _uosc_?
 
