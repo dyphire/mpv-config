@@ -47,7 +47,7 @@
 | smartcopypaste_II.lua*       | OSD 交互式剪贴菜单，智能复制粘贴视频路径及进度（配置文件 [smartcopypaste_II.conf](../script-opts/smartcopypaste_II.conf)）；动态键位绑定在同名配置文件中 |
 | sponsorblock_minimal.lua* | 跳过 YouTube 视频的赞助片段（依赖 curl；配置文件 [sponsorblock_minimal.conf](../script-opts/sponsorblock_minimal.conf)） |
 | sub_export.lua* | 导出当前视频的内封字幕（依赖 ffmpeg，脚本支持 srt、ass 和 sup 格式的字幕；配置文件 [sub_export.conf](../script-opts/sub_export.conf)） |
-| sub-fonts-dir-auto.lua | 在播放目录下自动查找 fonts 子目录并写入 `sub-fonts-dir` 参数以实现自动加载特定字体路径。**注意**：mpv 必须以包含pr [mpv-player/#9856](https://github.com/mpv-player/mpv/pull/9856) 的版本编译方可使用此脚本，可在此处下载: [Releases · dyphire/mpv-winbuild](https://github.com/dyphire/mpv-winbuild/releases) |
+| sub-fonts-dir-auto.lua* | 在播放目录下自动查找 fonts 子目录并写入 `sub-fonts-dir` 参数以实现自动加载特定字体路径 |
 | sub-select.lua | 指定字幕轨道优先级/黑白名单（配置文件 [sub_select.conf](../script-opts/sub_select.conf)；[sub-select.json](../script-opts/sub-select.json)） |
 | thumbfast.lua   | 适用于 mpv 的高性能动态缩略图，需在 OSC 类脚本中自行集成（配置文件 [thumbfast.conf](../script-opts/thumbfast.conf)） |
 | track-list.lua* | OSD 交互式轨道菜单（配置文件 [track_list.conf](../script-opts/track_list.conf)） |

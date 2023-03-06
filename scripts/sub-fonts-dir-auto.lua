@@ -7,11 +7,6 @@
     alongside the currently playing file.  (The name of the directory is
     matched case-insensitively.)
 
-    **NOTE:** The `sub-fonts-dir` option has been submitted as part of [PR
-    #9856](https://github.com/mpv-player/mpv/pull/9856).  Until it is merged
-    upstream, you will have to download and compile the [mpv
-    source](https://github.com/mpv-player/mpv) yourself.
-
 
     USAGE:
 

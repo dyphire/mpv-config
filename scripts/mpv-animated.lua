@@ -195,11 +195,11 @@ function make_animated_internal(burn_subtitles)
     local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})
     mp.set_osd_ass(screenx, screeny, "")
     if res.status ~= 0 then
-        msg.info("Failed to creat " .. text)
+        msg.info("Failed to creat " .. animated_name)
         mp.osd_message("Error creating " .. text .. ", check console for more info.")
         return
     end
-    msg.info(text .. " created.")
+    msg.info(animated_name .. " created.")
     mp.osd_message(text .. " created.")
 end
 

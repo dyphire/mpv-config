@@ -11,11 +11,6 @@
     "dest":"~~/scripts"
   },
   {
-    "git":"https://github.com/fbriere/mpv-scripts",
-    "whitelist":"sub%-fonts%-dir%-autos%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
     "git":"https://github.com/detuur/mpv-scripts",
     "whitelist":"skiptosilence%.lua$",
     "dest":"~~/scripts"

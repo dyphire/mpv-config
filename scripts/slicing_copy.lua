@@ -13,6 +13,7 @@ local o = {
     overwrite = false, -- whether to overwrite exist files
     vcodec = "copy",
     acodec = "copy",
+    debug = false,
 }
 
 options.read_options(o)
@@ -73,7 +74,7 @@ local function timestamp(duration)
     local hours = math.floor(duration / 3600)
     local minutes = math.floor(duration % 3600 / 60)
     local seconds = duration % 60
-    return string.format("%02d:%02d:%02.03f", hours, minutes, seconds)
+    return string.format("%02d:%02d:%06.3f", hours, minutes, seconds)
 end
 
 local function osd(str)
@@ -115,19 +116,41 @@ local function cut(shift, endpos)
         cmds:arg('-referer', referer)
     end
     cmds:arg("-ss", tostring(shift))
+    cmds:arg("-accurate_seek")
     cmds:arg("-i", inpath)
     cmds:arg("-t", tostring(endpos - shift))
     cmds:arg("-c:v", o.vcodec)
     cmds:arg("-c:a", o.acodec)
+    cmds:arg("-map", string.format("v:%s?", mp.get_property_number("current-tracks/video/id", 0) - 1))
+    cmds:arg("-map", string.format("a:%s?", mp.get_property_number("current-tracks/audio/id", 0) - 1))
+    cmds:arg("-map", string.format("s:%s?", mp.get_property_number("current-tracks/sub/id", 0) - 1))
     cmds:arg(not copy_audio and "-an" or nil)
+    cmds:arg("-avoid_negative_ts", "make_zero")
+    cmds:arg("-async", "1")
     cmds:arg(outpath)
     msg.info("Run commands: " .. cmds:as_str())
+    local screenx, screeny, aspect = mp.get_osd_size()
+    mp.set_osd_ass(screenx, screeny, "{\\an9}● ")
     local res, err = cmds:run()
+    mp.set_osd_ass(screenx, screeny, "")
     if err then
         msg.error(utils.to_string(err))
-    elseif res.stderr ~= "" or res.stdout ~= "" then
-        msg.info("stderr: " .. (res.stderr:gsub("^%s*(.-)%s*$", "%1"))) -- trim stderr
-        msg.info("stdout: " .. (res.stdout:gsub("^%s*(.-)%s*$", "%1"))) -- trim stdout
+        mp.osd_message("Failed. Refer console for details.")
+    elseif res.status ~= 0 then
+        if res.stderr ~= "" or res.stdout ~= "" then
+            msg.info("stderr: " .. (res.stderr:gsub("^%s*(.-)%s*$", "%1"))) -- trim stderr
+            msg.info("stdout: " .. (res.stdout:gsub("^%s*(.-)%s*$", "%1"))) -- trim stdout
+            mp.osd_message("Failed. Refer console for details.")
+        end
+    elseif res.status == 0 then
+        if o.debug and (res.stderr ~= "" or res.stdout ~= "") then
+            msg.info("stderr: " .. (res.stderr:gsub("^%s*(.-)%s*$", "%1"))) -- trim stderr
+            msg.info("stdout: " .. (res.stdout:gsub("^%s*(.-)%s*$", "%1"))) -- trim stdout
+        end
+        msg.info("Trim file successfully created: " .. outpath)
+        mp.add_timeout(1, function()
+            mp.osd_message("Trim file successfully created!")
+        end)
     end
 end
 
