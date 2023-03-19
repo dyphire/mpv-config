@@ -86,73 +86,178 @@
  * 	- PD
  */
 
+// The following is shader code injected from guided_s.glsl
+/* vi: ft=c
+ *
+ * Copyright (c) 2022 an3223 <ethanr2048@gmail.com>
+ *
+ * This program is free software: you can redistribute it and/or modify it 
+ * under the terms of the GNU Lesser General Public License as published by 
+ * the Free Software Foundation, either version 2.1 of the License, or (at 
+ * your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT 
+ * ANY WARRANTY;  without even the implied warranty of MERCHANTABILITY or 
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License 
+ * for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License 
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+//desc: "Self-guided" guided filter
+
+/* The radius can be adjusted with the MEANIP stage's downscaling factor. 
+ * Higher numbers give a bigger radius.
+ *
+ * The E variable can be found in the A stage.
+ *
+ * The subsampling (fast guided filter) can be adjusted with the IP stage's 
+ * downscaling factor. Higher numbers are faster.
+ */
+
 //!HOOK LUMA
+//!DESC Guided filter (IP)
 //!BIND HOOKED
-//!DESC Non-local means (downscale)
-//!SAVE PRERF
-//!WIDTH HOOKED.w 2 /
-//!HEIGHT HOOKED.h 2 /
+//!WIDTH HOOKED.w 1.0 /
+//!HEIGHT HOOKED.h 1.0 /
+//!SAVE _INJ_IP
 
 vec4 hook()
 {
-	return HOOKED_texOff(0);
+	 return HOOKED_texOff(0); 
 }
 
 //!HOOK LUMA
-//!BIND HOOKED
-//!DESC Non-local means (undownscale)
-//!BIND PRERF
-//!SAVE RF
-//!WIDTH HOOKED.w
-//!HEIGHT HOOKED.h
+//!DESC Guided filter (MEANIP)
+//!BIND _INJ_IP
+//!WIDTH _INJ_IP.w 2.0 /
+//!HEIGHT _INJ_IP.h 2.0 /
+//!SAVE _INJ_MEANIP
 
 vec4 hook()
 {
-	return PRERF_texOff(0);
+return _INJ_IP_texOff(0);
 }
 
 //!HOOK LUMA
-//!BIND HOOKED
-//!DESC Non-local means (downscale)
-//!SAVE PRERF_LUMA
-//!WIDTH HOOKED.w 1.25 /
-//!HEIGHT HOOKED.h 1.25 /
+//!DESC Guided filter (_INJ_IP_SQ)
+//!BIND _INJ_IP
+//!WIDTH _INJ_IP.w
+//!HEIGHT _INJ_IP.h
+//!SAVE _INJ_IP_SQ
 
 vec4 hook()
 {
-	return HOOKED_texOff(0);
+return _INJ_IP_texOff(0) * _INJ_IP_texOff(0);
 }
 
 //!HOOK LUMA
+//!DESC Guided filter (CORRIP)
+//!BIND _INJ_IP_SQ
+//!WIDTH _INJ_MEANIP.w
+//!HEIGHT _INJ_MEANIP.h
+//!SAVE _INJ_CORRIP
+
+vec4 hook()
+{
+return _INJ_IP_SQ_texOff(0);
+}
+
+//!HOOK LUMA
+//!DESC Guided filter (A)
+//!BIND _INJ_MEANIP
+//!BIND _INJ_CORRIP
+//!WIDTH _INJ_IP.w
+//!HEIGHT _INJ_IP.h
+//!SAVE _INJ_A
+
+#define E 0.001
+
+vec4 hook()
+{
+vec4 var = _INJ_CORRIP_texOff(0) - _INJ_MEANIP_texOff(0) * _INJ_MEANIP_texOff(0);
+	 vec4 cov = var; 
+	 return cov / (var + E); 
+}
+
+//!HOOK LUMA
+//!DESC Guided filter (B)
+//!BIND _INJ_A
+//!BIND _INJ_MEANIP
+//!WIDTH _INJ_IP.w
+//!HEIGHT _INJ_IP.h
+//!SAVE _INJ_B
+
+vec4 hook()
+{
+return _INJ_MEANIP_texOff(0) - _INJ_A_texOff(0) * _INJ_MEANIP_texOff(0);
+}
+
+//!HOOK LUMA
+//!DESC Guided filter (MEANA)
+//!BIND _INJ_A
+//!WIDTH _INJ_MEANIP.w
+//!HEIGHT _INJ_MEANIP.h
+//!SAVE _INJ_MEANA
+
+vec4 hook()
+{
+return _INJ_A_texOff(0);
+}
+
+//!HOOK LUMA
+//!DESC Guided filter (MEANB)
+//!BIND _INJ_B
+//!WIDTH _INJ_MEANIP.w
+//!HEIGHT _INJ_MEANIP.h
+//!SAVE _INJ_MEANB
+
+vec4 hook()
+{
+return _INJ_B_texOff(0);
+}
+
+//!HOOK LUMA
+//!DESC Guided filter
 //!BIND HOOKED
-//!DESC Non-local means (undownscale)
-//!BIND PRERF_LUMA
+//!BIND _INJ_MEANA
+//!BIND _INJ_MEANB
 //!SAVE RF_LUMA
-//!WIDTH HOOKED.w
-//!HEIGHT HOOKED.h
 
 vec4 hook()
 {
-	return PRERF_LUMA_texOff(0);
+return _INJ_MEANA_texOff(0) * HOOKED_texOff(0) + _INJ_MEANB_texOff(0);
 }
 
+// End of source code injected from guided_s.glsl
 //!HOOK LUMA
-//!BIND HOOKED
 //!DESC Non-local means (downscale)
-//!SAVE EP_LUMA
-//!WIDTH HOOKED.w 3 /
-//!HEIGHT HOOKED.h 3 /
+//!WIDTH LUMA.w 3 /
+//!HEIGHT LUMA.h 3 /
+//!BIND LUMA
+//!SAVE EP
 
 vec4 hook()
 {
-	return HOOKED_texOff(0);
+	return LUMA_texOff(0);
+}
+
+//!HOOK LUMA
+//!DESC Non-local means (share)
+//!BIND RF_LUMA
+//!SAVE RF
+
+vec4 hook()
+{
+	return RF_LUMA_texOff(0);
 }
 
 //!HOOK LUMA
 //!BIND HOOKED
-//!BIND RF
 //!BIND RF_LUMA
-//!BIND EP_LUMA
+//!BIND EP
+//!BIND RF
 //!DESC Non-local means (nlmeans_luma.glsl)
 
 /* User variables
@@ -395,9 +500,31 @@ vec4 hook()
 #define RF 1
 #endif
 
-/* Estimator
+/* Blur factor
  *
- * Don't change this setting.
+ * 0 to 1, only useful for alternative estimators. You're probably looking for 
+ * "S" (denoising factor), go back to the top of the shader!
+ */
+#ifdef LUMA_raw
+#define BF 1.0
+#else
+#define BF 1.0
+#endif
+
+/* ADVANCED OPTIONS * ADVANCED OPTIONS * ADVANCED OPTIONS * ADVANCED OPTIONS */
+/* ADVANCED OPTIONS * ADVANCED OPTIONS * ADVANCED OPTIONS * ADVANCED OPTIONS */
+/* ADVANCED OPTIONS * ADVANCED OPTIONS * ADVANCED OPTIONS * ADVANCED OPTIONS */
+/* ADVANCED OPTIONS * ADVANCED OPTIONS * ADVANCED OPTIONS * ADVANCED OPTIONS */
+/* ADVANCED OPTIONS * ADVANCED OPTIONS * ADVANCED OPTIONS * ADVANCED OPTIONS */
+
+// Scaling factor (should match WIDTH/HEIGHT)
+#ifdef LUMA_raw
+#define SF 1
+#else
+#define SF 1
+#endif
+
+/* Estimator
  *
  * 0: means
  * 1: Euclidean medians (extremely slow, may be good for heavy noise)
@@ -410,27 +537,18 @@ vec4 hook()
 #define M 0
 #endif
 
-/* Patch donut
- *
- * If enabled, ignores center pixel of patch comparisons.
- *
- * Not sure if this is any use? May be removed at any time.
- */
+// Patch donut (probably useless)
 #ifdef LUMA_raw
 #define PD 0
 #else
 #define PD 0
 #endif
 
-/* Blur factor
- *
- * 0 to 1, only useful for alternative estimators. You're probably looking for 
- * "S" (denoising factor), go back to the top of the shader!
- */
+// Duplicate 1st weight
 #ifdef LUMA_raw
-#define BF 1.0
+#define D1W 0
 #else
-#define BF 1.0
+#define D1W 0
 #endif
 
 /* Shader code */
@@ -574,13 +692,17 @@ const float p_scale = 1.0/p_area;
 
 #if RF && defined(LUMA_raw)
 #define load2_(off) RF_LUMA_tex(RF_LUMA_pos + RF_LUMA_pt * vec2(off))
-#define gather_offs(off) (RF_LUMA_mul * vec4(textureGatherOffsets(RF_LUMA_raw, RF_LUMA_pos + vec2(off) * RF_LUMA_pt, offsets)))
-#define gather(off) RF_LUMA_gather(RF_LUMA_pos + (off)*RF_LUMA_pt, 0)
+#define gather_offs(off, off_arr) (RF_LUMA_mul * vec4(textureGatherOffsets(RF_LUMA_raw, RF_LUMA_pos + vec2(off) * RF_LUMA_pt, off_arr)))
+#define gather(off) RF_LUMA_gather(RF_LUMA_pos + (off) * RF_LUMA_pt, 0)
+#elif RF && D1W
+#define load2_(off) RF_tex(RF_pos + RF_pt * vec2(off))
+#define gather_offs(off, off_arr) (RF_mul * vec4(textureGatherOffsets(RF_raw, RF_pos + vec2(off) * RF_pt, off_arr)))
+#define gather(off) RF_gather(RF_pos + (off) * RF_pt, 0)
 #elif RF
 #define load2_(off) RF_tex(RF_pos + RF_pt * vec2(off))
 #else
 #define load2_(off) HOOKED_tex(HOOKED_pos + HOOKED_pt * vec2(off))
-#define gather_offs(off) (HOOKED_mul * vec4(textureGatherOffsets(HOOKED_raw, HOOKED_pos + vec2(off) * HOOKED_pt, offsets)))
+#define gather_offs(off, off_arr) (HOOKED_mul * vec4(textureGatherOffsets(HOOKED_raw, HOOKED_pos + vec2(off) * HOOKED_pt, off_arr)))
 #define gather(off) HOOKED_gather(HOOKED_pos + (off)*HOOKED_pt, 0)
 #endif
 
@@ -603,6 +725,7 @@ vec4 load2(vec3 off)
 #endif
 
 vec4 poi = load(vec3(0)); // pixel-of-interest
+vec4 poi2 = load2(vec3(0)); // guide pixel-of-interest
 
 #if RI // rotation
 vec2 rot(vec2 p, float d)
@@ -638,7 +761,7 @@ vec4 patch_comparison(vec3 r, vec3 r2)
 		vec4 pdiff_sq = vec4(0);
 		FOR_PATCH(p) {
 			vec3 transformed_p = vec3(ref(rot(p.xy, ri), rfi), p.z);
-			vec4 diff_sq = pow(load(p + r2) - load2(transformed_p + r), vec4(2));
+			vec4 diff_sq = pow(load2(p + r2) - load2((transformed_p + r) * SF), vec4(2));
 #if PST && P >= PST
 			float pdist = exp(-pow(length(p.xy*PSD)*PSS, 2));
 			diff_sq = pow(max(diff_sq, EPSILON), vec4(pdist));
@@ -654,14 +777,15 @@ vec4 patch_comparison(vec3 r, vec3 r2)
 #define NO_GATHER (PD == 0) // never textureGather if any of these conditions are false
 #define REGULAR_ROTATIONS (RI == 0 || RI == 1 || RI == 3)
 
-#if defined(LUMA_gather) && ((PS == 3 || PS == 7) && P == 3) && PST == 0 && M != 1 && REGULAR_ROTATIONS && NO_GATHER
+#if (defined(LUMA_gather) || D1W) && ((PS == 3 || PS == 7) && P == 3) && PST == 0 && M != 1 && REGULAR_ROTATIONS && NO_GATHER
 // 3x3 diamond/plus patch_comparison_gather
 const ivec2 offsets[4] = { ivec2(0,-1), ivec2(-1,0), ivec2(0,1), ivec2(1,0) };
-vec4 poi_patch = gather_offs(0);
+const ivec2 offsets_sf[4] = { ivec2(0,-1) * SF, ivec2(-1,0) * SF, ivec2(0,1) * SF, ivec2(1,0) * SF };
+vec4 poi_patch = gather_offs(0, offsets);
 vec4 patch_comparison_gather(vec3 r, vec3 r2)
 {
 	float min_rot = p_area - 1;
-	vec4 transformer = gather_offs(r);
+	vec4 transformer = gather_offs(r, offsets_sf);
 	FOR_ROTATION {
 		FOR_REFLECTION {
 			float diff_sq = dot(pow(poi_patch - transformer, vec4(2)), vec4(1));
@@ -680,9 +804,9 @@ vec4 patch_comparison_gather(vec3 r, vec3 r2)
 		transformer = transformer.zwxy;
 #endif
 	}
-	return vec4(min_rot + pow(poi.x - load2(r).x, 2), 0, 0, 0) * p_scale;
+	return vec4(min_rot + pow(poi2.x - load2(r).x, 2), 0, 0, 0) * p_scale;
 }
-#elif defined(LUMA_gather) && PS == 6 && REGULAR_ROTATIONS && NO_GATHER
+#elif (defined(LUMA_gather) || D1W) && PS == 6 && REGULAR_ROTATIONS && NO_GATHER
 // tiled even square patch_comparison_gather
 vec4 patch_comparison_gather(vec3 r, vec3 r2)
 {
@@ -792,6 +916,10 @@ vec4 hook()
 		me_weight += weight.x;
 #endif
 
+#if D1W
+		weight = vec4(weight.x);
+#endif
+
 		weight *= exp(-pow(length(r*SD)*SS, 2)); // spatial kernel
 
 #if WD == 2 || M == 3 // weight discard, weighted median intensity
@@ -890,7 +1018,7 @@ vec4 hook()
 #endif
 
 #if EP // extremes preserve
-	float luminance = EP_LUMA_texOff(0).x;
+	float luminance = EP_texOff(0).x;
 	// EPSILON is needed since pow(0,0) is undefined
 	float ep_weight = pow(max(min(1-luminance, luminance)*2, EPSILON), (luminance < 0.5 ? DP : BP));
 	result = mix(poi, result, ep_weight);

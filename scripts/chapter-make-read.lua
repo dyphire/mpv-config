@@ -1,9 +1,32 @@
 --[[
-  * chapter-make-read.lua v.2023-02-26
+  * chapter-make-read.lua v.2023-03-19
   *
   * AUTHORS: dyphire
   * License: MIT
   * link: https://github.com/dyphire/mpv-scripts
+--]]
+
+--[[
+Copyright (c) 2023 Mariusz Libera <mariusz.libera@gmail.com>
+Copyright (c) 2023 dyphire <qimoge@gmail.com>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 --]]
 
 -- Implementation read and automatically load the namesake external chapter file.
@@ -37,13 +60,16 @@ local o = {
     autoload = true,
     autosave = false,
     -- Specifies the extension of the external chapter file.
-    chapter_flie_ext = ".chp",
+    chapter_file_ext = ".chp",
     -- Specifies the subpath of the same directory as the playback file as the external chapter file path.
     -- Note: The external chapter file is read from the subdirectory first.
     -- If the file does not exist, it will next be read from the same directory as the playback file.
     external_chapter_subpath = "chapters",
-    -- Specifies the path of the external chapter file for the network playback file.
-    network_chap_dir = "~~/chapters",
+    -- save all chapter files in a single global directory
+    global_chapters = false,
+    global_chapters_dir = "~~/chapters",
+    -- hash works only with global_chapters enabled
+    hash = false,
     -- ask for title or leave it empty
     ask_for_title = true,
     -- placeholder when asking for title of a new chapter
@@ -61,7 +87,9 @@ local user_input_module, input = pcall(require, "user-input-module")
 local curr = nil
 local path = nil
 local dir = nil
+local fpath = nil
 local fname = nil
+local subpath = nil
 local all_chapters = {}
 local chapter_count = 0
 local insert_chapters = ""
@@ -91,16 +119,16 @@ function str_decode(str)
     end
 end
 
---create network_chap_dir if it doesn't exist
-network_chap_dir = mp.command_native({ "expand-path", o.network_chap_dir })
-if utils.readdir(network_chap_dir) == nil then
+--create global_chapters_dir if it doesn't exist
+global_chapters_dir = mp.command_native({ "expand-path", o.global_chapters_dir })
+if utils.readdir(global_chapters_dir) == nil then
     local is_windows = package.config:sub(1, 1) == "\\"
-    local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', string.format("\"%s\"", network_chap_dir) }
-    local unix_args = { 'mkdir', '-p', network_chap_dir }
+    local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', string.format("\"%s\"", global_chapters_dir) }
+    local unix_args = { 'mkdir', '-p', global_chapters_dir }
     local args = is_windows and windows_args or unix_args
     local res = mp.command_native({ name = "subprocess", capture_stdout = true, playback_only = false, args = args })
     if res.status ~= 0 then
-        msg.error("Failed to create network_chap_dir save directory " .. network_chap_dir ..
+        msg.error("Failed to create global_chapters_dir save directory " .. global_chapters_dir ..
             ". Error: " .. (res.error or "unknown"))
         return
     end
@@ -168,23 +196,89 @@ local function format_time(seconds)
     return result
 end
 
+-- returns md5 hash of the full path of the current media file
+local function hash(path)
+    if path == nil then
+        msg.debug("something is wrong with the path, can't get full_path, can't hash it")
+        return
+    end
+
+    msg.debug("hashing:", path)
+
+    local cmd = {
+        name = 'subprocess',
+        capture_stdout = true,
+        playback_only = false,
+    }
+    local args = nil
+
+    local is_unix = package.config:sub(1,1) == "/"
+    if is_unix then
+        local md5 = command_exists("md5sum") or command_exists("md5") or command_exists("openssl", "md5 | cut -d ' ' -f 2")
+        if md5 == nil then
+            msg.warn("no md5 command found, can't generate hash")
+            return
+        end
+        md5 = table.concat(md5, " ")
+        cmd["stdin_data"] = path
+        args = {"sh", "-c", md5 .. " | cut -d ' ' -f 1 | tr '[:lower:]' '[:upper:]'" }
+    else --windows
+        -- https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/get-filehash?view=powershell-7.3
+        local hash_command ="$s = [System.IO.MemoryStream]::new(); $w = [System.IO.StreamWriter]::new($s); $w.write(\"" .. path .. "\"); $w.Flush(); $s.Position = 0; Get-FileHash -Algorithm MD5 -InputStream $s | Select-Object -ExpandProperty Hash"
+        args = {"powershell", "-NoProfile", "-Command", hash_command}
+    end
+    cmd["args"] = args
+    msg.debug("hash cmd:", utils.to_string(cmd))
+    local process = mp.command_native(cmd)
+
+    if process.status == 0 then
+        local hash = process.stdout:gsub("%s+", "")
+        msg.debug("hash:", hash)
+        return hash
+    else
+        msg.warn("hash function failed")
+        return
+    end
+end
+
+local function get_chapter_filename(path)
+    name = hash(path)
+    if name == nil then
+        msg.warn("hash function failed, fallback to filename")
+        name = fname
+    end
+    return name
+end
+
 local function mark_chapter()
     refresh_globals()
     local chapter_index = 0
     local chapters_time = {}
     local chapters_title = {}
     if is_protocol(path) or utils.readdir(dir) == nil then
-        dir = network_chap_dir
+        dir = global_chapters_dir
         fname = str_decode(mp.get_property("media-title"))
+        if o.hash then fname = get_chapter_filename(path) end
     end
-    local fpath = dir
-    local chapter_fliename = fname .. o.chapter_flie_ext
     if o.external_chapter_subpath ~= '' and not is_protocol(path) then
-        fpath = utils.join_path(dir, o.external_chapter_subpath)
+        subpath = utils.join_path(dir, o.external_chapter_subpath)
+        fpath = subpath
+        if io.open(fpath, "r") == nil then
+            fpath = dir
+        end
     end
-    chapter_fullpath = utils.join_path(fpath, chapter_fliename)
+    if o.global_chapters and not is_protocol(path) and io.open(subpath, "r") == nil then
+        fpath = global_chapters_dir
+        if o.hash and o.global_chapters then
+            fname = get_chapter_filename(path)
+        end
+    end
+    local chapter_filename = fname .. o.chapter_file_ext
+    chapter_fullpath = utils.join_path(fpath, chapter_filename)
     if io.open(chapter_fullpath, "r") == nil then
-        chapter_fullpath = utils.join_path(dir, chapter_fliename)
+        fname = str_decode(mp.get_property("filename"))
+        chapter_filename = fname .. o.chapter_file_ext
+        chapter_fullpath = utils.join_path(dir, chapter_filename)
     end
     list_contents = read_chapter_table()
 
@@ -213,7 +307,7 @@ local function mark_chapter()
     table.sort(all_chapters, function(a, b) return a['time'] < b['time'] end)
 
     mp.set_property_native("chapter-list", all_chapters)
-    msg.info("load external chapter flie successful: " .. chapter_fliename)
+    msg.info("load external chapter file successful: " .. chapter_filename)
 end
 
 local function change_title_callback(user_input, err, chapter_index)
@@ -353,7 +447,9 @@ local function write_chapter(force_write)
         return
     end
 
-    local out_path = utils.join_path(dir, fname .. o.chapter_flie_ext)
+    if o.global_chapters then dir = global_chapters_dir end
+    if o.hash and o.global_chapters then fname = get_chapter_filename(path) end
+    local out_path = utils.join_path(dir, fname .. o.chapter_file_ext)
     for i = 1, chapter_count, 1 do
         curr = all_chapters[i]
         local time_pos = format_time(curr.time)
@@ -369,9 +465,10 @@ local function write_chapter(force_write)
 
     local file = io.open(out_path, "w")
     if file == nil then
-        dir = network_chap_dir
-        name = str_decode(mp.get_property("media-title"))
-        out_path = utils.join_path(dir, name .. o.chapter_flie_ext)
+        dir = global_chapters_dir
+        fname = str_decode(mp.get_property("media-title"))
+        if o.hash then fname = get_chapter_filename(path) end
+        out_path = utils.join_path(dir, fname .. o.chapter_file_ext)
         file = io.open(out_path, "w")
     end
     if file == nil then
@@ -395,7 +492,9 @@ local function write_chapter_ogm()
         return
     end
 
-    local out_path = utils.join_path(dir, fname .. o.chapter_flie_ext)
+    if o.global_chapters then dir = global_chapters_dir end
+    if o.hash and o.global_chapters then fname = get_chapter_filename(path) end
+    local out_path = utils.join_path(dir, fname .. o.chapter_file_ext)
     for i = 1, chapter_count, 1 do
         curr = all_chapters[i]
         local time_pos = format_time(curr.time)
@@ -412,9 +511,10 @@ local function write_chapter_ogm()
 
     local file = io.open(out_path, "w")
     if file == nil then
-        dir = network_chap_dir
-        name = str_decode(mp.get_property("media-title"))
-        out_path = utils.join_path(dir, name .. o.chapter_flie_ext)
+        dir = global_chapters_dir
+        fname = str_decode(mp.get_property("media-title"))
+        if o.hash then fname = get_chapter_filename(path) end
+        out_path = utils.join_path(dir, fname .. o.chapter_file_ext)
         file = io.open(out_path, "w")
     end
     if file == nil then
@@ -434,7 +534,9 @@ local function write_chapter_xml()
         return
     end
 
-    local out_path = utils.join_path(dir, fname .. o.chapter_flie_ext)
+    if o.global_chapters then dir = global_chapters_dir end
+    if o.hash and o.global_chapters then fname = get_chapter_filename(path) end
+    local out_path = utils.join_path(dir, fname .. o.chapter_file_ext)
     for i = 1, chapter_count, 1 do
         curr = all_chapters[i]
         local time_pos = format_time(curr.time)
@@ -462,9 +564,10 @@ local function write_chapter_xml()
     
     local file = io.open(out_path, "w")
     if file == nil then
-        dir = network_chap_dir
-        name = str_decode(mp.get_property("media-title"))
-        out_path = utils.join_path(dir, name .. "_chapter.xml")
+        dir = global_chapters_dir
+        fname = str_decode(mp.get_property("media-title"))
+        if o.hash then fname = get_chapter_filename(path) end
+        out_path = utils.join_path(dir, fname .. "_chapter.xml")
         file = io.open(out_path, "w")
     end
     if file == nil then

@@ -1,24 +1,42 @@
 --[[
 SOURCE_ https://github.com/sibwaf/mpv-scripts/blob/master/fuzzydir.lua
-COMMIT_7 Apr 2022_bccda6d
+COMMIT_9 Mar 2023_3285c0b
 	Allows using "**" wildcards in sub-file-paths and audio-file-paths
     so you don't have to specify all the possible directory names.
+
     Basically, allows you to do this and never have the need to edit any paths ever again:
     audio-file-paths = **
     sub-file-paths = **
+
 	MIT license - do whatever you want, but I'm not responsible for any possible problems.
 	Please keep the URL to the original repository. Thanks!
 ]]
 
 --[[
     Configuration:
+
     # max_search_depth
     
     Determines the max depth of recursive search, should be >= 1
+
     Examples for "sub-file-paths = **":
     "max_search_depth = 1" => mpv will be able to find [xyz.ass, subs/xyz.ass]
     "max_search_depth = 2" => mpv will be able to find [xyz.ass, subs/xyz.ass, subs/moresubs/xyz.ass]
+
     Please be careful when setting this value too high as it can result in awful performance or even stack overflow
+
+    
+    # discovery_threshold
+
+    fuzzydir will skip paths which contain more than discovery_threshold directories in them
+
+    This is done to keep at least some garbage from getting into *-file-paths properties in case of big collections:
+    - dir1 <- will be ignored on opening video.mp4 as it's probably unrelated to the file
+    - ...
+    - dir999 <- will be ignored
+    - video.mp4
+
+    Use 0 to disable this behavior completely
 ]]
 
 local msg = require 'mp.msg'
@@ -26,14 +44,15 @@ local options = require 'mp.options'
 local utils = require 'mp.utils'
 
 o = {
-    max_search_depth = 3, --determines the max depth of recursive search, should be >= 1
+    max_search_depth = 3,
+    discovery_threshold = 10,
     excluded_dir = [[
         []
         ]], --excluded directories for cloud mount disks on Windows, example: ["X:", "Z:", "F:\\Download\\", "Download"]. !!the option only for Windows
 }
 options.read_options(o)
 
-o.excluded_dir = utils.parse_json(o.excluded_dir)
+excluded_dir = utils.parse_json(o.excluded_dir)
 
 local default_audio_paths = mp.get_property_native("options/audio-file-paths")
 local default_sub_paths = mp.get_property_native("options/sub-file-paths")
@@ -92,48 +111,53 @@ function normalize(path)
     return path
 end
 
-function traverse(path, level)
-    level = level or 1
+function traverse(search_path, current_path, level, cache)
     if level > o.max_search_depth then
         return {}
     end
 
-    local found = utils.readdir(path, "dirs")
-    if found == nil then
-        return {}
+    local full_path = utils.join_path(search_path, current_path)
+
+    if cache[full_path] ~= nil then
+        return cache[full_path]
     end
 
     local result = {}
-    for index, file in pairs(found) do
-        local full_path = utils.join_path(path, file)
-        table.insert(result, full_path)
-        add_all(result, traverse(full_path, level + 1))
+
+    local discovered_paths = utils.readdir(full_path, "dirs")
+    if discovered_paths == nil then
+        -- noop
+    elseif o.discovery_threshold > 0 and #discovered_paths > o.discovery_threshold then
+        -- noop
+    else
+        for _, discovered_path in pairs(discovered_paths) do
+            local new_path = utils.join_path(current_path, discovered_path)
+
+            table.insert(result, new_path)
+            add_all(result, traverse(search_path, new_path, level + 1, cache))
+        end
     end
+
+    cache[full_path] = result
 
     return result
 end
 
-function explode(from, working_directory)
+function explode(raw_paths, search_path, cache)
     local result = {}
-    for index, path in pairs(from) do
-        path = utils.join_path(working_directory, normalize(path))
-        local parent, leftover = utils.split_path(path)
-        local fpath = mp.get_property('path')
-
-        if not is_protocol(fpath) and not need_ignore(o.excluded_dir, path) then
-            if leftover == "**" then
-                table.insert(result, parent)
-                add_all(result, traverse(parent))
-            else
-                table.insert(result, path)
-            end
+    for _, raw_path in pairs(raw_paths) do
+        local parent, leftover = utils.split_path(raw_path)
+        if leftover == "**" then
+            add_all(result, traverse(search_path, parent, 1, cache))
+        else
+            table.insert(result, raw_path)
         end
     end
 
     local normalized = {}
     for index, path in pairs(result) do
         local normalized_path = normalize(path)
-        if not contains(normalized, normalized_path) and normalized_path ~= normalize(working_directory) then
+        if not contains(normalized, normalized_path) and normalized_path ~= "" then
             table.insert(normalized, normalized_path)
         end
     end
@@ -143,12 +167,16 @@ end
 
 function explode_all()
     local video_path = mp.get_property("path")
-    local working_directory, filename = utils.split_path(video_path)
+    local search_path, _ = utils.split_path(video_path)
+    local cache = {}
+    if is_protocol(search_path) or need_ignore(excluded_dir, search_path) then
+        return
+    end
 
-    local audio_paths = explode(default_audio_paths, working_directory)
+    local audio_paths = explode(default_audio_paths, search_path, cache)
     mp.set_property_native("options/audio-file-paths", audio_paths)
 
-    local sub_paths = explode(default_sub_paths, working_directory)
+    local sub_paths = explode(default_sub_paths, search_path, cache)
     mp.set_property_native("options/sub-file-paths", sub_paths)
 end
 

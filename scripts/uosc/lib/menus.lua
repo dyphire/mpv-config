@@ -101,8 +101,10 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 		elseif str:match("PGS") then str = "PGS"
     	elseif str:match("SUBRIP") then str = "SRT"
     	elseif str:match("VTT") then str = "VTT"
-    	elseif str:match("DVB_SUB") then str = "DVB"
-    	elseif str:match("DVD_SUB") then str = "VOB"
+    	elseif str:match("DVD_SUB") then str = "VOB_SUB"
+    	elseif str:match("DVB_SUB") then str = "DVB_SUB"
+    	elseif str:match("DVB_TELE") then str = "TELETEXT"
+    	elseif str:match("ARIB") then str = "ARIB"
     	end
 		return str
 	end

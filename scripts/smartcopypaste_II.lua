@@ -2,7 +2,7 @@
 -- License: BSD 2-Clause License
 -- Creator: Eisa AlAwadhi
 -- Project: SmartCopyPaste_II
--- Version: 3.2
+-- Version: 3.2.1
 
 local o = {
 ---------------------------USER CUSTOMIZATION SETTINGS---------------------------
@@ -2281,7 +2281,7 @@ function parse_clipboard(text)
 	clip = text
 
 
-	for c in clip:gmatch("[^\n\r+]+") do
+	for c in clip:gmatch("[^\n\r]+") do --3.2.1# fix for #80 , accidentally additional "+" was added to the gmatch
 		local c_pre_attribute, c_clip_file, c_clip_time, c_clip_extension
 		c = make_raw(c)
 		

@@ -1,5 +1,5 @@
 --[[
-    * track-list.lua v.2023-02-05
+    * track-list.lua v.2023-03-19
     *
     * AUTHORS: dyphire
     * License: MIT
@@ -114,8 +114,10 @@ local function esc_for_codec(str)
     elseif str:match("PGS") then str = "PGS"
     elseif str:match("SUBRIP") then str = "SRT"
     elseif str:match("VTT") then str = "VTT"
-    elseif str:match("DVB_SUB") then str = "DVB"
-    elseif str:match("DVD_SUB") then str = "VOB"
+    elseif str:match("DVD_SUB") then str = "VOB_SUB"
+    elseif str:match("DVB_SUB") then str = "DVB_SUB"
+    elseif str:match("DVB_TELE") then str = "TELETEXT"
+    elseif str:match("ARIB") then str = "ARIB"
     end
     return str
 end

@@ -5,6 +5,7 @@ local o = {
     path = "~~/recent.json",
     length = 10,
     width = 88,
+    ignore_same_series = true,
 }
 options.read_options(o)
 
@@ -92,6 +93,10 @@ function is_same_folder(s1, s2, p1, p2)
 end
 
 function is_same_series(s1, s2, p1, p2)
+    if not o.ignore_same_series then
+        return false
+    end
+
     local _is_same_folder, f1, f2 = is_same_folder(s1, s2, p1, p2)
     if _is_same_folder and
         f1 and
