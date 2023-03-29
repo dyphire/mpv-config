@@ -24,7 +24,7 @@ function read_json()
     local json_file = io.open(path, "r")
     if not json_file then return end
 
-    local json = json_file:read("a")
+    local json = json_file:read("*all")
     json_file:close()
 
     local contents = utils.parse_json(json)

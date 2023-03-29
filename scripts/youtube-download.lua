@@ -220,8 +220,8 @@ elseif opts.download_path:match('^/:dir%%script%%') then
 elseif opts.download_path:match('^/:var%%(.*)%%') then
     local os_variable = opts.download_path:match('/:var%%(.*)%%')
     opts.download_path = opts.download_path:gsub('/:var%%(.*)%%', os.getenv(os_variable))
-elseif opts.download_path:match('^~~') then
-    opts.download_path = mp.command_native({ "expand-path", opts.download_path })
+elseif opts.download_path:match('^~') then
+    opts.download_path = mp.command_native({ "expand-path", opts.download_path }) -- Expands both ~ and ~~
 end
 
 --create opts.download_path if it doesn't exist

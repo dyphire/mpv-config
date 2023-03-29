@@ -1,5 +1,5 @@
 --[[
-  * chapter-make-read.lua v.2023-03-19
+  * chapter-make-read.lua v.2023-03-26
   *
   * AUTHORS: dyphire
   * License: MIT
@@ -256,7 +256,7 @@ local function mark_chapter()
     local chapters_time = {}
     local chapters_title = {}
     if is_protocol(path) or utils.readdir(dir) == nil then
-        dir = global_chapters_dir
+        fpath = global_chapters_dir
         fname = str_decode(mp.get_property("media-title"))
         if o.hash then fname = get_chapter_filename(path) end
     end
@@ -275,7 +275,7 @@ local function mark_chapter()
     end
     local chapter_filename = fname .. o.chapter_file_ext
     chapter_fullpath = utils.join_path(fpath, chapter_filename)
-    if io.open(chapter_fullpath, "r") == nil then
+    if io.open(chapter_fullpath, "r") == nil and not is_protocol(path) then
         fname = str_decode(mp.get_property("filename"))
         chapter_filename = fname .. o.chapter_file_ext
         chapter_fullpath = utils.join_path(dir, chapter_filename)

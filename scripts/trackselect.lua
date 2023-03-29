@@ -84,9 +84,6 @@ local function need_ignore(tab, val)
         if string.find(val, element) then
             return true
         end
-        if (val:find(element) == 1) then
-            return true
-        end
     end
     return false
 end

@@ -338,11 +338,8 @@ local sortName
 
 function starts_protocol(tab, val)
 	for index, element in ipairs(tab) do
-        if string.find(val, element) then
-            return true
-        end
-		if (val:find(element) == 1) then
-			return true
+		if string.find(val, element) then
+             		return true
 		end
 	end
 	return false

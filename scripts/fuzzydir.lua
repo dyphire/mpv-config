@@ -1,6 +1,6 @@
 --[[
 SOURCE_ https://github.com/sibwaf/mpv-scripts/blob/master/fuzzydir.lua
-COMMIT_9 Mar 2023_3285c0b
+COMMIT_26 Mar 2023_2ba3e26
 	Allows using "**" wildcards in sub-file-paths and audio-file-paths
     so you don't have to specify all the possible directory names.
 
@@ -37,36 +37,48 @@ COMMIT_9 Mar 2023_3285c0b
     - video.mp4
 
     Use 0 to disable this behavior completely
+
+    # excluded_dir
+
+    fuzzydir will ignore paths which in excluded_dir
+
+    This supports absolute and relative paths
+    example on Windows: ["Z:", "Z:\\Cloud\\", "\\Cloud\\"]
 ]]
 
 local msg = require 'mp.msg'
-local options = require 'mp.options'
 local utils = require 'mp.utils'
+local options = require 'mp.options'
 
 o = {
     max_search_depth = 3,
     discovery_threshold = 10,
     excluded_dir = [[
         []
-        ]], --excluded directories for cloud mount disks on Windows, example: ["X:", "Z:", "F:\\Download\\", "Download"]. !!the option only for Windows
+    ]],
 }
 options.read_options(o)
+
+----------
 
 excluded_dir = utils.parse_json(o.excluded_dir)
 
 local default_audio_paths = mp.get_property_native("options/audio-file-paths")
 local default_sub_paths = mp.get_property_native("options/sub-file-paths")
 
-function is_protocol(path)
-    return type(path) == 'string' and (path:match('^%a[%a%d-_]+://') ~= nil or path:match('^%a[%a%d-_]+:\\?') ~= nil)
+function foreach(list, action)
+    for _, item in pairs(list) do
+        action(item)
+    end
 end
 
-local function need_ignore(tab, val)
+function is_protocol(path)
+    return type(path) == 'string' and path:match('^%a[%a%d-_]+://') ~= nil
+end
+
+function need_ignore(tab, val)
     for index, element in ipairs(tab) do
         if string.find(val, element) then
-            return true
-        end
-        if (val:find(element) == 1) then
             return true
         end
     end
@@ -111,24 +123,99 @@ function normalize(path)
     return path
 end
 
+function call_command(command)
+    local command_string = ""
+    for _, part in pairs(command) do
+        command_string = command_string .. part .. " "
+    end
+
+    msg.trace("Calling external command:", command_string)
+
+    local process = mp.command_native({
+        name = "subprocess",
+        playback_only = false,
+        capture_stdout = true,
+        capture_stderr = true,
+        args = command,
+    })
+
+    if process.status ~= 0 then
+        msg.verbose("External command failed with status " .. process.status .. ": " .. command_string)
+        if process.stderr ~= "" then
+            msg.debug(process.stderr)
+        end
+
+        return nil
+    end
+
+    local result = {}
+    for line in string.gmatch(process.stdout, "([^\r\n]+)") do
+        table.insert(result, line)
+    end
+    return result
+end
+
+-- Platform-dependent optimization
+
+local powershell_version = call_command({
+    "powershell",
+    "-NoProfile",
+    "-Command",
+    "$Host.Version.Major",
+})
+if powershell_version ~= nil then
+    powershell_version = tonumber(powershell_version[1])
+end
+if powershell_version == nil then
+    powershell_version = -1
+end
+msg.debug("PowerShell version", powershell_version)
+
+function fast_readdir(path)
+    if powershell_version >= 3 then
+        msg.trace("Scanning", path, "with PowerShell")
+        return call_command({
+            "powershell",
+            "-NoProfile",
+            "-Command",
+            [[
+            $dirs = Get-ChildItem -LiteralPath ]] .. string.format("%q", path) .. [[ -Directory
+            foreach($dir in $dirs) {
+                $u8clip = [System.Text.Encoding]::UTF8.GetBytes($dir.Name)
+                [Console]::OpenStandardOutput().Write($u8clip, 0, $u8clip.Length)
+                Write-Host ""
+            } ]],
+        })
+    end
+
+    msg.trace("Scanning", path, "with default readdir")
+    return utils.readdir(path, "dirs")
+end
+
+-- Platform-dependent optimization end
+
 function traverse(search_path, current_path, level, cache)
+    local full_path = utils.join_path(search_path, current_path)
+
     if level > o.max_search_depth then
+        msg.trace("Traversed too deep, skipping scan for", full_path)
         return {}
     end
 
-    local full_path = utils.join_path(search_path, current_path)
-
     if cache[full_path] ~= nil then
+        msg.trace("Returning from cache for", full_path)
         return cache[full_path]
     end
 
     local result = {}
 
-    local discovered_paths = utils.readdir(full_path, "dirs")
+    local discovered_paths = fast_readdir(full_path)
     if discovered_paths == nil then
         -- noop
+        msg.debug("Unable to scan " .. full_path .. ", skipping")
     elseif o.discovery_threshold > 0 and #discovered_paths > o.discovery_threshold then
         -- noop
+        msg.debug("Too many directories in " .. full_path .. ", skipping")
     else
         for _, discovered_path in pairs(discovered_paths) do
             local new_path = utils.join_path(current_path, discovered_path)
@@ -148,8 +235,11 @@ function explode(raw_paths, search_path, cache)
     for _, raw_path in pairs(raw_paths) do
         local parent, leftover = utils.split_path(raw_path)
         if leftover == "**" then
+            msg.trace("Expanding wildcard for", raw_path)
+            table.insert(result, parent)
             add_all(result, traverse(search_path, parent, 1, cache))
         else
+            msg.trace("Path", raw_path, "doesn't have a wildcard, keeping as-is")
             table.insert(result, raw_path)
         end
     end
@@ -166,17 +256,25 @@ function explode(raw_paths, search_path, cache)
 end
 
 function explode_all()
+    msg.debug("max_search_depth = ".. o.max_search_depth .. ", discovery_threshold = " .. o.discovery_threshold)
+
     local video_path = mp.get_property("path")
     local search_path, _ = utils.split_path(video_path)
+    msg.debug("search_path = " .. search_path)
+
     local cache = {}
-    if is_protocol(search_path) or need_ignore(excluded_dir, search_path) then
+    if is_protocol(video_path) or need_ignore(excluded_dir, search_path) then
         return
     end
 
+    foreach(default_audio_paths, function(it) msg.debug("audio-file-paths:", it) end)
     local audio_paths = explode(default_audio_paths, search_path, cache)
+    foreach(audio_paths, function(it) msg.debug("Adding to audio-file-paths:", it) end)
     mp.set_property_native("options/audio-file-paths", audio_paths)
 
+    foreach(default_sub_paths, function(it) msg.debug("sub-file-paths:", it) end)
     local sub_paths = explode(default_sub_paths, search_path, cache)
+    foreach(sub_paths, function(it) msg.debug("Adding to sub-file-paths:", it) end)
     mp.set_property_native("options/sub-file-paths", sub_paths)
 end
 

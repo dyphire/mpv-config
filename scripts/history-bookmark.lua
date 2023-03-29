@@ -61,8 +61,8 @@ elseif o.history_dir:match('^/:dir%%script%%') then
 elseif o.history_dir:match('/:var%%(.*)%%') then
     local os_variable = o.history_dir:match('/:var%%(.*)%%')
     o.history_dir = o.history_dir:gsub('/:var%%(.*)%%', os.getenv(os_variable))
-elseif o.history_dir:match('^~~') then
-    o.history_dir = mp.command_native({ "expand-path", o.history_dir })
+elseif o.history_dir:match('^~') then
+    o.history_dir = mp.command_native({ "expand-path", o.history_dir }) -- Expands both ~ and ~~
 end
 
 --create o.history_dir if it doesn't exist
@@ -108,9 +108,6 @@ end
 local function need_ignore(tab, val)
     for index, element in ipairs(tab) do
         if string.find(val, element) then
-            return true
-        end
-        if (val:find(element) == 1) then
             return true
         end
     end
@@ -195,6 +192,8 @@ local function get_bookmark_path(dir)
             msg.warn("hash function failed, fallback to dirname")
             history_name = name
         end
+    else
+        history_name = name
     end
     local bookmark_name = history_name .. o.bookmark_ext
     bookmark_path = utils.join_path(o.history_dir, bookmark_name)
