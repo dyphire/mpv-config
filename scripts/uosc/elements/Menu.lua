@@ -56,6 +56,7 @@ function Menu:close(immediate, callback)
 			menu.is_closing, menu.stack, menu.current, menu.all, menu.by_id = false, nil, nil, {}, {}
 			menu:disable_key_bindings()
 			Elements:update_proximities()
+			cursor.queue_autohide()
 			if callback then callback() end
 			request_render()
 		end
@@ -211,8 +212,10 @@ function Menu:update_content_dimensions()
 	local hint_opts = {size = self.font_size_hint}
 
 	for _, menu in ipairs(self.all) do
+		title_opts.bold, title_opts.italic = true, false
+		local max_width = text_width(menu.title, title_opts) + 2 * self.item_padding
+
 		-- Estimate width of a widest item
-		local max_width = 0
 		for _, item in ipairs(menu.items) do
 			local icon_width = item.icon and self.font_size or 0
 			item.title_width = text_width(item.title, title_opts)
@@ -224,11 +227,6 @@ function Menu:update_content_dimensions()
 			if estimated_width > max_width then max_width = estimated_width end
 		end
 
-		-- Also check menu title
-		title_opts.bold, title_opts.italic = true, false
-		local menu_title_width = text_width(menu.title, title_opts)
-		if menu_title_width > max_width then max_width = menu_title_width end
-
 		menu.max_width = max_width
 	end
 
@@ -237,8 +235,8 @@ end
 
 function Menu:update_dimensions()
 	-- Coordinates and sizes are of the scrollable area to make
-	-- consuming values in rendering and collisions easier. Title drawn above this, so
-	-- we need to account for that in max_height and ay position.
+	-- consuming values in rendering and collisions easier. Title is rendered
+	-- above it, so we need to account for that in max_height and ay position.
 	local min_width = state.fullormaxed and options.menu_min_width_fullscreen or options.menu_min_width
 
 	for _, menu in ipairs(self.all) do
@@ -253,6 +251,11 @@ function Menu:update_dimensions()
 		self:scroll_to(menu.scroll_y, menu) -- clamps scroll_y to scroll limits
 	end
 
+	self:update_coordinates()
+end
+
+-- Updates element coordinates to match currently open (sub)menu.
+function Menu:update_coordinates()
 	local ax = round((display.width - self.current.width) / 2) + self.offset_x
 	self:set_coordinates(ax, self.current.top, ax + self.current.width, self.current.top + self.current.height)
 end
@@ -360,7 +363,7 @@ end
 function Menu:select_value(value, menu)
 	menu = menu or self.current
 	local index = itable_find(menu.items, function(item) return item.value == value end)
-	self:select_index(index, 5)
+	self:select_index(index)
 end
 
 ---@param menu? MenuStack
@@ -401,16 +404,23 @@ function Menu:activate_one_value(value, menu)
 	self:activate_one_index(index, menu)
 end
 
+---@param menu MenuStack One of menus in `self.all`.
+function Menu:activate_menu(menu)
+	if itable_index_of(self.all, menu) then
+		self.current = menu
+		self:update_coordinates()
+		self:reset_navigation()
+		request_render()
+	else
+		msg.error('Attempt to open a menu not in `self.all` list.')
+	end
+end
+
 ---@param id string
 function Menu:activate_submenu(id)
 	local submenu = self.by_id[id]
-	if submenu then
-		self.current = submenu
-		request_render()
-	else
-		msg.error(string.format('Requested submenu id "%s" doesn\'t exist', id))
-	end
-	self:reset_navigation()
+	if submenu then self:activate_menu(submenu)
+	else msg.error(string.format('Requested submenu id "%s" doesn\'t exist', id)) end
 end
 
 ---@param index? integer
@@ -457,8 +467,7 @@ function Menu:back()
 
 	if parent then
 		menu.selected_index = nil
-		self.current = parent
-		self:update_dimensions()
+		self:activate_menu(parent)
 		self:tween(self.offset_x - menu.width / 2, 0, function(offset) self:set_offset_x(offset) end)
 		self.opacity = 1 -- in case tween above canceled fade in animation
 	else
@@ -474,11 +483,10 @@ function Menu:open_selected_item(opts)
 		local item = menu.items[menu.selected_index]
 		-- Is submenu
 		if item.items then
-			self.current = item
 			if opts.preselect_submenu_item then
 				item.selected_index = #item.items > 0 and 1 or nil
 			end
-			self:update_dimensions()
+			self:activate_menu(item)
 			self:tween(self.offset_x + menu.width / 2, 0, function(offset) self:set_offset_x(offset) end)
 			self.opacity = 1 -- in case tween above canceled fade in animation
 		else
@@ -518,7 +526,7 @@ end
 function Menu:on_display() self:update_dimensions() end
 function Menu:on_prop_fullormaxed() self:update_content_dimensions() end
 
-function Menu:on_global_mbtn_left_down()
+function Menu:handle_cursor_down()
 	if self.proximity_raw == 0 then
 		self.drag_data = {{y = cursor.y, time = mp.get_time()}}
 		self.current.fling = nil
@@ -538,7 +546,7 @@ function Menu:fling_distance()
 	return #self.drag_data < 2 and 0 or ((first.y - last.y) / ((first.time - last.time) / 0.03)) * 10
 end
 
-function Menu:on_global_mbtn_left_up()
+function Menu:handle_cursor_up()
 	if self.proximity_raw == 0 and self.drag_data and not self.is_dragging then
 		self:select_item_below_cursor()
 		self:open_selected_item({preselect_submenu_item = false, keep_open = self.modifiers and self.modifiers.shift})
@@ -570,8 +578,8 @@ function Menu:on_global_mouse_move()
 	request_render()
 end
 
-function Menu:on_wheel_up() self:scroll_by(self.scroll_step * -3, nil, {update_cursor = true}) end
-function Menu:on_wheel_down() self:scroll_by(self.scroll_step * 3, nil, {update_cursor = true}) end
+function Menu:handle_wheel_up() self:scroll_by(self.scroll_step * -3, nil, {update_cursor = true}) end
+function Menu:handle_wheel_down() self:scroll_by(self.scroll_step * 3, nil, {update_cursor = true}) end
 
 function Menu:on_pgup()
 	local menu = self.current
@@ -647,8 +655,8 @@ function Menu:create_modified_mbtn_left_handler(modifiers)
 	return function()
 		self.mouse_nav = true
 		self.modifiers = modifiers
-		self:on_global_mbtn_left_down()
-		self:on_global_mbtn_left_up()
+		self:handle_cursor_down()
+		self:handle_cursor_up()
 		self.modifiers = nil
 	end
 end
@@ -676,6 +684,13 @@ function Menu:render()
 		end
 	end
 	if update_cursor then self:select_item_below_cursor() end
+
+	cursor.on_primary_down = function() self:handle_cursor_down() end
+	cursor.on_primary_up = function() self:handle_cursor_up() end
+	if self.proximity_raw == 0 then
+		cursor.on_wheel_down = function() self:handle_wheel_down() end
+		cursor.on_wheel_up = function() self:handle_wheel_up() end
+	end
 
 	local ass = assdraw.ass_new()
 	local opacity = options.menu_opacity * self.opacity

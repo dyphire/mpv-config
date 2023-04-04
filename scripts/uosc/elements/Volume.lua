@@ -7,10 +7,12 @@ local MuteButton = class(Element)
 ---@param props? ElementProps
 function MuteButton:new(props) return Class.new(self, 'volume_mute', props) --[[@as MuteButton]] end
 function MuteButton:get_visibility() return Elements.volume:get_visibility(self) end
-function MuteButton:on_mbtn_left_down() mp.commandv('cycle', 'mute') end
 function MuteButton:render()
 	local visibility = self:get_visibility()
 	if visibility <= 0 then return end
+	if self.proximity_raw == 0 then
+		cursor.on_primary_down = function() mp.commandv('cycle', 'mute') end
+	end
 	local ass = assdraw.ass_new()
 	local icon_name = 'volume_up'
 	if state.mute then icon_name = 'volume_off'
@@ -62,17 +64,11 @@ function VolumeSlider:on_coordinates()
 	self.spacing = round(width * 0.2)
 	self.radius = math.max(2, (self.bx - self.ax) / 10)
 end
-function VolumeSlider:on_mbtn_left_down()
-	self.pressed = true
-	self:set_from_cursor()
-end
-function VolumeSlider:on_global_mbtn_left_up() self.pressed = false end
-function VolumeSlider:on_global_mouse_leave() self.pressed = false end
 function VolumeSlider:on_global_mouse_move()
 	if self.pressed then self:set_from_cursor() end
 end
-function VolumeSlider:on_wheel_up() self:set_volume(state.volume + options.volume_step) end
-function VolumeSlider:on_wheel_down() self:set_volume(state.volume - options.volume_step) end
+function VolumeSlider:handle_wheel_up() self:set_volume(state.volume + options.volume_step) end
+function VolumeSlider:handle_wheel_down() self:set_volume(state.volume - options.volume_step) end
 
 function VolumeSlider:render()
 	local visibility = self:get_visibility()
@@ -81,8 +77,21 @@ function VolumeSlider:render()
 
 	if width <= 0 or height <= 0 or visibility <= 0 then return end
 
+	if self.proximity_raw == 0 then
+		cursor.on_primary_down = function()
+			self.pressed = true
+			self:set_from_cursor()
+			cursor.on_primary_up = function() self.pressed = false end
+		end
+		cursor.on_wheel_down = function() self:handle_wheel_down() end
+		cursor.on_wheel_up = function() self:handle_wheel_up() end
+	end
+	if self.pressed then cursor.on_primary_up = function()
+		self.pressed = false end
+	end
+
 	local ass = assdraw.ass_new()
-	local nudge_y, nudge_size = self.draw_nudge and self.nudge_y or -infinity, self.nudge_size
+	local nudge_y, nudge_size = self.draw_nudge and self.nudge_y or -INFINITY, self.nudge_size
 	local volume_y = self.ay + options.volume_border +
 		((height - (options.volume_border * 2)) * (1 - math.min(state.volume / state.volume_max, 1)))
 
@@ -94,7 +103,7 @@ function VolumeSlider:render()
 		local ax, bx, by = ax + p, bx - p, by - p
 		local r = math.max(1, self.radius - p)
 		local d, rh = r * 2, r / 2
-		local nudge_size = ((quarter_pi_sin * (nudge_size - p)) + p) / quarter_pi_sin
+		local nudge_size = ((QUARTER_PI_SIN * (nudge_size - p)) + p) / QUARTER_PI_SIN
 		local path = assdraw.ass_new()
 		path:move_to(bx - r, by)
 		path:line_to(ax + r, by)

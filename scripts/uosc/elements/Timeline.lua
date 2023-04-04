@@ -6,6 +6,7 @@ local Timeline = class(Element)
 function Timeline:new() return Class.new(self) --[[@as Timeline]] end
 function Timeline:init()
 	Element.init(self, 'timeline')
+	---@type false|{pause: boolean, distance: number, last: {x: number, y: number}}
 	self.pressed = false
 	self.obstructed = false
 	self.size_max = 0
@@ -13,7 +14,8 @@ function Timeline:init()
 	self.size_min_override = options.timeline_start_hidden and 0 or nil
 	self.font_size = 0
 	self.top_border = options.timeline_border
-	self.hovered_chapter = nil
+	self.is_hovered = false
+	self.has_thumbnail = false
 
 	-- Release any dragging when file gets unloaded
 	mp.register_event('end-file', function() self.pressed = false end)
@@ -44,7 +46,7 @@ function Timeline:get_effective_line_width()
 	return state.fullormaxed and options.timeline_line_width_fullscreen or options.timeline_line_width
 end
 
-function Timeline:get_is_hovered() return self.enabled and (self.proximity_raw == 0 or self.hovered_chapter ~= nil) end
+function Timeline:get_is_hovered() return self.enabled and self.is_hovered end
 
 function Timeline:update_dimensions()
 	if state.fullormaxed then
@@ -89,66 +91,48 @@ function Timeline:set_from_cursor(fast)
 		mp.commandv('seek', self:get_time_at_x(cursor.x), fast and 'absolute+keyframes' or 'absolute+exact')
 	end
 end
-function Timeline:clear_thumbnail() mp.commandv('script-message-to', 'thumbfast', 'clear') end
 
-function Timeline:determine_chapter_click_handler()
-	if self.hovered_chapter then
-		if not self.on_global_mbtn_left_down then
-			self.on_global_mbtn_left_down = function()
-				if self.hovered_chapter then mp.commandv('seek', self.hovered_chapter.time, 'absolute+exact') end
-			end
-		end
-	else
-		if self.on_global_mbtn_left_down then
-			self.on_global_mbtn_left_down = nil
-			if self.proximity_raw ~= 0 then self:clear_thumbnail() end
-		end
-	end
+function Timeline:clear_thumbnail()
+	mp.commandv('script-message-to', 'thumbfast', 'clear')
+	self.has_thumbnail = false
 end
 
-function Timeline:on_mbtn_left_down()
-	-- `self.on_global_mbtn_left_down` has precedent
-	if self.on_global_mbtn_left_down then return end
-
-	self.pressed = true
-	self.pressed_pause = state.pause
+function Timeline:handle_cursor_down()
+	self.pressed = {pause = state.pause, distance = 0, last = {x = cursor.x, y = cursor.y}}
 	mp.set_property_native('pause', true)
 	self:set_from_cursor()
+	cursor.on_primary_up = function() self:handle_cursor_up() end
 end
 function Timeline:on_prop_duration() self:decide_enabled() end
 function Timeline:on_prop_time() self:decide_enabled() end
 function Timeline:on_prop_border() self:update_dimensions() end
 function Timeline:on_prop_fullormaxed() self:update_dimensions() end
 function Timeline:on_display() self:update_dimensions() end
-function Timeline:on_mouse_leave()
-	if not self.hovered_chapter then self:clear_thumbnail() end
-end
-function Timeline:on_global_mbtn_left_up()
+function Timeline:handle_cursor_up()
 	if self.pressed then
-		mp.set_property_native('pause', self.pressed_pause)
+		mp.set_property_native('pause', self.pressed.pause)
 		self.pressed = false
 	end
-	self:clear_thumbnail()
 end
 function Timeline:on_global_mouse_leave()
 	self.pressed = false
-	self:clear_thumbnail()
 end
 
 Timeline.seek_timer = mp.add_timeout(0.05, function() Elements.timeline:set_from_cursor() end)
 Timeline.seek_timer:kill()
 function Timeline:on_global_mouse_move()
 	if self.pressed then
+		self.pressed.distance = self.pressed.distance + get_point_to_point_proximity(self.pressed.last, cursor)
+		self.pressed.last.x, self.pressed.last.y = cursor.x, cursor.y
 		if self.width / state.duration < 10 then
 			self:set_from_cursor(true)
 			self.seek_timer:kill()
 			self.seek_timer:resume()
 		else self:set_from_cursor() end
 	end
-	self:determine_chapter_click_handler()
 end
-function Timeline:on_wheel_up() mp.commandv('seek', options.timeline_step) end
-function Timeline:on_wheel_down() mp.commandv('seek', -options.timeline_step) end
+function Timeline:handle_wheel_up() mp.commandv('seek', options.timeline_step) end
+function Timeline:handle_wheel_down() mp.commandv('seek', -options.timeline_step) end
 
 function Timeline:render()
 	if self.size_max == 0 then return end
@@ -156,8 +140,23 @@ function Timeline:render()
 	local size_min = self:get_effective_size_min()
 	local size = self:get_effective_size()
 	local visibility = self:get_visibility()
+	self.is_hovered = false
 
-	if size < 1 then return end
+	if size < 1 then
+		if self.has_thumbnail then self:clear_thumbnail() end
+		return
+	end
+
+	if self.proximity_raw == 0 then
+		self.is_hovered = true
+		cursor.on_primary_down = function() self:handle_cursor_down() end
+		cursor.on_wheel_down = function() self:handle_wheel_down() end
+		cursor.on_wheel_up = function() self:handle_wheel_up() end
+	end
+
+	if self.pressed then
+		cursor.on_primary_up = function() self:handle_cursor_up() end
+	end
 
 	local ass = assdraw.ass_new()
 
@@ -248,7 +247,7 @@ function Timeline:render()
 	end
 
 	-- Chapters
-	self.hovered_chapter = nil
+	local hovered_chapter = nil
 	if (options.timeline_chapters_opacity > 0
 		and (#state.chapters > 0 or state.ab_loop_a or state.ab_loop_b)
 		) then
@@ -274,7 +273,7 @@ function Timeline:render()
 
 			if #state.chapters > 0 then
 				-- Find hovered chapter indicator
-				local hovered_chapter, closest_delta = nil, infinity
+				local closest_delta = INFINITY
 
 				if self.proximity_raw < diamond_radius_hovered then
 					for i, chapter in ipairs(state.chapters) do
@@ -282,6 +281,10 @@ function Timeline:render()
 						local cursor_chapter_delta = math.sqrt((cursor.x - chapter_x) ^ 2 + (cursor.y - chapter_y) ^ 2)
 						if cursor_chapter_delta <= diamond_radius_hovered and cursor_chapter_delta < closest_delta then
 							hovered_chapter, closest_delta = chapter, cursor_chapter_delta
+							self.is_hovered = true
+							cursor.on_primary_down = function()
+								mp.commandv('seek', hovered_chapter.time, 'absolute+exact')
+							end
 						end
 					end
 				end
@@ -291,11 +294,7 @@ function Timeline:render()
 				end
 
 				-- Render hovered chapter above others
-				if hovered_chapter then
-					draw_chapter(hovered_chapter.time, diamond_radius_hovered)
-					self.hovered_chapter = hovered_chapter
-					self:determine_chapter_click_handler()
-				end
+				if hovered_chapter then draw_chapter(hovered_chapter.time, diamond_radius_hovered) end
 			end
 
 			-- A-B loop indicators
@@ -363,10 +362,11 @@ function Timeline:render()
 	end
 
 	-- Hovered time and chapter
-	if (self.proximity_raw == 0 or self.pressed or self.hovered_chapter) and
+	local rendered_thumbnail = false
+	if (self.proximity_raw == 0 or self.pressed or hovered_chapter) and
 		not (Elements.speed and Elements.speed.dragging) then
-		local cursor_x = self.hovered_chapter and t2x(self.hovered_chapter.time) or cursor.x
-		local hovered_seconds = self.hovered_chapter and self.hovered_chapter.time or self:get_time_at_x(cursor.x)
+		local cursor_x = hovered_chapter and t2x(hovered_chapter.time) or cursor.x
+		local hovered_seconds = hovered_chapter and hovered_chapter.time or self:get_time_at_x(cursor.x)
 
 		-- Cursor line
 		-- 0.5 to switch when the pixel is half filled in
@@ -384,7 +384,11 @@ function Timeline:render()
 		tooltip_anchor.ay = tooltip_anchor.ay - self.font_size - offset
 
 		-- Thumbnail
-		if not thumbnail.disabled and thumbnail.width ~= 0 and thumbnail.height ~= 0 then
+		if not thumbnail.disabled
+			and (not self.pressed or self.pressed.distance < 5)
+			and thumbnail.width ~= 0
+			and thumbnail.height ~= 0
+		then
 			local scale_x, scale_y = display.scale_x, display.scale_y
 			local border, margin_x, margin_y = math.ceil(2 * scale_x), round(10 * scale_x), round(5 * scale_y)
 			local thumb_x_margin, thumb_y_margin = border + margin_x, border + margin_y
@@ -398,6 +402,7 @@ function Timeline:render()
 			local bx, by = (thumb_x + thumb_width + border) / scale_x, (thumb_y + thumb_height + border) / scale_y
 			ass:rect(ax, ay, bx, by, {color = bg, border = 1, border_color = fg, border_opacity = 0.08, radius = 2})
 			mp.commandv('script-message-to', 'thumbfast', 'thumb', hovered_seconds, thumb_x, thumb_y)
+			self.has_thumbnail, rendered_thumbnail = true, true
 			tooltip_anchor.ax, tooltip_anchor.bx, tooltip_anchor.ay = ax, bx, ay
 		end
 
@@ -412,6 +417,9 @@ function Timeline:render()
 			end
 		end
 	end
+
+	-- Clear thumbnail
+	if not rendered_thumbnail and self.has_thumbnail then self:clear_thumbnail() end
 
 	return ass
 end
