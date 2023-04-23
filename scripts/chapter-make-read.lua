@@ -1,5 +1,5 @@
 --[[
-  * chapter-make-read.lua v.2023-03-26
+  * chapter-make-read.lua v.2023-04-23
   *
   * AUTHORS: dyphire
   * License: MIT
@@ -42,15 +42,15 @@ SOFTWARE.
 00:22:40.146 ED
 --]]
 
--- This script also supports marks,edits,remove and creates external chapter files, usage:
+-- This script also supports manually load/refresh,marks,edits,remove and creates external chapter files, usage:
 -- Note: It can also be used to export the existing chapter information of the playback file.
 -- add bindings to input.conf:
+-- key script-message-to chapter_make_read load_chapter
 -- key script-message-to chapter_make_read create_chapter
 -- key script-message-to chapter_make_read edit_chapter
 -- key script-message-to chapter_make_read remove_chapter
--- key script-message-to chapter_make_read write_chapter
--- key script-message-to chapter_make_read write_chapter_ogm
--- key script-message-to chapter_make_read write_chapter_xml
+-- key script-message-to chapter_make_read write_chapter chp
+-- key script-message-to chapter_make_read write_chapter ogm
 
 local msg = require 'mp.msg'
 local utils = require 'mp.utils'
@@ -59,6 +59,7 @@ local options = require "mp.options"
 local o = {
     autoload = true,
     autosave = false,
+    force_overwrite = false,
     -- Specifies the extension of the external chapter file.
     chapter_file_ext = ".chp",
     -- Specifies the subpath of the same directory as the playback file as the external chapter file path.
@@ -176,7 +177,9 @@ end
 
 local function refresh_globals()
     path = mp.get_property("path")
-    dir, name_ext = utils.split_path(path)
+    if path then
+        dir, name_ext = utils.split_path(path)
+    end
     fname = str_decode(mp.get_property("filename"))
     all_chapters = mp.get_property_native("chapter-list")
     chapter_count = mp.get_property_number("chapter-list/count")
@@ -250,11 +253,14 @@ local function get_chapter_filename(path)
     return name
 end
 
-local function mark_chapter()
+local function mark_chapter(force_overwrite)
     refresh_globals()
+    if not path then return end
+
     local chapter_index = 0
     local chapters_time = {}
     local chapters_title = {}
+    local fpath = dir
     if is_protocol(path) or utils.readdir(dir) == nil then
         fpath = global_chapters_dir
         fname = str_decode(mp.get_property("media-title"))
@@ -267,7 +273,7 @@ local function mark_chapter()
             fpath = dir
         end
     end
-    if o.global_chapters and not is_protocol(path) and io.open(subpath, "r") == nil then
+    if o.global_chapters and not is_protocol(path) and (subpath and io.open(subpath, "r") == nil) then
         fpath = global_chapters_dir
         if o.hash and o.global_chapters then
             fname = get_chapter_filename(path)
@@ -296,6 +302,7 @@ local function mark_chapter()
 
     table.sort(chapters_time, function(a, b) return a < b end)
 
+    if force_overwrite then all_chapters = {} end
     for i = 1, #chapters_time do
         chapter_index = chapter_index + 1
         all_chapters[chapter_index] = {
@@ -333,6 +340,8 @@ end
 
 local function create_chapter()
     refresh_globals()
+    if not path then return end
+
     local time_pos = mp.get_property_number("time-pos")
     local time_pos_osd = mp.get_property_osd("time-pos/full")
     local curr_chapter = mp.get_property_number("chapter")
@@ -440,9 +449,9 @@ local function remove_chapter()
     chapters_modified = true
 end
 
-local function write_chapter(force_write)
+local function write_chapter(format, force_write)
     refresh_globals()
-    if not force_write and chapter_count == 0 or not chapters_modified then
+    if not force_write and (chapter_count == 0 or not chapters_modified) or not path then
         msg.debug("nothing to write")
         return
     end
@@ -450,11 +459,20 @@ local function write_chapter(force_write)
     if o.global_chapters then dir = global_chapters_dir end
     if o.hash and o.global_chapters then fname = get_chapter_filename(path) end
     local out_path = utils.join_path(dir, fname .. o.chapter_file_ext)
+    local next_chapter = nil
     for i = 1, chapter_count, 1 do
         curr = all_chapters[i]
         local time_pos = format_time(curr.time)
-        local next_chapter = time_pos .. " " .. curr.title .. "\n"
-        if i == 1 then
+        if format == "ogm" then
+            next_chapter = "CHAPTER" .. string.format("%02.f", i) .. "=" .. time_pos .. "\n" .. 
+                           "CHAPTER" .. string.format("%02.f", i) .. "NAME=" .. curr.title .. "\n"
+        elseif format == "chp" then
+            next_chapter = time_pos .. " " .. curr.title .. "\n"
+        else
+            msg.warn("please specify the correct chapter format: chp/ogm.")
+            return
+        end
+        if i == 1 and (o.global_chapters or is_protocol(path)) then
             insert_chapters = "# " .. path .. "\n\n" .. next_chapter
         else
             insert_chapters = insert_chapters .. next_chapter
@@ -485,118 +503,30 @@ local function write_chapter(force_write)
     end
 end
 
-local function write_chapter_ogm()
-    refresh_globals()
-    if chapter_count == 0 then
-        msg.debug("nothing to write")
-        return
-    end
-
-    if o.global_chapters then dir = global_chapters_dir end
-    if o.hash and o.global_chapters then fname = get_chapter_filename(path) end
-    local out_path = utils.join_path(dir, fname .. o.chapter_file_ext)
-    for i = 1, chapter_count, 1 do
-        curr = all_chapters[i]
-        local time_pos = format_time(curr.time)
-        local next_chapter = "CHAPTER" .. string.format("%02.f", i) .. "=" .. time_pos .. "\n" .. 
-                             "CHAPTER" .. string.format("%02.f", i) .. "NAME=" .. curr.title .. "\n"
-        if i == 1 then
-            insert_chapters = "# " .. path .. "\n\n" .. next_chapter
-        else
-            insert_chapters = insert_chapters .. next_chapter
-        end
-    end
-
-    local chapters = insert_chapters
-
-    local file = io.open(out_path, "w")
-    if file == nil then
-        dir = global_chapters_dir
-        fname = str_decode(mp.get_property("media-title"))
-        if o.hash then fname = get_chapter_filename(path) end
-        out_path = utils.join_path(dir, fname .. o.chapter_file_ext)
-        file = io.open(out_path, "w")
-    end
-    if file == nil then
-        mp.error("Could not open chapter file for writing.")
-        return
-    end
-    file:write(chapters)
-    file:close()
-    mp.osd_message("Export chapter file to: " .. out_path, 3)
-    msg.info("Export chapter file to: " .. out_path)
-end
-
-local function write_chapter_xml()
-    refresh_globals()
-    if chapter_count == 0 then
-        msg.debug("nothing to write")
-        return
-    end
-
-    if o.global_chapters then dir = global_chapters_dir end
-    if o.hash and o.global_chapters then fname = get_chapter_filename(path) end
-    local out_path = utils.join_path(dir, fname .. o.chapter_file_ext)
-    for i = 1, chapter_count, 1 do
-        curr = all_chapters[i]
-        local time_pos = format_time(curr.time)
-
-        if i == 1 and curr.time ~= 0 then
-            local first_chapter = "    <ChapterAtom>\n      <ChapterUID>" ..
-                math.random(1000, 9000) ..
-                "</ChapterUID>\n      <ChapterFlagHidden>0</ChapterFlagHidden>\n      <ChapterFlagEnabled>1</ChapterFlagEnabled>\n      <ChapterDisplay>\n        <ChapterString>Prologue</ChapterString>\n        <ChapterLanguage>eng</ChapterLanguage>\n      </ChapterDisplay>\n      <ChapterTimeStart>00:00:00.000</ChapterTimeStart>\n    </ChapterAtom>\n"
-            insert_chapters = insert_chapters .. first_chapter
-        end
-
-        local next_chapter = "      <ChapterAtom>\n        <ChapterDisplay>\n          <ChapterString>" ..
-            curr.title ..
-            "</ChapterString>\n          <ChapterLanguage>eng</ChapterLanguage>\n        </ChapterDisplay>\n        <ChapterUID>"
-            ..
-            math.random(1000, 9000) ..
-            "</ChapterUID>\n        <ChapterTimeStart>" ..
-            time_pos ..
-            "</ChapterTimeStart>\n        <ChapterFlagHidden>0</ChapterFlagHidden>\n        <ChapterFlagEnabled>1</ChapterFlagEnabled>\n      </ChapterAtom>\n"
-        insert_chapters = insert_chapters .. next_chapter
-    end
-
-    local chapters = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\n<Chapters>\n  <EditionEntry>\n    <EditionFlagHidden>0</EditionFlagHidden>\n    <EditionFlagDefault>0</EditionFlagDefault>\n    <EditionUID>"
-        .. euid .. "</EditionUID>\n" .. insert_chapters .. "  </EditionEntry>\n</Chapters>"
-    
-    local file = io.open(out_path, "w")
-    if file == nil then
-        dir = global_chapters_dir
-        fname = str_decode(mp.get_property("media-title"))
-        if o.hash then fname = get_chapter_filename(path) end
-        out_path = utils.join_path(dir, fname .. "_chapter.xml")
-        file = io.open(out_path, "w")
-    end
-    if file == nil then
-        mp.error("Could not open chapter file for writing.")
-        return
-    end
-    file:write(chapters)
-    file:close()
-    mp.osd_message("Export chapter file to: " .. out_path, 3)
-    msg.info("Export chapter file to: " .. out_path)
-end
-
 -- HOOKS -----------------------------------------------------------------------
 
 if o.autoload then
-    mp.add_hook("on_preloaded", 50, mark_chapter)
+    mp.add_hook("on_preloaded", 50, function()
+        if o.force_overwrite then
+            mark_chapter(true)
+        else
+            mark_chapter(false)
+        end
+    end)
 end
 
 if o.autosave then
-    mp.add_hook("on_unload", 50, function() write_chapter(true) end)
+    mp.add_hook("on_unload", 50, function() write_chapter("chp", true) end)
 end
 
 if user_input_module then
     mp.add_hook("on_unload", 50, function() input.cancel_user_input() end)
 end
 
+mp.register_script_message("load_chapter", function() mark_chapter(true) end)
 mp.register_script_message("create_chapter", create_chapter, { repeatable = true })
 mp.register_script_message("remove_chapter", remove_chapter)
 mp.register_script_message("edit_chapter", edit_chapter)
-mp.register_script_message("write_chapter", write_chapter)
-mp.register_script_message("write_chapter_ogm", write_chapter_ogm)
-mp.register_script_message("write_chapter_xml", write_chapter_xml)
+mp.register_script_message("write_chapter", function(value, value2)
+    write_chapter(value, value2)
+end)

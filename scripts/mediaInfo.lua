@@ -1,4 +1,4 @@
--- mediaInfo.lua v2023.02.27
+-- mediaInfo.lua v2023.04.05
 
 --[[
     Use MediaInfo to get media info and print it on OSD.
@@ -16,6 +16,7 @@ opt = require "mp.options"
 opt.read_options(o)
 
 utils.shared_script_property_set("hdr-format", "")
+mp.set_property_native("user-data/mediainfo/hdr-format", "")
 
 ----- string
 local function is_empty(input)

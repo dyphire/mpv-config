@@ -130,7 +130,7 @@ function refresh_globals()
     path = mp.get_property("path")
     fname = mp.get_property("filename")
     pl_count = mp.get_property_number('playlist-count', 0)
-    if not is_protocol(path) then
+    if path and not is_protocol(path) then
         path = utils.join_path(mp.get_property('working-directory'), path)
         dir = utils.split_path(path)
     else

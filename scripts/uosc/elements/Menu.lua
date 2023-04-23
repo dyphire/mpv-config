@@ -616,7 +616,9 @@ function Menu:enable_key_bindings()
 	-- The `mp.set_key_bindings()` method would be easier here, but that
 	-- doesn't support 'repeatable' flag, so we are stuck with this monster.
 	self:add_key_binding('up', 'menu-prev1', self:create_key_action('prev'), 'repeatable')
+	self:add_key_binding('wheel_up', 'menu-prev2', self:create_key_action('prev'), 'repeatable')
 	self:add_key_binding('down', 'menu-next1', self:create_key_action('next'), 'repeatable')
+	self:add_key_binding('wheel_down', 'menu-next2', self:create_key_action('next'), 'repeatable')
 	self:add_key_binding('ctrl+up', 'menu-move-up', self:create_key_action('move_selected_item_up'), 'repeatable')
 	self:add_key_binding('ctrl+down', 'menu-move-down', self:create_key_action('move_selected_item_down'), 'repeatable')
 	self:add_key_binding('left', 'menu-back1', self:create_key_action('back'))

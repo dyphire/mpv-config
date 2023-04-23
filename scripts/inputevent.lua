@@ -177,25 +177,6 @@ local function command_invert(command)
     return invert
 end
 
--- https://github.com/mpv-player/mpv/blob/d3a61cfe9844b78362bfce6e5a8280ad6514dbce/player/lua/stats.lua#L434-L447
-local function get_kbinfo_table()
-    -- active keys: only highest priotity of each key
-    local bindings = mp.get_property_native("input-bindings", {})
-    local active = {}  -- map: key-name -> bind-cmd
-    for _, bind in pairs(bindings) do
-        if bind.priority >= 0 and (
-               not active[bind.key] or
-               (active[bind.key].is_weak and not bind.is_weak) or
-               (bind.is_weak == active[bind.key].is_weak and
-                bind.priority > active[bind.key].priority)
-           )
-        then
-            active[bind.key] = bind.cmd
-        end
-    end
-    return active
-end
-
 -- https://github.com/mpv-player/mpv/blob/master/player/lua/auto_profiles.lua
 local function on_property_change(name, val)
     cached_properties[name] = val
@@ -207,8 +188,13 @@ local function magic_get(name)
     name = string.gsub(name, "_", "-")
     if not watched_properties[name] then
         watched_properties[name] = true
+        local res, err = mp.get_property_native(name)
+        if err == "property not found" then
+            msg.error("Property '" .. name .. "' was not found.")
+            return default
+        end
+        cached_properties[name] = res
         mp.observe_property(name, "native", on_property_change)
-        cached_properties[name] = mp.get_property_native(name)
     end
     return cached_properties[name]
 end
@@ -291,10 +277,8 @@ function InputEvent:evaluate(event)
                 -- errors can be "normal", e.g. in case properties are unavailable
                 msg.verbose("Action condition error on evaluating: " .. res)
                 res = false
-            elseif type(res) ~= "boolean" then
-                msg.verbose("Action condition did not return a boolean, but " .. type(res) .. ".")
-                res = false
             end
+            res = not not res
             if res then
                 seleted = action.cmd
                 break
@@ -521,14 +505,7 @@ if o.enable_external_config then
     local external_config_path = mp.command_native({ "expand-path", o.external_config })
     local parsed = read_conf(external_config_path)
     if parsed and not table.isEmpty(parsed) then
-        local active = get_kbinfo_table()
         for key, on in pairs(parsed) do
-            if active[key] ~= nil then
-                if on.click==nil then
-                    on.click = {}
-                end
-                table.push(on.click, {cmd = active[key]})
-            end
             bind(key, on)
         end
     end
