@@ -3,6 +3,7 @@ local options = require("mp.options")
 
 local o = {
     path = "~~/recent.json",
+    title = 'Recently played',
     length = 10,
     width = 88,
     ignore_same_series = true,
@@ -13,34 +14,11 @@ local path = mp.command_native({ "expand-path", o.path })
 
 local menu = {
     type = 'recent_menu',
-    title = 'Recently played',
-    items = { { title = 'Nothing here', value = 'ignore' } },
+    title = o.title,
+    items = {},
 }
 
-function read_json()
-    local meta, meta_error = utils.file_info(path)
-    if not meta or not meta.is_file then return end
-
-    local json_file = io.open(path, "r")
-    if not json_file then return end
-
-    local json = json_file:read("*all")
-    json_file:close()
-
-    local contents = utils.parse_json(json)
-    if not contents then return end
-    menu.items = contents
-end
-
-function write_json()
-    local json_file = io.open(path, "w")
-    if not json_file then return end
-
-    local json = utils.format_json(menu.items)
-
-    json_file:write(json)
-    json_file:close()
-end
+local current_item = { nil, nil, nil }
 
 function utf8_char_bytes(str, i)
     local char_byte = str:byte(i)
@@ -79,6 +57,10 @@ function utf8_subwidth(str, indexStart, indexEnd)
         end
     end
     return substr, index
+end
+
+function is_protocol(path)
+    return type(path) == 'string' and (path:find('^%a[%a%d-_]+://') ~= nil or path:find('^%a[%a%d-_]+:\\?') ~= nil)
 end
 
 function is_same_folder(s1, s2, p1, p2)
@@ -124,6 +106,70 @@ function is_same_series(s1, s2, p1, p2)
     return false
 end
 
+function get_filename_without_ext(filename)
+    local idx = filename:match(".+()%.%w+$")
+    if idx then
+        filename = filename:sub(1, idx - 1)
+    end
+    return filename
+end
+
+function remove_deleted()
+    local new_items = {}
+    for _, item in ipairs(menu.items) do
+        local path = item.value[2]
+        local deleted = false
+        
+        if not is_protocol(path) then
+            local meta, meta_error = utils.file_info(path)
+            if not (meta and meta.is_file) then
+                deleted = true
+            end
+        end
+
+        if not deleted then
+            new_items[#new_items + 1] = item
+        end
+    end
+
+    if #menu.items ~= #new_items then
+        menu.items = new_items
+        write_json()
+    end
+end
+
+function read_json()
+    local meta, meta_error = utils.file_info(path)
+    if not meta or not meta.is_file then
+        menu.items = {}
+        return
+    end
+
+    local json_file = io.open(path, "r")
+    if not json_file then
+        menu.items = {}
+        return
+    end
+
+    local json = json_file:read("*all")
+    json_file:close()
+
+    local contents = utils.parse_json(json)
+    if not contents then return end
+    menu.items = contents
+    remove_deleted()
+end
+
+function write_json()
+    local json_file = io.open(path, "w")
+    if not json_file then return end
+
+    local json = utils.format_json(menu.items)
+
+    json_file:write(json)
+    json_file:close()
+end
+
 function append_item(path, filename, title)
     if title and title ~= "" then
         local width
@@ -133,13 +179,12 @@ function append_item(path, filename, title)
         filename = utf8_subwidth(filename, 1, o.width)
     end
 
-    local new_items = {}
-    new_items[1] = { title = filename, hint = title, value = { "loadfile", path } }
+    local new_items = { { title = filename, hint = title, value = { "loadfile", path } } }
+    read_json()
     for index, value in ipairs(menu.items) do
         local ofilename = value.title
         local opath = value.value[2]
         if #new_items < o.length and
-            value.value ~= "ignore" and
             opath ~= path and
             not is_same_series(filename, ofilename, path, opath)
         then
@@ -157,29 +202,11 @@ function open_menu()
 end
 
 function play_last()
-    mp.command_native(menu.items[1].value)
-end
-
-function get_filename_without_ext(filename)
-    local idx = filename:match(".+()%.%w+$")
-    if idx then
-        filename = filename:sub(1, idx - 1)
+    read_json()
+    if menu.items[1] then
+        mp.command_native(menu.items[1].value)
     end
-    return filename
 end
-
-function swap(a, b)
-    local t = a
-    a = b
-    b = t
-    return a, b
-end
-
-function is_protocol(path)
-    return type(path) == 'string' and (path:find('^%a[%a%d-_]+://') ~= nil or path:find('^%a[%a%d-_]+:\\?') ~= nil)
-end
-
-local current_item = { nil, nil, nil }
 
 function on_load()
     local path = mp.get_property("path")
@@ -191,7 +218,7 @@ function on_load()
         title = ""
     end
     if is_protocol(path) and title and title ~= "" then
-        filename, title = swap(filename, title)
+        filename, title = title, filename
     end
     current_item = { path, filename, title }
     append_item(path, filename, title)
@@ -199,7 +226,6 @@ end
 
 function on_end(e)
     if e and e.reason and e.reason == "quit" then
-        read_json()
         append_item(current_item[1], current_item[2], current_item[3])
     end
 end
@@ -208,5 +234,3 @@ mp.add_key_binding(nil, "open", open_menu)
 mp.add_key_binding(nil, "play_last", play_last)
 mp.register_event("file-loaded", on_load)
 mp.register_event("end-file", on_end)
-
-read_json()

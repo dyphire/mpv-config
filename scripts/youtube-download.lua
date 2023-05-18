@@ -94,6 +94,10 @@ local opts = {
     -- Same as youtube-dl --sub-format best
     sub_format = "best",
 
+    -- Download auto-generated subtitles
+    -- Same as youtube-dl --write-auto-subs / --no-write-auto-subs
+    sub_auto_generated = false,
+
     -- Log file for download errors
     log_file = "",
 
@@ -120,6 +124,12 @@ local opts = {
     -- will close after the download, even if there were errors
     open_new_terminal = false,
     open_new_terminal_autoclose = false,
+
+    -- Used to localize uosc-submenu content
+    -- Must use json format, example for Chinese: [{"Download": "下载","Audio": "音频"}]
+    locale_content = [[
+        []
+    ]],
 }
 
 local function exec(args, capture_stdout, capture_stderr)
@@ -179,6 +189,19 @@ end
 --Read configuration file
 (require 'mp.options').read_options(opts, "youtube-download")
 
+--Read text string
+local locale_content = utils.parse_json(opts.locale_content)
+
+local function locale(str)
+    if str and locale_content then
+        for k, v in ipairs(locale_content) do
+            return v[str] or str
+        end
+    else
+        return str
+    end
+end
+
 --Read command line arguments
 local ytdl_raw_options = mp.get_property("ytdl-raw-options")
 if ytdl_raw_options ~= nil and ytdl_raw_options:find("cookies=") ~= nil then
@@ -221,7 +244,7 @@ elseif opts.download_path:match('^/:var%%(.*)%%') then
     local os_variable = opts.download_path:match('/:var%%(.*)%%')
     opts.download_path = opts.download_path:gsub('/:var%%(.*)%%', os.getenv(os_variable))
 elseif opts.download_path:match('^~') then
-    opts.download_path = mp.command_native({ "expand-path", opts.download_path }) -- Expands both ~ and ~~
+    opts.download_path = mp.command_native({ "expand-path", opts.download_path })  -- Expands both ~ and ~~
 end
 
 --create opts.download_path if it doesn't exist
@@ -269,7 +292,7 @@ end
 
 
 local function download(download_type, config_file, overwrite_opts)
-    video_format = opts.video_format
+    local video_format = opts.video_format
     if overwrite_opts ~= nil then
         if overwrite_opts.video_format ~= nil  then
             video_format = overwrite_opts.video_format
@@ -370,6 +393,11 @@ local function download(download_type, config_file, overwrite_opts)
                 table.insert(command, "--sub-format")
                 table.insert(command, opts.sub_format)
             end
+            if opts.sub_auto_generated then
+                table.insert(command, "--write-auto-subs")
+            else
+                table.insert(command, "--no-write-auto-subs")
+            end
             if select_range_mode > 0 then
                 mp.osd_message("Range mode is not available for subtitle-only download", 10)
                 is_downloading = false
@@ -401,12 +429,17 @@ local function download(download_type, config_file, overwrite_opts)
             end
         else --DOWNLOAD.VIDEO or DOWNLOAD.VIDEO_EMBED_SUBTITLE
             if download_type == DOWNLOAD.VIDEO_EMBED_SUBTITLE then
-                table.insert(command, "--all-subs")
-                table.insert(command, "--write-sub")
                 table.insert(command, "--embed-subs")
+                table.insert(command, "--sub-lang")
+                table.insert(command, opts.sub_lang)
                 if not_empty(opts.sub_format) then
                     table.insert(command, "--sub-format")
                     table.insert(command, opts.sub_format)
+                end
+                if opts.sub_auto_generated then
+                    table.insert(command, "--write-auto-subs")
+                else
+                    table.insert(command, "--no-write-auto-subs")
                 end
             end
             if not_empty(video_format) then
@@ -564,6 +597,11 @@ local function download(download_type, config_file, overwrite_opts)
             if not_empty(opts.sub_format) then
                 table.insert(command, "--sub-format")
                 table.insert(command, opts.sub_format)
+            end
+            if opts.sub_auto_generated then
+                table.insert(command, "--write-auto-subs")
+            else
+                table.insert(command, "--no-write-auto-subs")
             end
             local randomName = "tmp_" .. tostring(math.random())
             table.insert(command, "-o")
@@ -739,27 +777,27 @@ local function download(download_type, config_file, overwrite_opts)
         local osd_time = 5
         -- Find filename or directory
         if filename then
-            local filepath
+            local filepath_display
             local basepath
             if filename:find("/") == nil and filename:find("\\") == nil then
               basepath = utils.getcwd()
-              filepath = path_join(utils.getcwd(), filename)
+              filepath_display = path_join(utils.getcwd(), filename)
             else
               basepath = ""
-              filepath = filename
+              filepath_display = filename
             end
 
-            if filepath:len() < 100 then
-                osd_text = osd_text .. ass0 .. "{\\fs12} " .. filepath .. " {\\fs20}" .. ass1
+            if filepath_display:len() < 100 then
+                osd_text = osd_text .. ass0 .. "{\\fs12} " .. filepath_display .. " {\\fs20}" .. ass1
             elseif basepath == "" then
-                osd_text = osd_text .. ass0 .. "{\\fs8} " .. filepath .. " {\\fs20}" .. ass1
+                osd_text = osd_text .. ass0 .. "{\\fs8} " .. filepath_display .. " {\\fs20}" .. ass1
             else
                 osd_text = osd_text .. ass0 .. "{\\fs11} " .. basepath .. "\n" .. filename .. " {\\fs20}" ..  ass1
             end
             if wrote_error_log then
                 -- Write filename and end time to log file
                 local file = io.open (opts.log_file , "a+")
-                file:write("[" .. filepath .. "]\n")
+                file:write("[" .. filepath_display .. "]\n")
                 file:write(os.date("[end %c]\n"))
                 file:close()
             end
@@ -812,7 +850,7 @@ local function download(download_type, config_file, overwrite_opts)
         end
 
         -- Escape restricted characters on Windows
-        restricted = "&<>|"
+        local restricted = "&<>|"
         for key, value in ipairs(command) do
             command[key] = value:gsub("["..  restricted .. "]", "^%0")
         end
@@ -943,11 +981,11 @@ local function select_range()
 end
 
 
-function menu_command(str)
+local function menu_command(str)
     return string.format('script-message-to %s %s', script_name, str)
 end
 
-function create_menu_data()
+local function create_menu_data()
     -- uosc menu
 
     local current_format = get_current_format()
@@ -958,11 +996,11 @@ function create_menu_data()
     end
 
     if not_empty(opts.remux_video) then
-        video_format = video_format .. "/" .. tostring(remux_video)
+        video_format = video_format .. "/" .. tostring(opts.remux_video)
     end
 
     if not_empty(opts.recode_video) then
-        video_format = video_format .. "/" .. tostring(recode_video)
+        video_format = video_format .. "/" .. tostring(opts.recode_video)
     end
 
     local audio_format = ""
@@ -983,41 +1021,41 @@ function create_menu_data()
 
     local items = {
       {
-        title = 'Audio',
+        title = locale('Audio'),
         hint = tostring(audio_format),
         icon = 'audiotrack',
         value = menu_command('audio_default_quality'),
         keep_open = false
       },
       {
-        title = 'Video (Current quality)',
+        title = locale('Video (Current quality)'),
         hint = tostring(current_format),
         icon = 'play_circle_filled',
         value = menu_command('video_current_quality'),
         keep_open = false
       },
       {
-        title = 'Video (Default quality)',
+        title = locale('Video (Default quality)'),
         hint = tostring(video_format),
         icon = 'download',
         value = menu_command('video_default_quality'),
         keep_open = false
       },
       {
-        title = 'Video with subtitles',
+        title = locale('Video with subtitles'),
         icon = 'hearing_disabled',
         value = menu_command('embed_subtitle_default_quality'),
         keep_open = false
       },
       {
-        title = 'Subtitles',
+        title = locale('Subtitles'),
         hint = tostring(sub_format),
         icon = 'subtitles',
         value = menu_command('subtitle'),
         keep_open = false
       },
       {
-        title = 'Select range',
+        title = locale('Select range'),
         icon = 'content_cut',
         value = menu_command('cut'),
         keep_open = false
@@ -1026,7 +1064,7 @@ function create_menu_data()
 
     if not_empty(opts.download_video_config_file) then
         table.insert(items, {
-            title = 'Video (Config file)',
+            title = locale('Video (Config file)'),
             icon = 'build',
             value = menu_command('video_config_file'),
             keep_open = false
@@ -1034,7 +1072,7 @@ function create_menu_data()
     end
     if not_empty(opts.download_audio_config_file) then
         table.insert(items, {
-            title = 'Audio (Config file)',
+            title = locale('Audio (Config file)'),
             icon = 'build',
             value = menu_command('audio_config_file'),
             keep_open = false
@@ -1042,7 +1080,7 @@ function create_menu_data()
     end
     if not_empty(opts.download_subtitle_config_file) then
         table.insert(items, {
-            title = 'Subtitle (Config file)',
+            title = locale('Subtitle (Config file)'),
             icon = 'build',
             value = menu_command('subtitle_config_file'),
             keep_open = false
@@ -1050,7 +1088,7 @@ function create_menu_data()
     end
     if not_empty(opts.download_video_embed_subtitle_config_file) then
         table.insert(items, {
-            title = 'Video with subtitles (Config file)',
+            title = locale('Video with subtitles (Config file)'),
             icon = 'build',
             value = menu_command('video_embed_subtitle_config_file'),
             keep_open = false
@@ -1058,7 +1096,7 @@ function create_menu_data()
     end
     if not_youtube then
         table.insert(items, 1, {
-            title = 'Current file is not a youtube video',
+            title = locale('Current file is not a youtube video'),
             icon = 'warning',
             value = menu_command(''),
             bold = true,
@@ -1069,7 +1107,7 @@ function create_menu_data()
 
     return {
       type = 'yt_download_menu',
-      title = 'Download',
+      title = locale('Download'),
       keep_open = true,
       items = items
     }

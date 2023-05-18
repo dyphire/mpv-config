@@ -3,13 +3,13 @@ local Element = require('elements/Element')
 -- Menu data structure accepted by `Menu:open(menu)`.
 ---@alias MenuData {type?: string; title?: string; hint?: string; keep_open?: boolean; separator?: boolean; items?: MenuDataItem[]; selected_index?: integer;}
 ---@alias MenuDataItem MenuDataValue|MenuData
----@alias MenuDataValue {title?: string; hint?: string; icon?: string; value: any; bold?: boolean; italic?: boolean; muted?: boolean; active?: boolean; keep_open?: boolean; separator?: boolean;}
+---@alias MenuDataValue {title?: string; hint?: string; icon?: string; value: any; bold?: boolean; italic?: boolean; muted?: boolean; active?: boolean; keep_open?: boolean; separator?: boolean; selectable?: boolean; align?: 'left'|'center'|'right'}
 ---@alias MenuOptions {mouse_nav?: boolean; on_open?: fun(); on_close?: fun(); on_back?: fun(); on_move_item?: fun(from_index: integer, to_index: integer, submenu_path: integer[]); on_delete_item?: fun(index: integer, submenu_path: integer[])}
 
 -- Internal data structure created from `Menu`.
 ---@alias MenuStack {id?: string; type?: string; title?: string; hint?: string; selected_index?: number; keep_open?: boolean; separator?: boolean; items: MenuStackItem[]; parent_menu?: MenuStack; submenu_path: integer[]; active?: boolean; width: number; height: number; top: number; scroll_y: number; scroll_height: number; title_width: number; hint_width: number; max_width: number; is_root?: boolean; fling?: Fling}
 ---@alias MenuStackItem MenuStackValue|MenuStack
----@alias MenuStackValue {title?: string; hint?: string; icon?: string; value: any; active?: boolean; bold?: boolean; italic?: boolean; muted?: boolean; keep_open?: boolean; separator?: boolean; title_width: number; hint_width: number}
+---@alias MenuStackValue {title?: string; hint?: string; icon?: string; value: any; active?: boolean; bold?: boolean; italic?: boolean; muted?: boolean; keep_open?: boolean; separator?: boolean; selectable?: boolean; align?: 'left'|'center'|'right'; title_width: number; hint_width: number}
 ---@alias Fling {y: number, distance: number, time: number, easing: fun(x: number), duration: number, update_cursor?: boolean}
 
 ---@alias Modifiers {shift?: boolean, ctrl?: boolean, alt?: boolean}
@@ -156,7 +156,9 @@ function Menu:update(data)
 
 		-- Update items
 		local first_active_index = nil
-		menu.items = {}
+		menu.items = {
+			{title = t('Empty'), value = 'ignore', italic = 'true', muted = 'true', selectable = false, align = 'center'}
+		}
 
 		for i, item_data in ipairs(menu_data.items or {}) do
 			if item_data.active and not first_active_index then first_active_index = i end
@@ -164,6 +166,7 @@ function Menu:update(data)
 			local item = {}
 			table_assign(item, item_data, {
 				'title', 'icon', 'hint', 'active', 'bold', 'italic', 'muted', 'value', 'keep_open', 'separator',
+				'selectable', 'align'
 			})
 			if item.keep_open == nil then item.keep_open = menu.keep_open end
 
@@ -265,10 +268,14 @@ function Menu:reset_navigation()
 
 	-- Reset indexes and scroll
 	self:scroll_to(menu.scroll_y) -- clamps scroll_y to scroll limits
-	if self.mouse_nav then
-		self:select_item_below_cursor()
+	if menu.items and #menu.items > 0 then
+		-- Normalize existing selected_index always, and force it only in keyboard navigation
+		if not self.mouse_nav and not menu.selected_index then
+			local from = clamp(1, menu.selected_index or 1, #menu.items)
+			self:select_index(itable_find(menu.items, function(item) return item.selectable ~= false end, from), menu)
+		end
 	else
-		self:select_index((menu.items and #menu.items > 0) and clamp(1, menu.selected_index or 1, #menu.items) or nil)
+		self:select_index(nil)
 	end
 
 	-- Walk up the parent menu chain and activate items that lead to current menu
@@ -288,12 +295,6 @@ function Menu:set_offset_x(offset)
 end
 
 function Menu:fadeout(callback) self:tween_property('opacity', 1, 0, callback) end
-
-function Menu:get_item_index_below_cursor()
-	local menu = self.current
-	if #menu.items < 1 or self.proximity_raw > 0 then return nil end
-	return math.max(1, math.min(math.ceil((cursor.y - self.ay + menu.scroll_y) / self.scroll_step), #menu.items))
-end
 
 function Menu:get_first_active_index(menu)
 	menu = menu or self.current
@@ -445,15 +446,31 @@ end
 ---@param menu? MenuStack
 function Menu:prev(menu)
 	menu = menu or self.current
-	menu.selected_index = math.max(menu.selected_index and menu.selected_index - 1 or #menu.items, 1)
-	self:scroll_to_index(menu.selected_index, menu, true)
+	local initial_index = menu.selected_index and menu.selected_index - 1 or #menu.items
+	if initial_index > 0 then
+		menu.selected_index = itable_find(menu.items, function(item) return item.selectable ~= false end, initial_index, 1)
+		self:scroll_to_index(menu.selected_index, menu, true)
+	end
 end
 
 ---@param menu? MenuStack
 function Menu:next(menu)
 	menu = menu or self.current
-	menu.selected_index = math.min(menu.selected_index and menu.selected_index + 1 or 1, #menu.items)
-	self:scroll_to_index(menu.selected_index, menu, true)
+	local initial_index = menu.selected_index and menu.selected_index + 1 or 1
+	if initial_index <= #menu.items then
+		menu.selected_index = itable_find(menu.items, function(item) return item.selectable ~= false end, initial_index)
+		self:scroll_to_index(menu.selected_index, menu, true)
+	end
+end
+
+---@param menu MenuStack One of menus in `self.all`.
+---@param x number `x` coordinate to slide from.
+function Menu:slide_in_menu(menu, x)
+	local current = self.current
+	current.selected_index = nil
+	self:activate_menu(menu)
+	self:tween(-(display.width / 2 - menu.width / 2 - x), 0, function(offset) self:set_offset_x(offset) end)
+	self.opacity = 1 -- in case tween above canceled fade in animation
 end
 
 function Menu:back()
@@ -462,20 +479,17 @@ function Menu:back()
 		if self.is_closed then return end
 	end
 
-	local menu = self.current
-	local parent = menu.parent_menu
+	local current = self.current
+	local parent = current.parent_menu
 
 	if parent then
-		menu.selected_index = nil
-		self:activate_menu(parent)
-		self:tween(self.offset_x - menu.width / 2, 0, function(offset) self:set_offset_x(offset) end)
-		self.opacity = 1 -- in case tween above canceled fade in animation
+		self:slide_in_menu(parent, display.width / 2 - current.width / 2 - parent.width / 2 + self.offset_x)
 	else
 		self:close()
 	end
 end
 
----@param opts? {keep_open?: boolean, preselect_submenu_item?: boolean}
+---@param opts? {keep_open?: boolean, preselect_first_item?: boolean}
 function Menu:open_selected_item(opts)
 	opts = opts or {}
 	local menu = self.current
@@ -483,7 +497,7 @@ function Menu:open_selected_item(opts)
 		local item = menu.items[menu.selected_index]
 		-- Is submenu
 		if item.items then
-			if opts.preselect_submenu_item then
+			if opts.preselect_first_item then
 				item.selected_index = #item.items > 0 and 1 or nil
 			end
 			self:activate_menu(item)
@@ -497,8 +511,7 @@ function Menu:open_selected_item(opts)
 end
 
 function Menu:open_selected_item_soft() self:open_selected_item({keep_open = true}) end
-function Menu:open_selected_item_preselect() self:open_selected_item({preselect_submenu_item = true}) end
-function Menu:select_item_below_cursor() self.current.selected_index = self:get_item_index_below_cursor() end
+function Menu:open_selected_item_preselect() self:open_selected_item({preselect_first_item = true}) end
 
 ---@param index integer
 function Menu:move_selected_item_to(index)
@@ -506,7 +519,7 @@ function Menu:move_selected_item_to(index)
 	if callback and from and from ~= index and index >= 1 and index <= #self.current.items then
 		callback(from, index, self.current.submenu_path)
 		self.current.selected_index = index
-		request_render()
+		self:set_scroll_by((index - from) * self.scroll_step)
 	end
 end
 
@@ -531,8 +544,7 @@ function Menu:handle_cursor_down()
 		self.drag_data = {{y = cursor.y, time = mp.get_time()}}
 		self.current.fling = nil
 	else
-		if cursor.x < self.ax and self.current.parent_menu then self:back()
-		else self:close() end
+		self:close()
 	end
 end
 
@@ -548,8 +560,7 @@ end
 
 function Menu:handle_cursor_up()
 	if self.proximity_raw == 0 and self.drag_data and not self.is_dragging then
-		self:select_item_below_cursor()
-		self:open_selected_item({preselect_submenu_item = false, keep_open = self.modifiers and self.modifiers.shift})
+		self:open_selected_item({preselect_first_item = false, keep_open = self.modifiers and self.modifiers.shift})
 	end
 	if self.is_dragging then
 		local distance = self:fling_distance()
@@ -564,7 +575,6 @@ function Menu:handle_cursor_up()
 	self.drag_data = nil
 end
 
-
 function Menu:on_global_mouse_move()
 	self.mouse_nav = true
 	if self.drag_data then
@@ -573,8 +583,6 @@ function Menu:on_global_mouse_move()
 		if distance ~= 0 then self:set_scroll_by(distance) end
 		self.drag_data[#self.drag_data + 1] = {y = cursor.y, time = mp.get_time()}
 	end
-	if self.proximity_raw == 0 or self.is_dragging then self:select_item_below_cursor()
-	else self.current.selected_index = nil end
 	request_render()
 end
 
@@ -675,17 +683,14 @@ function Menu:create_key_action(name, modifiers)
 end
 
 function Menu:render()
-	local update_cursor = false
 	for _, menu in ipairs(self.all) do
 		if menu.fling then
-			update_cursor = update_cursor or menu.fling.update_cursor or false
 			local time_delta = state.render_last_time - menu.fling.time
 			local progress = menu.fling.easing(math.min(time_delta / menu.fling.duration, 1))
 			self:set_scroll_to(round(menu.fling.y + menu.fling.distance * progress), menu)
 			if progress < 1 then request_render() else menu.fling = nil end
 		end
 	end
-	if update_cursor then self:select_item_below_cursor() end
 
 	cursor.on_primary_down = function() self:handle_cursor_down() end
 	cursor.on_primary_up = function() self:handle_cursor_up() end
@@ -698,28 +703,44 @@ function Menu:render()
 	local opacity = options.menu_opacity * self.opacity
 	local spacing = self.item_padding
 	local icon_size = self.font_size
+	local menu_gap, menu_padding = 2, 2
 
-	function draw_menu(menu, x, y, opacity)
-		local ax, ay, bx, by = x, y, x + menu.width, y + menu.height
+	---@param menu MenuStack
+	---@param x number
+	---@param pos number Horizontal position index. 0 = current menu, <0 parent menus, >1 submenu.
+	local function draw_menu(menu, x, pos)
+		local is_current, is_parent, is_submenu = pos == 0, pos < 0, pos > 0
+		local menu_opacity = pos == 0 and opacity or opacity * (options.menu_parent_opacity ^ math.abs(pos))
+		local ax, ay, bx, by = x, menu.top, x + menu.width, menu.top + menu.height
 		local draw_title = menu.is_root and menu.title
 		local scroll_clip = '\\clip(0,' .. ay .. ',' .. display.width .. ',' .. by .. ')'
 		local start_index = math.floor(menu.scroll_y / self.scroll_step) + 1
 		local end_index = math.ceil((menu.scroll_y + menu.height) / self.scroll_step)
-		local selected_index = menu.selected_index or -1
-		-- remove menu_opacity to start off with full opacity, but still decay for parent menus
-		local text_opacity = opacity / options.menu_opacity
+		-- Remove menu_opacity to start off with full, but still decay for parent menus
+		local text_opacity = menu_opacity / options.menu_opacity
+		local menu_rect = {ax = ax, ay = ay - (draw_title and self.item_height or 0) - 2, bx = bx, by = by + 2}
+		local blur_selected_index = is_current and self.mouse_nav
 
 		-- Background
-		ass:rect(ax, ay - (draw_title and self.item_height or 0) - 2, bx, by + 2, {
-			color = bg, opacity = opacity, radius = 4,
-		})
+		ass:rect(menu_rect.ax, menu_rect.ay, menu_rect.bx, menu_rect.by, {color = bg, opacity = menu_opacity, radius = 4})
+
+		if is_parent and get_point_to_rectangle_proximity(cursor, menu_rect) == 0 then
+			cursor.on_primary_down = function() self:slide_in_menu(menu, x) end
+		end
+
+		-- Draw submenu if selected
+		local submenu_rect, current_item = nil, is_current and menu.selected_index and menu.items[menu.selected_index]
+		local submenu_is_hovered = false
+		if current_item and current_item.items then
+			submenu_rect = draw_menu(current_item, menu_rect.bx + menu_gap, 1)
+			submenu_is_hovered = get_point_to_rectangle_proximity(cursor, submenu_rect) == 0
+			if submenu_is_hovered then
+				cursor.on_primary_down = function() self:open_selected_item({preselect_first_item = false}) end
+			end
+		end
 
 		for index = start_index, end_index, 1 do
 			local item = menu.items[index]
-			local next_item = menu.items[index + 1]
-			local is_highlighted = selected_index == index or item.active
-			local next_is_active = next_item and next_item.active
-			local next_is_highlighted = selected_index == index + 1 or next_is_active
 
 			if not item then break end
 
@@ -728,24 +749,47 @@ function Menu:render()
 			local item_center_y = item_ay + (self.item_height / 2)
 			local item_clip = (item_ay < ay or item_by > by) and scroll_clip or nil
 			local content_ax, content_bx = ax + spacing, bx - spacing
+			local is_selected = menu.selected_index == index or item.active
+
+			-- Select hovered item
+			if is_current and self.mouse_nav then
+				if submenu_rect and cursor.direction_to_rectangle_distance(submenu_rect) then
+					blur_selected_index = false
+				else
+					local item_rect_hitbox = {
+						ax = menu_rect.ax + menu_padding,
+						ay = item_ay,
+						bx = menu_rect.bx + (item.items and menu_gap or -menu_padding), -- to bridge the gap with cursor
+						by = item_by
+					}
+					if submenu_is_hovered or get_point_to_rectangle_proximity(cursor, item_rect_hitbox) == 0 then
+						blur_selected_index = false
+						menu.selected_index = index
+					end
+				end
+			end
+
+			local next_item = menu.items[index + 1]
+			local next_is_active = next_item and next_item.active
+			local next_is_highlighted = menu.selected_index == index + 1 or next_is_active
 			local font_color = item.active and fgt or bgt
 			local shadow_color = item.active and fg or bg
 
 			-- Separator
 			local separator_ay = item.separator and item_by - 1 or item_by
 			local separator_by = item_by + (item.separator and 2 or 1)
-			if is_highlighted then separator_ay = item_by + 1 end
+			if is_selected then separator_ay = item_by + 1 end
 			if next_is_highlighted then separator_by = item_by end
 			if separator_by - separator_ay > 0 and item_by < by then
 				ass:rect(ax + spacing / 2, separator_ay, bx - spacing / 2, separator_by, {
-					color = fg, opacity = opacity * (item.separator and 0.08 or 0.06),
+					color = fg, opacity = menu_opacity * (item.separator and 0.08 or 0.06),
 				})
 			end
 
 			-- Highlight
-			local highlight_opacity = 0 + (item.active and 0.8 or 0) + (selected_index == index and 0.15 or 0)
-			if highlight_opacity > 0 then
-				ass:rect(ax + 2, item_ay, bx - 2, item_by, {
+			local highlight_opacity = 0 + (item.active and 0.8 or 0) + (menu.selected_index == index and 0.15 or 0)
+			if not is_submenu and highlight_opacity > 0 then
+				ass:rect(ax + menu_padding, item_ay, bx - menu_padding, item_by, {
 					radius = 2, color = fg, opacity = highlight_opacity * text_opacity,
 					clip = item_clip,
 				})
@@ -779,7 +823,7 @@ function Menu:render()
 				local clip = '\\clip(' .. title_cut_x .. ',' ..
 					math.max(item_ay, ay) .. ',' .. bx .. ',' .. math.min(item_by, by) .. ')'
 				ass:txt(content_bx, item_center_y, 6, item.ass_safe_hint, {
-					size = self.font_size_hint, color = font_color, wrap = 2, opacity = 0.5 * opacity, clip = clip,
+					size = self.font_size_hint, color = font_color, wrap = 2, opacity = 0.5 * menu_opacity, clip = clip,
 					shadow = 1, shadow_color = shadow_color,
 				})
 			end
@@ -789,7 +833,13 @@ function Menu:render()
 				item.ass_safe_title = item.ass_safe_title or ass_escape(item.title)
 				local clip = '\\clip(' .. ax .. ',' .. math.max(item_ay, ay) .. ','
 					.. title_cut_x .. ',' .. math.min(item_by, by) .. ')'
-				ass:txt(content_ax, item_center_y, 4, item.ass_safe_title, {
+				local title_x, align = content_ax, 4
+				if item.align == 'right' then
+					title_x, align = title_cut_x, 6
+				elseif item.align == 'center' then
+					title_x, align = content_ax + (title_cut_x - content_ax) / 2, 5
+				end
+				ass:txt(title_x, item_center_y, align, item.ass_safe_title, {
 					size = self.font_size, color = font_color, italic = item.italic, bold = item.bold, wrap = 2,
 					opacity = text_opacity * (item.muted and 0.5 or 1), clip = clip,
 					shadow = 1, shadow_color = shadow_color,
@@ -801,19 +851,19 @@ function Menu:render()
 		if draw_title then
 			local title_ay = ay - self.item_height
 			local title_height = self.item_height - 3
-			menu.ass_safe_title = t(menu.ass_safe_title or ass_escape(menu.title))
+			menu.ass_safe_title = menu.ass_safe_title or ass_escape(menu.title)
 
 			-- Background
 			ass:rect(ax + 2, title_ay, bx - 2, title_ay + title_height, {
-				color = fg, opacity = opacity * 0.8, radius = 2,
+				color = fg, opacity = menu_opacity * 0.8, radius = 2,
 			})
 			ass:texture(ax + 2, title_ay, bx - 2, title_ay + title_height, 'n', {
-				size = 80, color = bg, opacity = opacity * 0.1,
+				size = 80, color = bg, opacity = menu_opacity * 0.1,
 			})
 
 			-- Title
 			ass:txt(ax + menu.width / 2, title_ay + (title_height / 2), 5, menu.ass_safe_title, {
-				size = self.font_size, bold = true, color = bg, wrap = 2, opacity = opacity,
+				size = self.font_size, bold = true, color = bg, wrap = 2, opacity = menu_opacity,
 				clip = '\\clip(' .. ax .. ',' .. title_ay .. ',' .. bx .. ',' .. ay .. ')',
 			})
 		end
@@ -823,31 +873,29 @@ function Menu:render()
 			local groove_height = menu.height - 2
 			local thumb_height = math.max((menu.height / (menu.scroll_height + menu.height)) * groove_height, 40)
 			local thumb_y = ay + 1 + ((menu.scroll_y / menu.scroll_height) * (groove_height - thumb_height))
-			ass:rect(bx - 3, thumb_y, bx - 1, thumb_y + thumb_height, {color = fg, opacity = opacity * 0.8})
+			ass:rect(bx - 3, thumb_y, bx - 1, thumb_y + thumb_height, {color = fg, opacity = menu_opacity * 0.8})
 		end
+
+		-- We are in mouse nav and cursor isn't hovering any item
+		if blur_selected_index then
+			menu.selected_index = nil
+		end
+
+		return menu_rect
 	end
 
 	-- Main menu
-	draw_menu(self.current, self.ax, self.ay, opacity)
+	draw_menu(self.current, self.ax, 0)
 
 	-- Parent menus
 	local parent_menu = self.current.parent_menu
-	local parent_offset_x = self.ax
-	local parent_opacity_factor = options.menu_parent_opacity
-	local menu_gap = 2
+	local parent_offset_x, parent_horizontal_index = self.ax, -1
 
 	while parent_menu do
 		parent_offset_x = parent_offset_x - parent_menu.width - menu_gap
-		draw_menu(parent_menu, parent_offset_x, parent_menu.top, parent_opacity_factor * opacity)
-		parent_opacity_factor = parent_opacity_factor * parent_opacity_factor
+		draw_menu(parent_menu, parent_offset_x, parent_horizontal_index)
+		parent_horizontal_index = parent_horizontal_index - 1
 		parent_menu = parent_menu.parent_menu
-	end
-
-	-- Selected menu
-	local selected_menu = self.current.items[self.current.selected_index]
-
-	if selected_menu and selected_menu.items then
-		draw_menu(selected_menu, self.bx + menu_gap, selected_menu.top, options.menu_parent_opacity * opacity)
 	end
 
 	return ass

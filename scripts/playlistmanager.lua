@@ -145,9 +145,6 @@ local settings = {
   --call youtube-dl to resolve the titles of urls in the playlist
   resolve_url_titles = false,
 
-  --call ffprobe to resolve the titles of local files in the playlist (if they exist in the metadata)
-  resolve_local_titles = false,
-
   -- timeout in seconds for url title resolving
   resolve_title_timeout = 15,
 
@@ -275,10 +272,6 @@ function update_opts(changelog)
   end
 
   if changelog.resolve_url_titles then
-    resolve_titles()
-  end
-
-  if changelog.resolve_local_titles then
     resolve_titles()
   end
 
@@ -479,8 +472,8 @@ function get_name_from_index(i, notitle)
     if i == pos and mp.get_property('filename') ~= mtitle then
       if not title_table[name] then
         title_table[name] = mtitle
+        title = mtitle
       end
-      title = mtitle
     elseif title_table[name] then
       title = title_table[name]
     end
@@ -1290,20 +1283,8 @@ function local_request_queue.pop() return table.remove(local_request_queue, 1) e
 local local_titles_to_fetch = local_request_queue
 local ongoing_local_request = false
 
--- this will only allow 1 concurrent local title resolve process
-function local_fetching_throttler()
-  if not ongoing_local_request then
-    local file = local_titles_to_fetch.pop()
-    if file then
-      ongoing_local_request = true
-      resolve_ffprobe_title(file)
-    end
-  end
-end
-
 function resolve_titles()
-  if settings.prefer_titles == 'none' then return end
-  if not settings.resolve_url_titles and not settings.resolve_local_titles then return end
+  if settings.prefer_titles == 'none' or not settings.resolve_url_titles then return end
 
   local length = mp.get_property_number('playlist-count', 0)
   if length < 2 then return end
@@ -1331,9 +1312,6 @@ function resolve_titles()
   end
   if added_urls then
     url_title_fetch_timer:resume()
-  end
-  if added_local then
-    local_fetching_throttler()
   end
 end
 
@@ -1382,37 +1360,6 @@ function resolve_ytdl_title(filename)
     function()
       mp.abort_async_command(req)
       ongoing_url_requests[filename] = false
-    end
-  )
-end
-
-function resolve_ffprobe_title(filename)
-  local args = { "ffprobe", "-show_format", "-show_entries", "format=tags", "-loglevel", "quiet", filename }
-  local req = mp.command_native_async(
-    {
-      name = "subprocess",
-      args = args,
-      playback_only = false,
-      capture_stdout = true
-    },
-    function (success, res)
-      ongoing_local_request = false
-      local_fetching_throttler()
-      if res.killed_by_us then
-        msg.verbose('Request to resolve local title ' .. filename .. ' timed out')
-        return
-      end
-      if res.status == 0 then
-        local title = string.match(res.stdout, "title=([^\n\r]+)")
-        if title then
-          msg.verbose(filename .. " resolved to '" .. title .. "'")
-          title_table[filename] = title
-          refresh_globals()
-          if playlist_visible then showplaylist() end
-        end
-      else
-        msg.error("Failed to resolve local title "..filename.." Error: "..(res.error or "unknown"))
-      end
     end
   )
 end

@@ -96,7 +96,9 @@ function chapter_list(curr_chapter)
 
         local time = chapter_list[i].time
         local title = chapter_list[i].title
-        if not title then title = "Chapter " .. string.format("%02.f", i) end
+        if not title or title == '(unnamed)' or title == '' then
+            title = "Chapter " .. string.format("%02.f", i)
+        end
         if title and title:len() > o.slice_longfilenames_amount + 5 then
             title = title:sub(1, o.slice_longfilenames_amount) .. " ..."
         end

@@ -73,7 +73,7 @@ local function type_check(val, t, required)
 end
 
 local function setup_prefs()
-    local file = assert(io.open(mp.command_native({"expand-path", o.config}) .. "/sub-select.json"))
+    local file = assert(io.open(mp.command_native({"expand-path", o.config .. "/sub-select.json"})))
     local json = file:read("*all")
     file:close()
     prefs = utils.parse_json(json)
@@ -118,7 +118,7 @@ setup_prefs()
 --the name argument is used for error reporting
 --provides the mpv modules and the fb module to the string
 local function evaluate_string(str, env)
-    msg.debug('evaluating string '..str)
+    msg.trace('evaluating string '..str)
 
     env = redirect_table(_G, env)
     env.mp = redirect_table(mp)
@@ -204,7 +204,7 @@ local function is_valid_audio(audio, pref)
     local alangs = type(pref.alang) == "string" and {pref.alang} or pref.alang
 
     for _,lang in ipairs(alangs) do
-        msg.debug("Checking for valid audio:", lang)
+        msg.trace("Checking for valid audio:", lang)
 
         if audio == NO_TRACK then
             if lang == "no" then return true end
@@ -288,7 +288,7 @@ local function find_valid_tracks(manual_audio)
 
     --searching the selection presets for one that applies to this track
     for _,pref in ipairs(prefs) do
-        msg.trace("checking pref:", utils.to_string(pref))
+        msg.debug("checking pref:", utils.to_string(pref))
 
         for _, audio_track in ipairs(audio_track_list) do
             if is_valid_audio(audio_track, pref) then
@@ -296,10 +296,10 @@ local function find_valid_tracks(manual_audio)
 
                 --checks if any of the subtitle tracks match the preset for the current audio
                 local slangs = type(pref.slang) == "string" and {pref.slang} or pref.slang
-                msg.verbose("valid audio preference found:", utils.to_string(pref.alang))
+                msg.trace("valid audio preference found:", utils.to_string(pref.alang))
 
                 for _, slang in ipairs(slangs) do
-                    msg.debug("checking for valid sub:", slang)
+                    msg.trace("checking for valid sub:", slang)
 
 
                     for _,sub_track in ipairs(sub_track_list) do
@@ -309,6 +309,8 @@ local function find_valid_tracks(manual_audio)
                                 sub = sub_track.id > 0 and sub_track or nil
                             }) == true))
                         then
+                            msg.verbose("valid audio preference found:", utils.to_string(pref.alang))
+                            msg.verbose("valid subtitle preference found:", utils.to_string(pref.slang))
                             return aid, sub_track and sub_track.id
                         end
                     end

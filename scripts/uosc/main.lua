@@ -130,7 +130,8 @@ fg, bg = serialize_rgba(options.foreground).color, serialize_rgba(options.backgr
 fgt, bgt = serialize_rgba(options.foreground_text).color, serialize_rgba(options.background_text).color
 
 --[[ INTERNATIONALIZATION ]]
-t = require('lib/intl')
+local intl = require('lib/intl')
+t = intl.t
 
 --[[ CONFIG ]]
 
@@ -223,7 +224,6 @@ config = {
 				local title_parts = split(title or '', ' *> *')
 
 				for index, title_part in ipairs(#title_parts > 0 and title_parts or {''}) do
-					title_part = t(title_part)
 					if index < #title_parts then
 						submenu_id = submenu_id .. title_part
 
@@ -315,10 +315,14 @@ cursor = {
 	on_primary_up = nil,
 	on_wheel_down = nil,
 	on_wheel_up = nil,
+	allow_dragging = false,
+	history = {}, -- {x, y}[] history
+	history_size = 10,
 	-- Called at the beginning of each render
 	reset_handlers = function()
 		cursor.on_primary_down, cursor.on_primary_up = nil, nil
 		cursor.on_wheel_down, cursor.on_wheel_up = nil, nil
+		cursor.allow_dragging = false
 	end,
 	-- Enables pointer key group captures needed by handlers (called at the end of each render)
 	mbtn_left_enabled = nil,
@@ -327,7 +331,8 @@ cursor = {
 		local enable_mbtn_left = (cursor.on_primary_down or cursor.on_primary_up) ~= nil
 		local enable_wheel = (cursor.on_wheel_down or cursor.on_wheel_up) ~= nil
 		if enable_mbtn_left ~= cursor.mbtn_left_enabled then
-			mp[(enable_mbtn_left and 'enable' or 'disable') .. '_key_bindings']('mbtn_left')
+			local flags = cursor.allow_dragging and 'allow-vo-dragging' or nil
+			mp[(enable_mbtn_left and 'enable' or 'disable') .. '_key_bindings']('mbtn_left', flags)
 			cursor.mbtn_left_enabled = enable_mbtn_left
 		end
 		if enable_wheel ~= cursor.wheel_enabled then
@@ -349,6 +354,17 @@ cursor = {
 			cursor.autohide_timer:kill()
 			cursor.autohide_timer:resume()
 		end
+	end,
+	-- Calculates distance in which cursor reaches rectangle if it continues moving in the same path.
+	-- Returns `nil` if cursor is not moving towards the rectangle.
+	direction_to_rectangle_distance = function(rect)
+		if cursor.hidden or not cursor.history[1] then
+			return false
+		end
+
+		local prev_x, prev_y = cursor.history[1][1], cursor.history[1][2]
+		local end_x, end_y = cursor.x + (cursor.x - prev_x) * 1e10, cursor.y + (cursor.y - prev_y) * 1e10
+		return get_ray_to_rectangle_distance(cursor.x, cursor.y, end_x, end_y, rect)
 	end
 }
 state = {
@@ -535,18 +551,24 @@ function update_cursor_position(x, y)
 		else x, y = INFINITY, INFINITY end
 	end
 
-	-- add 0.5 to be in the middle of the pixel
+	-- Add 0.5 to be in the middle of the pixel
 	cursor.x, cursor.y = (x + 0.5) / display.scale_x, (y + 0.5) / display.scale_y
 
 	if old_x ~= cursor.x or old_y ~= cursor.y then
 		Elements:update_proximities()
 
 		if cursor.x == INFINITY or cursor.y == INFINITY then
-			cursor.hidden = true
+			cursor.hidden, cursor.history = true, {}
 			Elements:trigger('global_mouse_leave')
 		elseif cursor.hidden then
-			cursor.hidden = false
+			cursor.hidden, cursor.history = false, {}
 			Elements:trigger('global_mouse_enter')
+		else
+			-- Update cursor history
+			for i = 1, cursor.history_size - 1, 1 do
+				cursor.history[i] = cursor.history[i + 1]
+			end
+			cursor.history[cursor.history_size] = {x, y}
 		end
 
 		Elements:proximity_trigger('mouse_move')
@@ -614,7 +636,7 @@ end
 function select_current_chapter()
 	local current_chapter
 	if state.time and state.chapters then
-		_, current_chapter = itable_find(state.chapters, function(c) return state.time >= c.time end, true)
+		_, current_chapter = itable_find(state.chapters, function(c) return state.time >= c.time end, #state.chapters, 1)
 	end
 	set_state('current_chapter', current_chapter)
 end
@@ -923,21 +945,21 @@ for _, loader in ipairs(track_loaders) do
 		open_file_navigation_menu(
 			path,
 			function(path) mp.commandv(loader.prop .. '-add', path) end,
-			{type = menu_type, title = 'Load ' .. loader.name, allowed_types = loader.allowed_types}
+			{type = menu_type, title = t('Load ' .. loader.name), allowed_types = loader.allowed_types}
 		)
 	end)
 end
 bind_command('subtitles', create_select_tracklist_type_menu_opener(
-	'Subtitles', 'sub', 'sid', 'script-binding uosc/load-subtitles'
+	t('Subtitles'), 'sub', 'sid', 'script-binding uosc/load-subtitles'
 ))
 bind_command('audio', create_select_tracklist_type_menu_opener(
-	'Audio', 'audio', 'aid', 'script-binding uosc/load-audio'
+	t('Audio'), 'audio', 'aid', 'script-binding uosc/load-audio'
 ))
 bind_command('video', create_select_tracklist_type_menu_opener(
-	'Video', 'video', 'vid', 'script-binding uosc/load-video'
+	t('Video'), 'video', 'vid', 'script-binding uosc/load-video'
 ))
 bind_command('playlist', create_self_updating_menu_opener({
-	title = 'Playlist',
+	title = t('Playlist'),
 	type = 'playlist',
 	list_prop = 'playlist',
 	serializer = function(playlist)
@@ -963,7 +985,7 @@ bind_command('playlist', create_self_updating_menu_opener({
 	on_delete_item = function(index) mp.commandv('playlist-remove', tostring(index - 1)) end,
 }))
 bind_command('chapters', create_self_updating_menu_opener({
-	title = 'Chapters',
+	title = t('Chapters'),
 	type = 'chapters',
 	list_prop = 'chapter-list',
 	active_prop = 'chapter',
@@ -983,16 +1005,17 @@ bind_command('chapters', create_self_updating_menu_opener({
 	on_select = function(index) mp.commandv('set', 'chapter', tostring(index - 1)) end,
 }))
 bind_command('editions', create_self_updating_menu_opener({
-	title = 'Editions',
+	title = t('Editions'),
 	type = 'editions',
 	list_prop = 'edition-list',
 	active_prop = 'current-edition',
 	serializer = function(editions, current_id)
 		local items = {}
 		for _, edition in ipairs(editions or {}) do
+			local edition_id_1 = tostring(edition.id + 1)
 			items[#items + 1] = {
-				title = edition.title or t('Edition'),
-				hint = tostring(edition.id + 1),
+				title = edition.title or t('Edition %s', edition_id_1),
+				hint = edition_id_1,
 				value = edition.id,
 				active = edition.id == current_id,
 			}
@@ -1029,7 +1052,7 @@ bind_command('stream-quality', function()
 		items[#items + 1] = {title = height .. 'p', value = format, active = format == ytdl_format}
 	end
 
-	Menu:open({type = 'stream-quality', title = 'Stream quality', items = items}, function(format)
+	Menu:open({type = 'stream-quality', title = t('Stream quality'), items = items}, function(format)
 		mp.set_property('ytdl-format', format)
 
 		-- Reload the video to apply new format
@@ -1159,7 +1182,7 @@ bind_command('delete-file-quit', function()
 	mp.command('quit')
 end)
 bind_command('audio-device', create_self_updating_menu_opener({
-	title = 'Audio devices',
+	title = t('Audio devices'),
 	type = 'audio-device-list',
 	list_prop = 'audio-device-list',
 	active_prop = 'audio-device',
@@ -1172,7 +1195,7 @@ bind_command('audio-device', create_self_updating_menu_opener({
 				local hint = string.match(device.name, ao .. '/(.+)')
 				if not hint then hint = device.name end
 				items[#items + 1] = {
-					title = device.description,
+					title = device.description:sub(1, 7) == 'Default' and t('Default %s', device.description:sub(9)) or t(device.description),
 					hint = hint,
 					active = device.name == current_device,
 					value = device.name,

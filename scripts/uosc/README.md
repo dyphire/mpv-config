@@ -44,7 +44,7 @@ Most notable features:
 
     ```sh
     mkdir -pv ~/.config/mpv/script-opts/
-    rm -rf ~/.config/mpv/scripts/uosc_shared
+    rm -rf ~/.config/mpv/scripts/uosc
     wget -P /tmp/ https://github.com/tomasklaen/uosc/releases/latest/download/uosc.zip
     unzip -od ~/.config/mpv/ /tmp/uosc.zip
     rm -fv /tmp/uosc.zip
@@ -428,6 +428,8 @@ Command {
   value: string | string[];
   bold?: boolean;
   italic?: boolean;
+  align?: 'left'|'center'|'right';
+  selectable?: boolean;
   muted?: boolean;
   active?: integer;
   keep_open?: boolean;

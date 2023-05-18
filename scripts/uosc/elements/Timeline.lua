@@ -394,7 +394,7 @@ function Timeline:render()
 		then
 			local scale_x, scale_y = display.scale_x, display.scale_y
 			local border, margin_x, margin_y = math.ceil(2 * scale_x), round(10 * scale_x), round(5 * scale_y)
-			local thumb_x_margin, thumb_y_margin = border + margin_x, border + margin_y
+			local thumb_x_margin, thumb_y_margin = border + margin_x + bax, border + margin_y
 			local thumb_width, thumb_height = thumbnail.width, thumbnail.height
 			local thumb_x = round(clamp(
 				thumb_x_margin, cursor_x * scale_x - thumb_width / 2,
@@ -411,7 +411,7 @@ function Timeline:render()
 
 		-- Chapter title
 		if #state.chapters > 0 then
-			local _, chapter = itable_find(state.chapters, function(c) return hovered_seconds >= c.time end, true)
+			local _, chapter = itable_find(state.chapters, function(c) return hovered_seconds >= c.time end, #state.chapters, 1)
 			if chapter and not chapter.is_end_only then
 				ass:tooltip(tooltip_anchor, chapter.title_wrapped, {
 					size = self.font_size, offset = 10, responsive = false, bold = true,
