@@ -54,14 +54,14 @@ local bookmark_path = nil
 local wait_msg
 local on_key = false
 
-if o.history_dir:match('^/:dir%%mpvconf%%') then
+if o.history_dir:find('^/:dir%%mpvconf%%') then
     o.history_dir = o.history_dir:gsub('/:dir%%mpvconf%%', mp.find_config_file('.'))
-elseif o.history_dir:match('^/:dir%%script%%') then
+elseif o.history_dir:find('^/:dir%%script%%') then
     o.history_dir = o.history_dir:gsub('/:dir%%script%%', mp.find_config_file('scripts'))
-elseif o.history_dir:match('/:var%%(.*)%%') then
+elseif o.history_dir:find('/:var%%(.*)%%') then
     local os_variable = o.history_dir:match('/:var%%(.*)%%')
     o.history_dir = o.history_dir:gsub('/:var%%(.*)%%', os.getenv(os_variable))
-elseif o.history_dir:match('^~') then
+elseif o.history_dir:find('^~') then
     o.history_dir = mp.command_native({ "expand-path", o.history_dir }) -- Expands both ~ and ~~
 end
 
@@ -102,7 +102,7 @@ local function exclude(extension)
 end
 
 local function is_protocol(path)
-    return type(path) == 'string' and (path:match('^%a[%a%d-_]+://') ~= nil or path:match('^%a[%a%d-_]+:\\?') ~= nil)
+    return type(path) == 'string' and (path:find('^%a[%a%d-_]+://') ~= nil or path:find('^%a[%a%d-_]+:\\?') ~= nil)
 end
 
 local function need_ignore(tab, val)

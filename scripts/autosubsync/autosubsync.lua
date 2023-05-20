@@ -53,13 +53,13 @@ local function esc_for_title(string)
 end
 
 local function esc_for_code(trackCode)
-    if trackCode:match("PGS") then trackCode = "PGS"
-    elseif trackCode:match("SUBRIP") then trackCode = "SRT"
-    elseif trackCode:match("VTT") then trackCode = "VTT"
-    elseif trackCode:match("DVD_SUB") then trackCode = "VOB_SUB"
-    elseif trackCode:match("DVB_SUB") then trackCode = "DVB_SUB"
-    elseif trackCode:match("DVB_TELE") then trackCode = "TELETEXT"
-    elseif trackCode:match("ARIB") then trackCode = "ARIB"
+    if trackCode:find("PGS") then trackCode = "PGS"
+    elseif trackCode:find("SUBRIP") then trackCode = "SRT"
+    elseif trackCode:find("VTT") then trackCode = "VTT"
+    elseif trackCode:find("DVD_SUB") then trackCode = "VOB_SUB"
+    elseif trackCode:find("DVB_SUB") then trackCode = "DVB_SUB"
+    elseif trackCode:find("DVB_TELE") then trackCode = "TELETEXT"
+    elseif trackCode:find("ARIB") then trackCode = "ARIB"
     end
     return trackCode
 end

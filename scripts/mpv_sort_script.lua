@@ -247,7 +247,7 @@ if ON_WINDOWS then
                     table.remove(comps, i)
                     table.remove(comps, i - 1)
                     i = i - 1
-                elseif i == 1 and prefix:match('\\$') then
+                elseif i == 1 and prefix:find('\\$') then
                     table.remove(comps, i)
                 else
                     i = i + 1
@@ -1126,7 +1126,7 @@ function OptionParser:load_options()
                     if option.type == "array" then
                         local start_index = line_index
                         -- Read lines until one ends with ]
-                        while not value:match("%]%s*$") do
+                        while not value:find("%]%s*$") do
                             line_index = line_index + 1
                             if line_index > total_lines then
                                 msg.error(("%s:%d non-ending %s for key '%s'"):format(self.config_file, start_index,
@@ -1397,7 +1397,7 @@ end
 function exclude_entries(entries)
     local filtered_entries = {}
     for i, entry in ipairs(entries) do
-        if not entry:match(EXCLUDE_PATTERN) then
+        if not entry:find(EXCLUDE_PATTERN) then
             filtered_entries[#filtered_entries + 1] = entry
         end
         entries[i] = nil
@@ -1582,7 +1582,7 @@ mp.add_hook('on_load', 50, function()
         local custom_key = explicit_sort:match('^/r?sort%-(.-):$')
         if custom_key then
             -- Check if we want to sort ascending or descending
-            if custom_key:match('[-+]$') then
+            if custom_key:find('[-+]$') then
                 sort_descending = custom_key:sub(custom_key:len()) == '-'
                 custom_key = custom_key:sub(1, custom_key:len() - 1)
             end

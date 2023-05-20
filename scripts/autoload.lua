@@ -181,8 +181,8 @@ function find_and_add_entries()
             local namepre = string.sub(name, 1, 6)
             local namepre0 = string.gsub(namepre, "%p", "%%%1")
             for vidext, _ in pairs(EXTENSIONS_VIDEO) do
-                if string.match(name, vidext.."$") ~= nil then
-                    if string.match(v, "^"..namepre0) == nil then
+                if string.find(name, vidext.."$") ~= nil then
+                    if string.find(v, "^"..namepre0) == nil then
                         return false
                     end
                 end

@@ -1,5 +1,5 @@
 --[[
-  * chapter-make-read.lua v.2023-04-23
+  * chapter-make-read.lua v.2023-05-21
   *
   * AUTHORS: dyphire
   * License: MIT
@@ -98,7 +98,7 @@ local chapters_modified = false
 local paused = false
 
 local function is_protocol(path)
-    return type(path) == 'string' and (path:match('^%a[%a%d-_]+://') ~= nil or path:match('^%a[%a%d-_]+:\\?') ~= nil)
+    return type(path) == 'string' and (path:find('^%a[%a%d-_]+://') ~= nil or path:find('^%a[%a%d-_]+:\\?') ~= nil)
 end
 
 function str_decode(str)
@@ -110,7 +110,7 @@ function str_decode(str)
         str = str:gsub('^%a[%a%d-_]+://', '')
         str = str:gsub('^%a[%a%d-_]+:\\?', '')
         str = str:gsub('%%(%x%x)', hex_to_char)
-        if str:match('://localhost:?') then
+        if str:find('://localhost:?') then
             str = str:gsub('^.*/', '')
         end
         str = str:gsub('[\\/:%?]*', '')

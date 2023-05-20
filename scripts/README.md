@@ -45,7 +45,7 @@
 | skiptosilence.lua | 可实现跳至当前播放文件的下一个静音位置（另类地实现跳 op/ed 的方法；配置文件 [skiptosilence.conf](../script-opts/skiptosilence.conf)） |
 | slicing_copy.lua* | 剪切视频片段（依赖 ffmpeg；配置文件 [slicing_copy.conf](../script-opts/slicing_copy.conf)） |
 | smartcopypaste_II.lua*       | OSD 交互式剪贴菜单，智能复制粘贴视频路径及进度（配置文件 [smartcopypaste_II.conf](../script-opts/smartcopypaste_II.conf)）；动态键位绑定在同名配置文件中 |
-| sponsorblock_minimal.lua* | 跳过 YouTube 视频的赞助片段（依赖 curl；配置文件 [sponsorblock_minimal.conf](../script-opts/sponsorblock_minimal.conf)） |
+| sponsorblock_minimal.lua | 跳过 YouTube 视频的赞助片段（依赖 curl；配置文件 [sponsorblock_minimal.conf](../script-opts/sponsorblock_minimal.conf)） |
 | sub_export.lua* | 导出当前视频的内封字幕（依赖 ffmpeg，脚本支持 srt、ass 和 sup 格式的字幕；配置文件 [sub_export.conf](../script-opts/sub_export.conf)） |
 | sub-fonts-dir-auto.lua* | 在播放目录下自动查找 fonts 子目录并写入 `sub-fonts-dir` 参数以实现自动加载特定字体路径 |
 | sub-select.lua | 指定字幕轨道优先级/黑白名单（配置文件 [sub_select.conf](../script-opts/sub_select.conf)；[sub-select.json](../script-opts/sub-select.json)） |

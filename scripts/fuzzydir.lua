@@ -73,7 +73,7 @@ function foreach(list, action)
 end
 
 function is_protocol(path)
-    return type(path) == 'string' and path:match('^%a[%a%d-_]+://') ~= nil
+    return type(path) == 'string' and path:find('^%a[%a%d-_]+://') ~= nil
 end
 
 function need_ignore(tab, val)

@@ -10,7 +10,7 @@ local function save()
     local demuxer_secs = mp.get_property("demuxer-hysteresis-secs")
     local watch_later_list = mp.get_property("watch-later-options", {})
     if mp.get_property_bool("save-position-on-quit") then
-        if demuxer_secs and watch_later_list:match("start") == nil then
+        if demuxer_secs and watch_later_list:find("start") == nil then
             mp.commandv("change-list", "watch-later-options", "append", "start")
         end
         mp.command("write-watch-later-config")

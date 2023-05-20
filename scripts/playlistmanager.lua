@@ -338,7 +338,7 @@ for mode, sort_data in pairs(sort_modes) do
 end
 
 function is_protocol(path)
-  return type(path) == 'string' and path:match('^%a[%a%d-_]+://') ~= nil
+  return type(path) == 'string' and path:find('^%a[%a%d-_]+://') ~= nil
 end
 
 function on_file_loaded()
@@ -487,7 +487,7 @@ function get_name_from_index(i, notitle)
   end
 
   --remove paths if they exist, keeping protocols for stripping
-  if string.sub(name, 1, 1) == '/' or name:match("^%a:[/\\]") then
+  if string.sub(name, 1, 1) == '/' or name:find("^%a:[/\\]") then
     _, name = utils.split_path(name)
   end
   return stripfilename(name):gsub("\\", '\\\239\187\191'):gsub("{", "\\{"):gsub("^ ", "\\h")
@@ -1301,7 +1301,7 @@ function resolve_titles()
       and not requested_titles[filename]
     then
       requested_titles[filename] = true
-      if filename:match('^https?://') then
+      if filename:find('^https?://') then
         url_titles_to_fetch.push(filename)
         added_urls = true
       elseif settings.prefer_titles == "all" then

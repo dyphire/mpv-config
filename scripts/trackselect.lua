@@ -96,7 +96,7 @@ function contains(track, words, attr)
     end
     for word in string.gmatch(words:lower(), "([^/]+)") do
         i = i - 1
-        if string.match(tostring(track[attr] or ""):lower(), word) then
+        if string.find(tostring(track[attr] or ""):lower(), word) then
             return i
         end
     end

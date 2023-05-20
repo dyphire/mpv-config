@@ -95,16 +95,16 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 	end
 
 	local function esc_for_codec(str)
-		if str:match("MPEG2") then str = "MPEG2"
-		elseif str:match("DVVIDEO") then str = "DV"
-		elseif str:match("PCM") then str = "PCM"
-		elseif str:match("PGS") then str = "PGS"
-    	elseif str:match("SUBRIP") then str = "SRT"
-    	elseif str:match("VTT") then str = "VTT"
-    	elseif str:match("DVD_SUB") then str = "VOB_SUB"
-    	elseif str:match("DVB_SUB") then str = "DVB_SUB"
-    	elseif str:match("DVB_TELE") then str = "TELETEXT"
-    	elseif str:match("ARIB") then str = "ARIB"
+		if str:find("MPEG2") then str = "MPEG2"
+		elseif str:find("DVVIDEO") then str = "DV"
+		elseif str:find("PCM") then str = "PCM"
+		elseif str:find("PGS") then str = "PGS"
+    	elseif str:find("SUBRIP") then str = "SRT"
+    	elseif str:find("VTT") then str = "VTT"
+    	elseif str:find("DVD_SUB") then str = "VOB_SUB"
+    	elseif str:find("DVB_SUB") then str = "DVB_SUB"
+    	elseif str:find("DVB_TELE") then str = "TELETEXT"
+    	elseif str:find("ARIB") then str = "ARIB"
     	end
 		return str
 	end

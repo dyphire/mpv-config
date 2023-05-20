@@ -62,9 +62,9 @@ local function export_selected_subtitles()
             local video_file = utils.join_path(dir, filename)
 
             local subtitles_ext = ".srt"
-            if string.match(track_codec, "ass") ~= nil then
+            if string.find(track_codec, "ass") ~= nil then
                 subtitles_ext = ".ass"
-            elseif string.match(track_codec, "pgs") ~= nil then
+            elseif string.find(track_codec, "pgs") ~= nil then
                 subtitles_ext = ".sup"
             end
 
