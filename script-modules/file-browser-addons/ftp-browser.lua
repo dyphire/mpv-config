@@ -4,6 +4,7 @@
 
 local mp = require 'mp'
 local msg = require 'mp.msg'
+local utils = require 'mp.utils'
 local fb = require 'file-browser'
 
 local ftp = {
@@ -18,8 +19,9 @@ end
 --in my experience curl has been somewhat unreliable when it comes to ftp requests
 --this fuction retries the request a few times just in case
 local function execute(args)
+    msg.debug(utils.to_string(args))
     local _, cmd = fb.get_parse_state():yield(
-        mp.command_native({
+        mp.command_native_async({
             name = "subprocess",
             playback_only = false,
             capture_stdout = true,
@@ -30,13 +32,25 @@ local function execute(args)
     return cmd
 end
 
+-- encodes special characters using the URL percent encoding format
+function urlEncode(url)
+    local domain, path = string.match(url, '(ftp://[^/]-/)(.*)')
+    if not path then return url end
+
+    -- these are the unreserved URI characters according to RFC 3986
+    -- https://www.rfc-editor.org/rfc/rfc3986#section-2.3
+    path = string.gsub(path, '[^%w.~_%-]', function(c)
+        return ('%%%x'):format(string.byte(c))
+    end)
+    return domain..path
+end
+
 function ftp:parse(directory)
     msg.verbose(directory)
-    msg.debug("curl -k -g "..string.format("%q", directory))
 
-    local ftp = execute({"curl", "-k", "-g", "--retry", "4", directory})
+    local ftp = execute({"curl", "-k", "-g", "--retry", "4", urlEncode(directory)})
 
-    local entries = execute({"curl", "-k", "-g", "-l", "--retry", "4", directory})
+    local entries = execute({"curl", "-k", "-g", "-l", "--retry", "4", urlEncode(directory)})
 
     if entries.status == 28 then
         msg.error(entries.stderr)

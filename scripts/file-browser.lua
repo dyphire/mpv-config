@@ -125,6 +125,7 @@ local o = {
 
 opt.read_options(o, 'file_browser')
 utils.shared_script_property_set("file_browser-open", "no")
+mp.set_property('user-data/file_browser/open', 'no')
 
 package.path = mp.command_native({"expand-path", o.module_directory}).."/?.lua;"..package.path
 local success, input = pcall(require, "user-input-module")
@@ -1184,6 +1185,8 @@ local function open()
     end
 
     utils.shared_script_property_set("file_browser-open", "yes")
+    mp.set_property('user-data/file_browser/open', 'yes')
+
     if o.toggle_idlescreen then mp.commandv('script-message', 'osc-idlescreen', 'no', 'no_osd') end
     state.hidden = false
     if state.directory == nil then
@@ -1207,6 +1210,8 @@ local function close()
     end
 
     utils.shared_script_property_set("file_browser-open", "no")
+    mp.set_property('user-data/file_browser/open', 'no')
+
     if o.toggle_idlescreen then mp.commandv('script-message', 'osc-idlescreen', 'yes', 'no_osd') end
     state.hidden = true
     ass:remove()
@@ -2169,7 +2174,7 @@ local function scan_directory_json(directory, response_str)
     msg.verbose(("recieved %q from 'get-directory-contents' script message - returning result to %q"):format(directory, response_str))
 
     local list, opts = parse_directory(directory, { source = "script-message" } )
-    opts.API_VERSION = API_VERSION
+    if opts then opts.API_VERSION = API_VERSION end
 
     local err
     list, err = API.format_json_safe(list)
