@@ -4,6 +4,12 @@
 --
 -- Built for easy integration in third-party UIs.
 
+--[[
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at https://mozilla.org/MPL/2.0/.
+]]
+
 local options = {
     -- Socket path (leave empty for auto)
     socket = "",
@@ -373,8 +379,8 @@ local info_timer = nil
 
 local function info(w, h)
     local rotate = properties["video-params"] and properties["video-params"]["rotate"]
-    local image = properties["current-tracks"] and properties["current-tracks"]["video"] and properties["current-tracks"]["video"]["image"]
-    local albumart = image and properties["current-tracks"]["video"]["albumart"]
+    local image = properties["current-tracks/video"] and properties["current-tracks/video"]["image"]
+    local albumart = image and properties["current-tracks/video"]["albumart"]
 
     disabled = (w or 0) == 0 or (h or 0) == 0 or
         has_vid == 0 or
@@ -829,8 +835,7 @@ local function update_tracklist(name, value)
     -- current-tracks shim
     for _, track in ipairs(value) do
         if track.type == "video" and track.selected then
-            properties["current-tracks/video/image"] = track.image
-            properties["current-tracks/video/albumart"] = track.albumart
+            properties["current-tracks/video"] = track
             return
         end
     end
@@ -890,7 +895,7 @@ local function on_duration(prop, val)
     allow_fast_seek = (val or 30) >= 30
 end
 
-mp.observe_property("current-tracks", "native", function(name, value)
+mp.observe_property("current-tracks/video", "native", function(name, value)
     if pre_0_33_0 then
         mp.unobserve_property(update_tracklist)
         pre_0_33_0 = false
