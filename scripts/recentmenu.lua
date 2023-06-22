@@ -154,9 +154,7 @@ function read_json()
     local json = json_file:read("*all")
     json_file:close()
 
-    local contents = utils.parse_json(json)
-    if not contents then return end
-    menu.items = contents
+    menu.items = utils.parse_json(json) or {}
     remove_deleted()
 end
 
@@ -231,6 +229,6 @@ function on_end(e)
 end
 
 mp.add_key_binding(nil, "open", open_menu)
-mp.add_key_binding(nil, "play_last", play_last)
+mp.add_key_binding(nil, "last", play_last)
 mp.register_event("file-loaded", on_load)
 mp.register_event("end-file", on_end)
