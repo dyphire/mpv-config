@@ -682,7 +682,6 @@ mp.register_event('file-loaded', function()
 	itable_delete_value(state.history, path)
 	state.history[#state.history + 1] = path
 	set_state('path', path)
-	Elements:flash({'top_bar'})
 end)
 mp.register_event('end-file', function(event)
 	set_state('path', nil)

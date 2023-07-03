@@ -72,12 +72,11 @@ if o.videos then EXTENSIONS = SetUnion(EXTENSIONS, EXTENSIONS_VIDEO) end
 if o.audio then EXTENSIONS = SetUnion(EXTENSIONS, EXTENSIONS_AUDIO) end
 if o.images then EXTENSIONS = SetUnion(EXTENSIONS, EXTENSIONS_IMAGES) end
 
-function add_files_at(index, files)
-    index = index - 1
+function add_files(files)
     local oldcount = mp.get_property_number("playlist-count", 1)
     for i = 1, #files do
-        mp.commandv("loadfile", files[i], "append")
-        mp.commandv("playlist-move", oldcount + i - 1, index + i - 1)
+        mp.commandv("loadfile", files[i][1], "append")
+        mp.commandv("playlist-move", oldcount + i - 1, files[i][2])
     end
 end
 
@@ -214,36 +213,58 @@ function find_and_add_entries()
 
     -- treat already existing playlist entries, independent of how they got added
     -- as if they got added by autoload
-    local playlist = mp.get_property_native("playlist", {})
-    for _, entry in ipairs(playlist) do
+    for _, entry in ipairs(pl) do
         added_entries[entry.filename] = true
+        -- entry is in current dir or one of it's subdirectories
+        if entry.filename:find(dir, 1, true) then
+            local parent = utils.split_path(entry.filename)
+            -- add recursively expaned directories to the added entries list
+            while parent ~= dir do
+                local trimmed_parent = parent:sub(1, -2)
+                parent = utils.split_path(trimmed_parent)
+                added_entries[trimmed_parent] = true
+            end
+        end
     end
 
     local append = {[-1] = {}, [1] = {}}
     for direction = -1, 1, 2 do -- 2 iterations, with direction = -1 and +1
         for i = 1, o.max_entries do
-            local file = files[current + i * direction]
+            local pos = current + i * direction
+            local file = files[pos]
             if file == nil or file[1] == "." then
                 break
             end
 
             local filepath = dir .. file
             -- skip files that are/were already in the playlist
-            if added_entries[filepath] then break end
-
-            if direction == -1 then
-                msg.info("Prepending " .. filepath)
-                table.insert(append[-1], 1, filepath)
-            else
-                msg.info("Adding " .. filepath)
-                table.insert(append[1], filepath)
+            if not added_entries[filepath] then
+                if direction == -1 then
+                    msg.info("Prepending " .. filepath)
+                    table.insert(append[-1], 1, {filepath, pl_current + i * direction + 1})
+                else
+                    msg.info("Adding " .. filepath)
+                    if pl_count > 1 then
+                        table.insert(append[1], {filepath, pl_current + i * direction - 1})
+                    else
+                        mp.commandv("loadfile", filepath, "append")
+                    end
+                end
             end
             added_entries[filepath] = true
         end
+        if pl_count == 1 and direction == -1 and #append[-1] > 0 then
+            for i = 1, #append[-1] do
+                mp.commandv("loadfile", append[-1][i][1], "append")
+            end
+            mp.commandv("playlist-move", 0, current)
+        end
     end
 
-    add_files_at(pl_current + 1, append[1])
-    add_files_at(pl_current, append[-1])
+    if pl_count > 1 then
+        add_files(append[1])
+        add_files(append[-1])
+    end
 end
 
 mp.register_event("start-file", find_and_add_entries)
