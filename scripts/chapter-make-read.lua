@@ -1,5 +1,5 @@
 --[[
-  * chapter-make-read.lua v.2023-05-21
+  * chapter-make-read.lua v.2023-07-07
   *
   * AUTHORS: dyphire
   * License: MIT
@@ -151,7 +151,8 @@ local function read_chapter_table()
     return read_chapter(function(line)
         local h, m, s, t, n, l
         if line:match("^%d+:%d+:%d+") ~= nil then
-            h, m, s = line:match("^(%d+):(%d+):(%d+.%d*)")
+            h, m, s = line:match("^(%d+):(%d+):(%d+[,%.]?%d+)")
+            s = s:gsub(',', '.')
             t = h * 3600 + m * 60 + s
             if line:match("^%d+:%d+:%d+.%d*[,%s].*") ~= nil then
                 n = line:match("^%d+:%d+:%d+.%d*[,%s](.*)")
@@ -161,7 +162,8 @@ local function read_chapter_table()
             l = line
             line_pos = line_pos + 1
         elseif line:match("^CHAPTER%d+=%d+:%d+:%d+") ~= nil then
-            h, m, s = line:match("^CHAPTER%d+=(%d+):(%d+):(%d+.%d*)")
+            h, m, s = line:match("^CHAPTER%d+=(%d+):(%d+):(%d+[,%.]?%d+)")
+            s = s:gsub(',', '.')
             t = h * 3600 + m * 60 + s
             l = line
             line_pos = line_pos + 1

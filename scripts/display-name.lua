@@ -37,7 +37,7 @@ local displays = {}
 local function get_temp_file_name()
     local file = os.tmpname()
     if not PLATFORM_WINDOWS then return file
-    else return mp.command_native({"expand-path", "~/AppData/Local/Temp"}) .. file end
+    else return utils.join_path(mp.command_native({"expand-path", "~/AppData/Local/Temp"}), file) end
 end
 
 -- creates an iterator for cells in a csv row
