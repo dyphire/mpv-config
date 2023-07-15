@@ -42,7 +42,7 @@
   },
   {
     "git":"https://github.com/dyphire/mpv-scripts",
-    "whitelist":"chapter%-list%.lua$|chapter%-make%-read%.lua$|drcbox%.lua$|fix%-avsync%.lua$|mediaInfo%.lua$|mpv%-animated%.lua$|sub%_export%.lua$|track%-list%.lua$",
+    "whitelist":"chapter%-list%.lua$|chapter%-make%-read%.lua$|drcbox%.lua$|fix%-avsync%.lua$|mpv%-animated%.lua$|sub%_export%.lua$|track%-list%.lua$",
     "dest":"~~/scripts",
     "branch":"main"
   },

@@ -172,24 +172,30 @@ end
 msg.debug("PowerShell version", powershell_version)
 
 function fast_readdir(path)
-    if powershell_version >= 3 then
-        msg.trace("Scanning", path, "with PowerShell")
-        return call_command({
-            "powershell",
-            "-NoProfile",
-            "-Command",
-            [[
-            $dirs = Get-ChildItem -LiteralPath ]] .. string.format("%q", path) .. [[ -Directory
-            foreach($dir in $dirs) {
-                $u8clip = [System.Text.Encoding]::UTF8.GetBytes($dir.Name)
-                [Console]::OpenStandardOutput().Write($u8clip, 0, $u8clip.Length)
-                Write-Host ""
-            } ]],
-        })
+    local is_windows = package.config:sub(1,1) == "\\"
+    if is_windows then
+        if powershell_version >= 3 then
+            msg.trace("Scanning", path, "with PowerShell")
+            return call_command({
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                [[
+                $dirs = Get-ChildItem -LiteralPath ]] .. string.format("%q", path) .. [[ -Directory
+                foreach($dir in $dirs) {
+                    $u8clip = [System.Text.Encoding]::UTF8.GetBytes($dir.Name)
+                    [Console]::OpenStandardOutput().Write($u8clip, 0, $u8clip.Length)
+                    Write-Host ""
+                } ]],
+            })
+        else
+            msg.trace("Scanning", path, "with default readdir")
+            return utils.readdir(path, "dirs")
+        end
+    else
+        msg.trace("Scanning", path, "with ls")
+        return call_command({ "ls", "-1", "-d", path })
     end
-
-    msg.trace("Scanning", path, "with default readdir")
-    return utils.readdir(path, "dirs")
 end
 
 -- Platform-dependent optimization end

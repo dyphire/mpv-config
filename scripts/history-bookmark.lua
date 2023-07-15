@@ -46,7 +46,6 @@ local pl_count = 0
 local pl_dir = nil
 local pl_name = nil
 local pl_path = nil
-local pl_list = {}
 local pl_idx = 1
 local current_idx = 1
 local bookmark_path = nil
@@ -66,16 +65,19 @@ elseif o.history_dir:find('^~') then
 end
 
 --create o.history_dir if it doesn't exist
-if utils.readdir(o.history_dir) == nil then
-    local is_windows = package.config:sub(1, 1) == "\\"
-    local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', string.format("\"%s\"", o.history_dir) }
-    local unix_args = { 'mkdir', '-p', o.history_dir }
-    local args = is_windows and windows_args or unix_args
-    local res = mp.command_native({ name = "subprocess", capture_stdout = true, playback_only = false, args = args })
-    if res.status ~= 0 then
-        msg.error("Failed to create history_dir save directory " .. o.history_dir ..
+if o.history_dir ~= '' then
+    local meta, meta_error = utils.file_info(o.history_dir)
+    if not meta or not meta.is_dir then
+        local is_windows = package.config:sub(1, 1) == "\\"
+        local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', string.format("\"%s\"", o.history_dir) }
+        local unix_args = { 'mkdir', '-p', o.history_dir }
+        local args = is_windows and windows_args or unix_args
+        local res = mp.command_native({ name = "subprocess", capture_stdout = true, playback_only = false, args = args })
+        if res.status ~= 0 then
+            msg.error("Failed to create history_dir save directory " .. o.history_dir ..
             ". Error: " .. (res.error or "unknown"))
-        return
+            return
+        end
     end
 end
 
@@ -241,13 +243,12 @@ local function alphanumsort(filenames)
 end
 
 local function create_playlist(dir)
+    local pl_list = {}
+    local file_list = {}
     local file_list = utils.readdir(dir, 'files')
     for i = 1, #file_list do
         local file = file_list[i]
         local ext = file:match('%.([^./]+)$')
-        if not ext then
-            return
-        end
         if ext and exclude(ext:lower()) then
             table.insert(pl_list, file)
         end
@@ -256,6 +257,7 @@ local function create_playlist(dir)
 end
 
 local function get_playlist()
+    local pl_list = {}
     local playlist = mp.get_property_native("playlist")
     for i = 0, #playlist - 1 do
         local filename = mp.get_property("playlist/" .. i .. "/filename")
@@ -357,7 +359,7 @@ end
 local function record()
     if not o.enabled then return end
     refresh_globals()
-    if pl_count and pl_count < 2 then return end
+    if pl_count and pl_count < 1 then return end
     if not path or is_protocol(path) then return end
     if not dir or not fname then return end
     get_bookmark_path(dir)
@@ -378,7 +380,11 @@ local function record()
         pl_path = utils.join_path(dir, pl_name)
     end
 
-    if o.use_playlist then get_playlist() else create_playlist(dir) end
+    if o.use_playlist or pl_count > 1 then
+        get_playlist()
+    else
+        create_playlist(dir)
+    end
 
     pl_idx = get_playlist_idx(pl_name)
     if (pl_idx == nil) then

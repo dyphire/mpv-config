@@ -1,5 +1,5 @@
 --[[
-  * chapter-make-read.lua v.2023-07-07
+  * chapter-make-read.lua v.2023-07-12
   *
   * AUTHORS: dyphire
   * License: MIT
@@ -62,6 +62,8 @@ local o = {
     force_overwrite = false,
     -- Specifies the extension of the external chapter file.
     chapter_file_ext = ".chp",
+    -- Select whether the external chapter file needs to match the extension of the source file.
+    basename_with_ext = true,
     -- Specifies the subpath of the same directory as the playback file as the external chapter file path.
     -- Note: The external chapter file is read from the subdirectory first.
     -- If the file does not exist, it will next be read from the same directory as the playback file.
@@ -69,7 +71,7 @@ local o = {
     -- save all chapter files in a single global directory
     global_chapters = false,
     global_chapters_dir = "~~/chapters",
-    -- hash works only with global_chapters enabled
+    -- hash works only in global_chapters_dir
     hash = false,
     -- ask for title or leave it empty
     ask_for_title = true,
@@ -96,6 +98,7 @@ local chapter_count = 0
 local insert_chapters = ""
 local chapters_modified = false
 local paused = false
+local protocol = false
 
 local function is_protocol(path)
     return type(path) == 'string' and (path:find('^%a[%a%d-_]+://') ~= nil or path:find('^%a[%a%d-_]+:\\?') ~= nil)
@@ -122,20 +125,25 @@ end
 
 --create global_chapters_dir if it doesn't exist
 global_chapters_dir = mp.command_native({ "expand-path", o.global_chapters_dir })
-if utils.readdir(global_chapters_dir) == nil then
-    local is_windows = package.config:sub(1, 1) == "\\"
-    local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', string.format("\"%s\"", global_chapters_dir) }
-    local unix_args = { 'mkdir', '-p', global_chapters_dir }
-    local args = is_windows and windows_args or unix_args
-    local res = mp.command_native({ name = "subprocess", capture_stdout = true, playback_only = false, args = args })
-    if res.status ~= 0 then
-        msg.error("Failed to create global_chapters_dir save directory " .. global_chapters_dir ..
+if global_chapters_dir and global_chapters_dir ~= '' then
+    local meta, meta_error = utils.file_info(global_chapters_dir)
+    if not meta or not meta.is_dir then
+        local is_windows = package.config:sub(1, 1) == "\\"
+        local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', string.format("\"%s\"", global_chapters_dir) }
+        local unix_args = { 'mkdir', '-p', global_chapters_dir }
+        local args = is_windows and windows_args or unix_args
+        local res = mp.command_native({ name = "subprocess", capture_stdout = true, playback_only = false, args = args })
+        if res.status ~= 0 then
+            msg.error("Failed to create global_chapters_dir save directory " .. global_chapters_dir ..
             ". Error: " .. (res.error or "unknown"))
-        return
+            return
+        end
     end
 end
 
 local function read_chapter(func)
+    local meta, meta_error = utils.file_info(chapter_fullpath)
+    if not meta or not meta.is_file then return end
     local f = io.open(chapter_fullpath, "r")
     if not f then return end
     local contents = {}
@@ -154,8 +162,8 @@ local function read_chapter_table()
             h, m, s = line:match("^(%d+):(%d+):(%d+[,%.]?%d+)")
             s = s:gsub(',', '.')
             t = h * 3600 + m * 60 + s
-            if line:match("^%d+:%d+:%d+.%d*[,%s].*") ~= nil then
-                n = line:match("^%d+:%d+:%d+.%d*[,%s](.*)")
+            if line:match("^%d+:%d+:%d+[,%.]?%d+[,%s].*") ~= nil then
+                n = line:match("^%d+:%d+:%d+[,%.]?%d+[,%s](.*)")
                 n = n:gsub(":%s%a?%a?:", "")
                     :gsub("^%s*(.-)%s*$", "%1")
             end
@@ -181,8 +189,13 @@ local function refresh_globals()
     path = mp.get_property("path")
     if path then
         dir, name_ext = utils.split_path(path)
+        protocol = is_protocol(path)
     end
-    fname = str_decode(mp.get_property("filename"))
+    if o.basename_with_ext then
+        fname = str_decode(mp.get_property("filename"))
+    else
+        fname = str_decode(mp.get_property("filename/no-ext"))
+    end
     all_chapters = mp.get_property_native("chapter-list")
     chapter_count = mp.get_property_number("chapter-list/count")
 end
@@ -263,28 +276,37 @@ local function mark_chapter(force_overwrite)
     local chapters_time = {}
     local chapters_title = {}
     local fpath = dir
-    if is_protocol(path) or utils.readdir(dir) == nil then
+    if protocol then
         fpath = global_chapters_dir
         fname = str_decode(mp.get_property("media-title"))
         if o.hash then fname = get_chapter_filename(path) end
-    end
-    if o.external_chapter_subpath ~= '' and not is_protocol(path) then
-        subpath = utils.join_path(dir, o.external_chapter_subpath)
-        fpath = subpath
-        if io.open(fpath, "r") == nil then
+    elseif o.external_chapter_subpath ~= '' then
+        fpath = utils.join_path(dir, o.external_chapter_subpath)
+        local meta, meta_error = utils.file_info(fpath)
+        if not meta or not meta.is_dir then
             fpath = dir
         end
     end
-    if o.global_chapters and not is_protocol(path) and (subpath and io.open(subpath, "r") == nil) then
+
+    if o.global_chapters and global_chapters_dir and global_chapters_dir ~= '' and not protocol then
         fpath = global_chapters_dir
-        if o.hash and o.global_chapters then
-            fname = get_chapter_filename(path)
+        local meta, meta_error = utils.file_info(fpath)
+        if meta and meta.is_dir then
+            if o.hash then
+                fname = get_chapter_filename(path)
+            end
         end
     end
+
     local chapter_filename = fname .. o.chapter_file_ext
     chapter_fullpath = utils.join_path(fpath, chapter_filename)
-    if io.open(chapter_fullpath, "r") == nil and not is_protocol(path) then
-        fname = str_decode(mp.get_property("filename"))
+    local fmeta, fmeta_error = utils.file_info(chapter_fullpath)
+    if (not fmeta or not fmeta.is_file) and fpath ~= dir and not protocol then
+        if o.basename_with_ext then
+            fname = str_decode(mp.get_property("filename"))
+        else
+            fname = str_decode(mp.get_property("filename/no-ext"))
+        end
         chapter_filename = fname .. o.chapter_file_ext
         chapter_fullpath = utils.join_path(dir, chapter_filename)
     end
@@ -474,7 +496,7 @@ local function write_chapter(format, force_write)
             msg.warn("please specify the correct chapter format: chp/ogm.")
             return
         end
-        if i == 1 and (o.global_chapters or is_protocol(path)) then
+        if i == 1 and (o.global_chapters or protocol) then
             insert_chapters = "# " .. path .. "\n\n" .. next_chapter
         else
             insert_chapters = insert_chapters .. next_chapter

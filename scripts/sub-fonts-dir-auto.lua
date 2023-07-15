@@ -66,7 +66,10 @@ end
 
 -- Whether a path is a directory
 local function isdir(path)
-    return utils.readdir(path .. "/.") ~= nil
+    local meta, meta_error = utils.file_info(path)
+    if meta and meta.is_dir then
+        return true
+    end
 end
 
 -- Set an option's value for this file, without overriding the command-line
@@ -81,17 +84,17 @@ end
 
 -- Find a "Fonts" directory under a single path
 local function find_fonts_dir(path)
-    local entries = utils.readdir(path, "dirs")
-    if entries == nil then
-        -- mpv will throw an error message soon enough, no need to intervene
-        return
-    end
-    msg.trace(string.format("Iterating over directories under %q", path))
-    for _, entry in ipairs(entries) do
-        msg.trace("Candidate directory:", entry)
-        if entry:lower() == FONTS_DIR_NAME:lower() then
+    local fonts_path = utils.join_path(path, FONTS_DIR_NAME)
+    local meta, meta_error = utils.file_info(fonts_path)
+    if meta and meta.is_dir then
+        msg.trace("Match found")
+        return fonts_path
+    else
+        fonts_path = utils.join_path(path, FONTS_DIR_NAME:lower())
+        local fmeta, fmeta_error = utils.file_info(fonts_path)
+        if fmeta and fmeta.is_dir then
             msg.trace("Match found")
-            return utils.join_path(path, entry)
+            return fonts_path
         end
     end
     msg.trace("No match found")

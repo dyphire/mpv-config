@@ -59,12 +59,15 @@ filters=string.format("fps=%s,zscale='trunc(ih*dar/2)*2:trunc(ih/2)*2':f=spline3
 -- Setup output directory
 local output_directory = mp.command_native({ "expand-path", options.dir })
 --create output_directory if it doesn't exist
-if utils.readdir(output_directory) == nil then
-    local args = { 'powershell', '-NoProfile', '-Command', 'mkdir', string.format("\"%s\"", output_directory) }
-    local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})
-    if res.status ~= 0 then
-        msg.error("Failed to create animated_dir save directory "..output_directory..". Error: "..(res.error or "unknown"))
-        return
+if output_directory ~= '' then
+    local meta, meta_error = utils.file_info(output_directory)
+    if not meta or not meta.is_dir then
+        local args = { 'powershell', '-NoProfile', '-Command', 'mkdir', string.format("\"%s\"", output_directory) }
+        local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})
+        if res.status ~= 0 then
+            msg.error("Failed to create animated_dir save directory "..output_directory..". Error: "..(res.error or "unknown"))
+            return
+        end
     end
 end
 

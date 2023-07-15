@@ -16,12 +16,16 @@ disabled=no
 images=no
 videos=yes
 audio=yes
-directories=no
-sameseries=yes
+additional_image_exts=list,of,ext
+additional_video_exts=list,of,ext
+additional_audio_exts=list,of,ext
+dir_mode=<recursive|lazy|ignore>
 ignore_hidden=yes
 
 --]]
 
+MAXENTRIES = 5000
+MAXDIRSTACK = 20
 
 local msg = require 'mp.msg'
 local options = require 'mp.options'
@@ -32,9 +36,10 @@ o = {
     images = true,
     videos = true,
     audio = true,
-    directories = false,
-    sameseries = false,
-    max_entries = 5000,
+    additional_image_exts = "",
+    additional_video_exts = "",
+    additional_audio_exts = "",
+    dir_mode = "ignore",
     ignore_hidden = true
 }
 options.read_options(o)
@@ -52,20 +57,30 @@ function SetUnion (a,b)
     return res
 end
 
+function Split (s)
+    local set = {}
+    for v in string.gmatch(s, '([^,]+)') do set[v] = true end
+    return set
+end
+
 EXTENSIONS_VIDEO = Set {
-    '3g2', '3gp', 'avi', 'asf', 'f4v', 'flv', 'm2ts', 'm4v', 'mj2', 'mkv', 'mov',
-    'mp4', 'mpeg', 'mpg', 'ogv', 'rm', 'rmvb', 'ts', 'vob', 'webm', 'wmv', 'y4m'
+    '3g2', '3gp', 'avi', 'flv', 'm2ts', 'm4v', 'mj2', 'mkv', 'mov',
+    'mp4', 'mpeg', 'mpg', 'ogv', 'rmvb', 'webm', 'wmv', 'y4m'
 }
 
 EXTENSIONS_AUDIO = Set {
-    'aiff', 'ape', 'au', 'dsf', 'flac', 'm4a', 'mka', 'mp3', 'oga', 'ogg',
-    'ogm', 'opus', 'spx', 'wav', 'wma'
+    'aiff', 'ape', 'au', 'flac', 'm4a', 'mka', 'mp3', 'oga', 'ogg',
+    'ogm', 'opus', 'wav', 'wma'
 }
 
 EXTENSIONS_IMAGES = Set {
-    'avif', 'bmp', 'gif', 'j2k', 'jfif', 'jp2', 'jpeg', 'jpg', 'jxl', 'png',
+    'avif', 'bmp', 'gif', 'j2k', 'jp2', 'jpeg', 'jpg', 'jxl', 'png',
     'svg', 'tga', 'tif', 'tiff', 'webp'
 }
+
+EXTENSIONS_VIDEO = SetUnion(EXTENSIONS_VIDEO, Split(o.additional_video_exts))
+EXTENSIONS_AUDIO = SetUnion(EXTENSIONS_AUDIO, Split(o.additional_audio_exts))
+EXTENSIONS_IMAGES = SetUnion(EXTENSIONS_IMAGES, Split(o.additional_image_exts))
 
 EXTENSIONS = Set {}
 if o.videos then EXTENSIONS = SetUnion(EXTENSIONS, EXTENSIONS_VIDEO) end
@@ -102,7 +117,6 @@ table.append = function(t1, t2)
     for i = 1, #t2 do
         t1[t1_size + i] = t2[i]
     end
-    return t1
 end
 
 -- alphanum sorting for humans in Lua
@@ -127,6 +141,51 @@ end
 
 local autoloaded = nil
 local added_entries = {}
+local autoloaded_dir = nil
+
+function scan_dir(path, current_file, dir_mode, separator, dir_depth, total_files)
+    if dir_depth == MAXDIRSTACK then
+        return
+    end
+    msg.trace("scanning: " .. path)
+    local files = utils.readdir(path, "files") or {}
+    local dirs = dir_mode ~= "ignore" and utils.readdir(path, "dirs") or {}
+    local prefix = path == "." and "" or path
+    table.filter(files, function (v)
+        -- The current file could be a hidden file, ignoring it doesn't load other
+        -- files from the current directory.
+        if (o.ignore_hidden and not (prefix .. v == current_file) and string.match(v, "^%.")) then
+            return false
+        end
+        local ext = get_extension(v)
+        if ext == nil then
+            return false
+        end
+        return EXTENSIONS[string.lower(ext)]
+    end)
+    table.filter(dirs, function(d)
+        return not ((o.ignore_hidden and string.match(d, "^%.")))
+    end)
+    alphanumsort(files)
+    alphanumsort(dirs)
+
+    for i, file in ipairs(files) do
+        files[i] = prefix .. file
+    end
+
+    table.append(total_files, files)
+    if dir_mode == "recursive" then
+        for _, dir in ipairs(dirs) do
+            scan_dir(prefix .. dir .. separator, current_file, dir_mode,
+                     separator, dir_depth + 1, total_files)
+        end
+    else
+        for i, dir in ipairs(dirs) do
+            dirs[i] = prefix .. dir
+        end
+        table.append(total_files, dirs)
+    end
+end
 
 function find_and_add_entries()
     local path = mp.get_property("path", "")
@@ -149,6 +208,7 @@ function find_and_add_entries()
     else
         if pl_count == 1 then
             autoloaded = true
+            autoloaded_dir = dir
             added_entries = {}
         end
     end
@@ -158,50 +218,22 @@ function find_and_add_entries()
     msg.trace(("playlist-pos-1: %s, playlist: %s"):format(pl_current,
         utils.to_string(pl)))
 
-    local files = utils.readdir(dir, "files")
-    local dirs = o.directories and utils.readdir(dir, "dirs") or nil
-    if files == nil and dirs == nil then
+    local files = {}
+    do
+        local dir_mode = o.dir_mode
+        local separator = package.config:sub(1, 1) == "\\" and "\\" or "/"
+        scan_dir(autoloaded_dir, path, dir_mode, separator, 0, files)
+    end
+
+    if next(files) == nil then
         msg.verbose("no other files or directories in directory")
         return
-    end
-    files, dirs = files or {}, dirs or {}
-    table.filter(files, function (v, k)
-        -- The current file could be a hidden file, ignoring it doesn't load other
-        -- files from the current directory.
-        if (o.ignore_hidden and not (v == filename) and string.match(v, "^%.")) then
-            return false
-        end
-        local ext = get_extension(v)
-        if ext == nil then
-            return false
-        end
-        if o.sameseries then
-            local name = mp.get_property("filename")
-            local namepre = string.sub(name, 1, 6)
-            local namepre0 = string.gsub(namepre, "%p", "%%%1")
-            for vidext, _ in pairs(EXTENSIONS_VIDEO) do
-                if string.find(name, vidext.."$") ~= nil then
-                    if string.find(v, "^"..namepre0) == nil then
-                        return false
-                    end
-                end
-            end
-        end
-        return EXTENSIONS[string.lower(ext)]
-    end)
-    table.filter(dirs, function(d)
-        return not ((o.ignore_hidden and string.match(d, "^%.")))
-    end)
-    alphanumsort(table.append(files, dirs))
-
-    if dir == "." then
-        dir = ""
     end
 
     -- Find the current pl entry (dir+"/"+filename) in the sorted dir list
     local current
     for i = 1, #files do
-        if files[i] == filename then
+        if files[i] == path then
             current = i
             break
         end
@@ -215,43 +247,32 @@ function find_and_add_entries()
     -- as if they got added by autoload
     for _, entry in ipairs(pl) do
         added_entries[entry.filename] = true
-        -- entry is in current dir or one of it's subdirectories
-        if entry.filename:find(dir, 1, true) then
-            local parent = utils.split_path(entry.filename)
-            -- add recursively expaned directories to the added entries list
-            while parent ~= dir do
-                local trimmed_parent = parent:sub(1, -2)
-                parent = utils.split_path(trimmed_parent)
-                added_entries[trimmed_parent] = true
-            end
-        end
     end
 
     local append = {[-1] = {}, [1] = {}}
     for direction = -1, 1, 2 do -- 2 iterations, with direction = -1 and +1
-        for i = 1, o.max_entries do
+        for i = 1, MAXENTRIES do
             local pos = current + i * direction
             local file = files[pos]
             if file == nil or file[1] == "." then
                 break
             end
 
-            local filepath = dir .. file
             -- skip files that are/were already in the playlist
-            if not added_entries[filepath] then
+            if not added_entries[file] then
                 if direction == -1 then
-                    msg.info("Prepending " .. filepath)
-                    table.insert(append[-1], 1, {filepath, pl_current + i * direction + 1})
+                    msg.info("Prepending " .. file)
+                    table.insert(append[-1], 1, {file, pl_current + i * direction + 1})
                 else
-                    msg.info("Adding " .. filepath)
+                    msg.info("Adding " .. file)
                     if pl_count > 1 then
-                        table.insert(append[1], {filepath, pl_current + i * direction - 1})
+                        table.insert(append[1], {file, pl_current + i * direction - 1})
                     else
-                        mp.commandv("loadfile", filepath, "append")
+                        mp.commandv("loadfile", file, "append")
                     end
                 end
             end
-            added_entries[filepath] = true
+            added_entries[file] = true
         end
         if pl_count == 1 and direction == -1 and #append[-1] > 0 then
             for i = 1, #append[-1] do
