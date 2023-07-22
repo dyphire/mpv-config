@@ -448,14 +448,10 @@ local function spawn(time)
         "--ytdl-format=worst", "--demuxer-readahead-secs=0", "--demuxer-max-bytes=128KiB",
         "--vd-lavc-skiploopfilter=all", "--vd-lavc-software-fallback=1", "--vd-lavc-fast", "--vd-lavc-threads=2", "--hwdec="..(options.hwdec and "auto" or "no"),
         "--vf="..vf_string(filters_all, true),
-        "--sws-scaler=fast-bilinear",
+        "--zimg-scaler=bilinear", "--zimg-fast=yes",
         "--video-rotate="..last_rotate,
         "--ovc=rawvideo", "--of=image2", "--ofopts=update=1", "--o="..options.thumbnail
     }
-
-    if not pre_0_30_0 and options.tone_mapping == "no" then
-        table.insert(args, "--sws-allow-zimg=no")
-    end
 
     if os_name == "darwin" and properties["macos-app-activation-policy"] then
         table.insert(args, "--macos-app-activation-policy=accessory")

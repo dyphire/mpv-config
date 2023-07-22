@@ -46,6 +46,7 @@ local pl_count = 0
 local pl_dir = nil
 local pl_name = nil
 local pl_path = nil
+local pl_list = {}
 local pl_idx = 1
 local current_idx = 1
 local bookmark_path = nil
@@ -133,7 +134,7 @@ function refresh_globals()
     fname = mp.get_property("filename")
     pl_count = mp.get_property_number('playlist-count', 0)
     if path and not is_protocol(path) then
-        path = utils.join_path(mp.get_property('working-directory'), path)
+        path = utils.join_path(mp.get_property('working-directory'), path):gsub("/", "\\")
         dir = utils.split_path(path)
     else
         dir = nil
@@ -254,6 +255,7 @@ local function create_playlist(dir)
         end
     end
     alphanumsort(pl_list)
+    return pl_list
 end
 
 local function get_playlist()
@@ -264,6 +266,7 @@ local function get_playlist()
         local _, file = utils.split_path(filename)
         table.insert(pl_list, file)
     end
+    return pl_list
 end
 
 -- get the index of the wanted file playlist
@@ -381,9 +384,9 @@ local function record()
     end
 
     if o.use_playlist or pl_count > 1 then
-        get_playlist()
+        pl_list = get_playlist()
     else
-        create_playlist(dir)
+        pl_list = create_playlist(dir)
     end
 
     pl_idx = get_playlist_idx(pl_name)
@@ -413,7 +416,7 @@ end
 mp.register_event('file-loaded', function()
     local path = mp.get_property("path")
     if not is_protocol(path) then
-        path = utils.join_path(mp.get_property('working-directory'), path)
+        path = utils.join_path(mp.get_property('working-directory'), path):gsub("/", "\\")
         directory = utils.split_path(path)
     else
         directory = nil

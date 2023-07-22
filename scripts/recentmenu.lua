@@ -207,7 +207,7 @@ function play_last()
 end
 
 function on_load()
-    local path = mp.get_property("path")
+    local path = mp.get_property("path"):gsub("/", "\\")
     if not path then return end
     local filename = mp.get_property("filename")
     local filename_without_ext = get_filename_without_ext(filename)
