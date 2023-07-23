@@ -19,6 +19,7 @@
 | copyStuff.lua* | 选择复制当前文件信息（源自：[0xR3V/mpv-copyStuff](https://github.com/0xR3V/mpv-copyStuff)） |
 | cycle-commands.lua | 快捷键循环切换命令，使用方法见脚本内说明 |
 | delete-current-file.lua* | 删除当前播放文件（windows 可在回收站恢复） |
+| display-name.lua* | 实现 mpv 窗口按显示器名称自动切换参数及配置文件，详见脚本内说明（依赖 MultiMonitorTool.exe） |
 | drcbox.lua*   | 使用并调整 dynaudnorm 过滤器混音的可视化脚本（配置文件 [drcbox.conf](../script-opts/drcboxp.conf)） |
 | dynamic-crop.lua* | 自动检测可变化黑边并裁切（[autocrop.lua](https://github.com/mpv-player/mpv/blob/master/TOOLS/lua/autocrop.lua) 改进版；配置文件 [dynamic_crop.conf](../script-opts/dynamic_crop.conf)） |
 | evafast.lua | 实现比 mpv 内置更高级的倍速功能，遇到字幕（非内嵌）时会减缓速度（配置文件 [evafast.conf](../script-opts/evafast.conf)） |
