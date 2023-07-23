@@ -21,12 +21,7 @@
 
 // Description: HQ/nlmeans.glsl: Slow, but higher quality.
 
-/* This shader is highly configurable via user variables below. Although the 
- * default settings should offer good quality at a reasonable speed, you are 
- * encouraged to tweak them to your preferences.
- */
-
-// The following is shader code injected from ../LQ/nlmeans.glsl
+// The following is shader code injected from ./nlmeans_template
 /* vi: ft=c
  *
  * Based on vf_nlmeans.c from FFmpeg.
@@ -48,17 +43,12 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-// Description: LQ/nlmeans.glsl: Faster, but lower quality.
-
-/* This shader is highly configurable via user variables below. Although the 
- * default settings should offer good quality at a reasonable speed, you are 
- * encouraged to tweak them to your preferences.
- */
+// Description: nlmeans.glsl: Default profile, general purpose, tuned for low noise
 
 //!HOOK LUMA
 //!HOOK CHROMA
 //!BIND HOOKED
-//!DESC Non-local means (LQ/nlmeans.glsl)
+//!DESC Non-local means (nlmeans.glsl)
 //!SAVE RF_LUMA
 
 // User variables
@@ -68,18 +58,12 @@
 
 // Denoising factor (sigma, higher means more blur)
 #ifdef LUMA_raw
-#define S 3.6280599151151334
+#define S 4.9890435997358455
 #else
-#define S 5.100920322105462
+#define S 4.9890435997358455
 #endif
 
-/* Adaptive sharpening
- *
- * Performs an unsharp mask by subtracting the spatial kernel's blur from the 
- * NLM blur. For sharpen+denoise the sharpening is limited to edge areas and 
- * denoising is done everywhere else.
- *
- * Use V=4 to visualize which areas are sharpened (black means sharpen).
+/* Noise resistant adaptive sharpening
  *
  * AS:
  * 	 - 0: disable
@@ -111,13 +95,12 @@
 
 /* Starting weight
  *
- * Also known as the center weight. This represents the weight of the 
- * pixel-of-interest. Lower numbers may help handle heavy noise.
+ * AKA the center weight, the weight of the pixel-of-interest.
  */
 #ifdef LUMA_raw
-#define SW 0.717967659498257
+#define SW 0.6024473887018524
 #else
-#define SW 0.6429313578248627
+#define SW 0.6024473887018524
 #endif
 
 /* Spatial kernel
@@ -125,7 +108,7 @@
  * Increasing the spatial sigma (SS) reduces the weight of further 
  * pixels.
  *
- * The intra-patch variants are supposed to help with larger patch sizes.
+ * The intra-patch variants might help with larger patch sizes.
  *
  * SST: enables spatial kernel if R>=PST, 0 fully disables
  * SS: spatial sigma
@@ -134,25 +117,25 @@
  */
 #ifdef LUMA_raw
 #define SST 1
-#define SS 0.5072938692870894
+#define SS 0.6556654971995874
 #define PST 0
 #define PSS 0.0
 #else
 #define SST 1
-#define SS 0.31580805565941705
+#define SS 0.6556654971995874
 #define PST 0
 #define PSS 0.0
 #endif
 
 /* Extremes preserve
  *
+ * This setting is dependent on code generation from shader_cfg, so this 
+ * setting can only be enabled via shader_cfg.
+ *
  * Reduce denoising in very bright/dark areas.
  *
- * Disabled by default now. If you want to reenable this, set EP=3/ in 
- * Makefile.nlm and rebuild.
- *
- * The downscaling factor of the EP shader stage affects what is considered a 
- * bright/dark area.
+ * The downscaling factor of the EP shader stage affects the size of the area 
+ * checked for luminance.
  *
  * This is incompatible with RGB. If you have RGB hooks enabled then you will 
  * have to delete the EP shader stage or specify EP=0 through shader_cfg.
@@ -198,7 +181,7 @@
  * P should be an odd number. Higher values are slower and not always better.
  *
  * R should be an odd number greater than or equal to 3. Higher values are 
- * generally better, but slower, blurrier, and gives diminishing returns.
+ * generally better, but slower.
  */
 #ifdef LUMA_raw
 #define P 3
@@ -230,7 +213,7 @@
 #define PS 4
 #else
 #define RS 3
-#define PS 3
+#define PS 4
 #endif
 
 /* Weight discard
@@ -250,13 +233,13 @@
  */
 #ifdef LUMA_raw
 #define WD 1
-#define WDT 0.5509878334105431
-#define WDP 5.402102275251726
+#define WDT 0.596413106058469
+#define WDP 4.957110419508322
 #define WDS 1.0
 #else
 #define WD 1
-#define WDT 0.9385150042004405
-#define WDP 5.692202343435388
+#define WDT 0.596413106058469
+#define WDP 4.957110419508322
 #define WDS 1.0
 #endif
 
@@ -271,10 +254,10 @@
  */
 #ifdef LUMA_raw
 #define C 0
-#define CS 0.11643442361134813
+#define CS 0.11029390001250727
 #else
 #define C 0
-#define CS 0.11643442361134813
+#define CS 0.11029390001250727
 #endif
 
 /* Robust filtering
@@ -380,6 +363,7 @@
 #define SK gaussian
 #define RK gaussian
 #define ASK sinc
+#define ASAK gaussian
 #define PSK gaussian
 #define WDK is_zero
 #define WD1TK gaussian
@@ -388,6 +372,7 @@
 #define SK gaussian
 #define RK gaussian
 #define ASK sphinx_
+#define ASAK gaussian
 #define PSK gaussian
 #define WDK is_zero
 #define WD1TK gaussian
@@ -408,12 +393,12 @@
  */
 #ifdef LUMA_raw
 #define SO 0.0
-#define RO 0.0
+#define RO 9.773746446023492e-05
 #define PSO 0.0
 #define ASO 0.0
 #else
 #define SO 0.0
-#define RO 0.0
+#define RO 9.773746446023492e-05
 #define PSO 0.0
 #define ASO 0.0
 #endif
@@ -1219,7 +1204,7 @@ vec4 hook()
 #if AS // sharpening
 	 val usm = AS_input - sum_as/max(val(EPSILON),total_weight_as); 
 	 usm = exp(log(abs(usm))*ASP) * sign(usm);  // avoiding pow() since it's buggy on nvidia
-	 usm *= gaussian(abs((AS_base + usm - 0.5) / 1.5) * ASA); 
+	 usm *= ASAK(abs((AS_base + usm - 0.5) / 1.5) * ASA); 
 	 usm *= ASF; 
 	 result = AS_base + usm; 
 #endif
@@ -1253,7 +1238,7 @@ vec4 hook()
 	 return unval(result); 
 }
 
-// End of source code injected from ../LQ/nlmeans.glsl 
+// End of source code injected from ./nlmeans_template 
 
 //!HOOK LUMA
 //!HOOK CHROMA
@@ -1282,18 +1267,12 @@ vec4 hook()
 
 // Denoising factor (sigma, higher means more blur)
 #ifdef LUMA_raw
-#define S 1.4460272592109746
+#define S 1.570007161875087
 #else
-#define S 1.359261923810611
+#define S 1.3578686035854868
 #endif
 
-/* Adaptive sharpening
- *
- * Performs an unsharp mask by subtracting the spatial kernel's blur from the 
- * NLM blur. For sharpen+denoise the sharpening is limited to edge areas and 
- * denoising is done everywhere else.
- *
- * Use V=4 to visualize which areas are sharpened (black means sharpen).
+/* Noise resistant adaptive sharpening
  *
  * AS:
  * 	- 0: disable
@@ -1309,29 +1288,28 @@ vec4 hook()
  */
 #ifdef LUMA_raw
 #define AS 0
-#define ASF 0.5483900509943984
-#define ASA 1.1990767842629195
-#define ASP 1.0006451175014668
-#define ASS 0.3537519927847657
+#define ASF 0.3210768548589939
+#define ASA 0.9397860227779741
+#define ASP 0.7654083023321232
+#define ASS 0.4031301466402857
 #define ASI 0
 #else
 #define AS 0
-#define ASF 0.4804227336582368
-#define ASA 2.0325416266014185
-#define ASP 1.2022557068138862
-#define ASS 0.0682805004673164
+#define ASF 0.6267063361944475
+#define ASA 1.9701543289754333
+#define ASP 1.0024630095639717
+#define ASS 0.05977279329812535
 #define ASI 0
 #endif
 
 /* Starting weight
  *
- * Also known as the center weight. This represents the weight of the 
- * pixel-of-interest. Lower numbers may help handle heavy noise.
+ * AKA the center weight, the weight of the pixel-of-interest.
  */
 #ifdef LUMA_raw
-#define SW 1.812902116179249
+#define SW 1.2716719037606483
 #else
-#define SW 1.4903543760666318
+#define SW 1.2786896107185737
 #endif
 
 /* Spatial kernel
@@ -1339,7 +1317,7 @@ vec4 hook()
  * Increasing the spatial sigma (SS) reduces the weight of further 
  * pixels.
  *
- * The intra-patch variants are supposed to help with larger patch sizes.
+ * The intra-patch variants might help with larger patch sizes.
  *
  * SST: enables spatial kernel if R>=PST, 0 fully disables
  * SS: spatial sigma
@@ -1348,25 +1326,25 @@ vec4 hook()
  */
 #ifdef LUMA_raw
 #define SST 1
-#define SS 0.2952259847265974
+#define SS 0.23593209451943342
 #define PST 0
 #define PSS 0.0
 #else
 #define SST 1
-#define SS 0.17336705987012963
+#define SS 0.2314875356324695
 #define PST 0
 #define PSS 0.0
 #endif
 
 /* Extremes preserve
  *
+ * This setting is dependent on code generation from shader_cfg, so this 
+ * setting can only be enabled via shader_cfg.
+ *
  * Reduce denoising in very bright/dark areas.
  *
- * Disabled by default now. If you want to reenable this, set EP=3/ in 
- * Makefile.nlm and rebuild.
- *
- * The downscaling factor of the EP shader stage affects what is considered a 
- * bright/dark area.
+ * The downscaling factor of the EP shader stage affects the size of the area 
+ * checked for luminance.
  *
  * This is incompatible with RGB. If you have RGB hooks enabled then you will 
  * have to delete the EP shader stage or specify EP=0 through shader_cfg.
@@ -1412,7 +1390,7 @@ vec4 hook()
  * P should be an odd number. Higher values are slower and not always better.
  *
  * R should be an odd number greater than or equal to 3. Higher values are 
- * generally better, but slower, blurrier, and gives diminishing returns.
+ * generally better, but slower.
  */
 #ifdef LUMA_raw
 #define P 3
@@ -1464,7 +1442,7 @@ vec4 hook()
  */
 #ifdef LUMA_raw
 #define WD 2
-#define WDT 0.07232509380556876
+#define WDT 0.12410768747098329
 #define WDP 5.402102275251726
 #define WDS 1.0
 #else
@@ -1485,10 +1463,10 @@ vec4 hook()
  */
 #ifdef LUMA_raw
 #define C 1
-#define CS 0.1060139658565394
+#define CS 0.11628453100582295
 #else
 #define C 0
-#define CS 0.11643442361134813
+#define CS 0.11029390001250727
 #endif
 
 /* Robust filtering
@@ -1594,6 +1572,7 @@ vec4 hook()
 #define SK gaussian
 #define RK gaussian
 #define ASK sinc
+#define ASAK gaussian
 #define PSK gaussian
 #define WDK is_zero
 #define WD1TK gaussian
@@ -1602,6 +1581,7 @@ vec4 hook()
 #define SK gaussian
 #define RK gaussian
 #define ASK sphinx_
+#define ASAK gaussian
 #define PSK gaussian
 #define WDK is_zero
 #define WD1TK gaussian
@@ -1622,12 +1602,12 @@ vec4 hook()
  */
 #ifdef LUMA_raw
 #define SO 0.0
-#define RO 0.0
+#define RO 4.035625494229239e-05
 #define PSO 0.0
 #define ASO 0.0
 #else
 #define SO 0.0
-#define RO 0.0
+#define RO 0.00011749521938020038
 #define PSO 0.0
 #define ASO 0.0
 #endif
@@ -2433,7 +2413,7 @@ vec4 hook()
 #if AS // sharpening
 	val usm = AS_input - sum_as/max(val(EPSILON),total_weight_as);
 	usm = exp(log(abs(usm))*ASP) * sign(usm); // avoiding pow() since it's buggy on nvidia
-	usm *= gaussian(abs((AS_base + usm - 0.5) / 1.5) * ASA);
+	usm *= ASAK(abs((AS_base + usm - 0.5) / 1.5) * ASA);
 	usm *= ASF;
 	result = AS_base + usm;
 #endif
