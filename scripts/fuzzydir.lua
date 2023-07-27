@@ -265,7 +265,7 @@ function explode_all()
     msg.debug("max_search_depth = ".. o.max_search_depth .. ", discovery_threshold = " .. o.discovery_threshold)
 
     local video_path = mp.get_property("path")
-    local search_path, _ = utils.split_path(video_path)
+    local search_path, _ = utils.split_path(video_path):gsub("/", "\\")
     msg.debug("search_path = " .. search_path)
 
     local cache = {}

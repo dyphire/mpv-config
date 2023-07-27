@@ -1,7 +1,6 @@
 --[[ uosc 4.7.0 - 2023-Apr-15 | https://github.com/tomasklaen/uosc ]]
 local uosc_version = '4.7.0'
 
-require('lib/std')
 assdraw = require('mp.assdraw')
 opt = require('mp.options')
 utils = require('mp.utils')
@@ -9,6 +8,8 @@ msg = require('mp.msg')
 osd = mp.create_osd_overlay('ass-events')
 INFINITY = 1e309
 QUARTER_PI_SIN = math.sin(math.pi / 4)
+
+require('lib/std')
 
 --[[ OPTIONS ]]
 
