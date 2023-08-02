@@ -12,7 +12,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-//!DESC RAVU-Zoom (luma, r3, compute)
+//!DESC RAVU-Zoom-AR (luma, r3, compute)
 //!HOOK LUMA
 //!BIND HOOKED
 //!BIND ravu_zoom_lut3
@@ -190,7 +190,77 @@ res += sample20 * w[3];
 w = texture(ravu_zoom_lut3, vec2(0.8, coord_y) + subpix_inv);
 res += sample19 * w[0];
 res += sample18 * w[1];
-res = clamp(res, 0.0, 1.0);
+vec4 wg, x, y, dist;
+float wgsum = 0.0;
+vec4 sample_ar, cg_lo, cg_hi;
+float lo = 0.0, hi = 0.0;
+x = vec4(subpix0.x) - vec4(-1.0, -1.0, -1.0, -1.0);
+y = vec4(subpix0.y) - vec4(-1.0, 0.0, 1.0, 2.0);
+sample_ar = vec4(sample7, sample8, sample9, sample10);
+dist = x * x + y * y;
+wg = exp(-1.0 * dist);
+cg_hi = sample_ar;
+cg_lo = 1.0 - sample_ar;
+cg_hi *= cg_hi;
+cg_lo *= cg_lo;
+cg_hi *= cg_hi;
+cg_lo *= cg_lo;
+cg_hi *= cg_hi;
+cg_lo *= cg_lo;
+hi += dot(wg, cg_hi);
+lo += dot(wg, cg_lo);
+wgsum += dot(wg, vec4(1.0));
+x = vec4(subpix0.x) - vec4(0.0, 0.0, 0.0, 0.0);
+y = vec4(subpix0.y) - vec4(-1.0, 0.0, 1.0, 2.0);
+sample_ar = vec4(sample13, sample14, sample15, sample16);
+dist = x * x + y * y;
+wg = exp(-1.0 * dist);
+cg_hi = sample_ar;
+cg_lo = 1.0 - sample_ar;
+cg_hi *= cg_hi;
+cg_lo *= cg_lo;
+cg_hi *= cg_hi;
+cg_lo *= cg_lo;
+cg_hi *= cg_hi;
+cg_lo *= cg_lo;
+hi += dot(wg, cg_hi);
+lo += dot(wg, cg_lo);
+wgsum += dot(wg, vec4(1.0));
+x = vec4(subpix0.x) - vec4(1.0, 1.0, 1.0, 1.0);
+y = vec4(subpix0.y) - vec4(-1.0, 0.0, 1.0, 2.0);
+sample_ar = vec4(sample19, sample20, sample21, sample22);
+dist = x * x + y * y;
+wg = exp(-1.0 * dist);
+cg_hi = sample_ar;
+cg_lo = 1.0 - sample_ar;
+cg_hi *= cg_hi;
+cg_lo *= cg_lo;
+cg_hi *= cg_hi;
+cg_lo *= cg_lo;
+cg_hi *= cg_hi;
+cg_lo *= cg_lo;
+hi += dot(wg, cg_hi);
+lo += dot(wg, cg_lo);
+wgsum += dot(wg, vec4(1.0));
+x = vec4(subpix0.x) - vec4(2.0, 2.0, 2.0, 2.0);
+y = vec4(subpix0.y) - vec4(-1.0, 0.0, 1.0, 2.0);
+sample_ar = vec4(sample25, sample26, sample27, sample28);
+dist = x * x + y * y;
+wg = exp(-1.0 * dist);
+cg_hi = sample_ar;
+cg_lo = 1.0 - sample_ar;
+cg_hi *= cg_hi;
+cg_lo *= cg_lo;
+cg_hi *= cg_hi;
+cg_lo *= cg_lo;
+cg_hi *= cg_hi;
+cg_lo *= cg_lo;
+hi += dot(wg, cg_hi);
+lo += dot(wg, cg_lo);
+wgsum += dot(wg, vec4(1.0));
+lo = sqrt(sqrt(sqrt(lo / wgsum)));
+hi = sqrt(sqrt(sqrt(hi / wgsum)));
+res = mix(res, clamp(res, 1.0 - lo, hi), 0.750000);
 imageStore(out_image, ivec2(gl_GlobalInvocationID), vec4(res, 0.0, 0.0, 0.0));
 }
 //!TEXTURE ravu_zoom_lut3

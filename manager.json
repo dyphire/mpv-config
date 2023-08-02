@@ -190,6 +190,16 @@
     "dest":"~~/shaders/ACNet"
   },
   {
+    "git":"https://github.com/Artoriuz/glsl-joint-bilateral",
+    "whitelist":"JointBilateral%.glsl$",
+    "dest":"~~/shaders/other"
+  },
+  {
+    "git":"https://github.com/Artoriuz/glsl-pixel-clipper",
+    "whitelist":"%.glsl$",
+    "dest":"~~/shaders/other"
+  },
+  {
     "git":"https://github.com/bloc97/Anime4K",
     "whitelist":"%.glsl$",
     "dest":"~~/shaders/Anime4k"

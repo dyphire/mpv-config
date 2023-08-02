@@ -14,8 +14,8 @@
 // License along with this library.
 
 //!HOOK CHROMA
-//!BIND HOOKED
 //!BIND LUMA
+//!BIND HOOKED
 //!SAVE LOWRES_Y
 //!WIDTH LUMA.w
 //!WHEN CHROMA.w LUMA.w <
@@ -52,8 +52,8 @@ vec4 hook() {
 }
 
 //!HOOK CHROMA
-//!BIND HOOKED
 //!BIND LOWRES_Y
+//!BIND HOOKED
 //!SAVE LOWRES_Y
 //!WHEN CHROMA.w LUMA.w <
 //!DESC KrigBilateral Downscaling Y pass 2

@@ -12,7 +12,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-//!DESC RAVU-Lite (r3, compute)
+//!DESC RAVU-Lite-AR (r3, compute)
 //!HOOK LUMA
 //!BIND HOOKED
 //!BIND ravu_lite_lut3
@@ -72,12 +72,18 @@ float strength = mix(mix(0.0, 1.0, lambda >= 0.004), mix(2.0, 3.0, lambda >= 0.0
 float coherence = mix(mix(0.0, 1.0, mu >= 0.25), 2.0, mu >= 0.5);
 float coord_y = ((angle * 4.0 + strength) * 3.0 + coherence + 0.5) / 288.0;
 vec4 res = vec4(0.0), w;
+vec4 lo = vec4(0.0), hi = vec4(0.0), wg, cg4;
 w = texture(ravu_lite_lut3, vec2(0.038461538461538464, coord_y));
 res += inp[local_pos + 0] * w + inp[local_pos + 52] * w.wzyx;
 w = texture(ravu_lite_lut3, vec2(0.11538461538461539, coord_y));
 res += inp[local_pos + 1] * w + inp[local_pos + 51] * w.wzyx;
 w = texture(ravu_lite_lut3, vec2(0.19230769230769232, coord_y));
+wg = vec4(0.014386379211676978,0.014386379211676978,0.0019469847053616204,0.0019469847053616204);
 res += inp[local_pos + 2] * w + inp[local_pos + 50] * w.wzyx;
+cg4 = vec4(inp[local_pos + 2], 1.0 - inp[local_pos + 2], inp[local_pos + 50], 1.0 - inp[local_pos + 50]);
+cg4 *= cg4; cg4 *= cg4; cg4 *= cg4;
+hi += cg4.x * wg + cg4.z * wg.wzyx;
+lo += cg4.y * wg + cg4.w * wg.wzyx;
 w = texture(ravu_lite_lut3, vec2(0.2692307692307692, coord_y));
 res += inp[local_pos + 3] * w + inp[local_pos + 49] * w.wzyx;
 w = texture(ravu_lite_lut3, vec2(0.34615384615384615, coord_y));
@@ -85,20 +91,52 @@ res += inp[local_pos + 4] * w + inp[local_pos + 48] * w.wzyx;
 w = texture(ravu_lite_lut3, vec2(0.4230769230769231, coord_y));
 res += inp[local_pos + 12] * w + inp[local_pos + 40] * w.wzyx;
 w = texture(ravu_lite_lut3, vec2(0.5, coord_y));
+wg = vec4(0.10630176305557089,0.03910623318842249,0.03910623318842249,0.014386379211676978);
 res += inp[local_pos + 13] * w + inp[local_pos + 39] * w.wzyx;
+cg4 = vec4(inp[local_pos + 13], 1.0 - inp[local_pos + 13], inp[local_pos + 39], 1.0 - inp[local_pos + 39]);
+cg4 *= cg4; cg4 *= cg4; cg4 *= cg4;
+hi += cg4.x * wg + cg4.z * wg.wzyx;
+lo += cg4.y * wg + cg4.w * wg.wzyx;
 w = texture(ravu_lite_lut3, vec2(0.5769230769230769, coord_y));
+wg = vec4(0.17526197786264477,0.17526197786264477,0.06447527847471145,0.06447527847471145);
 res += inp[local_pos + 14] * w + inp[local_pos + 38] * w.wzyx;
+cg4 = vec4(inp[local_pos + 14], 1.0 - inp[local_pos + 14], inp[local_pos + 38], 1.0 - inp[local_pos + 38]);
+cg4 *= cg4; cg4 *= cg4; cg4 *= cg4;
+hi += cg4.x * wg + cg4.z * wg.wzyx;
+lo += cg4.y * wg + cg4.w * wg.wzyx;
 w = texture(ravu_lite_lut3, vec2(0.6538461538461539, coord_y));
+wg = vec4(0.03910623318842249,0.10630176305557089,0.014386379211676978,0.03910623318842249);
 res += inp[local_pos + 15] * w + inp[local_pos + 37] * w.wzyx;
+cg4 = vec4(inp[local_pos + 15], 1.0 - inp[local_pos + 15], inp[local_pos + 37], 1.0 - inp[local_pos + 37]);
+cg4 *= cg4; cg4 *= cg4; cg4 *= cg4;
+hi += cg4.x * wg + cg4.z * wg.wzyx;
+lo += cg4.y * wg + cg4.w * wg.wzyx;
 w = texture(ravu_lite_lut3, vec2(0.7307692307692307, coord_y));
 res += inp[local_pos + 16] * w + inp[local_pos + 36] * w.wzyx;
 w = texture(ravu_lite_lut3, vec2(0.8076923076923077, coord_y));
+wg = vec4(0.014386379211676978,0.0019469847053616204,0.014386379211676978,0.0019469847053616204);
 res += inp[local_pos + 24] * w + inp[local_pos + 28] * w.wzyx;
+cg4 = vec4(inp[local_pos + 24], 1.0 - inp[local_pos + 24], inp[local_pos + 28], 1.0 - inp[local_pos + 28]);
+cg4 *= cg4; cg4 *= cg4; cg4 *= cg4;
+hi += cg4.x * wg + cg4.z * wg.wzyx;
+lo += cg4.y * wg + cg4.w * wg.wzyx;
 w = texture(ravu_lite_lut3, vec2(0.8846153846153846, coord_y));
+wg = vec4(0.17526197786264477,0.06447527847471145,0.17526197786264477,0.06447527847471145);
 res += inp[local_pos + 25] * w + inp[local_pos + 27] * w.wzyx;
+cg4 = vec4(inp[local_pos + 25], 1.0 - inp[local_pos + 25], inp[local_pos + 27], 1.0 - inp[local_pos + 27]);
+cg4 *= cg4; cg4 *= cg4; cg4 *= cg4;
+hi += cg4.x * wg + cg4.z * wg.wzyx;
+lo += cg4.y * wg + cg4.w * wg.wzyx;
 w = texture(ravu_lite_lut3, vec2(0.9615384615384616, coord_y));
+wg = vec4(0.2889581508471174,0.2889581508471174,0.2889581508471174,0.2889581508471174);
 res += inp[local_pos + 26] * w;
-res = clamp(res, 0.0, 1.0);
+vec2 cg2 = vec2(inp[local_pos + 26], 1.0 - inp[local_pos + 26]);
+cg2 *= cg2; cg2 *= cg2; cg2 *= cg2;
+hi += cg2.x * wg;
+lo += cg2.y * wg;
+lo = sqrt(sqrt(sqrt(lo)));
+hi = sqrt(sqrt(sqrt(hi)));
+res = mix(res, clamp(res, vec4(1.0) - lo, hi), 0.750000);
 imageStore(out_image, ivec2(gl_GlobalInvocationID) * 2 + ivec2(0, 0), vec4(res[0], 0.0, 0.0, 0.0));
 imageStore(out_image, ivec2(gl_GlobalInvocationID) * 2 + ivec2(0, 1), vec4(res[1], 0.0, 0.0, 0.0));
 imageStore(out_image, ivec2(gl_GlobalInvocationID) * 2 + ivec2(1, 0), vec4(res[2], 0.0, 0.0, 0.0));
