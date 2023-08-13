@@ -49,7 +49,7 @@
 //!HOOK CHROMA
 //!BIND HOOKED
 //!DESC Non-local means (nlmeans.glsl)
-//!SAVE RF_LUMA
+//!SAVE G
 
 // User variables
 
@@ -58,9 +58,9 @@
 
 // Denoising factor (sigma, higher means more blur)
 #ifdef LUMA_raw
-#define S 1.9827232772865444
+#define S 2.256823142114533
 #else
-#define S 3.6012570326584536
+#define S 3.4651014497296604
 #endif
 
 /* Noise resistant adaptive sharpening
@@ -79,17 +79,17 @@
  */
 #ifdef LUMA_raw
 #define AS 0
-#define ASF 0.3210768548589939
-#define ASA 0.9397860227779741
-#define ASP 0.7654083023321232
-#define ASS 0.4031301466402857
+#define ASF 0.0
+#define ASA 0.0
+#define ASP 0.0
+#define ASS 0.0
 #define ASI 0
 #else
 #define AS 0
-#define ASF 0.6267063361944475
-#define ASA 1.9701543289754333
-#define ASP 1.0024630095639717
-#define ASS 0.05977279329812535
+#define ASF 0.0
+#define ASA 0.0
+#define ASP 0.0
+#define ASS 0.0
 #define ASI 0
 #endif
 
@@ -98,9 +98,9 @@
  * AKA the center weight, the weight of the pixel-of-interest.
  */
 #ifdef LUMA_raw
-#define SW 1.5783239767228352
+#define SW 0.9293523385336264
 #else
-#define SW 0.4541117622900596
+#define SW 0.37771294033462954
 #endif
 
 /* Spatial kernel
@@ -117,12 +117,12 @@
  */
 #ifdef LUMA_raw
 #define SST 1
-#define SS 0.2371122096491166
+#define SS 0.24647875197096952
 #define PST 0
 #define PSS 0.0
 #else
 #define SST 1
-#define SS 0.26280809384637216
+#define SS 0.2640653803822683
 #define PST 0
 #define PSS 0.0
 #endif
@@ -146,8 +146,8 @@
  */
 #ifdef LUMA_raw
 #define EP 0
-#define BP 0.75
-#define DP 0.25
+#define BP 0.0
+#define DP 0.0
 #else
 #define EP 0
 #define BP 0.0
@@ -210,7 +210,7 @@
  */
 #ifdef LUMA_raw
 #define RS 3
-#define PS 4
+#define PS 0
 #else
 #define RS 3
 #define PS 3
@@ -233,17 +233,17 @@
  */
 #ifdef LUMA_raw
 #define WD 1
-#define WDT 0.3653041995779023
-#define WDP 1.5164887847250401
+#define WDT 0.22765800117786558
+#define WDP 1.467103784813098
 #define WDS 1.0
 #else
-#define WD 1
-#define WDT 0.764542237528002
-#define WDP 6.824983767174218
+#define WD 0
+#define WDT 0.0
+#define WDP 0.0
 #define WDS 1.0
 #endif
 
-/* Robust filtering
+/* Guide image
  *
  * This setting is dependent on code generation from shader_cfg, so this 
  * setting can only be enabled via shader_cfg.
@@ -251,8 +251,8 @@
  * Computes weights on a guide, which could be a downscaled image or the output 
  * of another shader, and applies the weights to the original image
  */
-#define RF_LUMA 0
-#define RF 0
+#define G 0
+#define GC 0
 
 /* Rotational/reflectional invariance
  *
@@ -329,6 +329,7 @@
  *
  * bicubic
  * cos
+ * ffexp
  * gaussian
  * lanczos
  * quadratic
@@ -366,21 +367,12 @@
  *
  * Values of 0.0 mean no effect, higher values increase the effect.
  *
- * SO: spatial kernel
  * RO: range kernel (takes patch differences)
- * ASO: adaptive sharpening kernel
- * PSO: intra-patch spatial kernel
  */
 #ifdef LUMA_raw
-#define SO 0.0
-#define RO 6.09289484850738e-05
-#define PSO 0.0
-#define ASO 0.0
+#define RO 6.373764517041128e-05
 #else
-#define SO 0.0
-#define RO 0.00015152392427859513
-#define PSO 0.0
-#define ASO 0.0
+#define RO 0.0
 #endif
 
 /* Sampling method
@@ -473,22 +465,30 @@
 #define POW2(x) ((x)*(x))
 #define POW3(x) ((x)*(x)*(x))
 
+// pow() implementation that gives -pow() when x<0
+// avoids actually calling pow() since apparently it's buggy on nvidia
+#define POW(x,y) (exp(log(abs(x)) * y) * sign(x))
+
+// XXX make this capable of being set per-kernel, e.g., RK0, SK0...
+#define K0 1.0
+
 // kernels
 // XXX sinc & sphinx: 1e-3 was selected tentatively;  not sure what the correct value should be (1e-8 is too low)
-#define bicubic_(x) ((1.0/6.0) * (POW3((x)+2) - 4 * POW3((x)+1) + 6 * POW3(x) - 4 * POW3(max((x)-1, 0))))
 #define bicubic(x) bicubic_(clamp((x), 0.0, 2.0))
+#define bicubic_(x) ((1.0/6.0) * (POW3((x)+2) - 4 * POW3((x)+1) + 6 * POW3(x) - 4 * POW3(max((x)-1, 0))))
+#define ffexp(x) (POW(cos(max(EPSILON, clamp(x, 0.0, 1.0) * M_PI)), K0) * 0.5 + 0.5)
 #define gaussian(x) exp(-1 * POW2(x))
-#define quadratic_(x) ((x) < 0.5 ? 0.75 - POW2(x) : 0.5 * POW2((x) - 1.5))
+#define is_zero(x) int(x == 0)
+#define lanczos(x) (sinc3(x) * sinc(x))
 #define quadratic(x) quadratic_(clamp((x), 0.0, 1.5))
-#define sinc_(x) ((x) < 1e-3 ? 1.0 : sin((x)*M_PI) / ((x)*M_PI))
+#define quadratic_(x) ((x) < 0.5 ? 0.75 - POW2(x) : 0.5 * POW2((x) - 1.5))
 #define sinc(x) sinc_(clamp((x), 0.0, 1.0))
 #define sinc3(x) sinc_(clamp((x), 0.0, 3.0))
-#define lanczos(x) (sinc3(x) * sinc(x))
-#define sphinx_(x) ((x) < 1e-3 ? 1.0 : 3.0 * (sin((x)*M_PI) - (x)*M_PI * cos((x)*M_PI)) / POW3((x)*M_PI))
+#define sinc_(x) ((x) < 1e-3 ? 1.0 : sin((x)*M_PI) / ((x)*M_PI))
 #define sphinx(x) sphinx_(clamp((x), 0.0, 1.4302966531242027))
-#define triangle_(x) (1 - (x))
+#define sphinx_(x) ((x) < 1e-3 ? 1.0 : 3.0 * (sin((x)*M_PI) - (x)*M_PI * cos((x)*M_PI)) / POW3((x)*M_PI))
 #define triangle(x) triangle_(clamp((x), 0.0, 1.0))
-#define is_zero(x) int(x == 0)
+#define triangle_(x) (1 - (x))
 
 // XXX could maybe be better optimized on LGC
 #if defined(LUMA_raw)
@@ -597,9 +597,9 @@ const float hr = int(R/2) - 0.5*(1-(R%2));  // sample between pixels for even re
 #define FOR_FRAME(r) for (r.z = 0;  r.z < T1;  r.z++)
 
 #ifdef LUMA_raw
-#define RF_ RF_LUMA
+#define G_ G
 #else
-#define RF_ RF
+#define G_ GC
 #endif
 
 // donut increment, increments without landing on (0,0,0)
@@ -709,25 +709,25 @@ const float hr_scale = 1.0/hr;
 #endif
 
 #if GI && defined(LUMA_raw)
-#define GET_(off) sample(RF_LUMA_tex, RF_LUMA_pos, RF_LUMA_size, RF_LUMA_pt, off)
+#define GET_(off) sample(G_tex, G_pos, G_size, G_pt, off)
 #elif GI
-#define GET_(off) sample(RF_tex, RF_pos, RF_size, RF_pt, off)
+#define GET_(off) sample(GC_tex, GC_pos, GC_size, GC_pt, off)
 #else
 #define GET_(off) sample(HOOKED_tex, HOOKED_pos, HOOKED_size, HOOKED_pt, off)
 #endif
 
-#if RF_ && defined(LUMA_raw)
-#define GET_RF_(off) sample(RF_LUMA_tex, RF_LUMA_pos, RF_LUMA_size, RF_LUMA_pt, off)
-#define gather_offs(off, off_arr) (RF_LUMA_mul * vec4(textureGatherOffsets(RF_LUMA_raw, RF_LUMA_pos + vec2(off) * RF_LUMA_pt, off_arr)))
-#define gather(off) RF_LUMA_gather(RF_LUMA_pos + (off) * RF_LUMA_pt, 0)
-#elif RF_ && D1W
-#define GET_RF_(off) sample(RF_tex, RF_pos, RF_size, RF_pt, off)
-#define gather_offs(off, off_arr) (RF_mul * vec4(textureGatherOffsets(RF_raw, RF_pos + vec2(off) * RF_pt, off_arr)))
-#define gather(off) RF_gather(RF_pos + (off) * RF_pt, 0)
-#elif RF_
-#define GET_RF_(off) sample(RF_tex, RF_pos, RF_size, RF_pt, off)
+#if G_ && defined(LUMA_raw)
+#define GET_GUIDE_(off) sample(G_tex, G_pos, G_size, G_pt, off)
+#define gather_offs(off, off_arr) (G_mul * vec4(textureGatherOffsets(G_raw, G_pos + vec2(off) * G_pt, off_arr)))
+#define gather(off) G_gather(G_pos + (off) * G_pt, 0)
+#elif G_ && D1W
+#define GET_GUIDE_(off) sample(GC_tex, GC_pos, GC_size, GC_pt, off)
+#define gather_offs(off, off_arr) (GC_mul * vec4(textureGatherOffsets(GC_raw, GC_pos + vec2(off) * GC_pt, off_arr)))
+#define gather(off) GC_gather(GC_pos + (off) * GC_pt, 0)
+#elif G_
+#define GET_GUIDE_(off) sample(GC_tex, GC_pos, GC_size, GC_pt, off)
 #else
-#define GET_RF_(off) GET_(off)
+#define GET_GUIDE_(off) GET_(off)
 #define gather_offs(off, off_arr) (HOOKED_mul * vec4(textureGatherOffsets(HOOKED_raw, HOOKED_pos + vec2(off) * HOOKED_pt, off_arr)))
 #define gather(off) HOOKED_gather(HOOKED_pos + (off)*HOOKED_pt, 0)
 #endif
@@ -740,16 +740,16 @@ val GET(vec3 off)
 
 	 }
 }
-val GET_RF(vec3 off)
+val GET_GUIDE(vec3 off)
 {
-	 return off.z == 0 ? val_swizz(GET_RF_(off)) : GET(off); 
+	 return off.z == 0 ? val_swizz(GET_GUIDE_(off)) : GET(off); 
 }
 #else
 #define GET(off) val_swizz(GET_(off))
-#define GET_RF(off) val_swizz(GET_RF_(off))
+#define GET_GUIDE(off) val_swizz(GET_GUIDE_(off))
 #endif
 
-val poi2 = GET_RF(vec3(0));  // guide pixel-of-interest
+val poi2 = GET_GUIDE(vec3(0));  // guide pixel-of-interest
 vec4 poi_ = GET_(vec3(0)); 
 val poi = val_swizz(poi_);  // pixel-of-interest
 
@@ -783,7 +783,7 @@ float spatial_r(vec3 v)
 {
 	 v.xy += 0.5 - fract(HOOKED_pos*HOOKED_size); 
 	 v.z *= TD; 
-	 return SK(abs(length(v) - max(0.0, SO))*SS); 
+	 return SK(length(v)*SS); 
 }
 #else
 #define spatial_r(v) (1)
@@ -794,12 +794,12 @@ float spatial_r(vec3 v)
 float spatial_as(vec3 v)
 {
 	 v.xy += 0.5 - fract(HOOKED_pos*HOOKED_size); 
-	 return ASK(abs(length(v) - max(0.0, ASO))*ASS) * int(v.z == 0); 
+	 return ASK(length(v)*ASS) * int(v.z == 0); 
 }
 #endif
 
 #if PST && P >= PST
-#define spatial_p(v) PSK(abs(length(v) - max(0.0, PSO))*PSS)
+#define spatial_p(v) PSK(length(v)*PSS)
 #else
 #define spatial_p(v) (1)
 #endif
@@ -808,41 +808,15 @@ val range(val pdiff_sq)
 {
 	 const float h = max(EPSILON, S) * 0.013; 
 	 const float pdiff_scale = 1.0/(h*h); 
-	 pdiff_sq = sqrt(abs(pdiff_sq - max(0.0, RO)) * pdiff_scale); 
+	 pdiff_sq = sqrt(abs(pdiff_sq - max(EPSILON, RO)) * pdiff_scale); 
 	 return MAP(RK, pdiff_sq); 
 }
 
-val patch_comparison(vec3 r)
-{
-	 vec3 p; 
-	 val min_rot = val(p_area); 
-
-	 FOR_ROTATION FOR_REFLECTION {
-	 	 val pdiff_sq = val(0); 
-	 	 val total_weight = val(0); 
-
-	 	 FOR_PATCH(p) {
-	 	 	 vec3 transformed_p = SF * vec3(ref(rot(p.xy, ri), rfi), p.z); 
-	 	 	 val diff_sq = GET_RF(p) - GET_RF(transformed_p + r); 
-	 	 	 diff_sq *= diff_sq; 
-
-	 	 	 float weight = spatial_p(p.xy); 
-	 	 	 pdiff_sq += diff_sq * weight; 
-	 	 	 total_weight += weight; 
-	 	 }
-
-	 	 min_rot = min(min_rot, pdiff_sq / max(val(EPSILON),total_weight)); 
-	 }
-
-	 return min_rot; 
-}
-
-#define NO_GATHER (PD == 0 && NG == 0 && SAMPLE == 0) // never textureGather if any of these conditions are false
+#define GATHER (PD == 0 && NG == 0 && SAMPLE == 0) // never textureGather if any of these conditions are false
 #define REGULAR_ROTATIONS (RI == 0 || RI == 1 || RI == 3 || RI == 7)
 
-#if (defined(LUMA_gather) || D1W) && ((PS == 0 || ((PS == 3 || PS == 7) && RI != 7) || PS == 8) && P == 3) && REGULAR_ROTATIONS && NO_GATHER
-// 3x3 diamond/plus patch_comparison_gather
-// XXX extend to support arbitrary sizes (probably requires code generation)
+#if (defined(LUMA_gather) || D1W) && ((PS == 0 || ((PS == 3 || PS == 7) && RI != 7) || PS == 8) && P == 3) && REGULAR_ROTATIONS && GATHER
+// 3x3 diamond/plus or square patch_comparison_gather
 const ivec2 offsets_adj[4] = { ivec2(0,-1), ivec2(1,0), ivec2(0,1), ivec2(-1,0) }; 
 const ivec2 offsets_adj_sf[4] = { ivec2(0,-1) * SF, ivec2(1,0) * SF, ivec2(0,1) * SF, ivec2(-1,0) * SF }; 
 vec4 poi_patch_adj = gather_offs(0, offsets_adj); 
@@ -929,10 +903,10 @@ float patch_comparison_gather(vec3 r)
 	 float total_weight = spatial_p(vec2(0,0)) + 4 * spatial_p(vec2(0,1)); 
 #endif
 
-	 float center_diff = poi2.x - GET_RF(r).x; 
+	 float center_diff = poi2.x - GET_GUIDE(r).x; 
 	 return (POW2(center_diff) + min_rot) / max(EPSILON,total_weight); 
 }
-#elif (defined(LUMA_gather) || D1W) && PS == 4 && P == 3 && RI == 0 && RFI == 0 && NO_GATHER
+#elif (defined(LUMA_gather) || D1W) && PS == 4 && P == 3 && RI == 0 && RFI == 0 && GATHER
 const ivec2 offsets[4] = { ivec2(0,-1), ivec2(-1,0), ivec2(0,0), ivec2(1,0) }; 
 const ivec2 offsets_sf[4] = { ivec2(0,-1) * SF, ivec2(-1,0) * SF, ivec2(0,0) * SF, ivec2(1,0) * SF }; 
 vec4 poi_patch = gather_offs(0, offsets); 
@@ -942,7 +916,7 @@ float patch_comparison_gather(vec3 r)
 	 vec4 pdiff = poi_patch - gather_offs(r, offsets_sf); 
 	 return dot(POW2(pdiff) * spatial_p_weights, vec4(1)) / dot(spatial_p_weights, vec4(1)); 
 }
-#elif (defined(LUMA_gather) || D1W) && PS == 6 && RI == 0 && RFI == 0 && NO_GATHER
+#elif (defined(LUMA_gather) || D1W) && PS == 6 && RI == 0 && RFI == 0 && GATHER
 // tiled even square patch_comparison_gather
 // XXX extend to support odd square?
 float patch_comparison_gather(vec3 r)
@@ -965,7 +939,40 @@ float patch_comparison_gather(vec3 r)
 }
 #else
 #define patch_comparison_gather patch_comparison
+#define STORE_POI_PATCH 1
+val poi_patch[p_area]; 
 #endif
+
+val patch_comparison(vec3 r)
+{
+	 vec3 p; 
+	 val min_rot = val(p_area); 
+
+	 FOR_ROTATION FOR_REFLECTION {
+	 	 val pdiff_sq = val(0); 
+	 	 val total_weight = val(0); 
+
+	 	 int p_index = 0; 
+	 	 FOR_PATCH(p) {
+#ifdef STORE_POI_PATCH
+	 	 	 val poi_p = poi_patch[p_index++]; 
+#else
+	 	 	 val poi_p = GET_GUIDE(p); 
+#endif
+	 	 	 vec3 transformed_p = SF * vec3(ref(rot(p.xy, ri), rfi), p.z); 
+	 	 	 val diff_sq = poi_p - GET_GUIDE(transformed_p + r); 
+	 	 	 diff_sq *= diff_sq; 
+
+	 	 	 float weight = spatial_p(p.xy); 
+	 	 	 pdiff_sq += diff_sq * weight; 
+	 	 	 total_weight += weight; 
+	 	 }
+
+	 	 min_rot = min(min_rot, pdiff_sq / max(val(EPSILON),total_weight)); 
+	 }
+
+	 return min_rot; 
+}
 
 vec4 hook()
 {
@@ -999,6 +1006,13 @@ vec4 hook()
 	 int r_index = 0; 
 	 val_packed all_weights[r_area]; 
 	 val_packed all_pixels[r_area]; 
+#endif
+
+#ifdef STORE_POI_PATCH
+	 vec3 p; 
+	 int p_index = 0; 
+	 FOR_PATCH(p)
+	 	 poi_patch[p_index++] = GET_GUIDE(p); 
 #endif
 	 
 #if WD == 1 // weight discard (moving cumulative average)
@@ -1161,7 +1175,7 @@ vec4 hook()
 
 #if AS // sharpening
 	 val usm = AS_input - sum_as/max(val(EPSILON),total_weight_as); 
-	 usm = exp(log(abs(usm))*ASP) * sign(usm);  // avoiding pow() since it's buggy on nvidia
+	 usm = POW(usm, ASP); 
 	 usm *= ASAK(abs((AS_base + usm - 0.5) / 1.5) * ASA); 
 	 usm *= ASF; 
 	 result = AS_base + usm; 
@@ -1169,8 +1183,7 @@ vec4 hook()
 
 #if EP // extremes preserve
 	 float luminance = EP_texOff(0).x; 
-	 // EPSILON is needed since pow(0,0) is undefined
-	 float ep_weight = pow(EPSILON,max(min(1-luminance, luminance)*2), (luminance < 0.5 ? DP : BP)); 
+	 float ep_weight = POW(max(EPSILON, min(1-luminance, luminance)*2), (luminance < 0.5 ? DP : BP)); 
 	 result = mix(poi, result, ep_weight); 
 #else
 	 float ep_weight = 0; 
@@ -1211,22 +1224,22 @@ vec4 hook()
 
 //!HOOK LUMA
 //!HOOK CHROMA
-//!BIND RF_LUMA
-//!WIDTH RF_LUMA.w
-//!HEIGHT RF_LUMA.h
-//!DESC Non-local means (RF, share)
-//!SAVE RF
+//!BIND G
+//!WIDTH G.w
+//!HEIGHT G.h
+//!DESC Non-local means (Guide, share)
+//!SAVE GC
 
 vec4 hook()
 {
-	return RF_LUMA_texOff(0);
+	return G_texOff(0);
 }
 
 //!HOOK LUMA
 //!HOOK CHROMA
 //!BIND HOOKED
-//!BIND RF_LUMA
-//!BIND RF
+//!BIND G
+//!BIND GC
 //!DESC Non-local means (nlmeans.glsl)
 
 // User variables
@@ -1236,9 +1249,9 @@ vec4 hook()
 
 // Denoising factor (sigma, higher means more blur)
 #ifdef LUMA_raw
-#define S 3.1827383938967055
+#define S 3.0050888013675934
 #else
-#define S 0.6455008168703905
+#define S 0.6623870976219048
 #endif
 
 /* Noise resistant adaptive sharpening
@@ -1257,17 +1270,17 @@ vec4 hook()
  */
 #ifdef LUMA_raw
 #define AS 0
-#define ASF 0.3210768548589939
-#define ASA 0.9397860227779741
-#define ASP 0.7654083023321232
-#define ASS 0.4031301466402857
+#define ASF 0.0
+#define ASA 0.0
+#define ASP 0.0
+#define ASS 0.0
 #define ASI 0
 #else
 #define AS 0
-#define ASF 0.6267063361944475
-#define ASA 1.9701543289754333
-#define ASP 1.0024630095639717
-#define ASS 0.05977279329812535
+#define ASF 0.0
+#define ASA 0.0
+#define ASP 0.0
+#define ASS 0.0
 #define ASI 0
 #endif
 
@@ -1276,9 +1289,9 @@ vec4 hook()
  * AKA the center weight, the weight of the pixel-of-interest.
  */
 #ifdef LUMA_raw
-#define SW 1.1213337580163236
+#define SW 0.6769869156640409
 #else
-#define SW 0.4136290600940447
+#define SW 0.3991636398251298
 #endif
 
 /* Spatial kernel
@@ -1295,12 +1308,12 @@ vec4 hook()
  */
 #ifdef LUMA_raw
 #define SST 1
-#define SS 0.6291164020670924
+#define SS 1.2554973264946998
 #define PST 0
 #define PSS 0.0
 #else
 #define SST 1
-#define SS 0.11532252620514147
+#define SS 0.1097208326884282
 #define PST 0
 #define PSS 0.0
 #endif
@@ -1324,8 +1337,8 @@ vec4 hook()
  */
 #ifdef LUMA_raw
 #define EP 0
-#define BP 0.75
-#define DP 0.25
+#define BP 0.0
+#define DP 0.0
 #else
 #define EP 0
 #define BP 0.0
@@ -1363,7 +1376,7 @@ vec4 hook()
  */
 #ifdef LUMA_raw
 #define P 3
-#define R 5
+#define R 3
 #else
 #define P 3
 #define R 5
@@ -1411,17 +1424,17 @@ vec4 hook()
  */
 #ifdef LUMA_raw
 #define WD 2
-#define WDT 0.36129961874573835
-#define WDP 5.402102275251726
+#define WDT 0.502042050326508
+#define WDP 0.0
 #define WDS 1.0
 #else
 #define WD 0
-#define WDT 0.002713346103131793
-#define WDP 5.692202343435388
+#define WDT 0.0
+#define WDP 0.0
 #define WDS 1.0
 #endif
 
-/* Robust filtering
+/* Guide image
  *
  * This setting is dependent on code generation from shader_cfg, so this 
  * setting can only be enabled via shader_cfg.
@@ -1429,8 +1442,8 @@ vec4 hook()
  * Computes weights on a guide, which could be a downscaled image or the output 
  * of another shader, and applies the weights to the original image
  */
-#define RF_LUMA 1
-#define RF 1
+#define G 1
+#define GC 1
 
 /* Rotational/reflectional invariance
  *
@@ -1507,6 +1520,7 @@ vec4 hook()
  *
  * bicubic
  * cos
+ * ffexp
  * gaussian
  * lanczos
  * quadratic
@@ -1544,21 +1558,12 @@ vec4 hook()
  *
  * Values of 0.0 mean no effect, higher values increase the effect.
  *
- * SO: spatial kernel
  * RO: range kernel (takes patch differences)
- * ASO: adaptive sharpening kernel
- * PSO: intra-patch spatial kernel
  */
 #ifdef LUMA_raw
-#define SO 0.0
-#define RO 0.00010348465506257572
-#define PSO 0.0
-#define ASO 0.0
+#define RO 9.4514748889311e-05
 #else
-#define SO 0.0
-#define RO 8.527121820564037e-05
-#define PSO 0.0
-#define ASO 0.0
+#define RO 8.568093800527619e-05
 #endif
 
 /* Sampling method
@@ -1651,22 +1656,30 @@ vec4 hook()
 #define POW2(x) ((x)*(x))
 #define POW3(x) ((x)*(x)*(x))
 
+// pow() implementation that gives -pow() when x<0
+// avoids actually calling pow() since apparently it's buggy on nvidia
+#define POW(x,y) (exp(log(abs(x)) * y) * sign(x))
+
+// XXX make this capable of being set per-kernel, e.g., RK0, SK0...
+#define K0 1.0
+
 // kernels
 // XXX sinc & sphinx: 1e-3 was selected tentatively; not sure what the correct value should be (1e-8 is too low)
-#define bicubic_(x) ((1.0/6.0) * (POW3((x)+2) - 4 * POW3((x)+1) + 6 * POW3(x) - 4 * POW3(max((x)-1, 0))))
 #define bicubic(x) bicubic_(clamp((x), 0.0, 2.0))
+#define bicubic_(x) ((1.0/6.0) * (POW3((x)+2) - 4 * POW3((x)+1) + 6 * POW3(x) - 4 * POW3(max((x)-1, 0))))
+#define ffexp(x) (POW(cos(max(EPSILON, clamp(x, 0.0, 1.0) * M_PI)), K0) * 0.5 + 0.5)
 #define gaussian(x) exp(-1 * POW2(x))
-#define quadratic_(x) ((x) < 0.5 ? 0.75 - POW2(x) : 0.5 * POW2((x) - 1.5))
+#define is_zero(x) int(x == 0)
+#define lanczos(x) (sinc3(x) * sinc(x))
 #define quadratic(x) quadratic_(clamp((x), 0.0, 1.5))
-#define sinc_(x) ((x) < 1e-3 ? 1.0 : sin((x)*M_PI) / ((x)*M_PI))
+#define quadratic_(x) ((x) < 0.5 ? 0.75 - POW2(x) : 0.5 * POW2((x) - 1.5))
 #define sinc(x) sinc_(clamp((x), 0.0, 1.0))
 #define sinc3(x) sinc_(clamp((x), 0.0, 3.0))
-#define lanczos(x) (sinc3(x) * sinc(x))
-#define sphinx_(x) ((x) < 1e-3 ? 1.0 : 3.0 * (sin((x)*M_PI) - (x)*M_PI * cos((x)*M_PI)) / POW3((x)*M_PI))
+#define sinc_(x) ((x) < 1e-3 ? 1.0 : sin((x)*M_PI) / ((x)*M_PI))
 #define sphinx(x) sphinx_(clamp((x), 0.0, 1.4302966531242027))
-#define triangle_(x) (1 - (x))
+#define sphinx_(x) ((x) < 1e-3 ? 1.0 : 3.0 * (sin((x)*M_PI) - (x)*M_PI * cos((x)*M_PI)) / POW3((x)*M_PI))
 #define triangle(x) triangle_(clamp((x), 0.0, 1.0))
-#define is_zero(x) int(x == 0)
+#define triangle_(x) (1 - (x))
 
 // XXX could maybe be better optimized on LGC
 #if defined(LUMA_raw)
@@ -1775,9 +1788,9 @@ const float hr = int(R/2) - 0.5*(1-(R%2)); // sample between pixels for even res
 #define FOR_FRAME(r) for (r.z = 0; r.z < T1; r.z++)
 
 #ifdef LUMA_raw
-#define RF_ RF_LUMA
+#define G_ G
 #else
-#define RF_ RF
+#define G_ GC
 #endif
 
 // donut increment, increments without landing on (0,0,0)
@@ -1887,25 +1900,25 @@ const float hr_scale = 1.0/hr;
 #endif
 
 #if GI && defined(LUMA_raw)
-#define GET_(off) sample(RF_LUMA_tex, RF_LUMA_pos, RF_LUMA_size, RF_LUMA_pt, off)
+#define GET_(off) sample(G_tex, G_pos, G_size, G_pt, off)
 #elif GI
-#define GET_(off) sample(RF_tex, RF_pos, RF_size, RF_pt, off)
+#define GET_(off) sample(GC_tex, GC_pos, GC_size, GC_pt, off)
 #else
 #define GET_(off) sample(HOOKED_tex, HOOKED_pos, HOOKED_size, HOOKED_pt, off)
 #endif
 
-#if RF_ && defined(LUMA_raw)
-#define GET_RF_(off) sample(RF_LUMA_tex, RF_LUMA_pos, RF_LUMA_size, RF_LUMA_pt, off)
-#define gather_offs(off, off_arr) (RF_LUMA_mul * vec4(textureGatherOffsets(RF_LUMA_raw, RF_LUMA_pos + vec2(off) * RF_LUMA_pt, off_arr)))
-#define gather(off) RF_LUMA_gather(RF_LUMA_pos + (off) * RF_LUMA_pt, 0)
-#elif RF_ && D1W
-#define GET_RF_(off) sample(RF_tex, RF_pos, RF_size, RF_pt, off)
-#define gather_offs(off, off_arr) (RF_mul * vec4(textureGatherOffsets(RF_raw, RF_pos + vec2(off) * RF_pt, off_arr)))
-#define gather(off) RF_gather(RF_pos + (off) * RF_pt, 0)
-#elif RF_
-#define GET_RF_(off) sample(RF_tex, RF_pos, RF_size, RF_pt, off)
+#if G_ && defined(LUMA_raw)
+#define GET_GUIDE_(off) sample(G_tex, G_pos, G_size, G_pt, off)
+#define gather_offs(off, off_arr) (G_mul * vec4(textureGatherOffsets(G_raw, G_pos + vec2(off) * G_pt, off_arr)))
+#define gather(off) G_gather(G_pos + (off) * G_pt, 0)
+#elif G_ && D1W
+#define GET_GUIDE_(off) sample(GC_tex, GC_pos, GC_size, GC_pt, off)
+#define gather_offs(off, off_arr) (GC_mul * vec4(textureGatherOffsets(GC_raw, GC_pos + vec2(off) * GC_pt, off_arr)))
+#define gather(off) GC_gather(GC_pos + (off) * GC_pt, 0)
+#elif G_
+#define GET_GUIDE_(off) sample(GC_tex, GC_pos, GC_size, GC_pt, off)
 #else
-#define GET_RF_(off) GET_(off)
+#define GET_GUIDE_(off) GET_(off)
 #define gather_offs(off, off_arr) (HOOKED_mul * vec4(textureGatherOffsets(HOOKED_raw, HOOKED_pos + vec2(off) * HOOKED_pt, off_arr)))
 #define gather(off) HOOKED_gather(HOOKED_pos + (off)*HOOKED_pt, 0)
 #endif
@@ -1918,16 +1931,16 @@ val GET(vec3 off)
 
 	}
 }
-val GET_RF(vec3 off)
+val GET_GUIDE(vec3 off)
 {
-	return off.z == 0 ? val_swizz(GET_RF_(off)) : GET(off);
+	return off.z == 0 ? val_swizz(GET_GUIDE_(off)) : GET(off);
 }
 #else
 #define GET(off) val_swizz(GET_(off))
-#define GET_RF(off) val_swizz(GET_RF_(off))
+#define GET_GUIDE(off) val_swizz(GET_GUIDE_(off))
 #endif
 
-val poi2 = GET_RF(vec3(0)); // guide pixel-of-interest
+val poi2 = GET_GUIDE(vec3(0)); // guide pixel-of-interest
 vec4 poi_ = GET_(vec3(0));
 val poi = val_swizz(poi_); // pixel-of-interest
 
@@ -1961,7 +1974,7 @@ float spatial_r(vec3 v)
 {
 	v.xy += 0.5 - fract(HOOKED_pos*HOOKED_size);
 	v.z *= TD;
-	return SK(abs(length(v) - max(0.0, SO))*SS);
+	return SK(length(v)*SS);
 }
 #else
 #define spatial_r(v) (1)
@@ -1972,12 +1985,12 @@ float spatial_r(vec3 v)
 float spatial_as(vec3 v)
 {
 	v.xy += 0.5 - fract(HOOKED_pos*HOOKED_size);
-	return ASK(abs(length(v) - max(0.0, ASO))*ASS) * int(v.z == 0);
+	return ASK(length(v)*ASS) * int(v.z == 0);
 }
 #endif
 
 #if PST && P >= PST
-#define spatial_p(v) PSK(abs(length(v) - max(0.0, PSO))*PSS)
+#define spatial_p(v) PSK(length(v)*PSS)
 #else
 #define spatial_p(v) (1)
 #endif
@@ -1986,41 +1999,15 @@ val range(val pdiff_sq)
 {
 	const float h = max(EPSILON, S) * 0.013;
 	const float pdiff_scale = 1.0/(h*h);
-	pdiff_sq = sqrt(abs(pdiff_sq - max(0.0, RO)) * pdiff_scale);
+	pdiff_sq = sqrt(abs(pdiff_sq - max(EPSILON, RO)) * pdiff_scale);
 	return MAP(RK, pdiff_sq);
 }
 
-val patch_comparison(vec3 r)
-{
-	vec3 p;
-	val min_rot = val(p_area);
-
-	FOR_ROTATION FOR_REFLECTION {
-		val pdiff_sq = val(0);
-		val total_weight = val(0);
-
-		FOR_PATCH(p) {
-			vec3 transformed_p = SF * vec3(ref(rot(p.xy, ri), rfi), p.z);
-			val diff_sq = GET_RF(p) - GET_RF(transformed_p + r);
-			diff_sq *= diff_sq;
-
-			float weight = spatial_p(p.xy);
-			pdiff_sq += diff_sq * weight;
-			total_weight += weight;
-		}
-
-		min_rot = min(min_rot, pdiff_sq / max(val(EPSILON),total_weight));
-	}
-
-	return min_rot;
-}
-
-#define NO_GATHER (PD == 0 && NG == 0 && SAMPLE == 0) // never textureGather if any of these conditions are false
+#define GATHER (PD == 0 && NG == 0 && SAMPLE == 0) // never textureGather if any of these conditions are false
 #define REGULAR_ROTATIONS (RI == 0 || RI == 1 || RI == 3 || RI == 7)
 
-#if (defined(LUMA_gather) || D1W) && ((PS == 0 || ((PS == 3 || PS == 7) && RI != 7) || PS == 8) && P == 3) && REGULAR_ROTATIONS && NO_GATHER
-// 3x3 diamond/plus patch_comparison_gather
-// XXX extend to support arbitrary sizes (probably requires code generation)
+#if (defined(LUMA_gather) || D1W) && ((PS == 0 || ((PS == 3 || PS == 7) && RI != 7) || PS == 8) && P == 3) && REGULAR_ROTATIONS && GATHER
+// 3x3 diamond/plus or square patch_comparison_gather
 const ivec2 offsets_adj[4] = { ivec2(0,-1), ivec2(1,0), ivec2(0,1), ivec2(-1,0) };
 const ivec2 offsets_adj_sf[4] = { ivec2(0,-1) * SF, ivec2(1,0) * SF, ivec2(0,1) * SF, ivec2(-1,0) * SF };
 vec4 poi_patch_adj = gather_offs(0, offsets_adj);
@@ -2107,10 +2094,10 @@ float patch_comparison_gather(vec3 r)
 	float total_weight = spatial_p(vec2(0,0)) + 4 * spatial_p(vec2(0,1));
 #endif
 
-	float center_diff = poi2.x - GET_RF(r).x;
+	float center_diff = poi2.x - GET_GUIDE(r).x;
 	return (POW2(center_diff) + min_rot) / max(EPSILON,total_weight);
 }
-#elif (defined(LUMA_gather) || D1W) && PS == 4 && P == 3 && RI == 0 && RFI == 0 && NO_GATHER
+#elif (defined(LUMA_gather) || D1W) && PS == 4 && P == 3 && RI == 0 && RFI == 0 && GATHER
 const ivec2 offsets[4] = { ivec2(0,-1), ivec2(-1,0), ivec2(0,0), ivec2(1,0) };
 const ivec2 offsets_sf[4] = { ivec2(0,-1) * SF, ivec2(-1,0) * SF, ivec2(0,0) * SF, ivec2(1,0) * SF };
 vec4 poi_patch = gather_offs(0, offsets);
@@ -2120,7 +2107,7 @@ float patch_comparison_gather(vec3 r)
 	vec4 pdiff = poi_patch - gather_offs(r, offsets_sf);
 	return dot(POW2(pdiff) * spatial_p_weights, vec4(1)) / dot(spatial_p_weights, vec4(1));
 }
-#elif (defined(LUMA_gather) || D1W) && PS == 6 && RI == 0 && RFI == 0 && NO_GATHER
+#elif (defined(LUMA_gather) || D1W) && PS == 6 && RI == 0 && RFI == 0 && GATHER
 // tiled even square patch_comparison_gather
 // XXX extend to support odd square?
 float patch_comparison_gather(vec3 r)
@@ -2143,7 +2130,40 @@ float patch_comparison_gather(vec3 r)
 }
 #else
 #define patch_comparison_gather patch_comparison
+#define STORE_POI_PATCH 1
+val poi_patch[p_area];
 #endif
+
+val patch_comparison(vec3 r)
+{
+	vec3 p;
+	val min_rot = val(p_area);
+
+	FOR_ROTATION FOR_REFLECTION {
+		val pdiff_sq = val(0);
+		val total_weight = val(0);
+
+		int p_index = 0;
+		FOR_PATCH(p) {
+#ifdef STORE_POI_PATCH
+			val poi_p = poi_patch[p_index++];
+#else
+			val poi_p = GET_GUIDE(p);
+#endif
+			vec3 transformed_p = SF * vec3(ref(rot(p.xy, ri), rfi), p.z);
+			val diff_sq = poi_p - GET_GUIDE(transformed_p + r);
+			diff_sq *= diff_sq;
+
+			float weight = spatial_p(p.xy);
+			pdiff_sq += diff_sq * weight;
+			total_weight += weight;
+		}
+
+		min_rot = min(min_rot, pdiff_sq / max(val(EPSILON),total_weight));
+	}
+
+	return min_rot;
+}
 
 vec4 hook()
 {
@@ -2177,6 +2197,13 @@ vec4 hook()
 	int r_index = 0;
 	val_packed all_weights[r_area];
 	val_packed all_pixels[r_area];
+#endif
+
+#ifdef STORE_POI_PATCH
+	vec3 p;
+	int p_index = 0;
+	FOR_PATCH(p)
+		poi_patch[p_index++] = GET_GUIDE(p);
 #endif
 	
 #if WD == 1 // weight discard (moving cumulative average)
@@ -2339,7 +2366,7 @@ vec4 hook()
 
 #if AS // sharpening
 	val usm = AS_input - sum_as/max(val(EPSILON),total_weight_as);
-	usm = exp(log(abs(usm))*ASP) * sign(usm); // avoiding pow() since it's buggy on nvidia
+	usm = POW(usm, ASP);
 	usm *= ASAK(abs((AS_base + usm - 0.5) / 1.5) * ASA);
 	usm *= ASF;
 	result = AS_base + usm;
@@ -2347,8 +2374,7 @@ vec4 hook()
 
 #if EP // extremes preserve
 	float luminance = EP_texOff(0).x;
-	// EPSILON is needed since pow(0,0) is undefined
-	float ep_weight = pow(EPSILON,max(min(1-luminance, luminance)*2), (luminance < 0.5 ? DP : BP));
+	float ep_weight = POW(max(EPSILON, min(1-luminance, luminance)*2), (luminance < 0.5 ? DP : BP));
 	result = mix(poi, result, ep_weight);
 #else
 	float ep_weight = 0;

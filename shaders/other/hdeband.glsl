@@ -31,27 +31,69 @@
 
 // User variables
 
-// Higher numbers increase blur over longer distances
-#define S 5.333
+// Lower numbers increase blur over longer distances
+#ifdef LUMA_raw
+#define S 0.034304676294450484
+#else
+#define S 0.004515346394486392
+#endif
 
-// Higher numbers blur more when intensity varies more between bands
-#define SI 0.005
+// Lower numbers blur more when intensity varies more between bands
+#ifdef LUMA_raw
+#define SI 13.981098661213158
+#else
+#define SI 9.282798730786997
+#endif
+
+// Higher numbers reduce blur for shorter runs
+#ifdef LUMA_raw
+#define SR 0.00470143785673109
+#else
+#define SR 0.01875762429796768
+#endif
 
 // Starting weight, lower values give less weight to the input image
-#define SW 0.15
+#ifdef LUMA_raw
+#define SW 0.4222209878189642
+#else
+#define SW 0.014964614667886796
+#endif
 
 // Bigger numbers search further, but slower
-#define RADIUS 16
+#ifdef LUMA_raw
+#define RADIUS 8
+#else
+#define RADIUS 8
+#endif
 
 // Bigger numbers search further, but less accurate
+#ifdef LUMA_raw
 #define SPARSITY 0.0
+#else
+#define SPARSITY 0.0
+#endif
 
 // Bigger numbers search in more directions, slower (max 8)
 // Only 4 and 8 are symmetrical, everything else blurs directionally
-#define DIRECTIONS 4
+#ifdef LUMA_raw
+#define DIRECTIONS 8
+#else
+#define DIRECTIONS 8
+#endif
 
 // A region is considered a run if it varies less than this
+#ifdef LUMA_raw
 #define TOLERANCE 0.001
+#else
+#define TOLERANCE 0.001
+#endif
+
+// 0 for avg, 1 for min, 2 for max
+#ifdef LUMA_raw
+#define M 0
+#else
+#define M 0
+#endif
 
 // Shader code
 
@@ -75,6 +117,7 @@
 #define val_packed val
 #define val_pack(v) (v)
 #define val_unpack(v) (v)
+#define MAP(f,param) f(param)
 #elif defined(CHROMA_raw)
 #define val vec2
 #define val_swizz(v) (v.xy)
@@ -82,6 +125,7 @@
 #define val_packed uint
 #define val_pack(v) packUnorm2x16(v)
 #define val_unpack(v) unpackUnorm2x16(v)
+#define MAP(f,param) vec2(f(param.x), f(param.y))
 #else
 #define val vec3
 #define val_swizz(v) (v.xyz)
@@ -89,9 +133,8 @@
 #define val_packed val
 #define val_pack(v) (v)
 #define val_unpack(v) (v)
+#define MAP(f,param) vec3(f(param.x), f(param.y), f(param.z))
 #endif
-
-const float si_scale = 1.0/float(SI);
 
 vec4 poi_ = HOOKED_texOff(0);
 val poi = val_swizz(poi_);
@@ -124,8 +167,14 @@ val poi = val_swizz(poi_);
 
 vec4 hook()
 {
-	val sum = poi * SW;
+	val sum = val(poi * SW);
+#if M == 1 // min
+	val total_weight = val(RADIUS);
+#elif M == 2 // max
+	val total_weight = val(0);
+#else // avg
 	val total_weight = val(SW);
+#endif
 
 	for (int dir = 0; dir < DIRECTIONS; dir++) {
 		vec2 direction;
@@ -141,36 +190,51 @@ vec4 hook()
 		}
 
 		val prev_px = poi;
-		val prev_weight = val(0);
+		val prev_was_run = val(0);
+		val prev_weight = val(1);
 		val not_done = val(1);
+		val run = val(1);
+		val dir_sum = poi * SW;
+		val dir_total_weight = val(SW);
 		for (int i = 1; i <= RADIUS; i++) {
 			float sparsity = floor(i * SPARSITY);
 			val px = val_swizz(HOOKED_texOff((i + sparsity) * direction));
-			val weight = step(abs(prev_px - px), val(TOLERANCE));
+			val is_run = step(abs(prev_px - px), val(TOLERANCE));
 
 			// stop blurring after discovering a 1px run
-			not_done *= step(val(1), prev_weight + weight);
+			not_done *= step(val(1), prev_was_run + is_run);
 
 			// consider skipped pixels as runs if their neighbors are both runs
-			float new_sparsity = sparsity - floor((i - 1) * SPARSITY);
-			const float s_scale = 1.0 / S;
-			weight = weight * gaussian(length(i * direction) * s_scale)
-				+ weight * new_sparsity * gaussian(length((i - 1) * direction) * s_scale);
+			float sparsity_delta = sparsity - floor((i - 1) * SPARSITY);
+			float prev_sparsity = floor((i - 1) * SPARSITY);
+			val weight = val(gaussian(length((i + sparsity) * direction) * max(0.0, S)));
+			weight = is_run * weight + is_run * prev_weight * sparsity_delta;
 
-			// run's 2nd pixel has weight doubled to compensate for 1st pixel's weight of 0
-			weight += weight * NOT(prev_weight);
+			// run's 2nd pixel has weight increased to compensate for 1st pixel's weight of 0
+			// XXX doesn't account for sparsity
+			weight += prev_weight * NOT(prev_was_run);
 
-			weight *= gaussian(abs(poi - px) * si_scale);
+			weight *= gaussian(abs(poi - px) * max(0.0, SI));
 
-			weight *= 1 - step(abs(poi - px), val(TOLERANCE)) * (1 - SW);
+			weight *= gaussian((run += is_run) * SR);
 
-			sum += prev_px * weight * not_done;
-			total_weight += weight * not_done;
+			dir_sum += prev_px * weight * not_done;
+			dir_total_weight += weight * not_done;
 
-			weight = ceil(min(weight, val(1)));
-			prev_px = TERNARY(weight, prev_px, px);
+			prev_px = TERNARY(is_run, prev_px, px);
+			prev_was_run = is_run;
 			prev_weight = weight;
 		}
+#if M == 1
+		sum = TERNARY(step(dir_total_weight, total_weight), dir_sum, sum);
+		total_weight = min(dir_total_weight, total_weight);
+#elif M == 2
+		sum = TERNARY(step(total_weight, dir_total_weight), dir_sum, sum);
+		total_weight = max(dir_total_weight, total_weight);
+#else
+		sum += dir_sum;
+		total_weight += dir_total_weight;
+#endif
 	}
 
 	val result = sum / total_weight;

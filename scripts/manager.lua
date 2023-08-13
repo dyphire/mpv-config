@@ -4,17 +4,6 @@ local legacy = mp.command_native_async == nil
 local config = {}
 local dir_cache = {}
 
-local f = io.open(mp.command_native({"expand-path", "~~/manager.json"}), "r")
-if f then
-    local json = f:read("*all")
-    f:close()
-
-    local props = utils.parse_json(json or "")
-    if props then
-        config = props
-    end
-end
-
 function run(args)
     if legacy then
         return utils.subprocess({args = args})
@@ -149,6 +138,17 @@ function update(info)
 end
 
 function update_all()
+    local f = io.open(mp.command_native({"expand-path", "~~/manager.json"}), "r")
+    if f then
+        local json = f:read("*all")
+        f:close()
+
+        local props = utils.parse_json(json or "")
+        if props then
+            config = props
+        end
+    end
+
     for i, info in ipairs(config) do
         print("updating", (info.git:match("([^/]+)%.git$") or info.git).."...")
         if not update(info) then msg.error("FAILED") end

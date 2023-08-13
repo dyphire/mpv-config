@@ -28,7 +28,6 @@ for (int id = int(gl_LocalInvocationIndex); id < 432; id += int(gl_WorkGroupSize
 int x = id / 12, y = id % 12;
 inp[id] = HOOKED_tex(HOOKED_pt * vec2(float(group_base.x+x)+(-1.5), float(group_base.y+y)+(-1.5))).x;
 }
-groupMemoryBarrier();
 barrier();
 float luma0 = inp[local_pos + 0];
 float luma1 = inp[local_pos + 1];

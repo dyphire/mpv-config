@@ -12,52 +12,51 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-//!DESC RAVU-Lite-AR (r2, compute)
+//!DESC RAVU-Lite-AR (step1, r2)
 //!HOOK LUMA
 //!BIND HOOKED
 //!BIND ravu_lite_lut2
-//!WIDTH 2 HOOKED.w *
-//!HEIGHT 2 HOOKED.h *
+//!SAVE ravu_lite_int
 //!WHEN HOOKED.w OUTPUT.w / 0.833333 < HOOKED.h OUTPUT.h / 0.833333 < *
-//!COMPUTE 64 16 32 8
-shared float inp[340];
-void hook() {
-ivec2 group_base = ivec2(gl_WorkGroupID) * ivec2(gl_WorkGroupSize);
-int local_pos = int(gl_LocalInvocationID.x) * 10 + int(gl_LocalInvocationID.y);
-for (int id = int(gl_LocalInvocationIndex); id < 340; id += int(gl_WorkGroupSize.x * gl_WorkGroupSize.y)) {
-int x = id / 10, y = id % 10;
-inp[id] = HOOKED_tex(HOOKED_pt * vec2(float(group_base.x+x)+(-0.5), float(group_base.y+y)+(-0.5))).x;
-}
-groupMemoryBarrier();
-barrier();
+//!COMPONENTS 4
+vec4 hook() {
+float luma0 = HOOKED_texOff(vec2(-1.0, -1.0)).x;
+float luma1 = HOOKED_texOff(vec2(-1.0, 0.0)).x;
+float luma2 = HOOKED_texOff(vec2(-1.0, 1.0)).x;
+float luma3 = HOOKED_texOff(vec2(0.0, -1.0)).x;
+float luma4 = HOOKED_texOff(vec2(0.0, 0.0)).x;
+float luma5 = HOOKED_texOff(vec2(0.0, 1.0)).x;
+float luma6 = HOOKED_texOff(vec2(1.0, -1.0)).x;
+float luma7 = HOOKED_texOff(vec2(1.0, 0.0)).x;
+float luma8 = HOOKED_texOff(vec2(1.0, 1.0)).x;
 vec3 abd = vec3(0.0);
 float gx, gy;
-gx = (inp[local_pos + 10]-inp[local_pos + 0]);
-gy = (inp[local_pos + 1]-inp[local_pos + 0]);
+gx = (luma3-luma0);
+gy = (luma1-luma0);
 abd += vec3(gx * gx, gx * gy, gy * gy) * 0.1018680644198163;
-gx = (inp[local_pos + 11]-inp[local_pos + 1]);
-gy = (inp[local_pos + 2]-inp[local_pos + 0])/2.0;
+gx = (luma4-luma1);
+gy = (luma2-luma0)/2.0;
 abd += vec3(gx * gx, gx * gy, gy * gy) * 0.11543163961422666;
-gx = (inp[local_pos + 12]-inp[local_pos + 2]);
-gy = (inp[local_pos + 2]-inp[local_pos + 1]);
+gx = (luma5-luma2);
+gy = (luma2-luma1);
 abd += vec3(gx * gx, gx * gy, gy * gy) * 0.1018680644198163;
-gx = (inp[local_pos + 20]-inp[local_pos + 0])/2.0;
-gy = (inp[local_pos + 11]-inp[local_pos + 10]);
+gx = (luma6-luma0)/2.0;
+gy = (luma4-luma3);
 abd += vec3(gx * gx, gx * gy, gy * gy) * 0.11543163961422666;
-gx = (inp[local_pos + 21]-inp[local_pos + 1])/2.0;
-gy = (inp[local_pos + 12]-inp[local_pos + 10])/2.0;
+gx = (luma7-luma1)/2.0;
+gy = (luma5-luma3)/2.0;
 abd += vec3(gx * gx, gx * gy, gy * gy) * 0.13080118386382833;
-gx = (inp[local_pos + 22]-inp[local_pos + 2])/2.0;
-gy = (inp[local_pos + 12]-inp[local_pos + 11]);
+gx = (luma8-luma2)/2.0;
+gy = (luma5-luma4);
 abd += vec3(gx * gx, gx * gy, gy * gy) * 0.11543163961422666;
-gx = (inp[local_pos + 20]-inp[local_pos + 10]);
-gy = (inp[local_pos + 21]-inp[local_pos + 20]);
+gx = (luma6-luma3);
+gy = (luma7-luma6);
 abd += vec3(gx * gx, gx * gy, gy * gy) * 0.1018680644198163;
-gx = (inp[local_pos + 21]-inp[local_pos + 11]);
-gy = (inp[local_pos + 22]-inp[local_pos + 20])/2.0;
+gx = (luma7-luma4);
+gy = (luma8-luma6)/2.0;
 abd += vec3(gx * gx, gx * gy, gy * gy) * 0.11543163961422666;
-gx = (inp[local_pos + 22]-inp[local_pos + 12]);
-gy = (inp[local_pos + 22]-inp[local_pos + 21]);
+gx = (luma8-luma5);
+gy = (luma8-luma7);
 abd += vec3(gx * gx, gx * gy, gy * gy) * 0.1018680644198163;
 float a = abd.x, b = abd.y, d = abd.z;
 float T = a + d, D = a * d - b * b;
@@ -72,49 +71,79 @@ float strength = mix(mix(0.0, 1.0, lambda >= 0.004), mix(2.0, 3.0, lambda >= 0.0
 float coherence = mix(mix(0.0, 1.0, mu >= 0.25), 2.0, mu >= 0.5);
 float coord_y = ((angle * 4.0 + strength) * 3.0 + coherence + 0.5) / 288.0;
 vec4 res = vec4(0.0), w;
-vec4 lo = vec4(0.0), hi = vec4(0.0), wg, cg4;
+vec4 lo = vec4(0.0), hi = vec4(0.0), lo2 = vec4(0.0), hi2 = vec4(0.0), wg, cg4, cg4_1;
 w = texture(ravu_lite_lut2, vec2(0.1, coord_y));
-wg = vec4(0.10989156076225338,0.04042684596267537,0.04042684596267537,0.014872205501072995);
-res += inp[local_pos + 0] * w + inp[local_pos + 22] * w.wzyx;
-cg4 = vec4(inp[local_pos + 0], 1.0 - inp[local_pos + 0], inp[local_pos + 22], 1.0 - inp[local_pos + 22]);
-cg4 *= cg4; cg4 *= cg4; cg4 *= cg4;
+wg = max(vec4(0.0), w);
+res += luma0 * w + luma8 * w.wzyx;
+cg4 = vec4(0.5 + luma0, 1.5 - luma0, 0.5 + luma8, 1.5 - luma8);
+cg4_1 = cg4;
+cg4 *= cg4;cg4 *= cg4;cg4 *= cg4;cg4 *= cg4;cg4 *= cg4;
 hi += cg4.x * wg + cg4.z * wg.wzyx;
 lo += cg4.y * wg + cg4.w * wg.wzyx;
+cg4 *= cg4_1;
+hi2 += cg4.x * wg + cg4.z * wg.wzyx;
+lo2 += cg4.y * wg + cg4.w * wg.wzyx;
 w = texture(ravu_lite_lut2, vec2(0.3, coord_y));
-wg = vec4(0.18118055369916275,0.18118055369916275,0.06665260084598049,0.06665260084598049);
-res += inp[local_pos + 1] * w + inp[local_pos + 21] * w.wzyx;
-cg4 = vec4(inp[local_pos + 1], 1.0 - inp[local_pos + 1], inp[local_pos + 21], 1.0 - inp[local_pos + 21]);
-cg4 *= cg4; cg4 *= cg4; cg4 *= cg4;
+wg = max(vec4(0.0), w);
+res += luma1 * w + luma7 * w.wzyx;
+cg4 = vec4(0.5 + luma1, 1.5 - luma1, 0.5 + luma7, 1.5 - luma7);
+cg4_1 = cg4;
+cg4 *= cg4;cg4 *= cg4;cg4 *= cg4;cg4 *= cg4;cg4 *= cg4;
 hi += cg4.x * wg + cg4.z * wg.wzyx;
 lo += cg4.y * wg + cg4.w * wg.wzyx;
+cg4 *= cg4_1;
+hi2 += cg4.x * wg + cg4.z * wg.wzyx;
+lo2 += cg4.y * wg + cg4.w * wg.wzyx;
 w = texture(ravu_lite_lut2, vec2(0.5, coord_y));
-wg = vec4(0.04042684596267537,0.10989156076225338,0.014872205501072995,0.04042684596267537);
-res += inp[local_pos + 2] * w + inp[local_pos + 20] * w.wzyx;
-cg4 = vec4(inp[local_pos + 2], 1.0 - inp[local_pos + 2], inp[local_pos + 20], 1.0 - inp[local_pos + 20]);
-cg4 *= cg4; cg4 *= cg4; cg4 *= cg4;
+wg = max(vec4(0.0), w);
+res += luma2 * w + luma6 * w.wzyx;
+cg4 = vec4(0.5 + luma2, 1.5 - luma2, 0.5 + luma6, 1.5 - luma6);
+cg4_1 = cg4;
+cg4 *= cg4;cg4 *= cg4;cg4 *= cg4;cg4 *= cg4;cg4 *= cg4;
 hi += cg4.x * wg + cg4.z * wg.wzyx;
 lo += cg4.y * wg + cg4.w * wg.wzyx;
+cg4 *= cg4_1;
+hi2 += cg4.x * wg + cg4.z * wg.wzyx;
+lo2 += cg4.y * wg + cg4.w * wg.wzyx;
 w = texture(ravu_lite_lut2, vec2(0.7, coord_y));
-wg = vec4(0.18118055369916275,0.06665260084598049,0.18118055369916275,0.06665260084598049);
-res += inp[local_pos + 10] * w + inp[local_pos + 12] * w.wzyx;
-cg4 = vec4(inp[local_pos + 10], 1.0 - inp[local_pos + 10], inp[local_pos + 12], 1.0 - inp[local_pos + 12]);
-cg4 *= cg4; cg4 *= cg4; cg4 *= cg4;
+wg = max(vec4(0.0), w);
+res += luma3 * w + luma5 * w.wzyx;
+cg4 = vec4(0.5 + luma3, 1.5 - luma3, 0.5 + luma5, 1.5 - luma5);
+cg4_1 = cg4;
+cg4 *= cg4;cg4 *= cg4;cg4 *= cg4;cg4 *= cg4;cg4 *= cg4;
 hi += cg4.x * wg + cg4.z * wg.wzyx;
 lo += cg4.y * wg + cg4.w * wg.wzyx;
+cg4 *= cg4_1;
+hi2 += cg4.x * wg + cg4.z * wg.wzyx;
+lo2 += cg4.y * wg + cg4.w * wg.wzyx;
 w = texture(ravu_lite_lut2, vec2(0.9, coord_y));
-wg = vec4(0.29871623272103637,0.29871623272103637,0.29871623272103637,0.29871623272103637);
-res += inp[local_pos + 11] * w;
-vec2 cg2 = vec2(inp[local_pos + 11], 1.0 - inp[local_pos + 11]);
-cg2 *= cg2; cg2 *= cg2; cg2 *= cg2;
+wg = max(vec4(0.0), w);
+res += luma4 * w;
+vec2 cg2 = vec2(0.5 + luma4, 1.5 - luma4);
+vec2 cg2_1 = cg2;
+cg2 *= cg2;cg2 *= cg2;cg2 *= cg2;cg2 *= cg2;cg2 *= cg2;
 hi += cg2.x * wg;
 lo += cg2.y * wg;
-lo = sqrt(sqrt(sqrt(lo)));
-hi = sqrt(sqrt(sqrt(hi)));
-res = mix(res, clamp(res, vec4(1.0) - lo, hi), 0.750000);
-imageStore(out_image, ivec2(gl_GlobalInvocationID) * 2 + ivec2(0, 0), vec4(res[0], 0.0, 0.0, 0.0));
-imageStore(out_image, ivec2(gl_GlobalInvocationID) * 2 + ivec2(0, 1), vec4(res[1], 0.0, 0.0, 0.0));
-imageStore(out_image, ivec2(gl_GlobalInvocationID) * 2 + ivec2(1, 0), vec4(res[2], 0.0, 0.0, 0.0));
-imageStore(out_image, ivec2(gl_GlobalInvocationID) * 2 + ivec2(1, 1), vec4(res[3], 0.0, 0.0, 0.0));
+cg2 *= cg2_1;
+hi2 += cg2.x * wg;
+lo2 += cg2.y * wg;
+lo = 1.5 - lo2 / lo;
+hi = hi2 / hi - 0.5;
+res = mix(res, clamp(res, lo, hi), 0.800000);
+return res;
+}
+//!DESC RAVU-Lite-AR (step2, r2)
+//!HOOK LUMA
+//!BIND HOOKED
+//!BIND ravu_lite_int
+//!WIDTH 2 HOOKED.w *
+//!HEIGHT 2 HOOKED.h *
+//!WHEN HOOKED.w OUTPUT.w / 0.833333 < HOOKED.h OUTPUT.h / 0.833333 < *
+//!COMPONENTS 1
+vec4 hook() {
+    vec2 dir = fract(HOOKED_pos * HOOKED_size) - 0.5;
+    int idx = int(dir.x > 0.0) * 2 + int(dir.y > 0.0);
+    return vec4(ravu_lite_int_texOff(-dir)[idx], 0.0, 0.0, 0.0);
 }
 //!TEXTURE ravu_lite_lut2
 //!SIZE 5 288

@@ -31,7 +31,6 @@ int x = id / 14, y = id % 14;
 inp[id] = HOOKED_tex(HOOKED_pt * vec2(float(group_base.x+x)+(-2.5), float(group_base.y+y)+(-2.5))).xyz;
 inp_luma[id] = dot(inp[id], color_primary);
 }
-groupMemoryBarrier();
 barrier();
 float luma1 = inp_luma[local_pos + 1];
 float luma2 = inp_luma[local_pos + 2];

@@ -20,16 +20,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-//!PARAM distance_coeff
-//!TYPE float
-//!MINIMUM 0.0
-2.0
-
-//!PARAM intensity_coeff
-//!TYPE float
-//!MINIMUM 0.0
-64.0
-
 //!HOOK CHROMA
 //!BIND CHROMA
 //!BIND LUMA
@@ -38,6 +28,9 @@
 //!WHEN CHROMA.w LUMA.w <
 //!OFFSET ALIGN
 //!DESC Joint Bilateral
+
+const float distance_coeff = 2.0;
+const float intensity_coeff = 64.0;
 
 float comp_wd(vec2 distance) {
     return exp(-distance_coeff * (distance.x * distance.x + distance.y * distance.y));
