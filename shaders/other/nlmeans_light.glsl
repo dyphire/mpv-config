@@ -58,9 +58,9 @@
 
 // Denoising factor (sigma, higher means more blur)
 #ifdef LUMA_raw
-#define S 0.9502099898702093
+#define S 1.0009516374512917
 #else
-#define S 0.9560937209326306
+#define S 0.8788416459067637
 #endif
 
 /* Noise resistant adaptive sharpening
@@ -98,9 +98,9 @@
  * AKA the center weight, the weight of the pixel-of-interest.
  */
 #ifdef LUMA_raw
-#define SW 1.252675467156625
+#define SW 1.8991320186526988
 #else
-#define SW 0.8194356272340186
+#define SW 0.4804753533252957
 #endif
 
 /* Spatial kernel
@@ -117,12 +117,12 @@
  */
 #ifdef LUMA_raw
 #define SST 1
-#define SS 0.1764164666560606
+#define SS 0.12126913084875185
 #define PST 0
 #define PSS 0.0
 #else
 #define SST 1
-#define SS 0.22563571238072752
+#define SS 0.04771040648332355
 #define PST 0
 #define PSS 0.0
 #endif
@@ -233,8 +233,8 @@
  */
 #ifdef LUMA_raw
 #define WD 1
-#define WDT 0.23152096075338857
-#define WDP 2.1121925617442403
+#define WDT 0.3561583786176477
+#define WDP 1.1669216661200548
 #define WDS 1.0
 #else
 #define WD 0
@@ -1249,9 +1249,9 @@ vec4 hook()
 
 // Denoising factor (sigma, higher means more blur)
 #ifdef LUMA_raw
-#define S 3.0785253702839683
+#define S 2.863836318329167
 #else
-#define S 1.3363317282280895
+#define S 1.4775344839309186
 #endif
 
 /* Noise resistant adaptive sharpening
@@ -1289,9 +1289,9 @@ vec4 hook()
  * AKA the center weight, the weight of the pixel-of-interest.
  */
 #ifdef LUMA_raw
-#define SW 0.7901743646143748
+#define SW 0.804010531592777
 #else
-#define SW 2.3335567542917417
+#define SW 1.131987051724314
 #endif
 
 /* Spatial kernel
@@ -1308,12 +1308,12 @@ vec4 hook()
  */
 #ifdef LUMA_raw
 #define SST 1
-#define SS 1.426471182554604
+#define SS 1.3930308596200986
 #define PST 0
 #define PSS 0.0
 #else
 #define SST 1
-#define SS 0.05930769190481533
+#define SS 0.6526779832677453
 #define PST 0
 #define PSS 0.0
 #endif
@@ -1424,7 +1424,7 @@ vec4 hook()
  */
 #ifdef LUMA_raw
 #define WD 2
-#define WDT 0.6890443140317932
+#define WDT 0.5565459240487259
 #define WDP 0.0
 #define WDS 1.0
 #else

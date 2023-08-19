@@ -31,7 +31,7 @@
 | manager.lua | 一键更新指定脚本和着色器（配置文件 [manager.json](../manager.json)） |
 | mpv_sort_script.lua* | 使用 mpv 直接加载目录时实现高级排序功能：名称、日期、大小和随机排序（配置文件 [mpv_sort_script.conf](../script-opts/mpv_sort_script.conf)） |
 | mpv-animated.lua* | 剪切指定片段为 webp/gif 动图（依赖 ffmpeg；配置文件 [mpv_animated.conf](../script-opts/mpv_animated.conf)） |
-| notify_media.lua* | 基于 IPC 管道实现 SMTC 功能（依赖 [MPVMediaControl.exe](https://github.com/dyphire/MPVMediaControl/releases)；配置文件 [notify_media.conf](../script-opts/notify_media.conf)） |
+| notify_media.lua* | 基于 IPC 管道实现 SMTC 功能（依赖 [MPVMediaControl.exe](https://github.com/datasone/MPVMediaControl/releases)；配置文件 [notify_media.conf](../script-opts/notify_media.conf)） |
 | ordered-chapters-playlist.lua | 有序章节播放列表 |
 | persist_properties.lua | 监视并保存预设参数的全局变化值（如音量）（配置文件 [persist_properties.conf](../script-opts/persist_properties.conf)） |
 | playlistmanager.lua* | OSD 交互式播放列表（配置文件 [playlistmanager.conf](../script-opts/playlistmanager.conf)） |

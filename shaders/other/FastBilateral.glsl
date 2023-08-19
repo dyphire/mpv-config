@@ -27,7 +27,7 @@
 //!HEIGHT LUMA.h
 //!WHEN CHROMA.w LUMA.w <
 //!OFFSET ALIGN
-//!DESC FastBilateral
+//!DESC Fast Bilateral
 
 const float intensity_coeff = 128.0;
 

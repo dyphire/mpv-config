@@ -31,8 +31,8 @@ ivec2 rectl = ivec2(floor(HOOKED_size * HOOKED_map(group_begin) - 0.5)) - 1;
 ivec2 rectr = ivec2(floor(HOOKED_size * HOOKED_map(group_end) - 0.5)) + 2;
 ivec2 rect = rectr - rectl + 1;
 for (int id = int(gl_LocalInvocationIndex); id < rect.x * rect.y; id += int(gl_WorkGroupSize.x * gl_WorkGroupSize.y)) {
-int y = id / rect.x, x = id % rect.x;
-samples[x + y * 36] = HOOKED_tex(HOOKED_pt * (vec2(rectl + ivec2(x, y)) + vec2(0.5,0.5) + HOOKED_off)).xyz;
+    int y = id / rect.x, x = id % rect.x;
+    samples[x + y * 36] = HOOKED_tex(HOOKED_pt * (vec2(rectl + ivec2(x, y)) + vec2(0.5,0.5))).xyz;
 }
 barrier();
 vec2 pos = HOOKED_size * HOOKED_map(ivec2(gl_GlobalInvocationID));

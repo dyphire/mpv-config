@@ -1,5 +1,5 @@
 --[[
-  * chapter-make-read.lua v.2023-07-12
+  * chapter-make-read.lua v.2023-08-17
   *
   * AUTHORS: dyphire
   * License: MIT
@@ -101,7 +101,7 @@ local paused = false
 local protocol = false
 
 local function is_protocol(path)
-    return type(path) == 'string' and (path:find('^%a[%a%d-_]+://') ~= nil or path:find('^%a[%a%d-_]+:\\?') ~= nil)
+    return type(path) == 'string' and (path:find('^%a[%w.+-]-://') ~= nil or path:find('^%a[%w.+-]-:%?') ~= nil)
 end
 
 function str_decode(str)

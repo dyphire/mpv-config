@@ -60,7 +60,7 @@ function utf8_subwidth(str, indexStart, indexEnd)
 end
 
 function is_protocol(path)
-    return type(path) == 'string' and (path:find('^%a[%a%d-_]+://') ~= nil or path:find('^%a[%a%d-_]+:\\?') ~= nil)
+    return type(path) == 'string' and (path:find('^%a[%w.+-]-://') ~= nil or path:find('^%a[%w.+-]-:%?') ~= nil)
 end
 
 function is_same_folder(s1, s2, p1, p2)
