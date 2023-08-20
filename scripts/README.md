@@ -9,7 +9,7 @@
 | simple-mpv-webui（组）* | 为 mpv 实现一个简单的 webui（依赖 [luasocket](https://github.com/57op/simple-mpv-webui-windows-libs) ; 配置文件 [webui.conf](../script-opts/webui.conf)） |
 | uosc*（组） | 第三方高级 OSC 脚本，实现了许多实用功能（配置文件 [uosc.conf](../script-opts/uosc.conf)） |
 | autoload.lua* | 自动加载同级目录的文件（配置文件 [autoload.conf](../script-opts/autoload.conf)） |
-| autodeint.lua       | 自动检测并切换去交错（默认禁用，需快捷键启用） |
+| autodeint.lua*      | 自动检测并切换去交错 |
 | auto-save-state.lua* | 每隔 1 分钟自动保存播放进度（而不是退出时），播放完毕时自动删除进度 |
 | blacklist-extensions.lua         | mpv 直接拖放目录时的文件加载类型的黑/白名单 |
 | change-refresh.lua   | 更改显示器刷新率（依赖 [nircmd](https://www.nirsoft.net/utils/nircmd.html) ，配置文件 [changerefresh.conf](../script-opts/changerefresh.conf)） |
