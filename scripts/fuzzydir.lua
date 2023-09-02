@@ -43,7 +43,7 @@ COMMIT_26 Mar 2023_2ba3e26
     fuzzydir will ignore paths which in excluded_dir
 
     This supports absolute and relative paths
-    example on Windows: ["Z:", "Z:\\Cloud\\", "\\Cloud\\"]
+    example on Windows: ["Z:", "Z:/Cloud/", "/Cloud/"]
 ]]
 
 local msg = require 'mp.msg'
@@ -265,7 +265,7 @@ function explode_all()
     msg.debug("max_search_depth = ".. o.max_search_depth .. ", discovery_threshold = " .. o.discovery_threshold)
 
     local video_path = mp.get_property("path")
-    local search_path, _ = utils.split_path(video_path):gsub("/", "\\")
+    local search_path, _ = utils.split_path(video_path):gsub("\\", "/")
     msg.debug("search_path = " .. search_path)
 
     local cache = {}

@@ -52,7 +52,7 @@ local options = {
     -- Specifies a blacklist of video extensions to ignore
     blacklist_ext = "bdmv,ifo",
 
-    -- excluded directories for shared, #windows: ["X:", "Z:", "F:\\Download\\", "Download"]
+    -- excluded directories for shared, #windows: ["X:", "Z:", "F:/Download/", "Download"]
     excluded_dir = [[
         []
     ]],
@@ -427,7 +427,7 @@ local function info(w, h)
     local image = properties["current-tracks/video"] and properties["current-tracks/video"]["image"]
     local albumart = image and properties["current-tracks/video"]["albumart"]
     local cache_state = properties["demuxer-cache-state"]
-    local dir = mp.utils.split_path(properties["path"]):gsub("/", "\\")
+    local dir = mp.utils.split_path(properties["path"]):gsub("\\", "/")
     local file_ext = properties["path"]:match("%.([^%.]+)$")
     if cache_state then cached_ranges = cache_state["seekable-ranges"] end
 

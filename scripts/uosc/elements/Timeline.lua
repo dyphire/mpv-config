@@ -17,10 +17,6 @@ function Timeline:init()
 	self.is_hovered = false
 	self.has_thumbnail = false
 
-	-- Delayed seeking timer
-	self.seek_timer = mp.add_timeout(0.05, function() self:set_from_cursor() end)
-	self.seek_timer:kill()
-
 	-- Release any dragging when file gets unloaded
 	mp.register_event('end-file', function() self.pressed = false end)
 end
@@ -113,7 +109,6 @@ function Timeline:on_prop_border() self:update_dimensions() end
 function Timeline:on_prop_fullormaxed() self:update_dimensions() end
 function Timeline:on_display() self:update_dimensions() end
 function Timeline:handle_cursor_up()
-	self.seek_timer:kill()
 	if self.pressed then
 		mp.set_property_native('pause', self.pressed.pause)
 		self.pressed = false
@@ -127,10 +122,8 @@ function Timeline:on_global_mouse_move()
 	if self.pressed then
 		self.pressed.distance = self.pressed.distance + get_point_to_point_proximity(self.pressed.last, cursor)
 		self.pressed.last.x, self.pressed.last.y = cursor.x, cursor.y
-		if self.width / state.duration < 10 then
+		if state.is_video and math.abs(cursor.get_velocity().x) / self.width * state.duration > 30 then
 			self:set_from_cursor(true)
-			self.seek_timer:kill()
-			self.seek_timer:resume()
 		else self:set_from_cursor() end
 	end
 end

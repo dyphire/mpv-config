@@ -67,8 +67,8 @@ local options = {
     offset_timer = 20, -- seconds, >= 'ratio_timer', new offset for asymmetric video
     fallback_timer = 40, -- seconds, >= 'offset_timer', not in ratios list and possibly with new offset
     linked_tolerance = 2, -- int, scale with detect_round to match against source width/height
-    ratios = "24/9 2.4 2.39 2.35 2.2 2.1 2 1.9 1.85 16/9 5/3 1.5 1.43 4/3 1.25 9/16", -- rounded to 3 decimals
-    ratio_tolerance = 0.21, -- %, ratio 2.35 with 0.21% will match between ~2.345 and ~2.355
+    ratios = "24/9 2.4 2.39 2.35 2.2 2.1 2 1.9 1.85 16/9 5/3 1.5 1.43 4/3 1.25 9/16", -- list
+    ratio_tolerance = 2, -- int (even number), adjust in order to match more easly the ratios list
     read_ahead_mode = 0, -- [0-2], 0 disable, 1 fast_change_timer, 2 ratio_timer, more details above
     read_ahead_sync = 1, -- int/frame, increase for advance, more details above
     segmentation = 0.5, -- [0.0-1] %, 0 will approved only a continuous metadata (strict)
@@ -117,11 +117,6 @@ s.read_ahead = {
     float = options.read_ahead_mode == 1 and options.fast_change_timer or options.read_ahead_mode == 2 and
         options.ratio_timer * (1 + options.segmentation) or nil
 }
-s.ratios = {match = "%.2f", precision = "%.3f"}
-for ratio in string.gmatch(options.ratios, "%S+%s?") do
-    for w, h in string.gmatch(tostring(ratio), "(%d+)/(%d+)") do ratio = string.format(s.ratios.precision, w / h) end
-    s.ratios[tonumber(string.format(s.ratios.match, ratio))] = tonumber(ratio)
-end
 
 local function print_debug(msg_type, meta, label)
     if not options.debug then return end
@@ -145,6 +140,8 @@ local function print_debug(msg_type, meta, label)
             local pts = shifting_to(RIGHT, v.pts)
             mp.msg.info(string.format("\\ %3s %-29s %4sms pts:%d new_ref:%s", i, v.ref.whxy, v.t_elapsed, pts, new_ref))
         end
+        mp.msg.info("i_fallback", s.candidate.i_fallback)
+        mp.msg.info("i_offset", s.candidate.i_offset)
     elseif msg_type == "applied" and s.stats.indexed_applied then
         mp.msg.info("Applied list:")
         for i, v in ipairs(s.stats.indexed_applied) do
@@ -224,7 +221,8 @@ local function insert_cropdetect_filter(limit, change)
                 string.format("@%s:lavfi=[split[a][b];[b]setpts=PTS-%.1f/TB,%s[b];%s]", labels.cropdetect,
                     s.read_ahead.float, cropdetect, s.f_sync))
         else
-            return mp.commandv("vf", "pre", string.format("@%s:lavfi=[%s]", labels.cropdetect, cropdetect))
+            return mp.commandv("vf", "pre", string.format("@%s:lavfi=[split[a][b];[b]%s,nullsink;[a]null]",
+                labels.cropdetect, cropdetect))
         end
     end
     if not insert_filter() then
@@ -285,19 +283,31 @@ local function compute_metadata(meta)
     meta.time = {buffer = 0, overall = 0}
     local margin = options.detect_round * options.linked_tolerance
     meta.is_linked_to_source = meta.mt <= margin and meta.mb <= margin or meta.ml <= margin and meta.mr <= margin
-    if meta.is_linked_to_source and not meta.is_invalid then
-        local match = tonumber(string.format(s.ratios.match, meta.w / meta.h))
-        local precision = tonumber(string.format(s.ratios.precision, meta.w / meta.h))
-        margin = options.ratio_tolerance / 100
-        for _, v in ipairs({0, -0.01, 0.01}) do
-            local ratio = s.ratios[match + v]
-            if ratio and math.abs(precision - ratio) <= ratio * margin then
-                meta.is_known_ratio = true
-                break
+    if meta.is_linked_to_source and not meta.is_invalid and s.ratios.w[meta.w] or s.ratios.h[meta.h] then
+        meta.is_known_ratio = true
+    end
+    return meta
+end
+
+local function generate_ratios(list)
+    for ratio in string.gmatch(list, "%S+%s?") do
+        for a, b in string.gmatch(tostring(ratio), "(%d+)/(%d+)") do ratio = a / b end
+        local w, h = math.floor((s.source.h * ratio)), math.floor((s.source.w / ratio))
+        local margin = options.ratio_tolerance
+        for k, v in pairs({w = w, h = h}) do
+            if v < s.source[k] - options.linked_tolerance then
+                if v % 2 == 1 then
+                    s.ratios[k][v + 1], s.ratios[k][v - 1] = true, true
+                    if margin > 0 then
+                        s.ratios[k][v + 1 + margin], s.ratios[k][v - 1 - margin] = true, true
+                    end
+                else
+                    s.ratios[k][v] = true
+                    if margin > 0 then s.ratios[k][v + margin], s.ratios[k][v - margin] = true, true end
+                end
             end
         end
     end
-    return meta
 end
 
 local function switch_hwdec(id, hwdec, error)
@@ -355,10 +365,8 @@ local function process_metadata(collected, timestamp, elapsed_time, time_pos_rea
 
     -- add new fallback ratio to the ratio list
     if s.candidate.fallback[collected.whxy] and collected.time.buffer >= o_timer.fallback then
-        local ratio_match = tonumber(string.format(s.ratios.match, collected.w / collected.h))
-        local ratio_precision = tonumber(string.format(s.ratios.precision, collected.w / collected.h))
-        s.ratios[ratio_match] = ratio_precision
         -- TODO eventually re-check the buffer list with new ratio
+        generate_ratios(collected.w .. "/" .. collected.h)
         collected.is_known_ratio = true
         cleanup_stat(collected.whxy, s.candidate.fallback, s.candidate, "i_fallback")
     end
@@ -526,7 +534,8 @@ local function process_metadata(collected, timestamp, elapsed_time, time_pos_rea
 
     -- buffer: reduce total size
     local function is_proactive_cleanup_needed() -- start to cleanup if too much unique meta are present
-        return s.buffer.t_total > s.buffer.t_ratio and s.stats.buffer_unique > s.buffer.i_total *
+        return s.candidate.i_offset == 0 and s.candidate.i_fallback == 0 and s.buffer.t_total > s.buffer.t_ratio and
+                   s.stats.buffer_unique > s.buffer.i_total *
                    (buffer_timer * options.segmentation / (buffer_timer * (1 + options.segmentation))) + 1
     end
     while is_time_to_cleanup_buffer(s.buffer.t_total, buffer_timer) or is_proactive_cleanup_needed() do
@@ -768,6 +777,8 @@ local function on_start()
     s.source.x = math.floor((s.source.w_untouched - s.source.w) / 2)
     s.source.y = math.floor((s.source.h_untouched - s.source.h) / 2)
     s.stats.trusted_offset = {x = {s.source.x}, y = {s.source.y}}
+    s.ratios = {w = {}, h = {}}
+    generate_ratios(options.ratios)
     s.source = compute_metadata(s.source)
     s.stats.trusted[s.source.whxy] = s.source
     s.source.applied = 1

@@ -54,7 +54,7 @@ function del_filter_if_present(label)
 end
 
 local function add_vf(label, filter)
-    return mp.command(('no-osd vf add @%s:%s'):format(label, filter))
+    return mp.command(('vf add @%s:%s'):format(label, filter))
 end
 
 function start_detect()
@@ -149,8 +149,9 @@ function select_filter()
         mp.msg.info(string.format("interlaced with %s field dominance: setting deinterlace property", dominance))
         del_filter_if_present(pullup_label)
         mp.set_property("deinterlace","yes")
+        mp.osd_message("Appplying deinterlace.")
         stop_detect()
     end
 end
 
-mp.add_hook("on_preloaded", 50, start_detect)
+mp.add_key_binding("ctrl+d", script_name, start_detect)

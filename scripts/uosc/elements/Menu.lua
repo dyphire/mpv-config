@@ -106,8 +106,7 @@ function Menu:init(data, callback, opts)
 	self.key_bindings = {}
 	self.is_being_replaced = false
 	self.is_closing, self.is_closed = false, false
-	---@type {y: integer, time: number}[]
-	self.drag_data = nil
+	self.drag_last_y = nil
 	self.is_dragging = false
 
 	self:update(data)
@@ -545,47 +544,37 @@ function Menu:on_prop_fullormaxed() self:update_content_dimensions() end
 
 function Menu:handle_cursor_down()
 	if self.proximity_raw == 0 then
-		self.drag_data = {{y = cursor.y, time = mp.get_time()}}
+		self.drag_last_y = cursor.y
 		self.current.fling = nil
 	else
 		self:close()
 	end
 end
 
-function Menu:fling_distance()
-	local first, last = self.drag_data[1], self.drag_data[#self.drag_data]
-	if mp.get_time() - last.time > 0.05 then return 0 end
-	for i = #self.drag_data - 1, 1, -1 do
-		local drag = self.drag_data[i]
-		if last.time - drag.time > 0.03 then return ((drag.y - last.y) / ((last.time - drag.time) / 0.03)) * 10 end
-	end
-	return #self.drag_data < 2 and 0 or ((first.y - last.y) / ((first.time - last.time) / 0.03)) * 10
-end
-
 function Menu:handle_cursor_up()
-	if self.proximity_raw == 0 and self.drag_data and not self.is_dragging then
+	if self.proximity_raw == 0 and self.drag_last_y and not self.is_dragging then
 		self:open_selected_item({preselect_first_item = false, keep_open = self.modifiers and self.modifiers.shift})
 	end
 	if self.is_dragging then
-		local distance = self:fling_distance()
+		local distance = cursor.get_velocity().y / -3
 		if math.abs(distance) > 50 then
 			self.current.fling = {
-				y = self.current.scroll_y, distance = distance, time = self.drag_data[#self.drag_data].time,
+				y = self.current.scroll_y, distance = distance, time = cursor.history:head().time,
 				easing = ease_out_quart, duration = 0.5, update_cursor = true,
 			}
 		end
 	end
 	self.is_dragging = false
-	self.drag_data = nil
+	self.drag_last_y = nil
 end
 
 function Menu:on_global_mouse_move()
 	self.mouse_nav = true
-	if self.drag_data then
-		self.is_dragging = self.is_dragging or math.abs(cursor.y - self.drag_data[1].y) >= 10
-		local distance = self.drag_data[#self.drag_data].y - cursor.y
+	if self.drag_last_y then
+		self.is_dragging = self.is_dragging or math.abs(cursor.y - self.drag_last_y) >= 10
+		local distance = self.drag_last_y - cursor.y
 		if distance ~= 0 then self:set_scroll_by(distance) end
-		self.drag_data[#self.drag_data + 1] = {y = cursor.y, time = mp.get_time()}
+		if self.is_dragging then self.drag_last_y = cursor.y end
 	end
 	request_render()
 end
@@ -628,9 +617,7 @@ function Menu:enable_key_bindings()
 	-- The `mp.set_key_bindings()` method would be easier here, but that
 	-- doesn't support 'repeatable' flag, so we are stuck with this monster.
 	self:add_key_binding('up', 'menu-prev1', self:create_key_action('prev'), 'repeatable')
-	self:add_key_binding('wheel_up', 'menu-prev2', self:create_key_action('prev'), 'repeatable')
 	self:add_key_binding('down', 'menu-next1', self:create_key_action('next'), 'repeatable')
-	self:add_key_binding('wheel_down', 'menu-next2', self:create_key_action('next'), 'repeatable')
 	self:add_key_binding('ctrl+up', 'menu-move-up', self:create_key_action('move_selected_item_up'), 'repeatable')
 	self:add_key_binding('ctrl+down', 'menu-move-down', self:create_key_action('move_selected_item_down'), 'repeatable')
 	self:add_key_binding('left', 'menu-back1', self:create_key_action('back'))
@@ -664,26 +651,34 @@ function Menu:disable_key_bindings()
 	self.key_bindings = {}
 end
 
+-- Wraps a function so that it won't run if menu is closing or closed.
+---@param fn function()
+function Menu:create_action(fn)
+	return function()
+		if not self.is_closing and not self.is_closed then fn() end
+	end
+end
+
 ---@param modifiers Modifiers
 function Menu:create_modified_mbtn_left_handler(modifiers)
-	return function()
+	return self:create_action(function()
 		self.mouse_nav = true
 		self.modifiers = modifiers
 		self:handle_cursor_down()
 		self:handle_cursor_up()
 		self.modifiers = nil
-	end
+	end)
 end
 
 ---@param name string
 ---@param modifiers? Modifiers
 function Menu:create_key_action(name, modifiers)
-	return function()
+	return self:create_action(function()
 		self.mouse_nav = false
 		self.modifiers = modifiers
 		self:maybe(name)
 		self.modifiers = nil
-	end
+	end)
 end
 
 function Menu:render()
@@ -696,11 +691,11 @@ function Menu:render()
 		end
 	end
 
-	cursor.on_primary_down = function() self:handle_cursor_down() end
-	cursor.on_primary_up = function() self:handle_cursor_up() end
+	cursor.on_primary_down = self:create_action(function() self:handle_cursor_down() end)
+	cursor.on_primary_up = self:create_action(function() self:handle_cursor_up() end)
 	if self.proximity_raw == 0 then
-		cursor.on_wheel_down = function() self:handle_wheel_down() end
-		cursor.on_wheel_up = function() self:handle_wheel_up() end
+		cursor.on_wheel_down = self:create_action(function() self:handle_wheel_down() end)
+		cursor.on_wheel_up = self:create_action(function() self:handle_wheel_up() end)
 	end
 
 	local ass = assdraw.ass_new()
@@ -729,7 +724,7 @@ function Menu:render()
 		ass:rect(menu_rect.ax, menu_rect.ay, menu_rect.bx, menu_rect.by, {color = bg, opacity = menu_opacity, radius = 4})
 
 		if is_parent and get_point_to_rectangle_proximity(cursor, menu_rect) == 0 then
-			cursor.on_primary_down = function() self:slide_in_menu(menu, x) end
+			cursor.on_primary_down = self:create_action(function() self:slide_in_menu(menu, x) end)
 		end
 
 		-- Draw submenu if selected
@@ -739,7 +734,9 @@ function Menu:render()
 			submenu_rect = draw_menu(current_item, menu_rect.bx + menu_gap, 1)
 			submenu_is_hovered = get_point_to_rectangle_proximity(cursor, submenu_rect) == 0
 			if submenu_is_hovered then
-				cursor.on_primary_down = function() self:open_selected_item({preselect_first_item = false}) end
+				cursor.on_primary_down = self:create_action(function()
+					self:open_selected_item({preselect_first_item = false})
+				end)
 			end
 		end
 

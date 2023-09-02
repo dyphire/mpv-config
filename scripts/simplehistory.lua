@@ -400,7 +400,7 @@ function get_file()
 	local path = mp.get_property('path')
 	if not path then return end
 	if not path:match('^%a[%a%d-_]+://') then
-		path = utils.join_path(mp.get_property('working-directory'), path):gsub("/", "\\")
+		path = utils.join_path(mp.get_property('working-directory'), path):gsub("\\", "/")
 	end
 	
 	local length = (mp.get_property_number('duration') or 0)

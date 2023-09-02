@@ -23,7 +23,7 @@ local o = {
     use_playlist = false,
     -- specifies a whitelist of files to find in a directory
     whitelist = "3gp,amr,amv,asf,avi,avi,bdmv,f4v,flv,m2ts,m4v,mkv,mov,mp4,mpeg,mpg,ogv,rm,rmvb,ts,vob,webm,wmv",
-    -- excluded directories for shared, #windows: ["X:", "Z:", "F:\\Download\\", "Download"]
+    -- excluded directories for shared, #windows: ["X:", "Z:", "F:/Download/", "Download"]
     excluded_dir = [[
         []
         ]],
@@ -50,32 +50,33 @@ local pl_list = {}
 local pl_idx = 1
 local current_idx = 1
 local bookmark_path = nil
+local history_dir = nil
 
 local wait_msg
 local on_key = false
 
 if o.history_dir:find('^/:dir%%mpvconf%%') then
-    o.history_dir = o.history_dir:gsub('/:dir%%mpvconf%%', mp.find_config_file('.'))
+    history_dir = o.history_dir:gsub('/:dir%%mpvconf%%', mp.find_config_file('.'))
 elseif o.history_dir:find('^/:dir%%script%%') then
-    o.history_dir = o.history_dir:gsub('/:dir%%script%%', mp.find_config_file('scripts'))
+    history_dir = o.history_dir:gsub('/:dir%%script%%', mp.find_config_file('scripts'))
 elseif o.history_dir:find('/:var%%(.*)%%') then
     local os_variable = o.history_dir:match('/:var%%(.*)%%')
-    o.history_dir = o.history_dir:gsub('/:var%%(.*)%%', os.getenv(os_variable))
+    history_dir = o.history_dir:gsub('/:var%%(.*)%%', os.getenv(os_variable))
 elseif o.history_dir:find('^~') then
-    o.history_dir = mp.command_native({ "expand-path", o.history_dir }) -- Expands both ~ and ~~
+    history_dir = mp.command_native({ "expand-path", o.history_dir }) -- Expands both ~ and ~~
 end
 
---create o.history_dir if it doesn't exist
-if o.history_dir ~= '' then
-    local meta, meta_error = utils.file_info(o.history_dir)
+--create history_dir if it doesn't exist
+if history_dir ~= '' then
+    local meta, meta_error = utils.file_info(history_dir)
     if not meta or not meta.is_dir then
         local is_windows = package.config:sub(1, 1) == "\\"
-        local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', string.format("\"%s\"", o.history_dir) }
-        local unix_args = { 'mkdir', '-p', o.history_dir }
+        local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', string.format("\"%s\"", history_dir) }
+        local unix_args = { 'mkdir', '-p', history_dir }
         local args = is_windows and windows_args or unix_args
         local res = mp.command_native({ name = "subprocess", capture_stdout = true, playback_only = false, args = args })
         if res.status ~= 0 then
-            msg.error("Failed to create history_dir save directory " .. o.history_dir ..
+            msg.error("Failed to create history_dir save directory " .. history_dir ..
             ". Error: " .. (res.error or "unknown"))
             return
         end
@@ -134,7 +135,7 @@ function refresh_globals()
     fname = mp.get_property("filename")
     pl_count = mp.get_property_number('playlist-count', 0)
     if path and not is_protocol(path) then
-        path = utils.join_path(mp.get_property('working-directory'), path):gsub("/", "\\")
+        path = utils.join_path(mp.get_property('working-directory'), path):gsub("\\", "/")
         dir = utils.split_path(path)
     else
         dir = nil
@@ -199,7 +200,7 @@ local function get_bookmark_path(dir)
         history_name = name
     end
     local bookmark_name = history_name .. o.bookmark_ext
-    bookmark_path = utils.join_path(o.history_dir, bookmark_name)
+    bookmark_path = utils.join_path(history_dir, bookmark_name):gsub("\\", "/")
 end
 
 local function is_bookmark_exist(bookmark_path)
@@ -416,7 +417,7 @@ end
 mp.register_event('file-loaded', function()
     local path = mp.get_property("path")
     if not is_protocol(path) then
-        path = utils.join_path(mp.get_property('working-directory'), path):gsub("/", "\\")
+        path = utils.join_path(mp.get_property('working-directory'), path):gsub("\\", "/")
         directory = utils.split_path(path)
     else
         directory = nil
