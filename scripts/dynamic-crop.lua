@@ -57,6 +57,7 @@ require "mp.options"
 local options = {
     -- behavior
     mode = 4, -- [0-4] more details above
+    use_vo_crop = false, -- use "video-crop" command to crop
     start_delay = 0, -- delay in seconds used to skip intro (usefull with mode 2)
     prevent_change_timer = 30, -- seconds
     prevent_change_mode = 0, -- [0-3], more details above
@@ -260,6 +261,8 @@ local function apply_crop(ref, pts)
         for _, axis in ipairs({"w", "x", "h", "y"}) do
             if s.applied[axis] ~= ref[axis] then command_filter(labels.crop, axis, ref[axis], "crop") end
         end
+    elseif options.use_vo_crop then
+        mp.commandv("set", "video-crop", string.format("%sx%s+%s+%s", ref.w, ref.h, ref.x, ref.y))
     else
         mp.commandv("vf", "append", string.format("@%s:lavfi-crop=%s", labels.crop, ref.whxy))
     end
@@ -738,6 +741,16 @@ local function pause(event, is_paused)
     end
 end
 
+function remove_filter(label)
+    if options.use_vo_crop and label == labels.crop then
+        if mp.get_property("video-crop") ~= "0x0" then
+            mp.commandv("set", "video-crop", 0)
+        end
+    end
+
+    if filter_state(label) then mp.commandv("vf", "remove", string.format("@%s", label)) end
+end
+
 function cleanup()
     if not s.started then return end
     if not s.paused then print_stats() end
@@ -748,7 +761,7 @@ function cleanup()
     mp.unobserve_property(switch_hwdec)
     mp.unobserve_property(pause)
     for _, label in pairs(labels) do
-        if filter_state(label) then mp.commandv("vf", "remove", string.format("@%s", label)) end
+        remove_filter(label)
     end
     mp.msg.info("Done.")
     s.started = false
