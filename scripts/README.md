@@ -9,7 +9,7 @@
 | simple-mpv-webui（组）* | 为 mpv 实现一个简单的 webui（依赖 [luasocket](https://github.com/57op/simple-mpv-webui-windows-libs) ; 配置文件 [webui.conf](../script-opts/webui.conf)） |
 | uosc*（组） | 第三方高级 OSC 脚本，实现了许多实用功能（配置文件 [uosc.conf](../script-opts/uosc.conf)） |
 | autoload.lua* | 自动加载同级目录的文件（配置文件 [autoload.conf](../script-opts/autoload.conf)） |
-| autodeint.lua*      | 自动检测并切换去交错 |
+| autodeint.lua      | 自动检测并切换去交错 |
 | auto-save-state.lua* | 每隔 1 分钟自动保存播放进度（而不是退出时），播放完毕时自动删除进度 |
 | blacklist-extensions.lua         | mpv 直接拖放目录时的文件加载类型的黑/白名单 |
 | change-refresh.lua   | 更改显示器刷新率（依赖 [nircmd](https://www.nirsoft.net/utils/nircmd.html) ，配置文件 [changerefresh.conf](../script-opts/changerefresh.conf)） |
@@ -56,7 +56,6 @@
 | youtube-download.lua* | 下载 ytdl 视频/音频/字幕/片段（依赖 yt-dlp/youtube-dl和ffmpeg; 配置文件 [youtube-download.conf](../script-opts/youtube-download.conf)） |
 
 1. 标记`*`号的部分脚本为**个人修改版或自建脚本**。
-2. 所有脚本预绑定的`mp.add_key_binding`静态键位已被 [mpv.conf](../mpv.conf) 中的`input-default-bindings=no`参数屏蔽，可查看 [input.conf](../input.conf)  的"LUA 脚本"部分示例参考绑定所需键位  
-   - 本配置绑定的快捷键及功能请参考 [快捷键说明.md](../快捷键说明.md) 文件
-3. 部分脚本存在动态绑定键位，可查看对应脚本及配置文件相关部分（或 [快捷键说明.md](../快捷键说明.md) 中相关说明）
+2. 所有脚本预绑定的`mp.add_key_binding`静态键位已被 [mpv.conf](../mpv.conf) 中的`input-default-bindings=no`参数屏蔽
+3. 部分脚本存在动态绑定键位，可查看对应脚本及配置文件相关部分
 4. **MPV已知问题**：当 scripts 文件夹内脚本绑定的`mp.add_key_binding`总数超过一定阈值时，会导致 osc.lua 交互功能失效。本配置已针对该问题进行脚本优化
