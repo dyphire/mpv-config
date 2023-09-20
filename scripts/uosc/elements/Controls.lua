@@ -19,6 +19,10 @@ function Controls:init()
 	---@type ControlItem[] Only controls that match current dispositions.
 	self.layout = {}
 
+	self:init_options()
+end
+
+function Controls:init_options()
 	-- Serialize control elements
 	local shorthands = {
 		menu = 'command:menu:script-binding uosc/menu-blurred?Menu',
@@ -144,8 +148,9 @@ function Controls:init()
 		elseif kind == 'speed' then
 			if not Elements.speed then
 				local element = Speed:new({anchor_id = 'controls'})
+				local scale = tonumber(params[1]) or 1.3
 				table_assign(control, {
-					element = element, sizing = 'dynamic', scale = params[1] or 1.3, ratio = 3.5, ratio_min = 2,
+					element = element, sizing = 'dynamic', scale = scale, ratio = 3.5, ratio_min = 2,
 				})
 			else
 				msg.error('there can only be 1 speed slider')
@@ -328,5 +333,12 @@ function Controls:on_display() self:update_dimensions() end
 function Controls:on_prop_border() self:update_dimensions() end
 function Controls:on_prop_fullormaxed() self:update_dimensions() end
 function Controls:on_timeline_enabled() self:update_dimensions() end
+
+function Controls:on_options()
+	for _, control in ipairs(self.controls) do
+		if control.element then control.element:destroy() end
+	end
+	self:init_options()
+end
 
 return Controls

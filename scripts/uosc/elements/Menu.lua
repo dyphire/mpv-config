@@ -185,9 +185,7 @@ function Menu:update(data)
 		local old_menu = self.by_id[menu.is_root and '__root__' or menu.id]
 		if old_menu then table_assign(menu, old_menu, {'selected_index', 'scroll_y', 'fling'}) end
 
-		if menu.selected_index then
-			menu.selected_index = #menu.items > 0 and clamp(1, menu.selected_index, #menu.items) or nil
-		end
+		if menu.selected_index then self:select_by_offset(0, menu) end
 
 		new_all[#new_all + 1] = menu
 		new_by_id[menu.is_root and '__root__' or menu.id] = menu
@@ -244,14 +242,15 @@ function Menu:update_dimensions()
 	-- consuming values in rendering and collisions easier. Title is rendered
 	-- above it, so we need to account for that in max_height and ay position.
 	local min_width = state.fullormaxed and options.menu_min_width_fullscreen or options.menu_min_width
+	local height_available = display.height - Elements.timeline.size_min
 
 	for _, menu in ipairs(self.all) do
 		menu.width = round(clamp(min_width, menu.max_width, display.width * 0.9))
 		local title_height = (menu.is_root and menu.title) and self.scroll_step or 0
-		local max_height = round((display.height - title_height) * 0.9)
+		local max_height = round(height_available * 0.9 - title_height)
 		local content_height = self.scroll_step * #menu.items
 		menu.height = math.min(content_height - self.item_spacing, max_height)
-		menu.top = round(math.max((display.height - menu.height) / 2, title_height * 1.5))
+		menu.top = round((height_available - menu.height + title_height) / 2)
 		menu.scroll_height = math.max(content_height - menu.height - self.item_spacing, 0)
 		menu.scroll_y = menu.scroll_y or 0
 		self:scroll_to(menu.scroll_y, menu) -- clamps scroll_y to scroll limits
@@ -273,9 +272,8 @@ function Menu:reset_navigation()
 	self:scroll_to(menu.scroll_y) -- clamps scroll_y to scroll limits
 	if menu.items and #menu.items > 0 then
 		-- Normalize existing selected_index always, and force it only in keyboard navigation
-		if not self.mouse_nav and not menu.selected_index then
-			local from = clamp(1, menu.selected_index or 1, #menu.items)
-			self:select_index(itable_find(menu.items, function(item) return item.selectable ~= false end, from), menu)
+		if not self.mouse_nav then
+			self:select_by_offset(0)
 		end
 	else
 		self:select_index(nil)
@@ -446,24 +444,12 @@ function Menu:delete_value(value, menu)
 	self:delete_index(index)
 end
 
----@param menu? MenuStack
-function Menu:prev(menu)
-	menu = menu or self.current
-	local initial_index = menu.selected_index and menu.selected_index - 1 or #menu.items
-	if initial_index > 0 then
-		menu.selected_index = itable_find(menu.items, function(item) return item.selectable ~= false end, initial_index, 1)
-		self:scroll_to_index(menu.selected_index, menu, true)
-	end
+function Menu:prev()
+	self:navigate_by_offset(-1)
 end
 
----@param menu? MenuStack
-function Menu:next(menu)
-	menu = menu or self.current
-	local initial_index = menu.selected_index and menu.selected_index + 1 or 1
-	if initial_index <= #menu.items then
-		menu.selected_index = itable_find(menu.items, function(item) return item.selectable ~= false end, initial_index)
-		self:scroll_to_index(menu.selected_index, menu, true)
-	end
+function Menu:next()
+	self:navigate_by_offset(1)
 end
 
 ---@param menu MenuStack One of menus in `self.all`.
@@ -541,6 +527,7 @@ end
 
 function Menu:on_display() self:update_dimensions() end
 function Menu:on_prop_fullormaxed() self:update_content_dimensions() end
+function Menu:on_options() self:update_content_dimensions() end
 
 function Menu:handle_cursor_down()
 	if self.proximity_raw == 0 then
@@ -582,30 +569,45 @@ end
 function Menu:handle_wheel_up() self:scroll_by(self.scroll_step * -3, nil, {update_cursor = true}) end
 function Menu:handle_wheel_down() self:scroll_by(self.scroll_step * 3, nil, {update_cursor = true}) end
 
+---@param offset integer
+---@param menu? MenuStack
+function Menu:select_by_offset(offset, menu)
+	menu = menu or self.current
+	local index = clamp(1, (menu.selected_index or offset >= 0 and 0 or #menu.items + 1) + offset, #menu.items)
+	local prev_index = itable_find(menu.items, function(item) return item.selectable ~= false end, index, 1)
+	local next_index = itable_find(menu.items, function(item) return item.selectable ~= false end, index)
+	if prev_index and next_index then
+		if offset == 0 then menu.selected_index = index - prev_index <= next_index - index and prev_index or next_index
+		elseif offset > 0 then menu.selected_index = next_index
+		else menu.selected_index = prev_index end
+	else
+		menu.selected_index = prev_index or next_index or nil
+	end
+	request_render()
+end
+
+---@param offset integer
+function Menu:navigate_by_offset(offset)
+	self:select_by_offset(offset)
+	if self.current.selected_index then self:scroll_to_index(self.current.selected_index) end
+end
+
 function Menu:on_pgup()
-	local menu = self.current
-	local items_per_page = round((menu.height / self.scroll_step) * 0.4)
-	local paged_index = (menu.selected_index and menu.selected_index or #menu.items) - items_per_page
-	menu.selected_index = clamp(1, paged_index, #menu.items)
-	if menu.selected_index > 0 then self:scroll_to_index(menu.selected_index) end
+	local items_per_page = round((self.current.height / self.scroll_step) * 0.4)
+	self:navigate_by_offset(-items_per_page)
 end
 
 function Menu:on_pgdwn()
-	local menu = self.current
-	local items_per_page = round((menu.height / self.scroll_step) * 0.4)
-	local paged_index = (menu.selected_index and menu.selected_index or 1) + items_per_page
-	menu.selected_index = clamp(1, paged_index, #menu.items)
-	if menu.selected_index > 0 then self:scroll_to_index(menu.selected_index) end
+	local items_per_page = round((self.current.height / self.scroll_step) * 0.4)
+	self:navigate_by_offset(items_per_page)
 end
 
 function Menu:on_home()
-	self.current.selected_index = math.min(1, #self.current.items)
-	if self.current.selected_index > 0 then self:scroll_to_index(self.current.selected_index) end
+	self:navigate_by_offset(-INFINITY)
 end
 
 function Menu:on_end()
-	self.current.selected_index = #self.current.items
-	if self.current.selected_index > 0 then self:scroll_to_index(self.current.selected_index) end
+	self:navigate_by_offset(INFINITY)
 end
 
 function Menu:add_key_binding(key, name, fn, flags)
@@ -753,7 +755,7 @@ function Menu:render()
 			local is_selected = menu.selected_index == index or item.active
 
 			-- Select hovered item
-			if is_current and self.mouse_nav then
+			if is_current and self.mouse_nav and item.selectable ~= false then
 				if submenu_rect and cursor.direction_to_rectangle_distance(submenu_rect) then
 					blur_selected_index = false
 				else
