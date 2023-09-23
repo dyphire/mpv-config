@@ -48,6 +48,14 @@ local function csv_iter(str)
     return string.gmatch(str, '[^,\n\r]+')
 end
 
+local function shared_script_property_set(prop, value)
+    if utils.shared_script_property_set then
+        utils.shared_script_property_set(prop, value)
+    else
+        msg.trace('shared_script_property_set is not available')
+    end
+end
+
 -- loads the display information into the displays table
 local function load_display_info()
     local name = get_temp_file_name()
@@ -98,14 +106,14 @@ mp.observe_property('display-names', 'native', function(_, display_names)
 
     local display = display_names[1]
     if not display then
-        utils.shared_script_property_set('display_name', '')
+        shared_script_property_set('display_name', '')
         mp.set_property_native('user-data/display_name', '')
         return
     end
 
     -- this script should really only be used on windows, but just in case I'll leave this here
     if not PLATFORM_WINDOWS then
-        utils.shared_script_property_set('display_name', display)
+        shared_script_property_set('display_name', display)
         mp.set_property_native('user-data/display_name', display)
         return
     end
@@ -119,11 +127,11 @@ mp.observe_property('display-names', 'native', function(_, display_names)
         name = displays[display]['Monitor Name'] or name
     end
 
-    utils.shared_script_property_set('display_name', name)
+    shared_script_property_set('display_name', name)
     mp.set_property_native('user-data/display_name', name)
 end)
 
-utils.shared_script_property_set('display_name', '')
+shared_script_property_set('display_name', '')
 mp.set_property_native('user-data/display_name', '')
 
 -- prints the names of the current displays to the console

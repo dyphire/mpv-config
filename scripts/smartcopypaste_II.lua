@@ -288,7 +288,10 @@ o.open_list_keybind = utils.parse_json(o.open_list_keybind)
 o.list_filter_jump_keybind = utils.parse_json(o.list_filter_jump_keybind)
 o.list_ignored_keybind = utils.parse_json(o.list_ignored_keybind)
 
-utils.shared_script_property_set("smartcopypaste-menu-open", "no")
+if utils.shared_script_property_set then
+    utils.shared_script_property_set('smartcopypaste-menu-open', 'no')
+end
+mp.set_property('user-data/smartcopypaste/menu-open', 'no')
 
 if o.log_path:match('^/:dir%%mpvconf%%') then
 	o.log_path = o.log_path:gsub('/:dir%%mpvconf%%', mp.find_config_file('.'))
@@ -1073,7 +1076,10 @@ function display_list(filter, sort, action)
 	
 	if not search_active then get_page_properties(filter) else update_search_results('','') end
 	draw_list()
-	utils.shared_script_property_set("smartcopypaste-menu-open", "yes")
+	if utils.shared_script_property_set then
+		utils.shared_script_property_set('smartcopypaste-menu-open', 'yes')
+	end
+	mp.set_property('user-data/smartcopypaste/menu-open', 'no')
 	if o.toggle_idlescreen then mp.commandv('script-message', 'osc-idlescreen', 'no', 'no_osd') end
 	list_drawn = true
 	if not search_active then get_list_keybinds() end
@@ -1736,7 +1742,10 @@ function unbind_list_keys()
 end
 
 function list_close_and_trash_collection()
-	utils.shared_script_property_set("smartcopypaste-menu-open", "no")
+	if utils.shared_script_property_set then
+		utils.shared_script_property_set('smartcopypaste-menu-open', 'no')
+	end
+	mp.set_property('user-data/smartcopypaste/menu-open', 'no')
 	if o.toggle_idlescreen then mp.commandv('script-message', 'osc-idlescreen', 'yes', 'no_osd') end
 	unbind_list_keys()
 	unbind_search_keys()

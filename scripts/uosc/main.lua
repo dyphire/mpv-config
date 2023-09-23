@@ -56,6 +56,7 @@ defaults = {
 	menu_min_width_fullscreen = 360,
 	menu_opacity = 1,
 	menu_parent_opacity = 0.4,
+	menu_type_to_search = true,
 
 	top_bar = 'no-border',
 	top_bar_size = 40,
@@ -464,6 +465,7 @@ state = {
 	current_chapter = nil,
 	chapter_ranges = {},
 	border = mp.get_property_native('border'),
+	title_bar = mp.get_property_native('title-bar'),
 	fullscreen = mp.get_property_native('fullscreen'),
 	maximized = mp.get_property_native('window-maximized'),
 	fullormaxed = mp.get_property_native('fullscreen') or mp.get_property_native('window-maximized'),
@@ -482,6 +484,9 @@ state = {
 	has_chapter = false,
 	has_playlist = false,
 	shuffle = options.shuffle,
+	---@type nil|{pos: number; paths: string[]}
+	shuffle_history = nil,
+	on_shuffle = function() state.shuffle_history = nil end,
 	mouse_bindings_enabled = false,
 	uncached_ranges = nil,
 	cache = nil,
@@ -586,7 +591,9 @@ function update_margins()
 	state.margin_left = left
 	state.margin_right = right
 
-	utils.shared_script_property_set('osc-margins', string.format('%f,%f,%f,%f', 0, 0, top, bottom))
+	if utils.shared_script_property_set then
+		utils.shared_script_property_set('osc-margins', string.format('%f,%f,%f,%f', 0, 0, top, bottom))
+	end
 	mp.set_property_native('user-data/osc/margins', { l = left, r = right, t = top, b = bottom })
 
 	if not options.adjust_osd_margins then return end
@@ -608,6 +615,7 @@ end
 
 function set_state(name, value)
 	state[name] = value
+	call_maybe(state['on_' .. name], value)
 	Elements:trigger('prop_' .. name, value)
 end
 
@@ -805,6 +813,7 @@ mp.observe_property('chapter-list', 'native', function(_, chapters)
 	Elements:trigger('dispositions')
 end)
 mp.observe_property('border', 'bool', create_state_setter('border'))
+mp.observe_property('title-bar', 'bool', create_state_setter('title_bar'))
 mp.observe_property('loop-file', 'native', create_state_setter('loop_file'))
 mp.observe_property('ab-loop-a', 'number', create_state_setter('ab_loop_a'))
 mp.observe_property('ab-loop-b', 'number', create_state_setter('ab_loop_b'))
@@ -1079,12 +1088,10 @@ bind_command('stream-quality', function()
 		-- Reload the video to apply new format
 		-- This is taken from https://github.com/jgreco/mpv-youtube-quality
 		-- which is in turn taken from https://github.com/4e6/mpv-reload/
-		-- Dunno if playlist_pos shenanigans below are necessary.
-		local playlist_pos = mp.get_property_number('playlist-pos')
 		local duration = mp.get_property_native('duration')
 		local time_pos = mp.get_property('time-pos')
 
-		mp.set_property_number('playlist-pos', playlist_pos)
+		mp.command('playlist-play-index current')
 
 		-- Tries to determine live stream vs. pre-recorded VOD. VOD has non-zero
 		-- duration property. When reloading VOD, to keep the current time position

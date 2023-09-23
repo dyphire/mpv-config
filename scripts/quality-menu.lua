@@ -236,11 +236,10 @@ end
 
 -- special thanks to reload.lua (https://github.com/4e6/mpv-reload/)
 local function reload_resume()
-    local playlist_pos = mp.get_property_number('playlist-pos')
     local reload_duration = mp.get_property_native('duration')
     local time_pos = mp.get_property('time-pos')
 
-    mp.set_property_number('playlist-pos', playlist_pos)
+    mp.command('playlist-play-index current')
 
     -- Tries to determine live stream vs. pre-recorded VOD. VOD has non-zero
     -- duration property. When reloading VOD, to keep the current time position
@@ -249,7 +248,7 @@ local function reload_resume()
     -- That's the reason we don't pass the offset when reloading streams.
     if reload_duration and reload_duration > 0 then
         local function seeker()
-            mp.commandv('seek', time_pos, 'absolute')
+            mp.commandv('seek', time_pos, 'absolute+exact')
             mp.unregister_event(seeker)
         end
 
@@ -748,7 +747,7 @@ local function text_menu_open(formats, active_format, menu_type)
         local clip_top = math.floor(margin_top * height + 0.5)
         local clip_bottom = math.floor((1 - margin_bottom) * height + 0.5)
         local clipping_coordinates = '0,' .. clip_top .. ',' .. width .. ',' .. clip_bottom
-        ass:append(opts.style_ass_tags .. '{\\q2\\clip(' .. clipping_coordinates .. ')}')
+        ass:append('{\\rDefault\\q2\\clip(' .. clipping_coordinates .. ')}' .. opts.style_ass_tags)
 
         if #formats > 0 then
             for i, format in ipairs(formats) do
@@ -775,29 +774,47 @@ local function text_menu_open(formats, active_format, menu_type)
         draw_menu()
     end
 
-    local function update_margins()
-        local shared_props = mp.get_property_native('shared-script-properties')
-        local val = shared_props['osc-margins']
-        if val then
-            -- formatted as '%f,%f,%f,%f' with left, right, top, bottom, each
-            -- value being the border size as ratio of the window size (0.0-1.0)
-            local vals = {}
-            for v in string.gmatch(val, '[^,]+') do
-                vals[#vals + 1] = tonumber(v)
+    local update_margins;
+    if utils.shared_script_property_set then
+        update_margins = function()
+            local shared_props = mp.get_property_native('shared-script-properties')
+            local val = shared_props['osc-margins']
+            if val then
+                -- formatted as '%f,%f,%f,%f' with left, right, top, bottom, each
+                -- value being the border size as ratio of the window size (0.0-1.0)
+                local vals = {}
+                for v in string.gmatch(val, '[^,]+') do
+                    vals[#vals + 1] = tonumber(v)
+                end
+                margin_top = vals[3] -- top
+                margin_bottom = vals[4] -- bottom
+            else
+                margin_top = 0
+                margin_bottom = 0
             end
-            margin_top = vals[3] -- top
-            margin_bottom = vals[4] -- bottom
-        else
-            margin_top = 0
-            margin_bottom = 0
+            draw_menu()
         end
-        draw_menu()
+        mp.observe_property('shared-script-properties', 'native', update_margins)
+    else
+        update_margins = function(_, val)
+            if not val then
+                val = mp.get_property_native('user-data/osc/margins')
+            end
+            if val then
+                margin_top = val.t
+                margin_bottom = val.b
+            else
+                margin_top = 0
+                margin_bottom = 0
+            end
+            draw_menu()
+        end
+        mp.observe_property('user-data/osc/margins', 'native', update_margins)
     end
 
     update_dimensions()
     update_margins()
     mp.observe_property('osd-dimensions', 'native', update_dimensions)
-    mp.observe_property('shared-script-properties', 'native', update_margins)
 
     ---@param amount integer
     local function selected_move(amount)
