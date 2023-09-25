@@ -649,8 +649,11 @@ end
 function Menu:search_internal(menu)
 	local query = menu.search.query:lower()
 	menu.items = query ~= '' and itable_filter(menu.search.source.items, function(item)
-		return item.title and item.title:lower():find(query, 1, true) or
-			item.hint and item.hint:lower():find(query, 1, true)
+		local title = item.title and item.title:lower()
+		local hint = item.hint and item.hint:lower()
+		return title and title:find(query, 1, true) or hint and hint:find(query, 1, true) or
+			title and table.concat(first_word_chars(title)):find(query, 1, true) or
+			hint and table.concat(first_word_chars(hint)):find(query, 1, true)
 	end) or menu.search.source.items
 	self:search_update_items()
 end
@@ -1086,7 +1089,9 @@ function Menu:render()
 			-- Title
 			if menu.search then
 				if menu.search.query ~= '' then
-					ass:txt(bx - spacing, title_ay + (title_height / 2), 6, ass_escape(menu.search.query), {
+					-- Add a ZWNBSP suffix to prevent libass from trimming any trailing spaces
+					local query = ass_escape(menu.search.query) .. '\239\187\191'
+					ass:txt(bx - spacing, title_ay + (title_height / 2), 6, query, {
 						size = self.font_size, color = bgt, wrap = 2, opacity = menu_opacity,
 						clip = '\\clip(' .. ax + spacing .. ',' .. title_ay .. ',' .. bx - spacing .. ',' .. ay .. ')',
 					})
