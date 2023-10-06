@@ -911,7 +911,6 @@ end
 
 ---@param menu table
 ---@param menu_type UIState
----@return string
 local function uosc_show_menu(menu, menu_type)
     local json = utils.format_json(menu)
     -- always using update wouldn't work, because it doesn't support the on_close command
@@ -919,7 +918,6 @@ local function uosc_show_menu(menu, menu_type)
     -- while updating the same kind requires `update-menu`
     if open_menu_state == menu_type then mp.commandv('script-message-to', 'uosc', 'update-menu', json)
     else mp.commandv('script-message-to', 'uosc', 'open-menu', json) end
-    return json
 end
 
 ---@param formats Format[]
@@ -980,9 +978,9 @@ local function uosc_menu_open(formats, active_format, menu_type)
         }
     end
 
-    local json = uosc_show_menu(menu, menu_type)
+    uosc_show_menu(menu, menu_type)
     destructor = function()
-        mp.commandv('script-message-to', 'uosc', 'open-menu', json)
+        mp.commandv('script-message-to', 'uosc', 'close-menu', menu.type)
     end
 end
 
@@ -1117,9 +1115,9 @@ local function loading_message(menu_type)
                 menu_type.name
             }
         }
-        local json = uosc_show_menu(menu, menu_type)
+        uosc_show_menu(menu, menu_type)
         destructor = function()
-            mp.commandv('script-message-to', 'uosc', 'open-menu', json)
+            mp.commandv('script-message-to', 'uosc', 'close-menu', menu.type)
         end
     else
         osd_message('fetching available ' .. menu_type.type .. ' formats...', 60)

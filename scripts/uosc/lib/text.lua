@@ -63,7 +63,7 @@ end
 ---Iterates over utf-8 characters instead of bytes
 ---@param str string
 ---@return fun(): integer?, string?
-local function utf8_iter(str)
+function utf8_iter(str)
 	local byte_start = 1
 	return function()
 		local start = byte_start
@@ -455,6 +455,7 @@ end
 do
 	local word_separators = {
 		' ', '　', '\t', '-', '–', '_', ',', '.', '+', '&', '(', ')', '[', ']', '{', '}', '<', '>', '/', '\\',
+		'（', '）', '【', '】', '；', '：', '《', '》', '“', '”', '‘', '’', '？', '！',
 	}
 
 	---Get the first character of each word

@@ -253,6 +253,7 @@ local function create_playlist(dir)
         local ext = file:match('%.([^./]+)$')
         if ext and exclude(ext:lower()) then
             table.insert(pl_list, file)
+            msg.verbose("Adding " .. file)
         end
     end
     alphanumsort(pl_list)

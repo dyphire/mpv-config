@@ -40,15 +40,27 @@ Most notable features:
 
     _List of all the possible places where it can be located is documented here: https://mpv.io/manual/master/#files_
 
-    On Linux and macOS these terminal commands can be used to install or update uosc and thumbfast (if wget and unzip are installed):
+    On Linux and macOS these terminal commands can be used to install or update uosc (if wget and unzip are installed):
 
     ```sh
-    mkdir -pv ~/.config/mpv/script-opts/
-    rm -rf ~/.config/mpv/scripts/uosc
+    config_dir="${XDG_CONFIG_HOME:-~/.config}"
+    mkdir -pv "$config_dir"/mpv/script-opts/
+    rm -rf "$config_dir"/mpv/scripts/uosc_shared
     wget -P /tmp/ https://github.com/tomasklaen/uosc/releases/latest/download/uosc.zip
-    unzip -od ~/.config/mpv/ /tmp/uosc.zip
+    unzip -od "$config_dir"/mpv/ /tmp/uosc.zip
     rm -fv /tmp/uosc.zip
-    wget -NP ~/.config/mpv/scripts/ https://raw.githubusercontent.com/po5/thumbfast/master/thumbfast.lua
+    ```
+
+    On Windows these equivalent PowerShell commands can be used:
+    ```PowerShell
+    New-Item -ItemType Directory -Force -Path "$env:APPDATA/mpv/script-opts/"
+    $Folder = "$env:APPDATA/mpv/scripts/uosc_shared"
+    if (Test-Path $Folder) {
+      Remove-Item -LiteralPath $Folder -Force -Recurse
+    }
+    Invoke-WebRequest -OutFile "$env:APPDATA/mpv/uosc_tmp.zip" -Uri https://github.com/tomasklaen/uosc/releases/latest/download/uosc.zip
+    Expand-Archive "$env:APPDATA/mpv/uosc_tmp.zip" -DestinationPath "$env:APPDATA/mpv" -Force
+    Remove-Item "$env:APPDATA/mpv/uosc_tmp.zip"
     ```
 
 2. **uosc** is a replacement for the built in osc, so that has to be disabled first.
@@ -133,7 +145,7 @@ Under the hood, `toggle-ui` is using `toggle-elements`, and that is in turn usin
 
 #### `toggle-progress`
 
-Toggles the always visible portion of the timeline. You can look at it as switching `timeline_size_min` option between it's configured value and 0.
+Toggles the timeline progress mode on/off. Progress mode is an always visible thin version of timeline with no text labels. It can be configured using the `progress*` config options.
 
 #### `toggle-title`
 
@@ -409,7 +421,11 @@ Menu {
   items: Item[];
   selected_index?: integer;
   keep_open?: boolean;
-  on_close: string | string[];
+  on_close?: string | string[];
+  on_search?: string | string[];
+  palette?: boolean;
+  search_debounce?: 'submit' | number;
+  search_suggestion?: string;
 }
 
 Item = Command | Submenu;
@@ -419,6 +435,10 @@ Submenu {
   hint?: string;
   items: Item[];
   keep_open?: boolean;
+  on_search?: string | string[];
+  palette?: boolean;
+  search_debounce?: 'submit' | number;
+  search_suggestion?: string;
 }
 
 Command {
@@ -436,11 +456,20 @@ Command {
 }
 ```
 
-When `Command.value` is a string, it'll be passed to `mp.command(value)`. If it's a table (array) of strings, it'll be used as `mp.commandv(table.unpack(value))`. The same goes for `Menu.on_close`.
+When `Command.value` is a string, it'll be passed to `mp.command(value)`. If it's a table (array) of strings, it'll be used as `mp.commandv(table.unpack(value))`. The same goes for `Menu.on_close` and `on_search`. `on_search` additionally appends the current search string as the last parameter.
 
-`Menu.type` controls what happens when opening a menu when some other menu is already open. When the new menu type is different, it'll replace the currently opened menu. When it's the same, the currently open menu will simply be closed. This is used to implement toggling of menus with the same type.
+`Menu.type` is used to refer to this menu in `update-menu` and `close-menu`.
+While the menu is open this value will be available in `user-data/uosc/menu/type`. Keep in mind that `nil` is a valid value. If the menu is closed `mp.get_property_native()` will return an error as the second return value.
 
-`item.icon` property accepts icon names. You can pick one from here: [Google Material Icons](https://fonts.google.com/icons?selected=Material+Icons)\
+`palette` specifies that this menu's primarily mode of interaction is through a search input. When enabled, search input will be visible at all times (doesn't have to be enabled and can't be disabled), and `title` will be used as input placeholder while search query is empty.
+
+`search_debounce` controls how soon the search happens after the last character was entered in milliseconds. Entering new character resets the timer. Defaults to `300`. It can also have a special value `'submit'`, which triggers a search only after `ctrl+enter` was pressed.
+
+`search_submenus` makes uosc's internal search handler (when no `on_search` callback is defined) look into submenus as well, effectively flattening the menu for the duration of the search.
+
+`search_suggestion` fills menu search with initial query string. Useful for example when you want to implement something like subtitle downloader, you'd set it to current file name.
+
+`item.icon` property accepts icon names. You can pick one from here: [Google Material Icons](https://fonts.google.com/icons)\
 There is also a special icon name `spinner` which will display a rotating spinner. Along with a no-op command on an item and `keep_open=true`, this can be used to display placeholder menus/items that are still loading.
 
 When `keep_open` is `true`, activating the item will not close the menu. This property can be defined on both menus and items, and is inherited from parent to child if child doesn't overwrite it.
@@ -465,9 +494,9 @@ mp.commandv('script-message-to', 'uosc', 'open-menu', json)
 
 ### `update-menu <menu_json>`
 
-Updates currently opened menu with the same `type`. If the menu isn't open, it will be opened.
+Updates currently opened menu with the same `type`.
 
-The difference between this and `open-menu` is that if the same type menu is already open, `open-menu` will close it (facilitating menu toggling with the same key/command), while `update-menu` will update it's data.
+The difference between this and `open-menu` is that if the same type menu is already open, `open-menu` will reset the menu as if it was newly opened, while `update-menu` will update it's data.
 
 `update-menu`, along with `{menu/item}.keep_open` property and `item.command` that sends a message back can be used to create a self updating menu with some limited UI. Example:
 
@@ -541,6 +570,11 @@ mp.register_script_message('submit', function(prop, value)
   -- Do something with state
 end)
 ```
+
+### `close-menu [type]`
+
+Closes the menu. If the optional parameter `type` is provided, then the menu only
+closes if it matches `Menu.type` of the currently open menu.
 
 ### `set <prop> <value>`
 

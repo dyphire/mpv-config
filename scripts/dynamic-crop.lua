@@ -72,7 +72,7 @@ local options = {
     read_ahead_mode = 0, -- [0-2], 0 disable, 1 fast_change_timer, 2 ratio_timer, more details above
     read_ahead_sync = 1, -- int/frame, increase for advance, more details above
     segmentation = 0.5, -- [0.0-1] %, 0 will approved only a continuous metadata (strict)
-    crop_method = 1, -- 0 lavfi-crop (ffmpeg/filter), 1 video-crop (mpv/VO)
+    crop_method = 0, -- 0 lavfi-crop (ffmpeg/filter), 1 video-crop (mpv/VO)
     -- filter, see https://ffmpeg.org/ffmpeg-filters.html#cropdetect for details
     detect_limit = 26, -- is the maximum use, increase it slowly if lighter black are present
     detect_round = 2, -- even number
@@ -710,7 +710,7 @@ function on_toggle(auto)
         s.toggled = DISABLE
         if filter_state(labels.cropdetect, "enabled", false) then
             if s.f_video_crop then
-                mp.set_property("video-crop", "0x0")
+                mp.set_property("video-crop", "")
             elseif filter_state(labels.crop, "enabled", true) then
                 mp.commandv("vf", EVENT, string.format("@%s", labels.crop))
             end
@@ -760,7 +760,7 @@ function cleanup()
     for _, label in pairs(labels) do
         if filter_state(label) then mp.commandv("vf", "remove", string.format("@%s", label)) end
     end
-    if s.f_video_crop then mp.set_property("video-crop", "0x0") end
+    if s.f_video_crop then mp.set_property("video-crop", "") end
     mp.msg.info("Done.")
     s.started = false
 end

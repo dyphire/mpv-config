@@ -215,10 +215,10 @@ function find_and_add_entries()
     local dir, filename = utils.split_path(path)
     msg.trace(("dir: %s, filename: %s"):format(dir, filename))
     if o.disabled then
-        msg.verbose("stopping: autoload disabled")
+        msg.debug("stopping: autoload disabled")
         return
     elseif #dir == 0 then
-        msg.verbose("stopping: not a local path")
+        msg.debug("stopping: not a local path")
         return
     end
 
@@ -227,7 +227,7 @@ function find_and_add_entries()
     -- check if this is a manually made playlist
     if (pl_count > 1 and autoloaded == nil) or
        (pl_count == 1 and EXTENSIONS[string.lower(this_ext)] == nil) then
-        msg.verbose("stopping: manually made playlist")
+        msg.debug("stopping: manually made playlist")
         return
     else
         if pl_count == 1 then
@@ -258,12 +258,12 @@ function find_and_add_entries()
     local files = {}
     do
         local dir_mode = o.directory_mode or mp.get_property("directory-mode", "lazy")
-        local separator = package.config:sub(1, 1) == "\\" and "\\" or "/"
+        local separator = mp.get_property_native("platform") == "windows" and "\\" or "/"
         scan_dir(autoloaded_dir, path, dir_mode, separator, 0, files, extensions)
     end
 
     if next(files) == nil then
-        msg.verbose("no other files or directories in directory")
+        msg.debug("no other files or directories in directory")
         return
     end
 
@@ -298,10 +298,10 @@ function find_and_add_entries()
             -- skip files that are/were already in the playlist
             if not added_entries[file] then
                 if direction == -1 then
-                    msg.info("Prepending " .. file)
+                    msg.verbose("Prepending " .. file)
                     table.insert(append[-1], 1, {file, pl_current + i * direction + 1})
                 else
-                    msg.info("Adding " .. file)
+                    msg.verbose("Adding " .. file)
                     if pl_count > 1 then
                         table.insert(append[1], {file, pl_current + i * direction - 1})
                     else

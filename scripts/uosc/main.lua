@@ -17,12 +17,11 @@ defaults = {
 	timeline_style = 'line',
 	timeline_line_width = 2,
 	timeline_line_width_fullscreen = 3,
-	timeline_line_width_minimized_scale = 10,
-	timeline_size_min = 2,
-	timeline_size_max = 40,
-	timeline_size_min_fullscreen = 0,
-	timeline_size_max_fullscreen = 60,
-	timeline_start_hidden = false,
+	timeline_size = 40,
+	timeline_size_fullscreen = 60,
+	progress = 'windowed',
+	progress_size = 2,
+	progress_line_width = 20,
 	timeline_persistency = 'paused',
 	timeline_opacity = 0.9,
 	timeline_border = 1,
@@ -101,9 +100,9 @@ defaults = {
 	curtain_opacity = 0.5,
 	stream_quality_options = '4320,2160,1440,1080,720,480,360,240,144',
 	video_types= '3g2,3gp,asf,avi,f4v,flv,h264,h265,m2ts,m4v,mkv,mov,mp4,mp4v,mpeg,mpg,ogm,ogv,rm,rmvb,ts,vob,webm,wmv,y4m',
-	audio_types= 'aac,ac3,aiff,ape,au,dsf,dts,flac,m4a,mid,midi,mka,mp3,mp4a,oga,ogg,opus,spx,tak,tta,wav,weba,wma,wv',
+	audio_types= 'aac,ac3,aiff,ape,au,cue,dsf,dts,flac,m4a,mid,midi,mka,mp3,mp4a,oga,ogg,opus,spx,tak,tta,wav,weba,wma,wv',
 	image_types= 'apng,avif,bmp,gif,j2k,jp2,jfif,jpeg,jpg,jxl,mj2,png,svg,tga,tif,tiff,webp',
-	subtitle_types = 'aqt,ass,gsub,idx,jss,lrc,mks,pgs,pjs,psb,rt,slt,smi,sub,sup,srt,ssa,ssf,ttxt,txt,usf,vt,vtt',
+	subtitle_types = 'aqt,ass,gsub,idx,jss,lrc,mks,pgs,pjs,psb,rt,sbv,slt,smi,sub,sup,srt,ssa,ssf,ttxt,txt,usf,vt,vtt',
 	default_directory = '~/',
 	show_hidden_files = false,
 	use_trash = false,
@@ -141,6 +140,9 @@ fgt, bgt = serialize_rgba(options.foreground_text).color, serialize_rgba(options
 --[[ INTERNATIONALIZATION ]]
 local intl = require('lib/intl')
 t = intl.t
+
+--[[ CHARACTER CONVERSION ]]
+local char_conv = require('lib/char_conv')
 
 --[[ CONFIG ]]
 
@@ -950,16 +952,7 @@ bind_command('flash-top-bar', function() Elements:flash({'top_bar'}) end)
 bind_command('flash-volume', function() Elements:flash({'volume'}) end)
 bind_command('flash-speed', function() Elements:flash({'speed'}) end)
 bind_command('flash-pause-indicator', function() Elements:flash({'pause_indicator'}) end)
-bind_command('toggle-progress', function()
-	local timeline = Elements.timeline
-	if timeline.size_min_override then
-		timeline:tween_property('size_min_override', timeline.size_min_override, timeline.size_min, function()
-			timeline.size_min_override = nil
-		end)
-	else
-		timeline:tween_property('size_min_override', timeline.size_min, 0)
-	end
-end)
+bind_command('toggle-progress', function() Elements.timeline:toggle_progress() end)
 bind_command('toggle-title', function() Elements.top_bar:toggle_title() end)
 bind_command('decide-pause-indicator', function() Elements.pause_indicator:decide() end)
 bind_command('menu', function() toggle_menu_with_items() end)
@@ -1286,8 +1279,7 @@ mp.register_script_message('open-menu', function(json, submenu_id)
 	if type(data) ~= 'table' or type(data.items) ~= 'table' then
 		msg.error('open-menu: received json didn\'t produce a table with menu configuration')
 	else
-		if data.type and Menu:is_open(data.type) then Menu:close()
-		else open_command_menu(data, {submenu = submenu_id, on_close = data.on_close}) end
+		open_command_menu(data, {submenu = submenu_id, on_close = data.on_close})
 	end
 end)
 mp.register_script_message('update-menu', function(json)
@@ -1296,9 +1288,11 @@ mp.register_script_message('update-menu', function(json)
 		msg.error('update-menu: received json didn\'t produce a table with menu configuration')
 	else
 		local menu = data.type and Menu:is_open(data.type)
-		if menu then menu:update(data)
-		else open_command_menu(data) end
+		if menu then menu:update(data) end
 	end
+end)
+mp.register_script_message('close-menu', function(type)
+	if Menu:is_open(type) then Menu:close() end
 end)
 mp.register_script_message('thumbfast-info', function(json)
 	local data = utils.parse_json(json)
