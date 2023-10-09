@@ -221,6 +221,10 @@ Editions menu. Editions are different video cuts available in some mkv files.
 
 Switch stream quality. This is just a basic re-assignment of `ytdl-format` mpv property from predefined options (configurable with `stream_quality_options`) and video reload, there is no fetching of available formats going on.
 
+#### `inputs`
+
+Displays a command palette menu with all inputs defined in your `input.conf` file. Useful to check what command is bound to what shortcut, etc.
+
 #### `open-file`
 
 Open file menu. Browsing starts in current file directory, or user directory when file not available. The explorer only displays file types defined in the `video_types`, `audio_types`, and `image_types` options.
@@ -344,6 +348,20 @@ Define a folder without defining any of its contents:
 #  ignore  #! Folder title >
 ```
 
+Define an un-selectable, muted, and italic title item by using `#` as key, and omitting the command:
+
+```
+#    #! Title
+#    #! Section > Title
+```
+
+Define a separator between previous and next items by doing the same, but using `---` as title:
+
+```
+#    #! ---
+#    #! Section > ---
+```
+
 Example context menu:
 
 This is the default pre-configured menu if none is defined in your `input.conf`, but with added shortcuts. To both pause & move the window with left mouse button, so that you can have the menu on the right one, enable `click_threshold` in `uosc.conf` (see default `uosc.conf` for example/docs).
@@ -369,6 +387,7 @@ o           script-binding uosc/open-file          #! Navigation > Open file
 #           script-binding uosc/audio-device       #! Utils > Audio devices
 #           script-binding uosc/editions           #! Utils > Editions
 ctrl+s      async screenshot                       #! Utils > Screenshot
+alt+i       script-binding uosc/inputs             #! Utils > Inputs
 O           script-binding uosc/show-in-directory  #! Utils > Show in directory
 #           script-binding uosc/open-config-directory #! Utils > Open config directory
 esc         quit #! Quit
@@ -426,6 +445,7 @@ Menu {
   palette?: boolean;
   search_debounce?: 'submit' | number;
   search_suggestion?: string;
+  search_submenus?: boolean;
 }
 
 Item = Command | Submenu;
@@ -434,11 +454,17 @@ Submenu {
   title?: string;
   hint?: string;
   items: Item[];
+  bold?: boolean;
+  italic?: boolean;
+  align?: 'left'|'center'|'right';
+  muted?: boolean;
+  separator?: boolean;
   keep_open?: boolean;
   on_search?: string | string[];
   palette?: boolean;
   search_debounce?: 'submit' | number;
   search_suggestion?: string;
+  search_submenus?: boolean;
 }
 
 Command {
@@ -446,12 +472,13 @@ Command {
   hint?: string;
   icon?: string;
   value: string | string[];
+  active?: integer;
+  selectable?: boolean;
   bold?: boolean;
   italic?: boolean;
   align?: 'left'|'center'|'right';
-  selectable?: boolean;
   muted?: boolean;
-  active?: integer;
+  separator?: boolean;
   keep_open?: boolean;
 }
 ```
@@ -459,13 +486,13 @@ Command {
 When `Command.value` is a string, it'll be passed to `mp.command(value)`. If it's a table (array) of strings, it'll be used as `mp.commandv(table.unpack(value))`. The same goes for `Menu.on_close` and `on_search`. `on_search` additionally appends the current search string as the last parameter.
 
 `Menu.type` is used to refer to this menu in `update-menu` and `close-menu`.
-While the menu is open this value will be available in `user-data/uosc/menu/type`. Keep in mind that `nil` is a valid value. If the menu is closed `mp.get_property_native()` will return an error as the second return value.
+While the menu is open this value will be available in `user-data/uosc/menu/type` and the `shared-script-properties` entry `uosc-menu-type`. If no type was provided, those will be set to `'undefined'`.
 
 `palette` specifies that this menu's primarily mode of interaction is through a search input. When enabled, search input will be visible at all times (doesn't have to be enabled and can't be disabled), and `title` will be used as input placeholder while search query is empty.
 
 `search_debounce` controls how soon the search happens after the last character was entered in milliseconds. Entering new character resets the timer. Defaults to `300`. It can also have a special value `'submit'`, which triggers a search only after `ctrl+enter` was pressed.
 
-`search_submenus` makes uosc's internal search handler (when no `on_search` callback is defined) look into submenus as well, effectively flattening the menu for the duration of the search.
+`search_submenus` makes uosc's internal search handler (when no `on_search` callback is defined) look into submenus as well, effectively flattening the menu for the duration of the search. This property is inherited by all submenus.
 
 `search_suggestion` fills menu search with initial query string. Useful for example when you want to implement something like subtitle downloader, you'd set it to current file name.
 

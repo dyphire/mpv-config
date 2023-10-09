@@ -30,7 +30,7 @@ end
 function tween(from, to, setter, factor_or_callback, callback)
 	local factor = factor_or_callback
 	if type(factor_or_callback) == 'function' then callback = factor_or_callback end
-	if type(factor) ~= 'number' then factor = 0.3 end
+	if type(factor) ~= 'number' then factor = options.animation_factor end
 
 	local current, done, timeout = from, false, nil
 	local get_to = type(to) == 'function' and to or function() return to --[[@as number]] end
@@ -655,6 +655,13 @@ function render()
 	-- Actual rendering
 	local ass = assdraw.ass_new()
 
+	-- Audio indicator
+	if state.is_audio and not state.has_image then
+		local smaller_side = math.min(display.width, display.height)
+		ass:icon(display.width / 2, display.height / 2, smaller_side / 3, 'graphic_eq', {color = fg, opacity = 0.5})
+	end
+
+	-- Elements
 	for _, element in Elements:ipairs() do
 		if element.enabled then
 			local result = element:maybe('render')

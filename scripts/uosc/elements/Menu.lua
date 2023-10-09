@@ -1,15 +1,15 @@
 local Element = require('elements/Element')
 
 -- Menu data structure accepted by `Menu:open(menu)`.
----@alias MenuData {id?: string; type?: string; title?: string; hint?: string; palette?: boolean; keep_open?: boolean; separator?: boolean; items?: MenuDataItem[]; selected_index?: integer; on_search?: string|string[]|fun(search_text: string); search_debounce?: number|string; search_submenus?: boolean; search_suggestion?: string}
+---@alias MenuData {id?: string; type?: string; title?: string; hint?: string; palette?: boolean; keep_open?: boolean; bold?: boolean; italic?: boolean; muted?: boolean; separator?: boolean; align?: 'left'|'center'|'right'; items?: MenuDataItem[]; selected_index?: integer; on_search?: string|string[]|fun(search_text: string); search_debounce?: number|string; search_submenus?: boolean; search_suggestion?: string}
 ---@alias MenuDataItem MenuDataValue|MenuData
----@alias MenuDataValue {title?: string; hint?: string; icon?: string; value: any; bold?: boolean; italic?: boolean; muted?: boolean; active?: boolean; keep_open?: boolean; separator?: boolean; selectable?: boolean; align?: 'left'|'center'|'right'}
+---@alias MenuDataValue {title?: string; hint?: string; icon?: string; value: any; active?: boolean; keep_open?: boolean; selectable?: boolean; bold?: boolean; italic?: boolean; muted?: boolean; separator?: boolean; align?: 'left'|'center'|'right'}
 ---@alias MenuOptions {mouse_nav?: boolean; on_open?: fun(); on_close?: fun(); on_back?: fun(); on_move_item?: fun(from_index: integer, to_index: integer, submenu_path: integer[]); on_delete_item?: fun(index: integer, submenu_path: integer[])}
 
 -- Internal data structure created from `Menu`.
----@alias MenuStack {id?: string; type?: string; title?: string; hint?: string; palette?: boolean, selected_index?: number; keep_open?: boolean; separator?: boolean; items: MenuStackItem[]; on_search?: string|string[]|fun(search_text: string); search_debounce?: number|string; search_submenus?: boolean; search_suggestion?: string; parent_menu?: MenuStack; submenu_path: integer[]; active?: boolean; width: number; height: number; top: number; scroll_y: number; scroll_height: number; title_width: number; hint_width: number; max_width: number; is_root?: boolean; fling?: Fling, search?: Search, ass_safe_title?: string}
+---@alias MenuStack {id?: string; type?: string; title?: string; hint?: string; palette?: boolean, selected_index?: number; keep_open?: boolean; bold?: boolean; italic?: boolean; muted?: boolean; separator?: boolean; align?: 'left'|'center'|'right'; items: MenuStackItem[]; on_search?: string|string[]|fun(search_text: string); search_debounce?: number|string; search_submenus?: boolean; search_suggestion?: string; parent_menu?: MenuStack; submenu_path: integer[]; active?: boolean; width: number; height: number; top: number; scroll_y: number; scroll_height: number; title_width: number; hint_width: number; max_width: number; is_root?: boolean; fling?: Fling, search?: Search, ass_safe_title?: string}
 ---@alias MenuStackItem MenuStackValue|MenuStack
----@alias MenuStackValue {title?: string; hint?: string; icon?: string; value: any; active?: boolean; bold?: boolean; italic?: boolean; muted?: boolean; keep_open?: boolean; separator?: boolean; selectable?: boolean; align?: 'left'|'center'|'right'; title_width: number; hint_width: number}
+---@alias MenuStackValue {title?: string; hint?: string; icon?: string; value: any; active?: boolean; keep_open?: boolean; selectable?: boolean; bold?: boolean; italic?: boolean; muted?: boolean; separator?: boolean; align?: 'left'|'center'|'right'; title_width: number; hint_width: number}
 ---@alias Fling {y: number, distance: number, time: number, easing: fun(x: number), duration: number, update_cursor?: boolean}
 ---@alias Search {query: string; timeout: unknown; min_top: number; max_width: number; source: {width: number; top: number; scroll_y: number; selected_index?: integer; items?: MenuDataItem[]}}
 
@@ -88,8 +88,12 @@ function Menu:init(data, callback, opts)
 	---@type Modifiers|nil
 	self.modifiers = nil
 	self.item_height = nil
+	self.min_width = nil
 	self.item_spacing = 1
 	self.item_padding = nil
+	self.separator_size = nil
+	self.padding = nil
+	self.gap = nil
 	self.font_size = nil
 	self.font_size_hint = nil
 	self.scroll_step = nil -- Item height + item spacing.
@@ -112,7 +116,10 @@ function Menu:init(data, callback, opts)
 	self.drag_last_y = nil
 	self.is_dragging = false
 
-	mp.set_property_native('user-data/uosc/menu/type', self.type)
+	if utils.shared_script_property_set then
+		utils.shared_script_property_set('uosc-menu-type', self.type or 'undefined')
+	end
+	mp.set_property_native('user-data/uosc/menu/type', self.type or 'undefined')
 	self:update(data)
 
 	if self.mouse_nav then
@@ -132,7 +139,10 @@ function Menu:destroy()
 	self:disable_key_bindings()
 	self.is_closed = true
 	if not self.is_being_replaced then Elements.curtain:unregister('menu') end
-	mp.del_property('user-data/uosc/menu/type')
+	if utils.shared_script_property_set then
+		utils.shared_script_property_set('uosc-menu-type', nil)
+	end
+	mp.set_property_native('user-data/uosc/menu/type', nil)
 	if self.opts.on_close then self.opts.on_close() end
 end
 
@@ -237,13 +247,14 @@ function Menu:update(data)
 	end
 	-- Apply search suggestions
 	for _, menu in ipairs(new_menus) do
-		if menu.search_suggestion then
+		if menu.search_suggestion then menu.search.query = menu.search_suggestion end
+	end
+	for _, menu in ipairs(self.all) do
+		if menu.search then
+			-- the menu items are new objects and the search needs to contain those
+			menu.search.source.items = not menu.on_search and menu.items or nil
 			-- Only internal searches are immediately submitted
-			if menu.on_search then
-				menu.search.query = menu.search_suggestion
-			else
-				self:search_query_update(menu.search_suggestion, menu)
-			end
+			if not menu.on_search then self:search_submit(menu) end
 		end
 	end
 
@@ -258,7 +269,11 @@ function Menu:update_items(items)
 end
 
 function Menu:update_content_dimensions()
-	self.item_height = state.fullormaxed and options.menu_item_height_fullscreen or options.menu_item_height
+	self.item_height = round(options.menu_item_height * state.scale)
+	self.min_width = round(options.menu_min_width * state.scale)
+	self.separator_size = round(1 * state.scale)
+	self.padding = round(2 * state.scale)
+	self.gap = round(2 * state.scale)
 	self.font_size = round(self.item_height * 0.48 * options.font_scale)
 	self.font_size_hint = self.font_size - 1
 	self.item_padding = round((self.item_height - self.font_size) * 0.6)
@@ -296,10 +311,7 @@ function Menu:update_dimensions()
 	-- and dumb titles with no search inputs. It could use a refactor.
 	local margin = round(self.item_height / 2)
 	local width_available, height_available = display.width - margin * 2, display.height - margin * 2
-	local min_width = math.min(
-		state.fullormaxed and options.menu_min_width_fullscreen or options.menu_min_width,
-		width_available
-	)
+	local min_width = math.min(self.min_width, width_available)
 
 	for _, menu in ipairs(self.all) do
 		local width = math.max(menu.search and menu.search.max_width or 0, menu.max_width)
@@ -511,14 +523,6 @@ function Menu:delete_value(value, menu)
 	self:delete_index(index)
 end
 
-function Menu:prev()
-	self:navigate_by_offset(-1)
-end
-
-function Menu:next()
-	self:navigate_by_offset(1)
-end
-
 ---@param menu MenuStack One of menus in `self.all`.
 ---@param x number `x` coordinate to slide from.
 function Menu:slide_in_menu(menu, x)
@@ -654,9 +658,18 @@ function Menu:select_by_offset(offset, menu)
 end
 
 ---@param offset integer
-function Menu:navigate_by_offset(offset)
+---@param immediate? boolean
+function Menu:navigate_by_offset(offset, immediate)
 	self:select_by_offset(offset)
-	if self.current.selected_index then self:scroll_to_index(self.current.selected_index) end
+	if self.current.selected_index then self:scroll_to_index(self.current.selected_index, self.current, immediate) end
+end
+
+function Menu:prev()
+	self:navigate_by_offset(-1, true)
+end
+
+function Menu:next()
+	self:navigate_by_offset(1, true)
 end
 
 function Menu:on_pgup()
@@ -670,11 +683,11 @@ function Menu:on_pgdwn()
 end
 
 function Menu:on_home()
-	self:navigate_by_offset(-INFINITY)
+	self:navigate_by_offset(-INFINITY, true)
 end
 
 function Menu:on_end()
-	self:navigate_by_offset(INFINITY)
+	self:navigate_by_offset(INFINITY, true)
 end
 
 ---@param menu MenuStack
@@ -684,10 +697,15 @@ function Menu:search_internal(menu)
 		-- Reset menu state to what it was before search
 		for key, value in pairs(menu.search.source) do menu[key] = value end
 	else
-		menu.items = search_items(menu.search.source.items, query, menu.search_submenus)
+		-- Inherit `search_submenus` from parent menus
+		local search_submenus, parent_menu = menu.search_submenus, menu.parent_menu
+		while not search_submenus and parent_menu do
+			search_submenus, parent_menu = parent_menu.search_submenus, parent_menu.parent_menu
+		end
+		menu.items = search_items(menu.search.source.items, query, search_submenus)
 		-- Select 1st item in search results
 		menu.scroll_y = 0
-		self:select_index(1, menu)
+		if not self.mouse_nav then self:select_index(1, menu) end
 	end
 	self:update_content_dimensions()
 end
@@ -714,6 +732,7 @@ function search_items(items, query, recursive, prefix)
 					hint and table.concat(initials(hint)):find(query, 1, true) then
 					item = table_shallow_copy(item)
 					item.title = prefixed_title
+					item.ass_safe_title = nil
 					result[#result + 1] = item
 				end
 			end
@@ -1000,29 +1019,30 @@ function Menu:render()
 	end
 
 	local ass = assdraw.ass_new()
-	local opacity = options.menu_opacity * self.opacity
 	local spacing = self.item_padding
 	local icon_size = self.font_size
-	local menu_gap, menu_padding = 2, 2
 
 	---@param menu MenuStack
 	---@param x number
 	---@param pos number Horizontal position index. 0 = current menu, <0 parent menus, >1 submenu.
 	local function draw_menu(menu, x, pos)
 		local is_current, is_parent, is_submenu = pos == 0, pos < 0, pos > 0
-		local menu_opacity = pos == 0 and opacity or opacity * (options.menu_parent_opacity ^ math.abs(pos))
+		local menu_opacity = (pos == 0 and 1 or config.opacity.submenu ^ math.abs(pos)) * self.opacity
 		local ax, ay, bx, by = x, menu.top, x + menu.width, menu.top + menu.height
 		local draw_title = menu.is_root and menu.title or menu.search
 		local scroll_clip = '\\clip(0,' .. ay .. ',' .. display.width .. ',' .. by .. ')'
 		local start_index = math.floor(menu.scroll_y / self.scroll_step) + 1
 		local end_index = math.ceil((menu.scroll_y + menu.height) / self.scroll_step)
-		-- Remove menu_opacity to start off with full, but still decay for parent menus
-		local text_opacity = menu_opacity / options.menu_opacity
-		local menu_rect = {ax = ax, ay = ay - (draw_title and self.scroll_step or 0) - 2, bx = bx, by = by + 2}
+		local menu_rect = {
+			ax = ax, ay = ay - (draw_title and self.scroll_step or 0) - self.padding,
+			bx = bx, by = by + self.padding
+		}
 		local blur_selected_index = is_current and self.mouse_nav
 
 		-- Background
-		ass:rect(menu_rect.ax, menu_rect.ay, menu_rect.bx, menu_rect.by, {color = bg, opacity = menu_opacity, radius = 4})
+		ass:rect(menu_rect.ax, menu_rect.ay, menu_rect.bx, menu_rect.by, {
+			color = bg, opacity = menu_opacity * config.opacity.menu, radius = state.radius + self.padding
+		})
 
 		if is_parent and get_point_to_rectangle_proximity(cursor, menu_rect) == 0 then
 			cursor.on_primary_down = self:create_action(function() self:slide_in_menu(menu, x) end)
@@ -1032,7 +1052,7 @@ function Menu:render()
 		local submenu_rect, current_item = nil, is_current and menu.selected_index and menu.items[menu.selected_index]
 		local submenu_is_hovered = false
 		if current_item and current_item.items then
-			submenu_rect = draw_menu(current_item, menu_rect.bx + menu_gap, 1)
+			submenu_rect = draw_menu(current_item, menu_rect.bx + self.gap, 1)
 			submenu_is_hovered = get_point_to_rectangle_proximity(cursor, submenu_rect) == 0
 			if submenu_is_hovered then
 				cursor.on_primary_down = self:create_action(function()
@@ -1059,9 +1079,9 @@ function Menu:render()
 					blur_selected_index = false
 				else
 					local item_rect_hitbox = {
-						ax = menu_rect.ax + menu_padding,
+						ax = menu_rect.ax + self.padding,
 						ay = item_ay,
-						bx = menu_rect.bx + (item.items and menu_gap or -menu_padding), -- to bridge the gap with cursor
+						bx = menu_rect.bx + (item.items and self.gap or -self.padding), -- to bridge the gap with cursor
 						by = item_by
 					}
 					if submenu_is_hovered or get_point_to_rectangle_proximity(cursor, item_rect_hitbox) == 0 then
@@ -1075,7 +1095,6 @@ function Menu:render()
 			local next_is_active = next_item and next_item.active
 			local next_is_highlighted = menu.selected_index == index + 1 or next_is_active
 			local font_color = item.active and fgt or bgt
-			local shadow_color = item.active and fg or bg
 
 			-- Separator
 			local separator_ay = item.separator and item_by - 1 or item_by
@@ -1091,8 +1110,8 @@ function Menu:render()
 			-- Highlight
 			local highlight_opacity = 0 + (item.active and 0.8 or 0) + (menu.selected_index == index and 0.15 or 0)
 			if not is_submenu and highlight_opacity > 0 then
-				ass:rect(ax + menu_padding, item_ay, bx - menu_padding, item_by, {
-					radius = 2, color = fg, opacity = highlight_opacity * text_opacity,
+				ass:rect(ax + self.padding, item_ay, bx - self.padding, item_by, {
+					radius = state.radius, color = fg, opacity = highlight_opacity * menu_opacity,
 					clip = item_clip,
 				})
 			end
@@ -1101,11 +1120,10 @@ function Menu:render()
 			if item.icon then
 				local x, y = content_bx - (icon_size / 2), item_center_y
 				if item.icon == 'spinner' then
-					ass:spinner(x, y, icon_size * 1.5, {color = font_color, opacity = text_opacity * 0.8})
+					ass:spinner(x, y, icon_size * 1.5, {color = font_color, opacity = menu_opacity * 0.8})
 				else
 					ass:icon(x, y, icon_size * 1.5, item.icon, {
-						color = font_color, opacity = text_opacity, clip = item_clip,
-						shadow = 1, shadow_color = shadow_color,
+						color = font_color, opacity = menu_opacity, clip = item_clip,
 					})
 				end
 				content_bx = content_bx - icon_size - spacing
@@ -1114,19 +1132,21 @@ function Menu:render()
 			local title_cut_x = content_bx
 			if item.hint_width > 0 then
 				-- controls title & hint clipping proportional to the ratio of their widths
-				local title_content_ratio = item.title_width / (item.title_width + item.hint_width)
-				title_cut_x = round(content_ax + (content_bx - content_ax - spacing) * title_content_ratio
-					+ (item.title_width > 0 and spacing / 2 or 0))
+				-- both title and hint get at least 50% of the width, unless they are smaller then that
+				local width = content_bx - content_ax - spacing
+				local title_min = math.min(item.title_width, width * 0.5)
+				local hint_min = math.min(item.hint_width, width * 0.5)
+				local title_ratio = item.title_width / (item.title_width + item.hint_width)
+				title_cut_x = round(content_ax + clamp(title_min, width * title_ratio, width - hint_min))
 			end
 
 			-- Hint
 			if item.hint then
 				item.ass_safe_hint = item.ass_safe_hint or ass_escape(item.hint)
-				local clip = '\\clip(' .. title_cut_x .. ',' ..
+				local clip = '\\clip(' .. title_cut_x + spacing .. ',' ..
 					math.max(item_ay, ay) .. ',' .. bx .. ',' .. math.min(item_by, by) .. ')'
 				ass:txt(content_bx, item_center_y, 6, item.ass_safe_hint, {
 					size = self.font_size_hint, color = font_color, wrap = 2, opacity = 0.5 * menu_opacity, clip = clip,
-					shadow = 1, shadow_color = shadow_color,
 				})
 			end
 
@@ -1143,8 +1163,7 @@ function Menu:render()
 				end
 				ass:txt(title_x, item_center_y, align, item.ass_safe_title, {
 					size = self.font_size, color = font_color, italic = item.italic, bold = item.bold, wrap = 2,
-					opacity = text_opacity * (item.muted and 0.5 or 1), clip = clip,
-					shadow = 1, shadow_color = shadow_color,
+					opacity = menu_opacity * (item.muted and 0.5 or 1), clip = clip,
 				})
 			end
 		end
@@ -1181,22 +1200,22 @@ function Menu:render()
 			end
 
 			-- Bottom border
-			ass:rect(ax, rect.by - 1, bx, rect.by, {color = fg, opacity = menu_opacity * 0.2})
+			ass:rect(ax, rect.by - self.separator_size, bx, rect.by, {color = fg, opacity = menu_opacity * 0.2})
 
 			-- Title
 			if menu.search then
 				-- Icon
-				local icon_size, icon_opacity = self.font_size * 1.3, requires_submit and text_opacity * 0.5 or 1
+				local icon_size, icon_opacity = self.font_size * 1.3, menu_opacity * (requires_submit and 0.5 or 1)
 				local icon_rect = {ax = rect.ax, ay = rect.ay, bx = ax + icon_size + spacing * 1.5, by = rect.by}
 
 				if is_current and requires_submit and get_point_to_rectangle_proximity(cursor, icon_rect) == 0 then
 					cursor.on_primary_down = function() self:search_submit() end
-					icon_opacity = text_opacity
+					icon_opacity = menu_opacity
 					prevent_title_click = false
 				end
 
 				ass:icon(rect.ax + icon_size / 2, rect.cy, icon_size, 'search', {
-					color = fg, opacity = icon_opacity, shadow = 1, shadow_color = bg,
+					color = fg, opacity = icon_opacity,
 					clip = '\\clip(' .. icon_rect.ax .. ',' .. icon_rect.ay .. ',' .. icon_rect.bx .. ',' .. icon_rect.by .. ')'
 				})
 
@@ -1262,7 +1281,7 @@ function Menu:render()
 	local parent_offset_x, parent_horizontal_index = self.ax, -1
 
 	while parent_menu do
-		parent_offset_x = parent_offset_x - parent_menu.width - menu_gap
+		parent_offset_x = parent_offset_x - parent_menu.width - self.gap
 		draw_menu(parent_menu, parent_offset_x, parent_horizontal_index)
 		parent_horizontal_index = parent_horizontal_index - 1
 		parent_menu = parent_menu.parent_menu

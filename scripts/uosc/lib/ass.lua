@@ -75,15 +75,14 @@ end
 -- Tooltip.
 ---@param element {ax: number; ay: number; bx: number; by: number}
 ---@param value string|number
----@param opts? {size?: number; offset?: number; bold?: boolean; italic?: boolean; width_overwrite?: number, margin?: number, responsive?: boolean, opacity?: number, lines?: integer}
+---@param opts? {size?: number; offset?: number; bold?: boolean; italic?: boolean; width_overwrite?: number, margin?: number; responsive?: boolean; lines?: integer}
 function ass_mt:tooltip(element, value, opts)
 	if value == '' then return end
 	opts = opts or {}
-	opts.size = opts.size or 16
-	opts.border = options.text_border
+	opts.size = opts.size or round(16 * state.scale)
+	opts.border = options.text_border * state.scale
 	opts.border_color = bg
-	opts.margin = opts.margin or 10
-	opts.opacity = opts.opacity or options.timeline_opacity
+	opts.margin = opts.margin or round(10 * state.scale)
 	opts.lines = opts.lines or 1
 	local padding_y = round(opts.size / 6)
 	local padding_x = round(opts.size / 3)
@@ -94,11 +93,10 @@ function ass_mt:tooltip(element, value, opts)
 	local width_half = (opts.width_overwrite or text_width(value, opts)) / 2 + padding_x
 	local min_edge_distance = width_half + opts.margin + Elements.window_border.size
 	x = clamp(min_edge_distance, x, display.width - min_edge_distance)
-	local ax, bx = x - width_half, x + width_half
+	local ax, bx = round(x - width_half), round(x + width_half)
 	local ay = (align_top and y - opts.size * opts.lines - 2 * padding_y or y)
 	local by = (align_top and y or y + opts.size * opts.lines + 2 * padding_y)
-	self:rect(ax, ay, bx, by, {color = bg, opacity = opts.opacity, radius = 2})
-	opts.opacity = nil
+	self:rect(ax, ay, bx, by, {color = bg, opacity = config.opacity.tooltip, radius = state.radius})
 	self:txt(x, align_top and y - padding_y or y + padding_y, align_top and 2 or 8, value, opts)
 	return { ax = element.ax, ay = ay, bx = element.bx, by = by }
 end
@@ -129,7 +127,7 @@ function ass_mt:rect(ax, ay, bx, by, opts)
 	self:new_event()
 	self.text = self.text .. '{' .. tags .. '}'
 	self:draw_start()
-	if opts.radius then
+	if opts.radius and opts.radius > 0 then
 		self:round_rect_cw(ax, ay, bx, by, opts.radius)
 	else
 		self:rect_cw(ax, ay, bx, by)

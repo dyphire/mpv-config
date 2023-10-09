@@ -16,69 +16,58 @@ require('lib/std')
 defaults = {
 	timeline_style = 'line',
 	timeline_line_width = 2,
-	timeline_line_width_fullscreen = 3,
 	timeline_size = 40,
-	timeline_size_fullscreen = 60,
 	progress = 'windowed',
 	progress_size = 2,
 	progress_line_width = 20,
 	timeline_persistency = 'paused',
-	timeline_opacity = 0.9,
 	timeline_border = 1,
 	timeline_step = 5,
-	timeline_chapters_opacity = 0.8,
 	timeline_cache = true,
 
 	controls = 'menu,gap,subtitles,<has_many_audio>audio,<has_many_video>video,<has_many_edition>editions,<stream>stream-quality,gap,space,speed,space,shuffle,loop-playlist,loop-file,gap,prev,items,next,gap,fullscreen',
 	controls_size = 32,
-	controls_size_fullscreen = 40,
 	controls_margin = 8,
 	controls_spacing = 2,
 	controls_persistency = '',
 
 	volume = 'right',
 	volume_size = 40,
-	volume_size_fullscreen = 52,
 	volume_persistency = '',
-	volume_opacity = 0.9,
 	volume_border = 1,
 	volume_step = 1,
 
 	speed_persistency = '',
-	speed_opacity = 0.6,
 	speed_step = 0.1,
 	speed_step_is_factor = false,
 
 	menu_item_height = 36,
-	menu_item_height_fullscreen = 50,
 	menu_min_width = 260,
-	menu_min_width_fullscreen = 360,
-	menu_opacity = 1,
-	menu_parent_opacity = 0.4,
 	menu_type_to_search = true,
 
 	top_bar = 'no-border',
 	top_bar_size = 40,
-	top_bar_size_fullscreen = 46,
 	top_bar_persistency = '',
 	top_bar_controls = true,
 	top_bar_title = 'yes',
 	top_bar_alt_title = '',
 	top_bar_alt_title_place = 'below',
-	top_bar_title_opacity = 0.8,
 	top_bar_flash_on = 'video,audio',
 
 	window_border_size = 1,
-	window_border_opacity = 0.8,
 
 	autoload = false,
 	autoload_types = 'video,audio,image',
 	shuffle = false,
 
-	ui_scale = 1,
+	scale = 1,
+	scale_fullscreen = 1.3,
 	font = '',
 	font_scale = 1,
 	text_border = 1.2,
+	border_radius = 2,
+	opacity = '',
+	animation_factor = 0.3,
 	text_width_estimation = true,
 	pause_on_click_shorter_than = 0, -- deprecated by below
 	click_threshold = 0,
@@ -97,7 +86,6 @@ defaults = {
 	autohide = false,
 	buffered_time_threshold = 60,
 	pause_indicator = 'flash',
-	curtain_opacity = 0.5,
 	stream_quality_options = '4320,2160,1440,1080,720,480,360,240,144',
 	video_types= '3g2,3gp,asf,avi,f4v,flv,h264,h265,m2ts,m4v,mkv,mov,mp4,mp4v,mpeg,mpg,ogm,ogv,rm,rmvb,ts,vob,webm,wmv,y4m',
 	audio_types= 'aac,ac3,aiff,ape,au,cue,dsf,dts,flac,m4a,mid,midi,mka,mp3,mp4a,oga,ogg,opus,spx,tak,tta,wav,weba,wma,wv',
@@ -146,38 +134,6 @@ local char_conv = require('lib/char_conv')
 
 --[[ CONFIG ]]
 
-function create_default_menu()
-	return {
-		{title = t('Subtitles'), value = 'script-binding uosc/subtitles'},
-		{title = t('Audio tracks'), value = 'script-binding uosc/audio'},
-		{title = t('Stream quality'), value = 'script-binding uosc/stream-quality'},
-		{title = t('Playlist'), value = 'script-binding uosc/items'},
-		{title = t('Chapters'), value = 'script-binding uosc/chapters'},
-		{title = t('Navigation'), items = {
-			{title = t('Next'), hint = t('playlist or file'), value = 'script-binding uosc/next'},
-			{title = t('Prev'), hint = t('playlist or file'), value = 'script-binding uosc/prev'},
-			{title = t('Delete file & Next'), value = 'script-binding uosc/delete-file-next'},
-			{title = t('Delete file & Prev'), value = 'script-binding uosc/delete-file-prev'},
-			{title = t('Delete file & Quit'), value = 'script-binding uosc/delete-file-quit'},
-			{title = t('Open file'), value = 'script-binding uosc/open-file'},
-		},},
-		{title = t('Utils'), items = {
-			{title = t('Aspect ratio'), items = {
-				{title = t('Default'), value = 'set video-aspect-override "-1"'},
-				{title = '16:9', value = 'set video-aspect-override "16:9"'},
-				{title = '4:3', value = 'set video-aspect-override "4:3"'},
-				{title = '2.35:1', value = 'set video-aspect-override "2.35:1"'},
-			},},
-			{title = t('Audio devices'), value = 'script-binding uosc/audio-device'},
-			{title = t('Editions'), value = 'script-binding uosc/editions'},
-			{title = t('Screenshot'), value = 'async screenshot'},
-			{title = t('Show in directory'), value = 'script-binding uosc/show-in-directory'},
-			{title = t('Open config folder'), value = 'script-binding uosc/open-config-directory'},
-		},},
-		{title = t('Quit'), value = 'quit'},
-	}
-end
-
 config = {
 	version = uosc_version,
 	-- sets max rendering frequency in case the
@@ -206,73 +162,6 @@ config = {
 	},
 	stream_quality_options = split(options.stream_quality_options, ' *, *'),
 	top_bar_flash_on = split(options.top_bar_flash_on, ' *, *'),
-	menu_items = (function()
-		local input_conf_property = mp.get_property_native('input-conf')
-		local input_conf_path = mp.command_native({
-			'expand-path', input_conf_property == '' and '~~/input.conf' or input_conf_property,
-		})
-		local input_conf_meta, meta_error = utils.file_info(input_conf_path)
-
-		-- File doesn't exist
-		if not input_conf_meta or not input_conf_meta.is_file then return create_default_menu() end
-
-		local main_menu = {items = {}, items_by_command = {}}
-		local by_id = {}
-
-		for line in io.lines(input_conf_path) do
-			local key, command, comment = string.match(line, '%s*([%S]+)%s+(.-)%s+#%s*(.-)%s*$')
-			local title = ''
-			if comment then
-				local comments = split(comment, '#')
-				local titles = itable_filter(comments, function(v, i) return v:match('^!') or v:match('^menu:') end)
-				if titles and #titles > 0 then
-					title = titles[1]:match('^!%s*(.*)%s*') or titles[1]:match('^menu:%s*(.*)%s*')
-				end
-			end
-			if title ~= '' then
-				local is_dummy = key:sub(1, 1) == '#'
-				local submenu_id = ''
-				local target_menu = main_menu
-				local title_parts = split(title or '', ' *> *')
-
-				for index, title_part in ipairs(#title_parts > 0 and title_parts or {''}) do
-					if index < #title_parts then
-						submenu_id = submenu_id .. title_part
-
-						if not by_id[submenu_id] then
-							local items = {}
-							by_id[submenu_id] = {items = items, items_by_command = {}}
-							target_menu.items[#target_menu.items + 1] = {title = title_part, items = items}
-						end
-
-						target_menu = by_id[submenu_id]
-					else
-						if command == 'ignore' then break end
-						-- If command is already in menu, just append the key to it
-						if target_menu.items_by_command[command] then
-							local hint = target_menu.items_by_command[command].hint
-							target_menu.items_by_command[command].hint = hint and hint .. ', ' .. key or key
-						else
-							local item = {
-								title = title_part,
-								hint = not is_dummy and key or nil,
-								value = command,
-							}
-							target_menu.items_by_command[command] = item
-							target_menu.items[#target_menu.items + 1] = item
-						end
-					end
-				end
-			end
-		end
-
-		if #main_menu.items > 0 then
-			return main_menu.items
-		else
-			-- Default context menu
-			return create_default_menu()
-		end
-	end)(),
 	chapter_ranges = (function()
 		---@type table<string, string[]> Alternative patterns.
 		local alt_patterns = {}
@@ -301,6 +190,10 @@ config = {
 		end
 		return ranges
 	end)(),
+	opacity = {
+		timeline = .9, position = 1, chapters = 0.8, slider = 0.9, slider_gauge = 1, speed = 0.6,
+		menu = 1, submenu = 0.4, border = 1, title = 1, tooltip = 1, thumbnail = 1, curtain = 0.5
+	}
 }
 -- Adds `{element}_persistency` property with table of flags when the element should be visible (`{paused = true}`)
 for _, name in ipairs({'timeline', 'controls', 'volume', 'top_bar', 'speed'}) do
@@ -311,13 +204,56 @@ for _, name in ipairs({'timeline', 'controls', 'volume', 'top_bar', 'speed'}) do
 	end
 	config[option_name] = flags
 end
+-- Parse `opacity` overrides
+do
+	for _, key_value_pair in ipairs(split(options.opacity, ' *, *')) do
+		local key, value = key_value_pair:match('^([%w_]+)=([%d%.]+)$')
+		if key and config.opacity[key] then
+			config.opacity[key] = clamp(0, tonumber(value) or config.opacity[key], 1)
+		end
+	end
+end
+
+-- Default menu items
+function create_default_menu_items()
+	return {
+		{title = t('Subtitles'), value = 'script-binding uosc/subtitles'},
+		{title = t('Audio tracks'), value = 'script-binding uosc/audio'},
+		{title = t('Stream quality'), value = 'script-binding uosc/stream-quality'},
+		{title = t('Playlist'), value = 'script-binding uosc/items'},
+		{title = t('Chapters'), value = 'script-binding uosc/chapters'},
+		{title = t('Navigation'), items = {
+			{title = t('Next'), hint = t('playlist or file'), value = 'script-binding uosc/next'},
+			{title = t('Prev'), hint = t('playlist or file'), value = 'script-binding uosc/prev'},
+			{title = t('Delete file & Next'), value = 'script-binding uosc/delete-file-next'},
+			{title = t('Delete file & Prev'), value = 'script-binding uosc/delete-file-prev'},
+			{title = t('Delete file & Quit'), value = 'script-binding uosc/delete-file-quit'},
+			{title = t('Open file'), value = 'script-binding uosc/open-file'},
+		},},
+		{title = t('Utils'), items = {
+			{title = t('Aspect ratio'), items = {
+				{title = t('Default'), value = 'set video-aspect-override "-1"'},
+				{title = '16:9', value = 'set video-aspect-override "16:9"'},
+				{title = '4:3', value = 'set video-aspect-override "4:3"'},
+				{title = '2.35:1', value = 'set video-aspect-override "2.35:1"'},
+			},},
+			{title = t('Audio devices'), value = 'script-binding uosc/audio-device'},
+			{title = t('Editions'), value = 'script-binding uosc/editions'},
+			{title = t('Screenshot'), value = 'async screenshot'},
+			{title = t('Inputs'), value = 'script-binding uosc/inputs'},
+			{title = t('Show in directory'), value = 'script-binding uosc/show-in-directory'},
+			{title = t('Open config folder'), value = 'script-binding uosc/open-config-directory'},
+		},},
+		{title = t('Quit'), value = 'quit'},
+	}
+end
 
 --[[ STATE ]]
 
-display = {width = 1280, height = 720, scale_x = 1, scale_y = 1, initialized = false}
+display = {width = 1280, height = 720, initialized = false}
 cursor = {
-	x = 0,
-	y = 0,
+	x = INFINITY,
+	y = INFINITY,
 	hidden = true,
 	hover_raw = false,
 	-- Event handlers that are only fired on cursor, bound during render loop. Guidelines:
@@ -328,6 +264,7 @@ cursor = {
 	on_wheel_down = nil,
 	on_wheel_up = nil,
 	allow_dragging = false,
+	first_real_mouse_move_received = false,
 	history = CircularBuffer:new(10),
 	-- Called at the beginning of each render
 	reset_handlers = function()
@@ -377,17 +314,16 @@ cursor = {
 		-- mpv reports initial mouse position on linux as (0, 0), which always
 		-- displays the top bar, so we hardcode cursor position as infinity until
 		-- we receive a first real mouse move event with coordinates other than 0,0.
-		if not state.first_real_mouse_move_received then
-			if x > 0 and y > 0 then state.first_real_mouse_move_received = true
+		if not cursor.first_real_mouse_move_received then
+			if x > 0 and y > 0 then cursor.first_real_mouse_move_received = true
 			else x, y = INFINITY, INFINITY end
 		end
 
 		-- Add 0.5 to be in the middle of the pixel
-		cursor.x, cursor.y = (x + 0.5) / display.scale_x, (y + 0.5) / display.scale_y
+		cursor.x = x == INFINITY and x or x + 0.5
+		cursor.y = y == INFINITY and y or y + 0.5
 
 		if old_x ~= cursor.x or old_y ~= cursor.y then
-			Elements:update_proximities()
-
 			if cursor.x == INFINITY or cursor.y == INFINITY then
 				cursor.hidden = true
 				cursor.history:clear()
@@ -395,21 +331,29 @@ cursor = {
 				-- Slowly fadeout elements that are currently visible
 				for _, element_name in ipairs({'timeline', 'volume', 'top_bar'}) do
 					local element = Elements[element_name]
-					if element and element.proximity > 0 then
-						element:tween_property('forced_visibility', element:get_visibility(), 0, function()
-							element.forced_visibility = nil
-						end)
+					if element then
+						local visibility = element:get_visibility()
+						if visibility > 0 then
+							element:tween_property('forced_visibility', visibility, 0, function()
+								element.forced_visibility = nil
+							end)
+						end
 					end
 				end
 
+				Elements:update_proximities()
 				Elements:trigger('global_mouse_leave')
-			elseif cursor.hidden then
-				cursor.hidden = false
-				cursor.history:clear()
-				Elements:trigger('global_mouse_enter')
 			else
-				-- Update history
-				cursor.history:insert({x = cursor.x, y = cursor.y, time = mp.get_time()})
+				Elements:update_proximities()
+
+				if cursor.hidden then
+					cursor.hidden = false
+					cursor.history:clear()
+					Elements:trigger('global_mouse_enter')
+				else
+					-- Update history
+					cursor.history:insert({x = cursor.x, y = cursor.y, time = mp.get_time()})
+				end
 			end
 
 			Elements:proximity_trigger('mouse_move')
@@ -484,6 +428,7 @@ state = {
 	is_audio = false, -- true if file is audio only (mp3, etc)
 	is_image = false,
 	is_stream = false,
+	has_image = false,
 	has_audio = false,
 	has_sub = false,
 	has_chapter = false,
@@ -500,7 +445,6 @@ state = {
 	core_idle = false,
 	eof_reached = false,
 	render_delay = config.render_delay,
-	first_real_mouse_move_received = false,
 	playlist_count = 0,
 	playlist_pos = 0,
 	margin_top = 0,
@@ -508,6 +452,8 @@ state = {
 	margin_left = 0,
 	margin_right = 0,
 	hidpi_scale = 1,
+	scale = 1,
+	radius = 0
 }
 thumbnail = {width = 0, height = 0, disabled = false}
 external = {} -- Properties set by external scripts
@@ -524,12 +470,11 @@ require('lib/menus')
 --[[ STATE UPDATERS ]]
 
 function update_display_dimensions()
-	local scale = (state.hidpi_scale or 1) * options.ui_scale
+	state.scale = (state.hidpi_scale or 1) * (state.fullormaxed and options.scale_fullscreen or options.scale)
+	state.radius = round(options.border_radius * state.scale)
 	local real_width, real_height = mp.get_osd_size()
 	if real_width <= 0 then return end
-	local scaled_width, scaled_height = round(real_width / scale), round(real_height / scale)
-	display.width, display.height = scaled_width, scaled_height
-	display.scale_x, display.scale_y = real_width / scaled_width, real_height / scaled_height
+	display.width, display.height = real_width, real_height
 	display.initialized = true
 
 	-- Tell elements about this
@@ -807,6 +752,7 @@ mp.observe_property('track-list', 'native', function(name, value)
 	end
 	set_state('is_audio', types.video == 0 and types.audio > 0)
 	set_state('is_image', types.image > 0 and types.video == 0 and types.audio == 0)
+	set_state('has_image', types.image > 0)
 	set_state('has_audio', types.audio > 0)
 	set_state('has_many_audio', types.audio > 1)
 	set_state('has_sub', types.sub > 0)
@@ -957,6 +903,10 @@ bind_command('toggle-title', function() Elements.top_bar:toggle_title() end)
 bind_command('decide-pause-indicator', function() Elements.pause_indicator:decide() end)
 bind_command('menu', function() toggle_menu_with_items() end)
 bind_command('menu-blurred', function() toggle_menu_with_items({mouse_nav = true}) end)
+bind_command('inputs', function()
+	if Menu:is_open('inputs') then Menu:close()
+	else open_command_menu({type = 'inputs', items = get_input_items(), palette = true}) end
+end)
 local track_loaders = {
 	{name = 'subtitles', prop = 'sub', allowed_types = itable_join(config.types.video, config.types.subtitle)},
 	{name = 'audio', prop = 'audio', allowed_types = itable_join(config.types.video, config.types.audio)},
