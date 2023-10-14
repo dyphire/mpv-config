@@ -338,9 +338,19 @@
  * List of available kernels:
  *
  * bicubic
- * cos
+ * cosine
+ * cosine_
  * ffexp
  * gaussian
+ * ginseng
+ * ginseng_ (unclamped)
+ * jinc
+ * jinc3
+ * jinc_ (unclamped)
+ * jincjinc
+ * jincjinc3
+ * jincjinc3_ (unclamped)
+ * jincjinc_ (unclamped)
  * lanczos
  * quadratic
  * quadratic_ (unclamped)
@@ -368,6 +378,26 @@
 #define PSK gaussian
 #define WDK is_zero
 #define WD1TK gaussian
+#endif
+
+/* Kernel parameters
+ *
+ * The following kernels take these parameters:
+ *
+ * ffexp: K0
+ * ginseng: KWS
+ * jincjinc3: KWS
+ * jincjinc: KWS
+ * lanczos: KWS
+ */
+#ifdef LUMA_raw
+#define K0 1.0
+#define K1 1.0
+#define KWS 1.0
+#else
+#define K0 1.0
+#define K1 1.0
+#define KWS 1.0
 #endif
 
 /* Negative kernel parameter offsets
@@ -480,8 +510,16 @@
 #define EPSILON 1.2e-38
 #define FLT_EPSILON 1.19209290E-07
 #define M_PI 3.14159265358979323846
+#define M_PI_2 1.57079632679489661923
+#define M_PI_4 0.78539816339744830962
+#define M_1_PI 0.31830988618379067154
+#define M_2_PI 0.63661977236758134308
 #define POW2(x) ((x)*(x))
 #define POW3(x) ((x)*(x)*(x))
+#define POW4(x) ((x)*(x)*(x)*(x))
+#define POW5(x) ((x)*(x)*(x)*(x)*(x))
+#define POW6(x) ((x)*(x)*(x)*(x)*(x)*(x))
+#define POW7(x) ((x)*(x)*(x)*(x)*(x)*(x)*(x))
 
 // pow() implementation that gives -pow() when x<0
 // avoids actually calling pow() since apparently it's buggy on nvidia
@@ -507,25 +545,39 @@
 #define MED_DIV(x,y) ((x)/(y))
 #endif
 
-// XXX make this capable of being set per-kernel, e.g., RK0, SK0...
-#define K0 1.0
+// adapted from https://github.com/garamond13/Jinc
+#define j1(x) TERNARY(step((x), 2.2931157), ((x) * 0.5) - (POW3(x) * 0.0625) + (POW5(x) * 0.00260416666666666666) - (POW7(x) * 0.00005425347222222222), sqrt(DIV(M_2_PI, (x))) * (1.0 + DIV(0.1875, POW2(x)) - DIV(0.1933594, POW4(x))) * cos((x) - 3.0 * M_PI_4 + DIV(0.375, (x)) - DIV(0.1640625, POW3(x))))
 
-// kernels
-// XXX sinc & sphinx: 1e-3 was selected tentatively;  not sure what the correct value should be (1e-8 is too low)
-#define bicubic(x) bicubic_(clamp((x), 0.0, 2.0))
+// XXX make kernel params capable of being set per-kernel, e.g., RK0, SK0...
+
+// kernels, most of these are from libplacebo
+// XXX sinc/jinc/sphinx: 1e-3 was selected tentatively;  not sure what the correct value should be (1e-8 is too low, x is never considered to be lower than it for some reason)
+#define bicubic(x) bicubic_(clamp(x, 0.0, 2.0))
 #define bicubic_(x) ((1.0/6.0) * (POW3((x)+2) - 4 * POW3((x)+1) + 6 * POW3(x) - 4 * POW3(max((x)-1, 0))))
-#define ffexp(x) (POW(cos(max(EPSILON, clamp(x, 0.0, 1.0) * M_PI)), K0) * 0.5 + 0.5)
+#define cosine(x) cos(clamp(x, 0, M_PI_2))
+#define cosine_ cos
+#define ffexp(x) (POW(cos(max(EPSILON, clamp(x, 0.0, 1.0) * M_PI)), K0) * 0.5 + 0.5) // "experimental" scaler from ffmpeg
 #define gaussian(x) exp(-1 * POW2(x))
-#define is_zero(x) int(x == 0)
-#define lanczos(x) (sinc3(x) * sinc(x))
-#define quadratic(x) quadratic_(clamp((x), 0.0, 1.5))
+#define ginseng(x) ginseng_(clamp(x, 0.0, 3.0))
+#define ginseng_(x) (jinc(x) * sinc(x*KWS))
+#define is_zero(x) int((x) == 0)
+#define jinc(x) jinc_(clamp(x, 0.0, 1.2196698912665045))
+#define jinc3(x) jinc_(clamp(x, 0.0, 3.2383154841662362))
+#define jinc_(x) TERNARY(step(x, 1e-3), 1.0, DIV(2 * j1((x)*M_PI), (x)*M_PI))
+#define jincjinc(x) jincjinc_(clamp(x, 0.0, 3.2383154841662362))
+#define jincjinc3(x) jincjinc3_(clamp(x, 0.0, 3.2383154841662362))
+#define jincjinc3_(x) (jinc(x) * jinc3(x*KWS))
+#define jincjinc_(x) (jinc(x) * jinc(x*KWS))
+#define lanczos(x) lanczos_(clamp(x, 0.0, 3.0))
+#define lanczos_(x) (sinc3(x) * sinc(x*KWS))
+#define quadratic(x) quadratic_(clamp(x, 0.0, 1.5))
 #define quadratic_(x) TERNARY(step(x, 0.5), 0.75 - POW2(x), 0.5 * POW2((x) - 1.5))
-#define sinc(x) sinc_(clamp((x), 0.0, 1.0))
-#define sinc3(x) sinc_(clamp((x), 0.0, 3.0))
+#define sinc(x) sinc_(clamp(x, 0.0, 1.0))
+#define sinc3(x) sinc_(clamp(x, 0.0, 3.0))
 #define sinc_(x) TERNARY(step(x, 1e-3), 1.0, DIV(sin((x)*M_PI), ((x)*M_PI)))
-#define sphinx(x) sphinx_(clamp((x), 0.0, 1.4302966531242027))
+#define sphinx(x) sphinx_(clamp(x, 0.0, 1.4302966531242027))
 #define sphinx_(x) TERNARY(step(x, 1e-3), 1.0, DIV(3.0 * (sin((x)*M_PI) - (x)*M_PI * cos((x)*M_PI)), POW3((x)*M_PI)))
-#define triangle(x) triangle_(clamp((x), 0.0, 1.0))
+#define triangle(x) triangle_(clamp(x, 0.0, 1.0))
 #define triangle_(x) (1 - (x))
 
 #define MAP1(f,param) f(param)
@@ -1632,9 +1684,19 @@ vec4 hook()
  * List of available kernels:
  *
  * bicubic
- * cos
+ * cosine
+ * cosine_
  * ffexp
  * gaussian
+ * ginseng
+ * ginseng_ (unclamped)
+ * jinc
+ * jinc3
+ * jinc_ (unclamped)
+ * jincjinc
+ * jincjinc3
+ * jincjinc3_ (unclamped)
+ * jincjinc_ (unclamped)
  * lanczos
  * quadratic
  * quadratic_ (unclamped)
@@ -1662,6 +1724,26 @@ vec4 hook()
 #define PSK gaussian
 #define WDK is_zero
 #define WD1TK gaussian
+#endif
+
+/* Kernel parameters
+ *
+ * The following kernels take these parameters:
+ *
+ * ffexp: K0
+ * ginseng: KWS
+ * jincjinc3: KWS
+ * jincjinc: KWS
+ * lanczos: KWS
+ */
+#ifdef LUMA_raw
+#define K0 1.0
+#define K1 1.0
+#define KWS 1.0
+#else
+#define K0 1.0
+#define K1 1.0
+#define KWS 1.0
 #endif
 
 /* Negative kernel parameter offsets
@@ -1774,8 +1856,16 @@ vec4 hook()
 #define EPSILON 1.2e-38
 #define FLT_EPSILON 1.19209290E-07
 #define M_PI 3.14159265358979323846
+#define M_PI_2 1.57079632679489661923
+#define M_PI_4 0.78539816339744830962
+#define M_1_PI 0.31830988618379067154
+#define M_2_PI 0.63661977236758134308
 #define POW2(x) ((x)*(x))
 #define POW3(x) ((x)*(x)*(x))
+#define POW4(x) ((x)*(x)*(x)*(x))
+#define POW5(x) ((x)*(x)*(x)*(x)*(x))
+#define POW6(x) ((x)*(x)*(x)*(x)*(x)*(x))
+#define POW7(x) ((x)*(x)*(x)*(x)*(x)*(x)*(x))
 
 // pow() implementation that gives -pow() when x<0
 // avoids actually calling pow() since apparently it's buggy on nvidia
@@ -1801,25 +1891,39 @@ vec4 hook()
 #define MED_DIV(x,y) ((x)/(y))
 #endif
 
-// XXX make this capable of being set per-kernel, e.g., RK0, SK0...
-#define K0 1.0
+// adapted from https://github.com/garamond13/Jinc
+#define j1(x) TERNARY(step((x), 2.2931157), ((x) * 0.5) - (POW3(x) * 0.0625) + (POW5(x) * 0.00260416666666666666) - (POW7(x) * 0.00005425347222222222), sqrt(DIV(M_2_PI, (x))) * (1.0 + DIV(0.1875, POW2(x)) - DIV(0.1933594, POW4(x))) * cos((x) - 3.0 * M_PI_4 + DIV(0.375, (x)) - DIV(0.1640625, POW3(x))))
 
-// kernels
-// XXX sinc & sphinx: 1e-3 was selected tentatively; not sure what the correct value should be (1e-8 is too low)
-#define bicubic(x) bicubic_(clamp((x), 0.0, 2.0))
+// XXX make kernel params capable of being set per-kernel, e.g., RK0, SK0...
+
+// kernels, most of these are from libplacebo
+// XXX sinc/jinc/sphinx: 1e-3 was selected tentatively; not sure what the correct value should be (1e-8 is too low, x is never considered to be lower than it for some reason)
+#define bicubic(x) bicubic_(clamp(x, 0.0, 2.0))
 #define bicubic_(x) ((1.0/6.0) * (POW3((x)+2) - 4 * POW3((x)+1) + 6 * POW3(x) - 4 * POW3(max((x)-1, 0))))
-#define ffexp(x) (POW(cos(max(EPSILON, clamp(x, 0.0, 1.0) * M_PI)), K0) * 0.5 + 0.5)
+#define cosine(x) cos(clamp(x, 0, M_PI_2))
+#define cosine_ cos
+#define ffexp(x) (POW(cos(max(EPSILON, clamp(x, 0.0, 1.0) * M_PI)), K0) * 0.5 + 0.5) // "experimental" scaler from ffmpeg
 #define gaussian(x) exp(-1 * POW2(x))
-#define is_zero(x) int(x == 0)
-#define lanczos(x) (sinc3(x) * sinc(x))
-#define quadratic(x) quadratic_(clamp((x), 0.0, 1.5))
+#define ginseng(x) ginseng_(clamp(x, 0.0, 3.0))
+#define ginseng_(x) (jinc(x) * sinc(x*KWS))
+#define is_zero(x) int((x) == 0)
+#define jinc(x) jinc_(clamp(x, 0.0, 1.2196698912665045))
+#define jinc3(x) jinc_(clamp(x, 0.0, 3.2383154841662362))
+#define jinc_(x) TERNARY(step(x, 1e-3), 1.0, DIV(2 * j1((x)*M_PI), (x)*M_PI))
+#define jincjinc(x) jincjinc_(clamp(x, 0.0, 3.2383154841662362))
+#define jincjinc3(x) jincjinc3_(clamp(x, 0.0, 3.2383154841662362))
+#define jincjinc3_(x) (jinc(x) * jinc3(x*KWS))
+#define jincjinc_(x) (jinc(x) * jinc(x*KWS))
+#define lanczos(x) lanczos_(clamp(x, 0.0, 3.0))
+#define lanczos_(x) (sinc3(x) * sinc(x*KWS))
+#define quadratic(x) quadratic_(clamp(x, 0.0, 1.5))
 #define quadratic_(x) TERNARY(step(x, 0.5), 0.75 - POW2(x), 0.5 * POW2((x) - 1.5))
-#define sinc(x) sinc_(clamp((x), 0.0, 1.0))
-#define sinc3(x) sinc_(clamp((x), 0.0, 3.0))
+#define sinc(x) sinc_(clamp(x, 0.0, 1.0))
+#define sinc3(x) sinc_(clamp(x, 0.0, 3.0))
 #define sinc_(x) TERNARY(step(x, 1e-3), 1.0, DIV(sin((x)*M_PI), ((x)*M_PI)))
-#define sphinx(x) sphinx_(clamp((x), 0.0, 1.4302966531242027))
+#define sphinx(x) sphinx_(clamp(x, 0.0, 1.4302966531242027))
 #define sphinx_(x) TERNARY(step(x, 1e-3), 1.0, DIV(3.0 * (sin((x)*M_PI) - (x)*M_PI * cos((x)*M_PI)), POW3((x)*M_PI)))
-#define triangle(x) triangle_(clamp((x), 0.0, 1.0))
+#define triangle(x) triangle_(clamp(x, 0.0, 1.0))
 #define triangle_(x) (1 - (x))
 
 #define MAP1(f,param) f(param)
