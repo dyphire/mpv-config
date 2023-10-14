@@ -33,30 +33,30 @@
 
 // Lower numbers increase blur over longer distances
 #ifdef LUMA_raw
-#define S 0.039716259676045834
+#define S 0.0
 #else
-#define S 0.00245792863046567
+#define S 0.0
 #endif
 
 // Lower numbers blur more when intensity varies more between bands
 #ifdef LUMA_raw
-#define SI 13.401712932601427
+#define SI 50.0
 #else
-#define SI 10.923402488160853
+#define SI 50.0
 #endif
 
-// Higher numbers reduce blur for shorter runs
+// Higher numbers reduce penalty for 1px runs, 1.0 fully ignores homogeneity
 #ifdef LUMA_raw
-#define SR 0.003446736773092952
+#define SR 0.0
 #else
-#define SR 0.012925109858034363
+#define SR 0.0
 #endif
 
 // Starting weight, lower values give less weight to the input image
 #ifdef LUMA_raw
-#define SW 0.43999145467432316
+#define SW 4.0
 #else
-#define SW 0.009466672829458444
+#define SW 4.0
 #endif
 
 // Bigger numbers search further, but slower
@@ -68,9 +68,9 @@
 
 // Bigger numbers search further, but less accurate
 #ifdef LUMA_raw
-#define SPARSITY 0.0
+#define SPARSITY 2.0
 #else
-#define SPARSITY 0.0
+#define SPARSITY 2.0
 #endif
 
 // Bigger numbers search in more directions, slower (max 8)
@@ -81,18 +81,19 @@
 #define DIRECTIONS 8
 #endif
 
-// A region is considered a run if it varies less than this
+// If 0: Stop blur at POI if a run isn't found
+// If 1: Always blur with POI-adjacent pixels
 #ifdef LUMA_raw
-#define TOLERANCE 0.001
+#define RUN_START 1
 #else
-#define TOLERANCE 0.001
+#define RUN_START 1
 #endif
 
-// 0 for avg, 1 for min, 2 for max
+// A region is considered a run if it varies less than this
 #ifdef LUMA_raw
-#define M 0
+#define TOLERANCE 0.0
 #else
-#define M 0
+#define TOLERANCE 0.0
 #endif
 
 // Shader code
@@ -159,7 +160,6 @@ val poi = val_swizz(poi_);
  *       - Decreasing SW increases the amount of blur
  *     - For step 5, multiply the weight by the gaussian of the Euclidean norm of the pixel coordinates
  *   - For step 4, a parameter (SPARSITY) is taken which directs pixels to be skipped at a specified interval
- *     - If the pixel after a skipped pixel has the same value as the previous unskipped pixel then its weight is doubled
  *     - This works well in big flat banded areas but may result in artifacts elsewhere
  *   - For step 5 and SW, pixels are considered to have the same value if their absolute difference is within a threshold
  *   - The number of directions in step 3 are user configurable
@@ -168,13 +168,7 @@ val poi = val_swizz(poi_);
 vec4 hook()
 {
 	val sum = val(poi * SW);
-#if M == 1 // min
-	val total_weight = val(RADIUS);
-#elif M == 2 // max
-	val total_weight = val(0);
-#else // avg
 	val total_weight = val(SW);
-#endif
 
 	for (int dir = 0; dir < DIRECTIONS; dir++) {
 		vec2 direction;
@@ -190,51 +184,34 @@ vec4 hook()
 		}
 
 		val prev_px = poi;
-		val prev_was_run = val(0);
-		val prev_weight = val(1);
+		val prev_is_run = val(RUN_START);
+		val prev_weight = val(0);
 		val not_done = val(1);
-		val run = val(1);
-		val dir_sum = poi * SW;
-		val dir_total_weight = val(SW);
 		for (int i = 1; i <= RADIUS; i++) {
-			float sparsity = floor(i * SPARSITY);
-			val px = val_swizz(HOOKED_texOff((i + sparsity) * direction));
+			vec2 coord = (i + floor(i * SPARSITY)) * direction;
+			val px = val_swizz(HOOKED_texOff(coord));
 			val is_run = step(abs(prev_px - px), val(TOLERANCE));
+			val weight = val(gaussian(length(coord) * max(0.0,S)));
 
-			// stop blurring after discovering a 1px run
-			not_done *= step(val(1), prev_was_run + is_run);
+			// reduce blur after discovering 1px runs
+			not_done *= max(val(clamp(SR, 0.0, 1.0)),
+			            clamp(prev_is_run + is_run, 0.0, 1.0));
 
-			// consider skipped pixels as runs if their neighbors are both runs
-			float sparsity_delta = sparsity - floor((i - 1) * SPARSITY);
-			float prev_sparsity = floor((i - 1) * SPARSITY);
-			val weight = val(gaussian(length((i + sparsity) * direction) * max(0.0, S)));
-			weight = is_run * weight + is_run * prev_weight * sparsity_delta;
+			weight *= gaussian(abs(poi - px) * max(0.0,SI));
 
-			// run's 2nd pixel has weight increased to compensate for 1st pixel's weight of 0
-			// XXX doesn't account for sparsity
-			weight += prev_weight * NOT(prev_was_run);
-
-			weight *= gaussian(abs(poi - px) * max(0.0, SI));
-
-			weight *= gaussian((run += is_run) * SR);
-
-			dir_sum += prev_px * weight * not_done;
-			dir_total_weight += weight * not_done;
-
-			prev_px = TERNARY(is_run, prev_px, px);
-			prev_was_run = is_run;
+			// for compensating for skipping the first pixel of each run
+			val prev_weight_compensate = NOT(prev_is_run) * prev_weight;
+			// update previous state
+			prev_px = px;
+			prev_is_run = is_run;
 			prev_weight = weight;
+			// finally compensate
+			weight += prev_weight_compensate;
+			weight *= is_run;
+
+			sum += px * weight * not_done;
+			total_weight += weight * not_done;
 		}
-#if M == 1
-		sum = TERNARY(step(dir_total_weight, total_weight), dir_sum, sum);
-		total_weight = min(dir_total_weight, total_weight);
-#elif M == 2
-		sum = TERNARY(step(total_weight, dir_total_weight), dir_sum, sum);
-		total_weight = max(dir_total_weight, total_weight);
-#else
-		sum += dir_sum;
-		total_weight += dir_total_weight;
-#endif
 	}
 
 	val result = sum / total_weight;

@@ -1,16 +1,5 @@
 [
   {
-    "git":"https://github.com/CogentRedTester/mpv_manager",
-    "whitelist":"%.lua$",
-    "dest":"~~/scripts",
-    "branch":"local-repo-support"
-  },
-  {
-    "git":"https://github.com/occivink/mpv-scripts",
-    "whitelist":"blacklist%-extensions%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
     "git":"https://github.com/detuur/mpv-scripts",
     "whitelist":"skiptosilence%.lua$",
     "dest":"~~/scripts"
