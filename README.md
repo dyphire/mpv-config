@@ -1,4 +1,4 @@
-**MPV config**
+**MPV config ([English branch](https://github.com/dyphire/mpv-config/tree/eng))**
 
 本项目为 windows 下 [mpv](https://github.com/mpv-player/mpv) 播放器的配置文件，应放入`mpv.exe`所在目录的`portable_config`文件夹内，
 
