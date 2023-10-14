@@ -27,9 +27,9 @@
 //!HEIGHT LUMA.h
 //!WHEN CHROMA.w LUMA.w <
 //!OFFSET ALIGN
-//!DESC Fast Bilateral
+//!DESC Fast Bilateral (Upscaling Chroma)
 
-const float intensity_coeff = 128.0;
+const float intensity_coeff = 256.0;
 
 float comp_wi(float distance) {
     return exp(-intensity_coeff * distance * distance);
