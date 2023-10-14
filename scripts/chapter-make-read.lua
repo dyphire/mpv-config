@@ -1,5 +1,5 @@
 --[[
-  * chapter-make-read.lua v.2023-08-17
+  * chapter-make-read.lua v.2023-10-14
   *
   * AUTHORS: dyphire
   * License: MIT
@@ -212,6 +212,29 @@ local function format_time(seconds)
         result = hours .. ":" .. mins .. ":" .. secs .. "." .. msecs
     end
     return result
+end
+
+-- for unix use only
+-- returns a table of command path and varargs, or nil if command was not found
+local function command_exists(command, ...)
+    msg.debug("looking for command:", command)
+    -- msg.debug("args:", )
+    local process = mp.command_native({
+        name = "subprocess",
+        capture_stdout = true,
+        capture_stderr = true,
+        playback_only = false,
+        args = {"sh", "-c", "command -v -- " .. command}
+    })
+
+    if process.status == 0 then
+        local command_path = process.stdout:gsub("\n", "")
+        msg.debug("command found:", command_path)
+        return {command_path, ...}
+    else
+        msg.debug("command not found:", command)
+        return nil
+    end
 end
 
 -- returns md5 hash of the full path of the current media file

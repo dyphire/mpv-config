@@ -5,9 +5,10 @@ local BufferingIndicator = class(Element)
 
 function BufferingIndicator:new() return Class.new(self) --[[@as BufferingIndicator]] end
 function BufferingIndicator:init()
-	Element.init(self, 'buffer_indicator')
+	Element.init(self, 'buffer_indicator', {render_order = 2})
 	self.ignores_menu = true
 	self.enabled = false
+	self:decide_enabled()
 end
 
 function BufferingIndicator:decide_enabled()
@@ -15,7 +16,9 @@ function BufferingIndicator:decide_enabled()
 	local player = state.core_idle and not state.eof_reached
 	if self.enabled then
 		if not player or (state.pause and not cache) then self.enabled = false end
-	elseif player and cache and state.uncached_ranges then self.enabled = true end
+	elseif player and cache and state.uncached_ranges then
+		self.enabled = true
+	end
 end
 
 function BufferingIndicator:on_prop_pause() self:decide_enabled() end

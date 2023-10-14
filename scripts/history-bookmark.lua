@@ -142,6 +142,29 @@ function refresh_globals()
     end
 end
 
+-- for unix use only
+-- returns a table of command path and varargs, or nil if command was not found
+local function command_exists(command, ...)
+    msg.debug("looking for command:", command)
+    -- msg.debug("args:", )
+    local process = mp.command_native({
+        name = "subprocess",
+        capture_stdout = true,
+        capture_stderr = true,
+        playback_only = false,
+        args = {"sh", "-c", "command -v -- " .. command}
+    })
+
+    if process.status == 0 then
+        local command_path = process.stdout:gsub("\n", "")
+        msg.debug("command found:", command_path)
+        return {command_path, ...}
+    else
+        msg.debug("command not found:", command)
+        return nil
+    end
+end
+
 -- returns md5 hash of the full path of the current media file
 local function hash(path)
     if path == nil then

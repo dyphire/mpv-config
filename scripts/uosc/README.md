@@ -7,10 +7,10 @@
 	<a href="https://user-images.githubusercontent.com/47283320/195073006-bfa72bcc-89d2-4dc7-b8dc-f3c13273910c.webm"><img src="https://user-images.githubusercontent.com/47283320/195072935-44d591d9-00bb-4a55-8795-9cf81f65d397.png" alt="Preview screenshot"></a>
 </div>
 
-Most notable features:
+Notable features:
 
--   UI elements hide and show based on their proximity to cursor instead of every time mouse moves. This gives you 100% control over when you see the UI and when you don't. Click on the preview above to see it in action.
--   Set min timeline size to make an always visible discrete progress bar.
+-   UI elements hide and show based on their proximity to cursor instead of every time mouse moves. This provides 100% control over when you see the UI and when you don't. Click on the preview above to see it in action.
+-   When timeline is unused, it can minimize itself into a small discrete progress bar.
 -   Build your own context menu with nesting support by editing your `input.conf` file.
 -   Configurable controls bar.
 -   Fast and efficient thumbnails with [thumbfast](https://github.com/po5/thumbfast) integration.
@@ -19,6 +19,7 @@ Most notable features:
     -   Selecting subtitle/audio/video track.
     -   Selecting stream quality.
     -   Quick directory and playlist navigation.
+-   All menus are instantly searchable. Just start typing.
 -   Mouse scroll wheel does multiple things depending on what is the cursor hovering over:
     -   Timeline: seek by `timeline_step` seconds per scroll.
     -   Volume bar: change volume by `volume_step` per scroll.
@@ -29,58 +30,54 @@ Most notable features:
 
 [Changelog](https://github.com/tomasklaen/uosc/releases).
 
-## Download
-
--   [`uosc.zip`](https://github.com/tomasklaen/uosc/releases/latest/download/uosc.zip) - main archive with script and its requirements
--   [`uosc.conf`](https://github.com/tomasklaen/uosc/releases/latest/download/uosc.conf) - configuration file with default values and documentation
-
 ## Installation
 
-1. Extract `uosc.zip` into your mpv config directory.
+1. These commands will install or update **uosc** and place a default `uosc.conf` file into `script-opts` if it doesn't exist already.
 
-    _List of all the possible places where it can be located is documented here: https://mpv.io/manual/master/#files_
+    ### Windows
 
-    On Linux and macOS these terminal commands can be used to install or update uosc (if wget and unzip are installed):
+    _Optional, needed to run a remote script the first time if not enabled already:_
+
+    ```powershell
+    Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+    ```
+
+    Run:
+
+    ```powershell
+    irm https://raw.githubusercontent.com/tomasklaen/uosc/HEAD/installers/windows.ps1 | iex
+    ```
+
+    **NOTE**: If this command is run in an mpv installation directory with `portable_config`, it'll install there instead of `AppData`.
+
+    ### Linux & macOS
+
+    _Requires **curl** and **unzip**._
 
     ```sh
-    config_dir="${XDG_CONFIG_HOME:-~/.config}"
-    mkdir -pv "$config_dir"/mpv/script-opts/
-    rm -rf "$config_dir"/mpv/scripts/uosc_shared
-    wget -P /tmp/ https://github.com/tomasklaen/uosc/releases/latest/download/uosc.zip
-    unzip -od "$config_dir"/mpv/ /tmp/uosc.zip
-    rm -fv /tmp/uosc.zip
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/tomasklaen/uosc/HEAD/installers/unix.sh)"
     ```
 
-    On Windows these equivalent PowerShell commands can be used:
-    ```PowerShell
-    New-Item -ItemType Directory -Force -Path "$env:APPDATA/mpv/script-opts/"
-    $Folder = "$env:APPDATA/mpv/scripts/uosc_shared"
-    if (Test-Path $Folder) {
-      Remove-Item -LiteralPath $Folder -Force -Recurse
-    }
-    Invoke-WebRequest -OutFile "$env:APPDATA/mpv/uosc_tmp.zip" -Uri https://github.com/tomasklaen/uosc/releases/latest/download/uosc.zip
-    Expand-Archive "$env:APPDATA/mpv/uosc_tmp.zip" -DestinationPath "$env:APPDATA/mpv" -Force
-    Remove-Item "$env:APPDATA/mpv/uosc_tmp.zip"
-    ```
+    ### Manual
 
-2. **uosc** is a replacement for the built in osc, so that has to be disabled first.
+    1. Download & extract [`uosc.zip`](https://github.com/tomasklaen/uosc/releases/latest/download/uosc.zip) into your mpv config directory. (_See the [documentation of mpv config locations](https://mpv.io/manual/master/#files)._)
 
-    In your `mpv.conf` (file that should already exist in your mpv directory, if not, create it):
+    2. If you don't have it already, download & extract [`uosc.conf`](https://github.com/tomasklaen/uosc/releases/latest/download/uosc.conf) into `script-opts` inside your mpv config directory. It contains all of uosc options along with their default values and documentation.
+
+2. **OPTIONAL**: `mpv.conf` tweaks to better integrate with **uosc**:
 
     ```config
-    # required so that the 2 UIs don't fight each other
-    osc=no
-    # uosc provides its own seeking/volume indicators, so you also don't need this
+    # uosc provides seeking & volume indicators (via flash-timeline and flash-volume commands)
+    # if you decide to use them, you don't need osd-bar
     osd-bar=no
-    # uosc will draw its own window controls if you disable window border
+
+    # uosc will draw its own window controls and border if you disable window border
     border=no
     ```
 
-3. To configure **uosc**, create a `script-opts/uosc.conf` file, or download `uosc.conf` with all default values from the link above, and save into `script-opts/` folder.
+3. **OPTIONAL**: To have thumbnails in timeline, install [thumbfast](https://github.com/po5/thumbfast). No other step necessary, **uosc** integrates with it seamlessly.
 
-4. **OPTIONAL**: To have thumbnails in timeline, install [thumbfast](https://github.com/po5/thumbfast). That's it, no other step necessary, **uosc** integrates with it seamlessly.
-
-5. **OPTIONAL**: If the UI feels sluggish/slow while playing video, you can remedy this a lot by placing this in your `mpv.conf`:
+4. **OPTIONAL**: If the UI feels sluggish/slow while playing video, you can remedy this _a bit_ by placing this in your `mpv.conf`:
 
     ```config
     video-sync=display-resample
@@ -90,11 +87,11 @@ Most notable features:
 
     #### What is going on?
 
-    **uosc** places performance as one of its top priorities, so how can the UI feel slow? Well, it really isn't, **uosc** is **fast**, it just doesn't feel like it because when video is playing, the UI rendering frequency is chained to its frame rate, so unless you are the type of person that can't see above 24fps, it _will_ feel slow, unless you tell mpv to resample the video framerate to match your display. This is mpv limitation, and not much we can do about it on our side.
+    **uosc** places performance as one of its top priorities, but it might feel a bit sluggish because during a video playback, the UI rendering frequency is chained to its frame rate. To test this, you can pause the video which will switch refresh rate to be closer or match the frequency of your monitor, and the UI should feel smoother. This is mpv limitation, and not much we can do about it on our side.
 
 ## Options
 
-All of the available **uosc** options with their default values and documentation are in the provided `uosc.conf` file.
+All of the available **uosc** options with their default values are documented in [`uosc.conf`](https://github.com/tomasklaen/uosc/blob/HEAD/script-opts/uosc.conf) file ([download](https://github.com/tomasklaen/uosc/releases/latest/download/uosc.conf)).
 
 To change the font, **uosc** respects the mpv's `osd-font` configuration.
 
@@ -102,26 +99,28 @@ To change the font, **uosc** respects the mpv's `osd-font` configuration.
 
 These bindings are active when any **uosc** menu is open (main menu, playlist, load/select subtitles,...):
 
--   `up`, `down` - select previous/next item
--   `left`, `right` - back to parent menu or close, activate item
--   `enter` - activate item
--   `esc` - close menu
--   `wheel_up`, `wheel_down` - scroll menu
--   `pgup`, `pgdwn`, `home`, `end` - self explanatory
--   `ctrl+up/down` - move selected item in menus that support it (playlist)
--   `del` - delete selected item in menus that support it (playlist)
--   `shift+enter`, `shift+right` - activate item without closing the menu
--   `ctrl+enter`, `ctrl+click` - force activate an item, even if it's a submenu. In practical terms: activates a directory instead of navigation to its contents.
+-   `up`, `down` - Select previous/next item.
+-   `left`, `right` - Back to parent menu or close, activate item.
+-   `enter` - Activate item.
+-   `esc` - Close menu.
+-   `wheel_up`, `wheel_down` - Scroll menu.
+-   `pgup`, `pgdwn`, `home`, `end` - Self explanatory.
+-   `ctrl+f` or `\` - In case `menu_type_to_search` is disabled, these two trigger the menu search instead.
+-   `ctrl+enter` - Submits a search in menus without instant search.
+-   `ctrl+up/down` - Move selected item in menus that support it (playlist).
+-   `del` - Delete selected item in menus that support it (playlist).
+-   `shift+enter`, `shift+right` - Activate item without closing the menu.
+-   `alt+enter`, `alt+click` - In file navigating menus, opens a directory in mpv instead of navigating to its contents.
 
 Click on a faded parent menu to go back to it.
 
 ## Commands
 
-**uosc** provides various commands with useful features to bind your preferred keys to. These are all unbound by default.
+**uosc** provides various commands with useful features to bind your preferred keys to, or populate your menu with. These are all unbound by default.
 
 To add a keybind to one of this commands, open your `input.conf` file and add one on a new line. The command syntax is `script-binding uosc/{command-name}`.
 
-Example to bind the `tab` key to peek timeline:
+Example to bind the `tab` key to toggle the ui visibility:
 
 ```
 tab  script-binding uosc/toggle-ui
@@ -496,7 +495,7 @@ While the menu is open this value will be available in `user-data/uosc/menu/type
 
 `search_suggestion` fills menu search with initial query string. Useful for example when you want to implement something like subtitle downloader, you'd set it to current file name.
 
-`item.icon` property accepts icon names. You can pick one from here: [Google Material Icons](https://fonts.google.com/icons)\
+`item.icon` property accepts icon names. You can pick one from here: [Google Material Icons](https://fonts.google.com/icons?icon.platform=web&icon.set=Material+Icons&icon.style=Rounded)\
 There is also a special icon name `spinner` which will display a rotating spinner. Along with a no-op command on an item and `keep_open=true`, this can be used to display placeholder menus/items that are still loading.
 
 When `keep_open` is `true`, activating the item will not close the menu. This property can be defined on both menus and items, and is inherited from parent to child if child doesn't overwrite it.
@@ -650,6 +649,16 @@ mp.commandv('script-message-to', 'uosc', 'overwrite-binding', 'stream-quality', 
 ```
 
 To cancel the overwrite and return to default behavior, just omit the `<command>` parameter.
+
+### `disable-elements <script_id> <element_ids>`
+
+Set what uosc elements your script wants to disable. To cancel or re-enable them, send the message again with an empty string in place of `element_ids`.
+
+```lua
+mp.commandv('script-message-to', 'uosc', 'disable-elements', mp.get_script_name(), 'timeline,volume')
+```
+
+Using `'user'` as `script_id` will overwrite user's `disable_elements` config. Elements will be enabled only when neither user, nor any script requested them to be disabled.
 
 ## Why _uosc_?
 

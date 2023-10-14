@@ -91,14 +91,14 @@ function ass_mt:tooltip(element, value, opts)
 	local x = element.ax + (element.bx - element.ax) / 2
 	local y = align_top and element.ay - offset or element.by + offset
 	local width_half = (opts.width_overwrite or text_width(value, opts)) / 2 + padding_x
-	local min_edge_distance = width_half + opts.margin + Elements.window_border.size
+	local min_edge_distance = width_half + opts.margin + Elements:v('window_border', 'size', 0)
 	x = clamp(min_edge_distance, x, display.width - min_edge_distance)
 	local ax, bx = round(x - width_half), round(x + width_half)
 	local ay = (align_top and y - opts.size * opts.lines - 2 * padding_y or y)
 	local by = (align_top and y or y + opts.size * opts.lines + 2 * padding_y)
 	self:rect(ax, ay, bx, by, {color = bg, opacity = config.opacity.tooltip, radius = state.radius})
 	self:txt(x, align_top and y - padding_y or y + padding_y, align_top and 2 or 8, value, opts)
-	return { ax = element.ax, ay = ay, bx = element.bx, by = by }
+	return {ax = element.ax, ay = ay, bx = element.bx, by = by}
 end
 
 -- Rectangle.

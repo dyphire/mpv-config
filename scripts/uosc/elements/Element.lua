@@ -1,4 +1,4 @@
----@alias ElementProps {enabled?: boolean; ax?: number; ay?: number; bx?: number; by?: number; ignores_menu?: boolean; anchor_id?: string;}
+---@alias ElementProps {enabled?: boolean; render_order?: number; ax?: number; ay?: number; bx?: number; by?: number; ignores_menu?: boolean; anchor_id?: string;}
 
 -- Base class all elements inherit from.
 ---@class Element : Class
@@ -8,6 +8,7 @@ local Element = class()
 ---@param props? ElementProps
 function Element:init(id, props)
 	self.id = id
+	self.render_order = 1
 	-- `false` means element won't be rendered, or receive events
 	self.enabled = true
 	-- Element coordinates
@@ -15,7 +16,7 @@ function Element:init(id, props)
 	-- Relative proximity from `0` - mouse outside `proximity_max` range, to `1` - mouse within `proximity_min` range.
 	self.proximity = 0
 	-- Raw proximity in pixels.
-	self.proximity_raw = INFINITY
+	self.proximity_raw = math.huge
 	---@type number `0-1` factor to force min visibility. Used for toggling element's permanent visibility.
 	self.min_visibility = 0
 	---@type number `0-1` factor to force a visibility value. Used for flashing, fading out, and other animations
@@ -24,6 +25,8 @@ function Element:init(id, props)
 	self.ignores_menu = false
 	---@type nil|string ID of an element from which this one should inherit visibility.
 	self.anchor_id = nil
+	---@type fun()[] Disposer functions called when element is destroyed.
+	self._disposers = {}
 
 	if props then table_assign(self, props) end
 
@@ -31,8 +34,11 @@ function Element:init(id, props)
 	self._flash_out_timer = mp.add_timeout(options.flash_duration / 1000, function()
 		local function getTo() return self.proximity end
 		local function onTweenEnd() self.forced_visibility = nil end
-		if self.enabled then self:tween_property('forced_visibility', 1, getTo, onTweenEnd)
-		else onTweenEnd() end
+		if self.enabled then
+			self:tween_property('forced_visibility', 1, getTo, onTweenEnd)
+		else
+			onTweenEnd()
+		end
 	end)
 	self._flash_out_timer:kill()
 
@@ -40,11 +46,12 @@ function Element:init(id, props)
 end
 
 function Element:destroy()
+	for _, disposer in ipairs(self._disposers) do disposer() end
 	self.destroyed = true
 	Elements:remove(self)
 end
 
-function Element:reset_proximity() self.proximity, self.proximity_raw = 0, INFINITY end
+function Element:reset_proximity() self.proximity, self.proximity_raw = 0, math.huge end
 
 ---@param ax number
 ---@param ay number
@@ -70,7 +77,10 @@ function Element:is_persistent()
 	local persist = config[self.id .. '_persistency']
 	return persist and (
 		(persist.audio and state.is_audio)
-		or (persist.paused and state.pause and (not Elements.timeline.pressed or Elements.timeline.pressed.pause))
+		or (
+			persist.paused and state.pause
+			and (not Elements.timeline or not Elements.timeline.pressed or Elements.timeline.pressed.pause)
+		)
 		or (persist.video and state.is_video)
 		or (persist.image and state.is_image)
 		or (persist.idle and state.is_idle)
@@ -108,12 +118,12 @@ end
 ---@param from number
 ---@param to number|fun():number
 ---@param setter fun(value: number)
----@param factor_or_callback? number|fun()
+---@param duration_or_callback? number|fun() Duration in milliseconds or a callback function.
 ---@param callback? fun() Called either on animation end, or when animation is killed.
-function Element:tween(from, to, setter, factor_or_callback, callback)
+function Element:tween(from, to, setter, duration_or_callback, callback)
 	self:tween_stop()
 	self._kill_tween = self.enabled and tween(
-		from, to, setter, factor_or_callback,
+		from, to, setter, duration_or_callback,
 		function()
 			self._kill_tween = nil
 			if callback then callback() end
@@ -128,10 +138,10 @@ function Element:tween_stop() self:maybe('_kill_tween') end
 ---@param prop string
 ---@param from number
 ---@param to number|fun():number
----@param factor_or_callback? number|fun()
+---@param duration_or_callback? number|fun() Duration in milliseconds or a callback function.
 ---@param callback? fun() Called either on animation end, or when animation is killed.
-function Element:tween_property(prop, from, to, factor_or_callback, callback)
-	self:tween(from, to, function(value) self[prop] = value end, factor_or_callback, callback)
+function Element:tween_property(prop, from, to, duration_or_callback, callback)
+	self:tween(from, to, function(value) self[prop] = value end, duration_or_callback, callback)
 end
 
 ---@param name string
@@ -152,6 +162,30 @@ function Element:flash()
 		self._flash_out_timer:kill()
 		self._flash_out_timer:resume()
 	end
+end
+
+-- Register disposer to be called when element is destroyed.
+---@param disposer fun()
+function Element:register_disposer(disposer)
+	if not itable_index_of(self._disposers, disposer) then
+		self._disposers[#self._disposers + 1] = disposer
+	end
+end
+
+-- Automatically registers disposer for the passed callback.
+---@param event string
+---@param callback fun()
+function Element:register_mp_event(event, callback)
+	mp.register_event(event, callback)
+	self:register_disposer(function() mp.unregister_event(callback) end)
+end
+
+-- Automatically registers disposer for the observer.
+---@param name string
+---@param callback fun(name: string, value: any)
+function Element:observe_mp_property(name, callback)
+	mp.observe_property(name, 'native', callback)
+	self:register_disposer(function() mp.unobserve_property(callback) end)
 end
 
 return Element

@@ -5,12 +5,13 @@ local PauseIndicator = class(Element)
 
 function PauseIndicator:new() return Class.new(self) --[[@as PauseIndicator]] end
 function PauseIndicator:init()
-	Element.init(self, 'pause_indicator')
+	Element.init(self, 'pause_indicator', {render_order = 3})
 	self.ignores_menu = true
 	self.paused = state.pause
 	self.fadeout_requested = false
 	self.opacity = 0
 	self:init_options()
+	self:decide()
 end
 
 function PauseIndicator:init_options()
@@ -27,7 +28,7 @@ function PauseIndicator:flash()
 	self.paused = mp.get_property_native('pause')
 	if self.is_manual then self.type = 'flash' end
 	self.opacity = 1
-	self:tween_property('opacity', 1, 0, 0.15)
+	self:tween_property('opacity', 1, 0, 300)
 end
 
 -- decides whether static indicator should be visible or not
@@ -44,7 +45,7 @@ function PauseIndicator:decide()
 end
 
 function PauseIndicator:on_prop_pause()
-	if Elements.timeline.pressed then return end
+	if Elements:v('timeline', 'pressed') then return end
 	if options.pause_indicator == 'flash' then
 		if self.paused == state.pause then return end
 		self:flash()

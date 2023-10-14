@@ -5,14 +5,15 @@ local WindowBorder = class(Element)
 
 function WindowBorder:new() return Class.new(self) --[[@as WindowBorder]] end
 function WindowBorder:init()
-	Element.init(self, 'window_border')
+	Element.init(self, 'window_border', {render_order = 1})
 	self.ignores_menu = true
 	self.size = 0
+	self:decide_enabled()
 end
 
 function WindowBorder:decide_enabled()
 	self.enabled = options.window_border_size > 0 and not state.fullormaxed and not state.border
-		and (state.platform ~= 'windows' or state.title_bar == false)
+		and (state.platform ~= 'windows' or state.title_bar ~= true)
 	self.size = self.enabled and round(options.window_border_size * state.scale) or 0
 end
 
