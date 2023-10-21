@@ -1,5 +1,7 @@
---[[ uosc 4.7.0 - 2023-Apr-15 | https://github.com/tomasklaen/uosc ]]
-local uosc_version = '4.7.0'
+--[[ uosc | https://github.com/tomasklaen/uosc ]]
+local uosc_version = '5.0.0'
+
+mp.commandv('script-message', 'uosc-version', uosc_version)
 
 assdraw = require('mp.assdraw')
 opt = require('mp.options')
@@ -19,7 +21,7 @@ defaults = {
 	progress = 'windowed',
 	progress_size = 2,
 	progress_line_width = 20,
-	timeline_persistency = 'paused',
+	timeline_persistency = '',
 	timeline_border = 1,
 	timeline_step = 5,
 	timeline_cache = true,
@@ -66,6 +68,7 @@ defaults = {
 	font_scale = 1,
 	text_border = 1.2,
 	border_radius = 2,
+	color = '',
 	opacity = '',
 	animation_duration = 100,
 	text_width_estimation = true,
@@ -75,10 +78,6 @@ defaults = {
 	flash_duration = 1000,
 	proximity_in = 40,
 	proximity_out = 120,
-	foreground = 'ffffff',
-	foreground_text = '000000',
-	background = '000000',
-	background_text = 'ffffff',
 	total_time = false, -- deprecated by below
 	destination_time = 'playtime-remaining',
 	time_precision = 0,
@@ -102,8 +101,9 @@ defaults = {
 	languages = 'slang,en',
 	disable_elements = '',
 }
-options = table_shallow_copy(defaults)
+options = table_copy(defaults)
 opt.read_options(options, 'uosc', function(_)
+	update_config()
 	update_human_times()
 	Manager:disable('user', options.disable_elements)
 	Elements:trigger('options')
@@ -125,9 +125,6 @@ elseif not itable_index_of({'total', 'playtime-remaining', 'time-remaining'}, op
 end
 -- Ensure required environment configuration
 if options.autoload then mp.commandv('set', 'keep-open-pause', 'no') end
--- Color shorthands
-fg, bg = serialize_rgba(options.foreground).color, serialize_rgba(options.background).color
-fgt, bgt = serialize_rgba(options.foreground_text).color, serialize_rgba(options.background_text).color
 
 --[[ INTERNATIONALIZATION ]]
 local intl = require('lib/intl')
@@ -137,7 +134,35 @@ t = intl.t
 local char_conv = require('lib/char_conv')
 
 --[[ CONFIG ]]
-
+local config_defaults = {
+	color = {
+		foreground = serialize_rgba('ffffff').color,
+		foreground_text = serialize_rgba('000000').color,
+		background = serialize_rgba('000000').color,
+		background_text = serialize_rgba('ffffff').color,
+		curtain = serialize_rgba('111111').color,
+		success = serialize_rgba('a5e075').color,
+		error = serialize_rgba('ff616e').color,
+	},
+	opacity = {
+		timeline = 0.9,
+		position = 1,
+		chapters = 0.8,
+		slider = 0.9,
+		slider_gauge = 1,
+		speed = 0.6,
+		menu = 1,
+		submenu = 0.4,
+		border = 1,
+		title = 1,
+		tooltip = 1,
+		thumbnail = 1,
+		curtain = 0.8,
+		idle_indicator = 0.8,
+		audio_indicator = 0.5,
+		buffering_indicator = 0.3,
+	},
+}
 config = {
 	version = uosc_version,
 	-- sets max rendering frequency in case the
@@ -194,43 +219,40 @@ config = {
 		end
 		return ranges
 	end)(),
-	opacity = {
-		timeline = 0.9,
-		position = 1,
-		chapters = 0.8,
-		slider = 0.9,
-		slider_gauge = 1,
-		speed = 0.6,
-		menu = 1,
-		submenu = 0.4,
-		border = 1,
-		title = 1,
-		tooltip = 1,
-		thumbnail = 1,
-		curtain = 0.8,
-		idle_indicator = 0.8,
-		audio_indicator = 0.5,
-	},
+	color = table_copy(config_defaults.color),
+	opacity = table_copy(config_defaults.opacity),
 	cursor_leave_fadeout_elements = {'timeline', 'volume', 'top_bar', 'controls'},
 }
--- Adds `{element}_persistency` property with table of flags when the element should be visible (`{paused = true}`)
-for _, name in ipairs({'timeline', 'controls', 'volume', 'top_bar', 'speed'}) do
-	local option_name = name .. '_persistency'
-	local value, flags = options[option_name], {}
-	if type(value) == 'string' then
-		for _, state in ipairs(comma_split(value)) do flags[state] = true end
-	end
-	config[option_name] = flags
-end
--- Parse `opacity` overrides
-do
-	for _, key_value_pair in ipairs(comma_split(options.opacity)) do
-		local key, value = key_value_pair:match('^([%w_]+)=([%d%.]+)$')
-		if key and config.opacity[key] then
-			config.opacity[key] = clamp(0, tonumber(value) or config.opacity[key], 1)
+
+-- Updates config with values dependent on options
+function update_config()
+	-- Adds `{element}_persistency` config properties with forced visibility states (e.g.: `{paused = true}`)
+	for _, name in ipairs({'timeline', 'controls', 'volume', 'top_bar', 'speed'}) do
+		local option_name = name .. '_persistency'
+		local value, flags = options[option_name], {}
+		if type(value) == 'string' then
+			for _, state in ipairs(comma_split(value)) do flags[state] = true end
 		end
+		config[option_name] = flags
 	end
+
+	-- Opacity
+	config.opacity = table_assign({}, config_defaults.opacity, serialize_key_value_list(options.opacity,
+		function(value, key)
+			return clamp(0, tonumber(value) or config.opacity[key], 1)
+		end
+	))
+
+	-- Color
+	config.color = table_assign({}, config_defaults.color, serialize_key_value_list(options.color, function(value)
+		return serialize_rgba(value).color
+	end))
+
+	-- Global color shorthands
+	fg, bg = config.color.foreground, config.color.background
+	fgt, bgt = config.color.foreground_text, config.color.background_text
 end
+update_config()
 
 -- Default menu items
 function create_default_menu_items()
@@ -276,9 +298,10 @@ function create_default_menu_items()
 				{title = t('Audio devices'), value = 'script-binding uosc/audio-device'},
 				{title = t('Editions'), value = 'script-binding uosc/editions'},
 				{title = t('Screenshot'), value = 'async screenshot'},
-				{title = t('Inputs'), value = 'script-binding uosc/inputs'},
+				{title = t('Key bindings'), value = 'script-binding uosc/keybinds'},
 				{title = t('Show in directory'), value = 'script-binding uosc/show-in-directory'},
 				{title = t('Open config folder'), value = 'script-binding uosc/open-config-directory'},
+				{title = t('Update uosc'), value = 'script-binding uosc/update'},
 			},
 		},
 		{title = t('Quit'), value = 'quit'},
@@ -288,150 +311,7 @@ end
 --[[ STATE ]]
 
 display = {width = 1280, height = 720, initialized = false}
-cursor = {
-	x = math.huge,
-	y = math.huge,
-	hidden = true,
-	hover_raw = false,
-	-- Event handlers that are only fired on cursor, bound during render loop. Guidelines:
-	-- - element activations (clicks) go to `on_primary_down` handler
-	-- - `on_primary_up` is only for clearing dragging/swiping, and prevents autohide when bound
-	on_primary_down = nil,
-	on_primary_up = nil,
-	on_wheel_down = nil,
-	on_wheel_up = nil,
-	allow_dragging = false,
-	first_real_mouse_move_received = false,
-	history = CircularBuffer:new(10),
-	-- Called at the beginning of each render
-	reset_handlers = function()
-		cursor.on_primary_down, cursor.on_primary_up = nil, nil
-		cursor.on_wheel_down, cursor.on_wheel_up = nil, nil
-		cursor.allow_dragging = false
-	end,
-	-- Enables pointer key group captures needed by handlers (called at the end of each render)
-	mbtn_left_enabled = nil,
-	wheel_enabled = nil,
-	decide_keybinds = function()
-		local enable_mbtn_left = (cursor.on_primary_down or cursor.on_primary_up) ~= nil
-		local enable_wheel = (cursor.on_wheel_down or cursor.on_wheel_up) ~= nil
-		if enable_mbtn_left ~= cursor.mbtn_left_enabled then
-			local flags = cursor.allow_dragging and 'allow-vo-dragging' or nil
-			mp[(enable_mbtn_left and 'enable' or 'disable') .. '_key_bindings']('mbtn_left', flags)
-			cursor.mbtn_left_enabled = enable_mbtn_left
-		end
-		if enable_wheel ~= cursor.wheel_enabled then
-			mp[(enable_wheel and 'enable' or 'disable') .. '_key_bindings']('wheel')
-			cursor.wheel_enabled = enable_wheel
-		end
-	end,
-	find_history_sample = function()
-		local time = mp.get_time()
-		for _, e in cursor.history:iter_rev() do
-			if time - e.time > 0.1 then
-				return e
-			end
-		end
-		return cursor.history:tail()
-	end,
-	get_velocity = function()
-		local snap = cursor.find_history_sample()
-		if snap then
-			local x, y, time = cursor.x - snap.x, cursor.y - snap.y, mp.get_time()
-			local time_diff = time - snap.time
-			if time_diff > 0.001 then
-				return {x = x / time_diff, y = y / time_diff}
-			end
-		end
-		return {x = 0, y = 0}
-	end,
-	move = function(x, y)
-		local old_x, old_y = cursor.x, cursor.y
-
-		-- mpv reports initial mouse position on linux as (0, 0), which always
-		-- displays the top bar, so we hardcode cursor position as infinity until
-		-- we receive a first real mouse move event with coordinates other than 0,0.
-		if not cursor.first_real_mouse_move_received then
-			if x > 0 and y > 0 then
-				cursor.first_real_mouse_move_received = true
-			else
-				x, y = math.huge, math.huge
-			end
-		end
-
-		-- Add 0.5 to be in the middle of the pixel
-		cursor.x = x == math.huge and x or x + 0.5
-		cursor.y = y == math.huge and y or y + 0.5
-
-		if old_x ~= cursor.x or old_y ~= cursor.y then
-			if cursor.x == math.huge or cursor.y == math.huge then
-				cursor.hidden = true
-				cursor.history:clear()
-
-				-- Slowly fadeout elements that are currently visible
-				for _, id in ipairs(config.cursor_leave_fadeout_elements) do
-					local element = Elements[id]
-					if element then
-						local visibility = element:get_visibility()
-						if visibility > 0 then
-							element:tween_property('forced_visibility', visibility, 0, function()
-								element.forced_visibility = nil
-							end)
-						end
-					end
-				end
-
-				Elements:update_proximities()
-				Elements:trigger('global_mouse_leave')
-			else
-				Elements:update_proximities()
-
-				if cursor.hidden then
-					-- Cancel potential fadeouts
-					for _, id in ipairs(config.cursor_leave_fadeout_elements) do
-						if Elements[id] then Elements[id]:tween_stop() end
-					end
-
-					cursor.hidden = false
-					cursor.history:clear()
-					Elements:trigger('global_mouse_enter')
-				else
-					-- Update history
-					cursor.history:insert({x = cursor.x, y = cursor.y, time = mp.get_time()})
-				end
-			end
-
-			Elements:proximity_trigger('mouse_move')
-			cursor.queue_autohide()
-		end
-
-		request_render()
-	end,
-	leave = function() cursor.move(math.huge, math.huge) end,
-	-- Cursor auto-hiding after period of inactivity
-	autohide = function()
-		if not cursor.on_primary_up and not Menu:is_open() then cursor.leave() end
-	end,
-	autohide_timer = (function()
-		local timer = mp.add_timeout(mp.get_property_native('cursor-autohide') / 1000, function() cursor.autohide() end)
-		timer:kill()
-		return timer
-	end)(),
-	queue_autohide = function()
-		if options.autohide and not cursor.on_primary_up then
-			cursor.autohide_timer:kill()
-			cursor.autohide_timer:resume()
-		end
-	end,
-	-- Calculates distance in which cursor reaches rectangle if it continues moving on the same path.
-	-- Returns `nil` if cursor is not moving towards the rectangle.
-	direction_to_rectangle_distance = function(rect)
-		local prev = cursor.find_history_sample()
-		if not prev then return false end
-		local end_x, end_y = cursor.x + (cursor.x - prev.x) * 1e10, cursor.y + (cursor.y - prev.y) * 1e10
-		return get_ray_to_rectangle_distance(cursor.x, cursor.y, end_x, end_y, rect)
-	end,
-}
+cursor = require('lib/cursor')
 state = {
 	platform = (function()
 		local platform = mp.get_property_native('platform')
@@ -534,7 +414,7 @@ function update_fullormaxed()
 	state.fullormaxed = state.fullscreen or state.maximized
 	update_display_dimensions()
 	Elements:trigger('prop_fullormaxed', state.fullormaxed)
-	cursor.leave()
+	cursor:leave()
 end
 
 function update_human_times()
@@ -707,16 +587,6 @@ if options.click_threshold > 0 then
 	mp.enable_key_bindings('mouse_movement', 'allow-vo-dragging+allow-hide-cursor')
 end
 
-function handle_mouse_pos(_, mouse)
-	if not mouse then return end
-	if cursor.hover_raw and not mouse.hover then
-		cursor.leave()
-	else
-		cursor.move(mouse.x, mouse.y)
-	end
-	cursor.hover_raw = mouse.hover
-end
-mp.observe_property('mouse-pos', 'native', handle_mouse_pos)
 mp.observe_property('osc', 'bool', function(name, value) if value == true then mp.set_property('osc', 'no') end end)
 mp.register_event('file-loaded', function()
 	local path = normalize_path(mp.get_property_native('path'))
@@ -928,29 +798,6 @@ mp.observe_property('core-idle', 'native', create_state_setter('core_idle'))
 
 --[[ KEY BINDS ]]
 
--- Pointer related binding groups
-function make_cursor_handler(event, cb)
-	return function(...)
-		call_maybe(cursor[event], ...)
-		call_maybe(cb, ...)
-		cursor.queue_autohide() -- refresh cursor autohide timer
-	end
-end
-mp.set_key_bindings({
-	{
-		'mbtn_left',
-		make_cursor_handler('on_primary_up'),
-		make_cursor_handler('on_primary_down', function(...)
-			handle_mouse_pos(nil, mp.get_property_native('mouse-pos'))
-		end),
-	},
-	{'mbtn_left_dbl', 'ignore'},
-}, 'mbtn_left', 'force')
-mp.set_key_bindings({
-	{'wheel_up', make_cursor_handler('on_wheel_up')},
-	{'wheel_down', make_cursor_handler('on_wheel_down')},
-}, 'wheel', 'force')
-
 -- Adds a key binding that respects rerouting set by `key_binding_overwrites` table.
 ---@param name string
 ---@param callback fun(event: table)
@@ -977,45 +824,22 @@ bind_command('toggle-title', function() Elements:maybe('top_bar', 'toggle_title'
 bind_command('decide-pause-indicator', function() Elements:maybe('pause_indicator', 'decide') end)
 bind_command('menu', function() toggle_menu_with_items() end)
 bind_command('menu-blurred', function() toggle_menu_with_items({mouse_nav = true}) end)
-bind_command('inputs', function()
-	if Menu:is_open('inputs') then
+bind_command('keybinds', function()
+	if Menu:is_open('keybinds') then
 		Menu:close()
 	else
-		open_command_menu({type = 'inputs', items = get_input_items(), palette = true})
+		open_command_menu({type = 'keybinds', items = get_keybinds_items(), palette = true})
 	end
 end)
-local track_loaders = {
-	{name = 'subtitles', prop = 'sub', allowed_types = itable_join(config.types.video, config.types.subtitle)},
-	{name = 'audio', prop = 'audio', allowed_types = itable_join(config.types.video, config.types.audio)},
-	{name = 'video', prop = 'video', allowed_types = config.types.video},
-}
-for _, loader in ipairs(track_loaders) do
-	local menu_type = 'load-' .. loader.name
-	bind_command(menu_type, function()
-		if Menu:is_open(menu_type) then
-			Menu:close()
-			return
-		end
-
-		local path = state.path
-		if path then
-			if is_protocol(path) then
-				path = false
-			else
-				local serialized_path = serialize_path(path)
-				path = serialized_path ~= nil and serialized_path.dirname or false
-			end
-		end
-		if not path then
-			path = get_default_directory()
-		end
-		open_file_navigation_menu(
-			path,
-			function(path) mp.commandv(loader.prop .. '-add', path) end,
-			{type = menu_type, title = t('Load ' .. loader.name), allowed_types = loader.allowed_types}
-		)
-	end)
-end
+bind_command('load-subtitles', create_track_loader_menu_opener({
+	name = 'subtitles', prop = 'sub', allowed_types = itable_join(config.types.video, config.types.subtitle),
+}))
+bind_command('load-audio', create_track_loader_menu_opener({
+	name = 'audio', prop = 'audio', allowed_types = itable_join(config.types.video, config.types.audio),
+}))
+bind_command('load-video', create_track_loader_menu_opener({
+	name = 'video', prop = 'video', allowed_types = config.types.video,
+}))
 bind_command('subtitles', create_select_tracklist_type_menu_opener(
 	t('Subtitles'), 'sub', 'sid', 'script-binding uosc/load-subtitles'
 ))
@@ -1108,93 +932,8 @@ bind_command('show-in-directory', function()
 		end
 	end
 end)
-bind_command('stream-quality', function()
-	if Menu:is_open('stream-quality') then
-		Menu:close()
-		return
-	end
-
-	local ytdl_format = mp.get_property_native('ytdl-format')
-	local items = {}
-
-	for _, height in ipairs(config.stream_quality_options) do
-		local format = 'bestvideo[height<=?' .. height .. ']+bestaudio/best[height<=?' .. height .. ']'
-		items[#items + 1] = {title = height .. 'p', value = format, active = format == ytdl_format}
-	end
-
-	Menu:open({type = 'stream-quality', title = t('Stream quality'), items = items}, function(format)
-		mp.set_property('ytdl-format', format)
-
-		-- Reload the video to apply new format
-		-- This is taken from https://github.com/jgreco/mpv-youtube-quality
-		-- which is in turn taken from https://github.com/4e6/mpv-reload/
-		local duration = mp.get_property_native('duration')
-		local time_pos = mp.get_property('time-pos')
-
-		mp.command('playlist-play-index current')
-
-		-- Tries to determine live stream vs. pre-recorded VOD. VOD has non-zero
-		-- duration property. When reloading VOD, to keep the current time position
-		-- we should provide offset from the start. Stream doesn't have fixed start.
-		-- Decent choice would be to reload stream from it's current 'live' position.
-		-- That's the reason we don't pass the offset when reloading streams.
-		if duration and duration > 0 then
-			local function seeker()
-				mp.commandv('seek', time_pos, 'absolute')
-				mp.unregister_event(seeker)
-			end
-			mp.register_event('file-loaded', seeker)
-		end
-	end)
-end)
-bind_command('open-file', function()
-	if Menu:is_open('open-file') then
-		Menu:close()
-		return
-	end
-
-	local directory
-	local active_file
-
-	if state.path == nil or is_protocol(state.path) then
-		local serialized = serialize_path(get_default_directory())
-		if serialized then
-			directory = serialized.path
-			active_file = nil
-		end
-	else
-		local serialized = serialize_path(state.path)
-		if serialized then
-			directory = serialized.dirname
-			active_file = serialized.path
-		end
-	end
-
-	if not directory then
-		msg.error('Couldn\'t serialize path "' .. state.path .. '".')
-		return
-	end
-
-	-- Update active file in directory navigation menu
-	local menu = nil
-	local function handle_file_loaded()
-		if menu and menu:is_alive() then
-			menu:activate_one_value(normalize_path(mp.get_property_native('path')))
-		end
-	end
-
-	menu = open_file_navigation_menu(
-		directory,
-		function(path) mp.commandv('loadfile', path) end,
-		{
-			type = 'open-file',
-			allowed_types = config.types.media,
-			active_path = active_file,
-			on_open = function() mp.register_event('file-loaded', handle_file_loaded) end,
-			on_close = function() mp.unregister_event(handle_file_loaded) end,
-		}
-	)
-end)
+bind_command('stream-quality', open_stream_quality_menu)
+bind_command('open-file', open_open_file_menu)
 bind_command('shuffle', function() set_state('shuffle', not state.shuffle) end)
 bind_command('items', function()
 	if state.has_playlist then
@@ -1223,37 +962,8 @@ bind_command('last', function()
 end)
 bind_command('first-file', function() load_file_index_in_current_directory(1) end)
 bind_command('last-file', function() load_file_index_in_current_directory(-1) end)
-bind_command('delete-file-next', function()
-	local next_file = nil
-	local is_local_file = state.path and not is_protocol(state.path)
-
-	if is_local_file then
-		if Menu:is_open('open-file') then Elements:maybe('menu', 'delete_value', state.path) end
-	end
-
-	if state.has_playlist then
-		mp.commandv('playlist-remove', 'current')
-	else
-		if is_local_file then
-			local paths, current_index = get_adjacent_files(state.path, {
-				types = config.types.autoload,
-				hidden = options.show_hidden_files,
-			})
-			if paths and current_index then
-				local index, path = decide_navigation_in_list(paths, current_index, 1)
-				if path then next_file = path end
-			end
-		end
-
-		if next_file then
-			mp.commandv('loadfile', next_file)
-		else
-			mp.commandv('stop')
-		end
-	end
-
-	if is_local_file then delete_file(state.path) end
-end)
+bind_command('delete-file-prev', function() delete_file_navigate(-1) end)
+bind_command('delete-file-next', function() delete_file_navigate(1) end)
 bind_command('delete-file-quit', function()
 	mp.command('stop')
 	if state.path and not is_protocol(state.path) then delete_file(state.path) end
@@ -1305,15 +1015,15 @@ bind_command('open-config-directory', function()
 		msg.error('Couldn\'t serialize config path "' .. config_path .. '".')
 	end
 end)
+bind_command('update', function()
+	if not Elements:has('updater') then require('elements/Updater'):new() end
+end)
 
 --[[ MESSAGE HANDLERS ]]
 
 mp.register_script_message('show-submenu', function(id) toggle_menu_with_items({submenu = id}) end)
 mp.register_script_message('show-submenu-blurred', function(id)
 	toggle_menu_with_items({submenu = id, mouse_nav = true})
-end)
-mp.register_script_message('get-version', function(script)
-	mp.commandv('script-message-to', script, 'uosc-version', config.version)
 end)
 mp.register_script_message('open-menu', function(json, submenu_id)
 	local data = utils.parse_json(json)
@@ -1391,7 +1101,7 @@ Manager = {
 ---@param element_ids string|string[]|nil `foo,bar` or `{'foo', 'bar'}`.
 function Manager:disable(client, element_ids)
 	self._disabled_by[client] = comma_split(element_ids)
-	self.disabled = make_set(itable_join(unpack(table_values(self._disabled_by))))
+	self.disabled = create_set(itable_join(unpack(table_values(self._disabled_by))))
 	self:_commit()
 end
 
