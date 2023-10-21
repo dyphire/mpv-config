@@ -1,5 +1,8 @@
 --[[ UI specific utilities that might or might not depend on its state or options ]]
 
+---@alias Point {x: number; y: number}
+---@alias Rect {ax: number, ay: number, bx: number, by: number}
+
 --- In place sorting of filenames
 ---@param filenames string[]
 function sort_filenames(filenames)
@@ -41,9 +44,11 @@ function tween(from, to, setter, duration_or_callback, callback)
 
 	local function finish()
 		if not done then
+			setter(get_to())
 			done = true
 			timeout:kill()
 			if callback then callback() end
+			request_render()
 		end
 	end
 
@@ -51,31 +56,31 @@ function tween(from, to, setter, duration_or_callback, callback)
 		local to = get_to()
 		current = current + ((to - current) * decay)
 		local is_end = math.abs(to - current) <= cutoff
-		setter(is_end and to or current)
-		request_render()
 		if is_end then
 			finish()
 		else
+			setter(current)
 			timeout:resume()
+			request_render()
 		end
 	end
 
 	timeout = mp.add_timeout(state.render_delay, tick)
-	tick()
+	if cutoff > 0 then tick() else finish() end
 
 	return finish
 end
 
----@param point {x: number; y: number}
----@param rect {ax: number; ay: number; bx: number; by: number}
+---@param point Point
+---@param rect Rect
 function get_point_to_rectangle_proximity(point, rect)
 	local dx = math.max(rect.ax - point.x, 0, point.x - rect.bx)
 	local dy = math.max(rect.ay - point.y, 0, point.y - rect.by)
 	return math.sqrt(dx * dx + dy * dy)
 end
 
----@param point_a {x: number; y: number}
----@param point_b {x: number; y: number}
+---@param point_a Point
+---@param point_b Point
 function get_point_to_point_proximity(point_a, point_b)
 	local dx, dy = point_a.x - point_b.x, point_a.y - point_b.y
 	return math.sqrt(dx * dx + dy * dy)
@@ -91,8 +96,10 @@ end
 ---@param mby number
 function get_line_to_line_intersection(lax, lay, lbx, lby, max, may, mbx, mby)
 	-- Calculate the direction of the lines
-	local uA = ((mbx - max) * (lay - may) - (mby - may) * (lax - max)) / ((mby - may) * (lbx - lax) - (mbx - max) * (lby - lay))
-	local uB = ((lbx - lax) * (lay - may) - (lby - lay) * (lax - max)) / ((mby - may) * (lbx - lax) - (mbx - max) * (lby - lay))
+	local uA = ((mbx - max) * (lay - may) - (mby - may) * (lax - max)) /
+		((mby - may) * (lbx - lax) - (mbx - max) * (lby - lay))
+	local uB = ((lbx - lax) * (lay - may) - (lby - lay) * (lax - max)) /
+		((mby - may) * (lbx - lax) - (mbx - max) * (lby - lay))
 
 	-- If uA and uB are between 0-1, lines are colliding
 	if uA >= 0 and uA <= 1 and uB >= 0 and uB <= 1 then
@@ -126,7 +133,7 @@ end
 ---@param  ay number
 ---@param  bx number
 ---@param  by number
----@param  rect {ax: number; ay: number; bx: number; by: number}
+---@param  rect Rect
 ---@return number|nil
 function get_ray_to_rectangle_distance(ax, ay, bx, by, rect)
 	-- Is inside
@@ -540,6 +547,26 @@ function delete_file(path)
 	})
 end
 
+function delete_file_navigate(delta)
+	local path, playlist_pos = state.path, state.playlist_pos
+	local is_local_file = path and not is_protocol(path)
+
+	if navigate_item(delta) then
+		if state.has_playlist then
+			mp.commandv('playlist-remove', playlist_pos - 1)
+		end
+	else
+		mp.command('stop')
+	end
+
+	if is_local_file then
+		if Menu:is_open('open-file') then
+			Elements:maybe('menu', 'delete_value', path)
+		end
+		delete_file(path)
+	end
+end
+
 function serialize_chapter_ranges(normalized_chapters)
 	local ranges = {}
 	local simple_ranges = {
@@ -549,7 +576,7 @@ function serialize_chapter_ranges(normalized_chapters)
 				'^op ', '^op$', ' op$',
 				'^opening$', ' opening$',
 			},
-			requires_next_chapter = true
+			requires_next_chapter = true,
 		},
 		{
 			name = 'intros',
@@ -557,14 +584,14 @@ function serialize_chapter_ranges(normalized_chapters)
 				'^intro$', ' intro$',
 				'^avant$', '^prologue$',
 			},
-			requires_next_chapter = true
+			requires_next_chapter = true,
 		},
 		{
 			name = 'endings',
 			patterns = {
 				'^ed ', '^ed$', ' ed$',
 				'^ending ', '^ending$', ' ending$',
-			}
+			},
 		},
 		{
 			name = 'outros',
@@ -572,7 +599,7 @@ function serialize_chapter_ranges(normalized_chapters)
 				'^outro$', ' outro$',
 				'^closing$', '^closing ',
 				'^preview$', '^pv$',
-			}
+			},
 		},
 	}
 	local sponsor_ranges = {}
@@ -585,7 +612,7 @@ function serialize_chapter_ranges(normalized_chapters)
 
 	-- Clone chapters
 	local chapters = {}
-	for i, normalized in ipairs(normalized_chapters) do chapters[i] = table_shallow_copy(normalized) end
+	for i, normalized in ipairs(normalized_chapters) do chapters[i] = table_assign({}, normalized) end
 
 	for i, chapter in ipairs(chapters) do
 		-- Simple ranges
@@ -682,13 +709,32 @@ function serialize_chapters(chapters)
 	return chapters
 end
 
+---Find all active key bindings or the active key binding for key
+---@param key string|nil
+---@return {[string]: table}|table
+function find_active_keybindings(key)
+	local bindings = mp.get_property_native('input-bindings', {})
+	local active = {} -- map: key-name -> bind-info
+	for _, bind in pairs(bindings) do
+		if bind.owner ~= 'uosc' and bind.priority >= 0 and (not key or bind.key == key) and (
+				not active[bind.key]
+				or (active[bind.key].is_weak and not bind.is_weak)
+				or (bind.is_weak == active[bind.key].is_weak and bind.priority > active[bind.key].priority)
+			)
+		then
+			active[bind.key] = bind
+		end
+	end
+	return not key and active or active[key]
+end
+
 --[[ RENDERING ]]
 
 function render()
 	if not display.initialized then return end
 	state.render_last_time = mp.get_time()
 
-	cursor.reset_handlers()
+	cursor:clear_zones()
 
 	-- Actual rendering
 	local ass = assdraw.ass_new()
@@ -725,7 +771,7 @@ function render()
 		end
 	end
 
-	cursor.decide_keybinds()
+	cursor:decide_keybinds()
 
 	-- submit
 	if osd.res_x == display.width and osd.res_y == display.height and osd.data == ass.text then
