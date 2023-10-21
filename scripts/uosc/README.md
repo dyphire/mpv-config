@@ -7,7 +7,7 @@
 	<a href="https://user-images.githubusercontent.com/47283320/195073006-bfa72bcc-89d2-4dc7-b8dc-f3c13273910c.webm"><img src="https://user-images.githubusercontent.com/47283320/195072935-44d591d9-00bb-4a55-8795-9cf81f65d397.png" alt="Preview screenshot"></a>
 </div>
 
-Notable features:
+Features:
 
 -   UI elements hide and show based on their proximity to cursor instead of every time mouse moves. This provides 100% control over when you see the UI and when you don't. Click on the preview above to see it in action.
 -   When timeline is unused, it can minimize itself into a small discrete progress bar.
@@ -25,12 +25,13 @@ Notable features:
     -   Volume bar: change volume by `volume_step` per scroll.
     -   Speed bar: change speed by `speed_step` per scroll.
     -   Just hovering video with no UI widget below cursor: your configured wheel bindings from `input.conf`.
+-   Right click on volume or speed elements to reset them.
 -   Transform chapters into timeline ranges (the red portion of the timeline in the preview).
 -   And a lot of useful options and commands to bind keys to.
 
 [Changelog](https://github.com/tomasklaen/uosc/releases).
 
-## Installation
+## Install
 
 1. These commands will install or update **uosc** and place a default `uosc.conf` file into `script-opts` if it doesn't exist already.
 
@@ -48,7 +49,7 @@ Notable features:
     irm https://raw.githubusercontent.com/tomasklaen/uosc/HEAD/installers/windows.ps1 | iex
     ```
 
-    **NOTE**: If this command is run in an mpv installation directory with `portable_config`, it'll install there instead of `AppData`.
+    _**NOTE**: If this command is run in an mpv installation directory with `portable_config`, it'll install there instead of `AppData`._
 
     ### Linux & macOS
 
@@ -57,6 +58,17 @@ Notable features:
     ```sh
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/tomasklaen/uosc/HEAD/installers/unix.sh)"
     ```
+
+    On Linux, we try to detect what package manager variant of the config location you're using, with precedent being:
+
+    ```
+    ~/.var/app/io.mpv.Mpv     (flatpak)
+    ~/snap/mpv
+    ~/snap/mpv-wayland
+    ~/.config/mpv
+    ```
+
+    To install into any of these locations, make sure the ones above it don't exist.
 
     ### Manual
 
@@ -107,6 +119,8 @@ These bindings are active when any **uosc** menu is open (main menu, playlist, l
 -   `pgup`, `pgdwn`, `home`, `end` - Self explanatory.
 -   `ctrl+f` or `\` - In case `menu_type_to_search` is disabled, these two trigger the menu search instead.
 -   `ctrl+enter` - Submits a search in menus without instant search.
+-   `ctrl+backspace` - Delete search query by word.
+-   `shift+backspace` - Clear search query.
 -   `ctrl+up/down` - Move selected item in menus that support it (playlist).
 -   `del` - Delete selected item in menus that support it (playlist).
 -   `shift+enter`, `shift+right` - Activate item without closing the menu.
@@ -220,9 +234,9 @@ Editions menu. Editions are different video cuts available in some mkv files.
 
 Switch stream quality. This is just a basic re-assignment of `ytdl-format` mpv property from predefined options (configurable with `stream_quality_options`) and video reload, there is no fetching of available formats going on.
 
-#### `inputs`
+#### `keybinds`
 
-Displays a command palette menu with all inputs defined in your `input.conf` file. Useful to check what command is bound to what shortcut, etc.
+Displays a command palette menu with all key bindings defined in your `input.conf` file. Useful to check what command is bound to what shortcut, or the other way around.
 
 #### `open-file`
 
@@ -277,6 +291,24 @@ Switch audio output device.
 #### `open-config-directory`
 
 Open directory with `mpv.conf` in file explorer.
+
+#### `update`
+
+Updates uosc to the latest stable release right from the UI. Available in the "Utils" section of default menu .
+
+Supported environments:
+
+| Env | Works | Note |
+|:---|:---:|---|
+| Windows | ✔️ | _Not tested on older PowerShell versions. You might need to `Set-ExecutionPolicy` from the install instructions and install with the terminal command first._ |
+| Linux (apt) | ✔️ | |
+| Linux (flatpak) | ✔️ | |
+| Linux (snap) | ❌ | We're not allowed to access commands like `curl` even if they're installed. (Or at least this is what I think the issue is.) |
+| MacOS | ❌ | `(23) Failed writing body` error, whatever that means. |
+
+If you know about a solution to fix self-updater for any of the currently broken environments, please make an issue/PR and share it with us!
+
+**Note:** The terminal commands from install instructions still work fine everywhere, so you can use those to update instead.
 
 ## Menu
 
@@ -386,13 +418,27 @@ o           script-binding uosc/open-file          #! Navigation > Open file
 #           script-binding uosc/audio-device       #! Utils > Audio devices
 #           script-binding uosc/editions           #! Utils > Editions
 ctrl+s      async screenshot                       #! Utils > Screenshot
-alt+i       script-binding uosc/inputs             #! Utils > Inputs
+alt+i       script-binding uosc/keybinds           #! Utils > Key bindings
 O           script-binding uosc/show-in-directory  #! Utils > Show in directory
 #           script-binding uosc/open-config-directory #! Utils > Open config directory
+#           script-binding uosc/update             #! Utils > Update uosc
 esc         quit #! Quit
 ```
 
 To see all the commands you can bind keys or menu items to, refer to [mpv's list of input commands documentation](https://mpv.io/manual/master/#list-of-input-commands).
+
+## Messages
+
+### `uosc-version <version>`
+
+Broadcasts the uosc version during script initialization. Useful if you want to detect that uosc is installed. Example:
+
+```lua
+-- Register response handler
+mp.register_script_message('uosc-version', function(version)
+  print('uosc version', version)
+end)
+```
 
 ## Message handlers
 
@@ -400,20 +446,6 @@ To see all the commands you can bind keys or menu items to, refer to [mpv's list
 
 ```
 R    script-message-to uosc show-submenu "Utils > Aspect ratio"
-```
-
-### `get-version <script_id>`
-
-Tells uosc to send it's version to `<script_id>` script. Useful if you want to detect that uosc is installed. Example:
-
-```lua
--- Register response handler
-mp.register_script_message('uosc-version', function(version)
-  print('uosc version', version)
-end)
-
--- Ask for version
-mp.commandv('script-message-to', 'uosc', 'get-version', mp.get_script_name())
 ```
 
 ### `show-submenu <menu_id>`, `show-submenu-blurred <menu_id>`

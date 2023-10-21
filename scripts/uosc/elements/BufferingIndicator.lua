@@ -5,8 +5,7 @@ local BufferingIndicator = class(Element)
 
 function BufferingIndicator:new() return Class.new(self) --[[@as BufferingIndicator]] end
 function BufferingIndicator:init()
-	Element.init(self, 'buffer_indicator', {render_order = 2})
-	self.ignores_menu = true
+	Element.init(self, 'buffer_indicator', {ignores_curtain = true, render_order = 2})
 	self.enabled = false
 	self:decide_enabled()
 end
@@ -30,9 +29,9 @@ function BufferingIndicator:on_prop_cache_underrun() self:decide_enabled() end
 
 function BufferingIndicator:render()
 	local ass = assdraw.ass_new()
-	ass:rect(0, 0, display.width, display.height, {color = bg, opacity = 0.3})
+	ass:rect(0, 0, display.width, display.height, {color = bg, opacity = config.opacity.buffering_indicator})
 	local size = round(30 + math.min(display.width, display.height) / 10)
-	local opacity = (Elements.menu and not Elements.menu.is_closing) and 0.3 or 0.8
+	local opacity = (Elements.menu and Elements.menu:is_alive()) and 0.3 or 0.8
 	ass:spinner(display.width / 2, display.height / 2, size, {color = fg, opacity = opacity})
 	return ass
 end
