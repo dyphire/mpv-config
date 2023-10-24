@@ -122,18 +122,21 @@ local opts = {
     download_subtitle_config_file = "",
     download_video_embed_subtitle_config_file= "",
 
-    -- Open a new "Windows Terminal" window/tab for download
+    -- Open a new terminal window/tab for download
     -- This allows you to monitor the download progress
-    -- Currently only works on Windows with the new wt terminal
-    -- If open_new_terminal_autoclose is true, then the terminal window
-    -- will close after the download, even if there were errors
     -- If mpv_playlist is true and the whole mpv playlist should be
     -- downloaded, then all the downloads are scheduled immediately.
     -- Before each download is started, the script waits the given
     -- timeout in seconds
     open_new_terminal = false,
-    open_new_terminal_autoclose = false,
     open_new_terminal_timeout = 3,
+    -- Set the command that opens a new terminal (JSON array)
+    -- Use "$cwd" as a placeholder for the working directory
+    -- Use "$cmd" as a placeholder for the download command
+    -- See .conf file for Windows and xfce examples.
+    open_new_terminal_command = [[
+        ["wt", "-w", "ytdlp", "new-tab", "-d", "$cwd", "cmd", "/K", "$cmd"]
+    ]],
 
     -- Used to localize uosc-submenu content
     -- Must use json format, example for Chinese: [{"Download": "下载","Audio": "音频"}]
@@ -161,13 +164,14 @@ local function exec(args, capture_stdout, capture_stderr)
     return ret.status, ret.stdout, ret.stderr, ret
 end
 
-local function exec_async(args, capture_stdout, capture_stderr, callback)
+local function exec_async(args, capture_stdout, capture_stderr, detach, callback)
     return mp.command_native_async({
         name = "subprocess",
         playback_only = false,
         capture_stdout = capture_stdout,
         capture_stderr = capture_stderr,
         args = args,
+        detach = detach,
     }, callback)
 end
 
@@ -209,6 +213,9 @@ end
 
 --Read text string
 local locale_content = utils.parse_json(opts.locale_content)
+local open_new_terminal_command = utils.parse_json(opts.open_new_terminal_command)
+
+local is_windows = package.config:sub(1, 1) == "\\"
 
 local function locale(str)
     if str and locale_content then
@@ -241,7 +248,7 @@ local function detect_executable()
     opts.youtube_dl_exe = table.remove(executables, 1)
     if opts.youtube_dl_exe ~= nil then
         msg.debug("Trying executable '" .. opts.youtube_dl_exe .. "' ...")
-        exec_async({opts.youtube_dl_exe, "--version"}, false, false, detect_executable_callback)
+        exec_async({opts.youtube_dl_exe, "--version"}, false, false, false, detect_executable_callback)
     else
         msg.error("No working executable found, using fallback 'youtube-dl'")
         opts.youtube_dl_exe = "youtube-dl"
@@ -266,7 +273,6 @@ end
 
 --create opts.download_path if it doesn't exist
 if not_empty(opts.download_path) and utils.readdir(opts.download_path) == nil then
-    local is_windows = package.config:sub(1, 1) == "\\"
     local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', string.format("\"%s\"", opts.download_path) }
     local unix_args = { 'mkdir', '-p', opts.download_path }
     local args = is_windows and windows_args or unix_args
@@ -943,42 +949,61 @@ local function download(download_type, config_file, overwrite_opts)
 
         -- Check working directory is writable (in case the filename does not specify a directory)
         local cwd = utils.getcwd()
-        local win_programs = "C:\\Program Files"
-        local win_win = "C:\\Windows"
-        if cwd:lower():sub(1, #win_programs) == win_programs:lower() or cwd:lower():sub(1, #win_win) == win_win:lower() then
-           msg.debug("The mpv working directory ('" ..cwd .."') is probably not writable. Trying %USERPROFILE%...")
-           local user_profile = os.getenv("USERPROFILE")
-           if  user_profile ~= nil then
-                cwd = user_profile
-           else
-                msg.warn("open_new_terminal is enabled, but %USERPROFILE% is not defined")
-                mp.osd_message("open_new_terminal is enabled, but %USERPROFILE% is not defined", 3)
-           end
+        local has_cwd = false
+        for _, value in pairs(open_new_terminal_command) do
+            if value == "$cwd" then
+                has_cwd = true
+                break
+            end
+        end
+        if has_cwd then
+            local win_programs = "C:\\Program Files"
+            local win_win = "C:\\Windows"
+            if cwd:lower():sub(1, #win_programs) == win_programs:lower() or cwd:lower():sub(1, #win_win) == win_win:lower() then
+                msg.debug("The mpv working directory ('" ..cwd .."') is probably not writable. Trying %USERPROFILE%...")
+                local user_profile = os.getenv("USERPROFILE")
+                if  user_profile ~= nil then
+                        cwd = user_profile
+                else
+                        msg.warn("open_new_terminal is enabled, but %USERPROFILE% is not defined")
+                        mp.osd_message("open_new_terminal is enabled, but %USERPROFILE% is not defined", 3)
+                end
+            end
         end
 
         -- Escape restricted characters on Windows
-        local restricted = "&<>|"
-        for key, value in ipairs(command) do
-            command[key] = value:gsub("["..  restricted .. "]", "^%0")
+        if is_windows then
+            local restricted = "&<>|"
+            for key, value in ipairs(command) do
+                command[key] = value:gsub("["..  restricted .. "]", "^%0")
+            end
         end
 
-        -- Prepend command with wt.exe
-        table.insert(command, 1, "wt")
-        table.insert(command, 2, "-w")
-        table.insert(command, 3, "ytdlp")
-        table.insert(command, 4, "new-tab")
-        table.insert(command, 5, "-d")
-        table.insert(command, 6, cwd)
-        table.insert(command, 7, "cmd")
-        if opts.open_new_terminal_autoclose then
-            table.insert(command, 8, "/C")
-        else
-            table.insert(command, 8, "/K")
+        -- Prepend command with open_new_terminal_command
+        local i = 1
+        local inserted_cmd = false
+        for _, value in pairs(open_new_terminal_command) do
+            if value == "$cwd" then
+                table.insert(command, i, cwd)
+            elseif value == "$cmd" then
+                inserted_cmd = true
+            elseif inserted_cmd then
+                table.insert(command, value) -- append after command
+            else
+                table.insert(command, i, value) -- prepend before command
+            end
+            i = i + 1
         end
         msg.debug("exec (async): " .. table.concat(command, " "))
     end
 
-    process_id = exec_async(command, true, true, download_ended)
+    process_id = exec_async(
+        command,
+        not opts.open_new_terminal,
+        not opts.open_new_terminal,
+        opts.open_new_terminal,
+        download_ended
+    )
 
 end
 
@@ -1071,10 +1096,10 @@ local function select_range()
     else
         select_range_mode = 1
         -- Add keybinds for arrow keys
-        mp.add_key_binding("up", "select-range-set-up", select_range_set_end)
-        mp.add_key_binding("down", "select-range-set-down", select_range_set_start)
-        mp.add_key_binding("left", "select-range-set-left", select_range_set_left)
-        mp.add_key_binding("right", "select-range-set-right", select_range_set_right)
+        mp.add_forced_key_binding("up", "select-range-set-up", select_range_set_end)
+        mp.add_forced_key_binding("down", "select-range-set-down", select_range_set_start)
+        mp.add_forced_key_binding("left", "select-range-set-left", select_range_set_left)
+        mp.add_forced_key_binding("right", "select-range-set-right", select_range_set_right)
 
         -- Defaults
         if start_time_seconds == nil then
