@@ -45,6 +45,7 @@ defaults = {
 
 	menu_item_height = 36,
 	menu_min_width = 260,
+	menu_padding = 4,
 	menu_type_to_search = true,
 
 	top_bar = 'no-border',
@@ -67,7 +68,7 @@ defaults = {
 	font = '',
 	font_scale = 1,
 	text_border = 1.2,
-	border_radius = 2,
+	border_radius = 4,
 	color = '',
 	opacity = '',
 	animation_duration = 100,
