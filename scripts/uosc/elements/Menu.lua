@@ -278,7 +278,7 @@ function Menu:update_content_dimensions()
 	self.item_height = round(options.menu_item_height * state.scale)
 	self.min_width = round(options.menu_min_width * state.scale)
 	self.separator_size = round(1 * state.scale)
-	self.padding = round(2 * state.scale)
+	self.padding = round(options.menu_padding * state.scale)
 	self.gap = round(2 * state.scale)
 	self.font_size = round(self.item_height * 0.48 * options.font_scale)
 	self.font_size_hint = self.font_size - 1
@@ -322,7 +322,7 @@ function Menu:update_dimensions()
 	for _, menu in ipairs(self.all) do
 		local width = math.max(menu.search and menu.search.max_width or 0, menu.max_width)
 		menu.width = round(clamp(min_width, width, width_available))
-		local title_height = (menu.is_root and menu.title or menu.search) and self.scroll_step or 0
+		local title_height = (menu.is_root and menu.title or menu.search) and self.scroll_step + self.padding or 0
 		local max_height = height_available - title_height
 		local content_height = self.scroll_step * #menu.items
 		menu.height = math.min(content_height - self.item_spacing, max_height)
@@ -1105,7 +1105,7 @@ function Menu:render()
 		local end_index = math.ceil((menu.scroll_y + menu.height) / self.scroll_step)
 		local menu_rect = {
 			ax = ax,
-			ay = ay - (draw_title and self.scroll_step or 0) - self.padding,
+			ay = ay - (draw_title and self.scroll_step + self.padding or 0) - self.padding,
 			bx = bx,
 			by = by + self.padding,
 		}
@@ -1113,7 +1113,9 @@ function Menu:render()
 
 		-- Background
 		ass:rect(menu_rect.ax, menu_rect.ay, menu_rect.bx, menu_rect.by, {
-			color = bg, opacity = menu_opacity * config.opacity.menu, radius = state.radius + self.padding,
+			color = bg,
+			opacity = menu_opacity * config.opacity.menu,
+			radius = state.radius > 0 and state.radius + self.padding or 0,
 		})
 
 		if is_parent then
@@ -1139,8 +1141,8 @@ function Menu:render()
 			local item_by = item_ay + self.item_height
 			local item_center_y = item_ay + (self.item_height / 2)
 			local item_clip = (item_ay < ay or item_by > by) and scroll_clip or nil
-			local content_ax, content_bx = ax + spacing, bx - spacing
-			local is_selected = menu.selected_index == index or item.active
+			local content_ax, content_bx = ax + self.padding + spacing, bx - self.padding - spacing
+			local is_selected = menu.selected_index == index
 
 			-- Select hovered item
 			if is_current and self.mouse_nav and item.selectable ~= false then
@@ -1156,28 +1158,32 @@ function Menu:render()
 					if submenu_is_hovered or get_point_to_rectangle_proximity(cursor, item_rect_hitbox) == 0 then
 						blur_selected_index = false
 						menu.selected_index = index
+						if not is_selected then request_render() end
 					end
 				end
 			end
 
+			local has_background = is_selected or item.active
 			local next_item = menu.items[index + 1]
 			local next_is_active = next_item and next_item.active
-			local next_is_highlighted = menu.selected_index == index + 1 or next_is_active
+			local next_has_background = menu.selected_index == index + 1 or next_is_active
 			local font_color = item.active and fgt or bgt
 
 			-- Separator
-			local separator_ay = item.separator and item_by - 1 or item_by
-			local separator_by = item_by + (item.separator and 2 or 1)
-			if is_selected then separator_ay = item_by + 1 end
-			if next_is_highlighted then separator_by = item_by end
-			if separator_by - separator_ay > 0 and item_by < by then
-				ass:rect(ax + spacing / 2, separator_ay, bx - spacing / 2, separator_by, {
-					color = fg, opacity = menu_opacity * (item.separator and 0.08 or 0.06),
+			if item_by < by and ((not has_background and not next_has_background) or item.separator) then
+				local separator_ay, separator_by = item_by, item_by + 1
+				if has_background then
+					separator_ay, separator_by = separator_ay + 1, separator_by + 1
+				elseif next_has_background then
+					separator_ay, separator_by = separator_ay - 1, separator_by - 1
+				end
+				ass:rect(ax + spacing, separator_ay, bx - spacing, separator_by, {
+					color = fg, opacity = menu_opacity * (item.separator and 0.13 or 0.04),
 				})
 			end
 
-			-- Highlight
-			local highlight_opacity = 0 + (item.active and 0.8 or 0) + (menu.selected_index == index and 0.15 or 0)
+			-- Background
+			local highlight_opacity = 0 + (item.active and 0.8 or 0) + (is_selected and 0.15 or 0)
 			if not is_submenu and highlight_opacity > 0 then
 				ass:rect(ax + self.padding, item_ay, bx - self.padding, item_by, {
 					radius = state.radius,
@@ -1246,9 +1252,14 @@ function Menu:render()
 
 		-- Menu title
 		if draw_title then
-			local title_height = self.item_height - 3
+			local title_height = self.item_height + self.padding - 3
 			local requires_submit = menu.search_debounce == 'submit'
-			local rect = {ax = ax + spacing, ay = ay - self.scroll_step, bx = bx - spacing, by = math.min(by, ay - 2)}
+			local rect = {
+				ax = ax + spacing / 2 + self.padding,
+				ay = ay - self.scroll_step - self.padding * 2,
+				bx = bx - spacing / 2 - self.padding,
+				by = math.min(by, ay - self.padding),
+			}
 			rect.cx, rect.cy = rect.ax + (rect.bx - rect.ax) / 2, rect.ay + (rect.by - rect.ay) / 2 -- centers
 
 			if menu.title and not menu.ass_safe_title then
@@ -1257,18 +1268,20 @@ function Menu:render()
 
             -- Background
 			if menu.search then
-				ass:rect(ax + 3, rect.ay, bx - 3, rect.ay + title_height - 2, {
-					color = fg .. '\\1a&HFF', opacity = menu_opacity * 0.1, radius = state.radius,
+				ass:rect(ax + 3, rect.ay + 3, bx - 3, rect.ay + title_height - 1, {
+					color = fg .. '\\1a&HFF', opacity = menu_opacity * 0.1,
+					radius = state.radius > 0 and state.radius + self.padding or 0,
 					border = 1, border_color = fg, border_opacity = menu_opacity * 0.8
 				})
-				ass:texture(ax + 3, rect.ay, bx - 3, rect.ay + title_height - 2, 'n', {
-					size = 80, color = bg, opacity = menu_opacity * 0.1, anchor_x = ax + 2, anchor_y = rect.ay,
+				ass:texture(ax + 3, rect.ay + 3, bx - 3, rect.ay + title_height - 1, 'n', {
+					size = 80, color = bg, opacity = menu_opacity * 0.1, anchor_x = ax + 2, anchor_y = rect.ay + 2,
 				})
 			else
-				ass:rect(ax + 2, rect.ay - 1, bx - 2, rect.ay + title_height - 1, {
-					color = fg, opacity = menu_opacity * 0.8, radius = state.radius,
+				ass:rect(ax + 2, rect.ay + 2, bx - 2, rect.ay + title_height, {
+					color = fg, opacity = menu_opacity * 0.8,
+					radius = state.radius > 0 and state.radius + self.padding or 0,
 				})
-				ass:texture(ax + 2, rect.ay - 1, bx - 2, rect.ay + title_height - 1, 'n', {
+				ass:texture(ax + 2, rect.ay + 2, bx - 2, rect.ay + title_height, 'n', {
 					size = 80, color = bg, opacity = menu_opacity * 0.1,
 				})
 			end
