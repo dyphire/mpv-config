@@ -55,8 +55,8 @@
   },
   {
     "git":"https://github.com/dyphire/uosc",
-    "whitelist":"scripts$",
-    "dest":"~~/scripts",
+    "whitelist":"dist/scripts",
+    "dest":"~~/scripts/uosc",
     "branch":"dev"
   },
   {
@@ -181,12 +181,14 @@
   {
     "git":"https://github.com/Artoriuz/glsl-joint-bilateral",
     "whitelist":"%.glsl$",
-    "dest":"~~/shaders/other"
+    "dest":"~~/shaders/other",
+    "branch":"main"
   },
   {
     "git":"https://github.com/Artoriuz/glsl-pixel-clipper",
     "whitelist":"%.glsl$",
-    "dest":"~~/shaders/other"
+    "dest":"~~/shaders/other",
+    "branch":"main"
   },
   {
     "git":"https://github.com/bloc97/Anime4K",
