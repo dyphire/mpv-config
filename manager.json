@@ -55,19 +55,19 @@
   },
   {
     "git":"https://github.com/dyphire/uosc",
-    "whitelist":"dist/scripts",
+    "whitelist":"readme%.md$|src/uosc/",
     "dest":"~~/scripts/uosc",
     "branch":"dev"
   },
   {
     "git":"https://github.com/dyphire/autosubsync-mpv",
-    "whitelist":"%.lua$",
+    "whitelist":"readme%.md$|%.lua$",
     "dest":"~~/scripts/autosubsync",
     "branch":"v0.33_CM"
   },
   {
     "git":"https://github.com/open-dynaMIX/simple-mpv-webui",
-    "whitelist":"main%.lua$|webui%-page",
+    "whitelist":"readme%.md$|main%.lua$|webui%-page",
     "dest":"~~/scripts/simple-mpv-webui",
     "branch":"main"
   },
@@ -78,7 +78,7 @@
   },
   {
     "git":"https://github.com/qwerty12/mpv-taskbar-buttons",
-    "whitelist":"%.lua$|res|ljf%-com",
+    "whitelist":"readme%.md$|%.lua$|res|ljf%-com",
     "blacklist":"script%-opts",
     "dest":"~~/scripts/mpv-taskbar-buttons"
   },
