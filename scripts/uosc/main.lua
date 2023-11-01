@@ -101,6 +101,7 @@ defaults = {
 	chapter_range_patterns = 'openings:オープニング;endings:エンディング',
 	languages = 'slang,en',
 	disable_elements = '',
+	ziggy_path = '~~/scripts/uosc/bin',
 }
 options = table_copy(defaults)
 opt.read_options(options, 'uosc', function(_)
@@ -166,6 +167,8 @@ local config_defaults = {
 }
 config = {
 	version = uosc_version,
+	open_subtitles_api_key = 'b0rd16N0bp7DETMpO4pYZwIqmQkZbYQr',
+	open_subtitles_agent = 'uosc v' .. uosc_version,
 	-- sets max rendering frequency in case the
 	-- native rendering frequency could not be detected
 	render_delay = 1 / 60,
@@ -392,6 +395,12 @@ require('lib/utils')
 require('lib/text')
 require('lib/ass')
 require('lib/menus')
+
+-- Determine path to ziggy
+do
+	local bin = 'ziggy-' .. (state.platform == 'windows' and 'windows.exe' or state.platform)
+	config.ziggy_path = utils.join_path(mp.command_native({ 'expand-path', options.ziggy_path }), bin)
+end
 
 --[[ STATE UPDATERS ]]
 
@@ -832,6 +841,7 @@ bind_command('keybinds', function()
 		open_command_menu({type = 'keybinds', items = get_keybinds_items(), palette = true})
 	end
 end)
+bind_command('download-subtitles', open_subtitle_downloader)
 bind_command('load-subtitles', create_track_loader_menu_opener({
 	name = 'subtitles', prop = 'sub', allowed_types = itable_join(config.types.video, config.types.subtitle),
 }))
@@ -842,7 +852,7 @@ bind_command('load-video', create_track_loader_menu_opener({
 	name = 'video', prop = 'video', allowed_types = config.types.video,
 }))
 bind_command('subtitles', create_select_tracklist_type_menu_opener(
-	t('Subtitles'), 'sub', 'sid', 'script-binding uosc/load-subtitles'
+	t('Subtitles'), 'sub', 'sid', 'script-binding uosc/load-subtitles', 'script-binding uosc/download-subtitles'
 ))
 bind_command('audio', create_select_tracklist_type_menu_opener(
 	t('Audio'), 'audio', 'aid', 'script-binding uosc/load-audio'

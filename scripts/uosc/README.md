@@ -15,8 +15,9 @@ Features:
 -   Configurable controls bar.
 -   Fast and efficient thumbnails with [thumbfast](https://github.com/po5/thumbfast) integration.
 -   UIs for:
-    -   Loading external subtitles.
     -   Selecting subtitle/audio/video track.
+    -   Downloading subtitles from Open Subtitles.
+    -   Loading external subtitles.
     -   Selecting stream quality.
     -   Quick directory and playlist navigation.
 -   All menus are instantly searchable. Just start typing.
@@ -217,6 +218,16 @@ Menus to select a track of a requested type.
 Displays a file explorer with directory navigation to load a requested track type.
 
 For subtitles, the explorer only displays file types defined in `subtitle_types` option. For audio and video, the ones defined in `video_types` and `audio_types` are displayed.
+
+#### `download-subtitles`
+
+A menu to search and download subtitles from [Open Subtitles](https://www.opensubtitles.com). It can also be opened by selecting the **Download** option in `subtitles` menu.
+
+We hash the current file and send the hash to Open Subtitles so you can search even with empty query and if your file is known, you'll get subtitles exactly for it.
+
+Subtitles will be downloaded to the same directory as currently opened file, or `~~/subtitles` (folder in your mpv config directory) if playing a URL.
+
+Current Open Subtitles limit for unauthenticated requests is **5 download per day**, but searching is unlimited. Authentication raises downloads to 10, which doesn't feel like it's wroth the effort of implementing it, so currently there's no way to authenticate.
 
 #### `playlist`
 
@@ -473,8 +484,8 @@ Menu {
   keep_open?: boolean;
   on_close?: string | string[];
   on_search?: string | string[];
-  palette?: boolean;
-  search_debounce?: 'submit' | number;
+  search_style?: 'on_demand' | 'palette' | 'disabled'; // default: on_demand
+  search_debounce?: 'submit' | number; // default: 0
   search_suggestion?: string;
   search_submenus?: boolean;
 }
@@ -492,8 +503,8 @@ Submenu {
   separator?: boolean;
   keep_open?: boolean;
   on_search?: string | string[];
-  palette?: boolean;
-  search_debounce?: 'submit' | number;
+  search_style?: 'on_demand' | 'palette' | 'disabled'; // default: on_demand
+  search_debounce?: 'submit' | number; // default: 0
   search_suggestion?: string;
   search_submenus?: boolean;
 }
@@ -519,7 +530,10 @@ When `Command.value` is a string, it'll be passed to `mp.command(value)`. If it'
 `Menu.type` is used to refer to this menu in `update-menu` and `close-menu`.
 While the menu is open this value will be available in `user-data/uosc/menu/type` and the `shared-script-properties` entry `uosc-menu-type`. If no type was provided, those will be set to `'undefined'`.
 
-`palette` specifies that this menu's primarily mode of interaction is through a search input. When enabled, search input will be visible at all times (doesn't have to be enabled and can't be disabled), and `title` will be used as input placeholder while search query is empty.
+`search_style` can be:
+- `on_demand` (_default_) - Search input pops up when user starts typing, or presses `/` or `ctrl+f`, depending on user configuration. It disappears on `shift+backspace`, or when input text is cleared.
+- `palette` - Search input is always visible and can't be disabled. In this mode, menu `title` is used as input placeholder when no text has been entered yet.
+- `disabled` - Menu can't be searched.
 
 `search_debounce` controls how soon the search happens after the last character was entered in milliseconds. Entering new character resets the timer. Defaults to `300`. It can also have a special value `'submit'`, which triggers a search only after `ctrl+enter` was pressed.
 
@@ -694,6 +708,16 @@ Using `'user'` as `script_id` will overwrite user's `disable_elements` config. E
 
 ## Contributing
 
+### Setup
+
+If you want to test or work on something that involves ziggy (our multitool binary, currently handles searching & downloading subtitles), you first need to build it with:
+
+```
+tools/build ziggy
+```
+
+This requires [`go`](https://go.dev/dl/) to be installed and in path. If you don't want to bother with installing go, and there were no changes to ziggy, you can just use the binaries from [latest release](https://github.com/tomasklaen/uosc/releases/latest/download/uosc.zip). Place folder `scripts/uosc/bin` from `uosc.zip` into `src/uosc/bin`.
+
 ### Localization
 
 If you want to help localizing uosc by either adding a new locale or fixing one that is not up to date, start by running this while in the repository root:
@@ -702,11 +726,11 @@ If you want to help localizing uosc by either adding a new locale or fixing one 
 tools/intl languagecode
 ```
 
-`languagecode` can be any existing locale in `dist/scripts/uosc/intl/` directory, or any [IETF language tag](https://en.wikipedia.org/wiki/IETF_language_tag). If it doesn't exist yet, the `intl` tool will create it.
+`languagecode` can be any existing locale in `src/uosc/intl/` directory, or any [IETF language tag](https://en.wikipedia.org/wiki/IETF_language_tag). If it doesn't exist yet, the `intl` tool will create it.
 
 This will parse the codebase for localization strings and use them to either update existing locale by removing unused and setting untranslated strings to `null`, or create a new one with all `null` strings.
 
-You can then navigate to `dist/scripts/uosc/intl/languagecode.json` and start translating.
+You can then navigate to `src/uosc/intl/languagecode.json` and start translating.
 
 ## Why _uosc_?
 
