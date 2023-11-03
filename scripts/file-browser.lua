@@ -124,9 +124,8 @@ local o = {
 }
 
 opt.read_options(o, 'file_browser')
-if utils.shared_script_property_set then
-    utils.shared_script_property_set('file_browser-open', 'no')
-end
+local shared_script_properties = utils.shared_script_property_set
+if shared_script_properties then utils.shared_script_property_set('file_browser-open', 'no') end
 mp.set_property('user-data/file_browser/open', 'no')
 
 package.path = mp.command_native({"expand-path", o.module_directory}).."/?.lua;"..package.path
@@ -1186,9 +1185,7 @@ local function open()
         mp.add_forced_key_binding(v[1], 'dynamic/'..v[2], v[3], v[4])
     end
 
-    if utils.shared_script_property_set then
-        utils.shared_script_property_set('file_browser-open', 'yes')
-    end
+    if shared_script_properties then utils.shared_script_property_set('file_browser-open', 'yes') end
     mp.set_property('user-data/file_browser/open', 'yes')
 
     if o.toggle_idlescreen then mp.commandv('script-message', 'osc-idlescreen', 'no', 'no_osd') end
@@ -1213,7 +1210,7 @@ local function close()
         mp.remove_key_binding('dynamic/'..v[2])
     end
 
-    utils.shared_script_property_set("file_browser-open", "no")
+    if shared_script_properties then utils.shared_script_property_set("file_browser-open", "no") end
     mp.set_property('user-data/file_browser/open', 'no')
 
     if o.toggle_idlescreen then mp.commandv('script-message', 'osc-idlescreen', 'yes', 'no_osd') end
