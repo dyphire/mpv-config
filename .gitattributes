@@ -1,0 +1,12 @@
+*.conf      linguist-language=INI
+*.hook      linguist-language=GLSL
+*.conf      text eol=lf
+*.lua       text eol=lf
+*.glsl      text eol=lf
+*.hook      text eol=lf
+*.json      text eol=lf
+*.html      text eol=lf
+*.css       text eol=lf
+*.md        text eol=lf
+*.js        text eol=lf
+*.py        text eol=lf
