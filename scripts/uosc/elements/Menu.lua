@@ -222,8 +222,6 @@ function Menu:update(data)
 			new_menus[#new_menus + 1] = menu
 		end
 
-		if menu.selected_index then self:select_by_offset(0, menu) end
-
 		new_all[#new_all + 1] = menu
 		new_by_id[menu.id] = menu
 	end
@@ -261,8 +259,10 @@ function Menu:update(data)
 			-- the menu items are new objects and the search needs to contain those
 			menu.search.source.items = not menu.on_search and menu.items or nil
 			-- Only internal searches are immediately submitted
-			if not menu.on_search then self:search_submit(menu) end
+			if not menu.on_search then self:search_internal(menu, true) end
 		end
+
+		if menu.selected_index then self:select_by_offset(0, menu) end
 	end
 
 	self:search_ensure_key_bindings()
@@ -279,6 +279,7 @@ function Menu:update_content_dimensions()
 	self.item_height = round(options.menu_item_height * state.scale)
 	self.min_width = round(options.menu_min_width * state.scale)
 	self.separator_size = round(1 * state.scale)
+	self.scrollbar_size = round(2 * state.scale)
 	self.padding = round(options.menu_padding * state.scale)
 	self.gap = round(2 * state.scale)
 	self.font_size = round(self.item_height * 0.48 * options.font_scale)
@@ -595,7 +596,7 @@ function Menu:move_selected_item_to(index)
 	if callback and from and from ~= index and index >= 1 and index <= #self.current.items then
 		callback(from, index, self.current.submenu_path)
 		self.current.selected_index = index
-		self:set_scroll_by((index - from) * self.scroll_step)
+		self:scroll_to_index(index, self.current, true)
 	end
 end
 
@@ -716,7 +717,8 @@ function Menu:on_end()
 end
 
 ---@param menu MenuStack
-function Menu:search_internal(menu)
+---@param no_select_first? boolean
+function Menu:search_internal(menu, no_select_first)
 	local query = menu.search.query:lower()
 	if query == '' then
 		-- Reset menu state to what it was before search
@@ -730,7 +732,7 @@ function Menu:search_internal(menu)
 		menu.items = search_items(menu.search.source.items, query, search_submenus)
 		-- Select 1st item in search results
 		menu.scroll_y = 0
-		if not self.mouse_nav then self:select_index(1, menu) end
+		if not no_select_first then self:select_index(1, menu) end
 	end
 	self:update_content_dimensions()
 end
@@ -1162,11 +1164,11 @@ function Menu:render()
 
 			-- Separator
 			if item_by < by and ((not has_background and not next_has_background) or item.separator) then
-				local separator_ay, separator_by = item_by, item_by + 1
+				local separator_ay, separator_by = item_by, item_by + self.separator_size
 				if has_background then
-					separator_ay, separator_by = separator_ay + 1, separator_by + 1
+					separator_ay, separator_by = separator_ay + self.separator_size, separator_by + self.separator_size
 				elseif next_has_background then
-					separator_ay, separator_by = separator_ay - 1, separator_by - 1
+					separator_ay, separator_by = separator_ay - self.separator_size, separator_by - self.separator_size
 				end
 				ass:rect(ax + spacing, separator_ay, bx - spacing, separator_by, {
 					color = fg, opacity = menu_opacity * (item.separator and 0.13 or 0.04),
@@ -1357,7 +1359,9 @@ function Menu:render()
 			local groove_height = menu.height - 2
 			local thumb_height = math.max((menu.height / (menu.scroll_height + menu.height)) * groove_height, 40)
 			local thumb_y = ay + 1 + ((menu.scroll_y / menu.scroll_height) * (groove_height - thumb_height))
-			ass:rect(bx - 3, thumb_y, bx - 1, thumb_y + thumb_height, {color = fg, opacity = menu_opacity * 0.8})
+			local sax = bx - round(self.scrollbar_size / 2)
+			local sbx = sax + self.scrollbar_size
+			ass:rect(sax, thumb_y, sbx, thumb_y + thumb_height, {color = fg, opacity = menu_opacity * 0.8})
 		end
 
 		-- We are in mouse nav and cursor isn't hovering any item
