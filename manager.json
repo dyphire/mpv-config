@@ -180,7 +180,7 @@
   },
   {
     "git":"https://github.com/Artoriuz/glsl-joint-bilateral",
-    "whitelist":"%.glsl$",
+    "whitelist":"jointbilateral%.glsl$",
     "dest":"~~/shaders/other",
     "branch":"main"
   },
