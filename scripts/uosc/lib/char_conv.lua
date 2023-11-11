@@ -52,7 +52,11 @@ function getStringLength(str)
 end
 
 function char_conv(chars, ligature, separator)
-    separator = separator or ' '
+    if next(pyTable) == nil then
+        return chars
+    end
+
+    local separator = separator or ' '
     local char_conv, sp, cache = {}, {}, {}
     local chars_length = getStringLength(chars)
     for n, char in utf8_iter(chars) do

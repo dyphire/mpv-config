@@ -59,6 +59,94 @@ function utf8_subwidth(str, indexStart, indexEnd)
     return substr, index
 end
 
+function utf8_to_table(str)
+    local t = {}
+    for _, ch in utf8_iter(str) do
+        t[#t + 1] = ch
+    end
+    return t
+end
+
+function jaro(s1, s2)
+    local match_window = math.floor(math.max(#s1, #s2) / 2.0) - 1
+    local matches1 = {}
+    local matches2 = {}
+
+    local m = 0;
+    local t = 0;
+
+    for i = 0, #s1, 1 do
+        local start = math.max(0, i - match_window)
+        local final = math.min(i + match_window + 1, #s2)
+
+        for k = start, final, 1 do
+            if matches2[k] then
+                goto continue
+            end
+
+            if s1[i] ~= s2[k] then
+                goto continue
+            end
+
+            matches1[i] = true
+            matches2[k] = true
+            m = m + 1
+            break
+
+            ::continue::
+        end
+    end
+
+    if m == 0 then
+        return 0.0
+    end
+
+    local k = 0
+    for i = 0, #s1, 1 do
+        if (not matches1[i]) then
+            goto continue
+        end
+
+        while not matches2[k] do
+            k = k + 1
+        end
+
+        if s1[i] ~= s2[k] then
+            t = t + 1
+        end
+
+        k = k + 1
+
+        ::continue::
+    end
+
+    t = t / 2.0
+
+    return (m / #s1 + m / #s2 + (m - t) / m) / 3.0
+end
+
+function jaro_winkler_distance(s1, s2)
+    if #s1 + #s2 == 0 then
+        return 0.0
+    end
+
+    if s1 == s2 then
+        return 1.0
+    end
+
+    s1 = utf8_to_table(s1)
+    s2 = utf8_to_table(s2)
+
+    local d = jaro(s1, s2)
+    local p = 0.1
+    local l = 0;
+    while (s1[l] == s2[l] and l < 4) do
+        l = l + 1
+    end
+
+    return d + l * p * (1 - d)
+end
+
 function is_protocol(path)
     return type(path) == 'string' and (path:find('^%a[%w.+-]-://') ~= nil or path:find('^%a[%w.+-]-:%?') ~= nil)
 end
@@ -80,29 +168,29 @@ function is_same_series(s1, s2, p1, p2)
     end
 
     local _is_same_folder, f1, f2 = is_same_folder(s1, s2, p1, p2)
-    if _is_same_folder and
-        f1 and
-        f2 and
-        get_filename_without_ext(f1) ~= get_filename_without_ext(f2)
-    then
-        local ratio = 0.5
-        local limit = #f1 * ratio
-        local temp = ""
-        for start, char in utf8_iter(f1) do
-            local sub1 = char
-            local sub2 = f2:sub(start, start + #char - 1)
-            if sub1 ~= sub2 then
-                temp = temp .. sub1
-            end
+    if _is_same_folder and f1 and f2 then
+        f1 = get_filename_without_ext(f1)
+        f2 = get_filename_without_ext(f2)
+
+        -- same filename but different extensions
+        if f1 == f2 then
+            return false
         end
-        if limit > #temp then
-            return true
-        end
-        local sub1, sub2 = f1:match("(.+%D+)0*%d+"), f2:match("(.+%D+)0*%d+")
+
+        -- by episode
+        local sub1, sub2 = f1:match("(%D+)0*%d+"), f2:match("(%D+)0*%d+")
         if sub1 and sub2 and sub1 == sub2 then
             return true
         end
+
+        -- by similarity
+        local threshold = 0.8
+        local similarity = jaro_winkler_distance(f1, f2)
+        if similarity > threshold then
+            return true
+        end
     end
+
     return false
 end
 
@@ -119,7 +207,7 @@ function remove_deleted()
     for _, item in ipairs(menu.items) do
         local path = item.value[2]
         local deleted = false
-        
+
         if not is_protocol(path) then
             local meta, meta_error = utils.file_info(path)
             if not (meta and meta.is_file) then

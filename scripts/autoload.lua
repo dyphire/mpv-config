@@ -21,6 +21,7 @@ additional_video_exts=list,of,ext
 additional_audio_exts=list,of,ext
 ignore_hidden=yes
 same_type=yes
+same_series=yes
 directory_mode=recursive
 
 --]]
@@ -42,6 +43,7 @@ o = {
     additional_audio_exts = "",
     ignore_hidden = true,
     same_type = false,
+    same_series = false,
     directory_mode = "ignore"
 }
 options.read_options(o, nil, function(list)
@@ -127,6 +129,148 @@ function get_extension(path)
     end
 end
 
+function get_filename_without_ext(filename)
+    local idx = filename:match(".+()%.%w+$")
+    if idx then
+        filename = filename:sub(1, idx - 1)
+    end
+    return filename
+end
+
+function utf8_char_bytes(str, i)
+    local char_byte = str:byte(i)
+    if char_byte < 0xC0 then
+        return 1
+    elseif char_byte < 0xE0 then
+        return 2
+    elseif char_byte < 0xF0 then
+        return 3
+    elseif char_byte < 0xF8 then
+        return 4
+    else
+        return 1
+    end
+end
+
+function utf8_iter(str)
+    local byte_start = 1
+    return function()
+        local start = byte_start
+        if #str < start then return nil end
+        local byte_count = utf8_char_bytes(str, start)
+        byte_start = start + byte_count
+        return start, str:sub(start, start + byte_count - 1)
+    end
+end
+
+function utf8_to_table(str)
+    local t = {}
+    for _, ch in utf8_iter(str) do
+        t[#t + 1] = ch
+    end
+    return t
+end
+
+function jaro(s1, s2)
+    local match_window = math.floor(math.max(#s1, #s2) / 2.0) - 1
+    local matches1 = {}
+    local matches2 = {}
+
+    local m = 0;
+    local t = 0;
+
+    for i = 0, #s1, 1 do
+        local start = math.max(0, i - match_window)
+        local final = math.min(i + match_window + 1, #s2)
+
+        for k = start, final, 1 do
+            if matches2[k] then
+                goto continue
+            end
+
+            if s1[i] ~= s2[k] then
+                goto continue
+            end
+
+            matches1[i] = true
+            matches2[k] = true
+            m = m + 1
+            break
+
+            ::continue::
+        end
+    end
+
+    if m == 0 then
+        return 0.0
+    end
+
+    local k = 0
+    for i = 0, #s1, 1 do
+        if (not matches1[i]) then
+            goto continue
+        end
+
+        while not matches2[k] do
+            k = k + 1
+        end
+
+        if s1[i] ~= s2[k] then
+            t = t + 1
+        end
+
+        k = k + 1
+
+        ::continue::
+    end
+
+    t = t / 2.0
+
+    return (m / #s1 + m / #s2 + (m - t) / m) / 3.0
+end
+
+function jaro_winkler_distance(s1, s2)
+    if #s1 + #s2 == 0 then
+        return 0.0
+    end
+
+    if s1 == s2 then
+        return 1.0
+    end
+
+    s1 = utf8_to_table(s1)
+    s2 = utf8_to_table(s2)
+
+    local d = jaro(s1, s2)
+    local p = 0.1
+    local l = 0;
+    while (s1[l] == s2[l] and l < 4) do
+        l = l + 1
+    end
+
+    return d + l * p * (1 - d)
+end
+
+function is_same_series(f1, f2)
+    local f1, f2 = get_filename_without_ext(f1), get_filename_without_ext(f2)
+    if f1 ~= f2 then
+        -- by episode
+        local sub1, sub2 = f1:match("(%D+)0*%d+"), f2:match("(%D+)0*%d+")
+        if sub1 and sub2 and sub1 == sub2 then
+            return true
+        end
+
+        -- by similarity
+        local threshold = 0.8
+        local similarity = jaro_winkler_distance(f1, f2)
+        if similarity > threshold then
+            return true
+        end
+    end
+
+    return false
+end
+
 table.filter = function(t, iter)
     for i = #t, 1, -1 do
         if not iter(t[i]) then
@@ -183,6 +327,17 @@ function scan_dir(path, current_file, dir_mode, separator, dir_depth, total_file
         local ext = get_extension(v)
         if ext == nil then
             return false
+        end
+        local name = mp.get_property("filename")
+        if o.same_series then
+            local name = mp.get_property("filename")
+            for ext, _ in pairs(extensions) do
+                if name:match(ext .. "$") ~= nil and v ~= name and
+                    not is_same_series(name, v)
+                then
+                    return false
+                end
+            end
         end
         return extensions[string.lower(ext)]
     end)

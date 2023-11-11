@@ -1,5 +1,5 @@
 --[[ uosc | https://github.com/tomasklaen/uosc ]]
-local uosc_version = '5.0.0'
+local uosc_version = '5.1.1'
 
 mp.commandv('script-message', 'uosc-version', uosc_version)
 
@@ -152,6 +152,7 @@ local config_defaults = {
 		chapters = 0.8,
 		slider = 0.9,
 		slider_gauge = 1,
+		controls = 0,
 		speed = 0.6,
 		menu = 1,
 		submenu = 0.4,
@@ -163,6 +164,7 @@ local config_defaults = {
 		idle_indicator = 0.8,
 		audio_indicator = 0.5,
 		buffering_indicator = 0.3,
+		playlist_position = 0.8,
 	},
 }
 config = {

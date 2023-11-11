@@ -29,18 +29,18 @@ function toggle_menu_with_items(opts)
 	end
 end
 
----@param options {type: string; title: string; list_prop: string; active_prop?: string; serializer: fun(list: any, active: any): MenuDataItem[]; on_select: fun(value: any); on_move_item?: fun(from_index: integer, to_index: integer, submenu_path: integer[]); on_delete_item?: fun(index: integer, submenu_path: integer[])}
-function create_self_updating_menu_opener(options)
+---@param opts {type: string; title: string; list_prop: string; active_prop?: string; serializer: fun(list: any, active: any): MenuDataItem[]; on_select: fun(value: any); on_paste: fun(payload: string); on_move_item?: fun(from_index: integer, to_index: integer, submenu_path: integer[]); on_delete_item?: fun(index: integer, submenu_path: integer[])}
+function create_self_updating_menu_opener(opts)
 	return function()
-		if Menu:is_open(options.type) then
+		if Menu:is_open(opts.type) then
 			Menu:close()
 			return
 		end
-		local list = mp.get_property_native(options.list_prop)
-		local active = options.active_prop and mp.get_property_native(options.active_prop) or nil
+		local list = mp.get_property_native(opts.list_prop)
+		local active = opts.active_prop and mp.get_property_native(opts.active_prop) or nil
 		local menu
 
-		local function update() menu:update_items(options.serializer(list, active)) end
+		local function update() menu:update_items(opts.serializer(list, active)) end
 
 		local ignore_initial_list = true
 		local function handle_list_prop_change(name, value)
@@ -62,25 +62,31 @@ function create_self_updating_menu_opener(options)
 			end
 		end
 
-		local initial_items, selected_index = options.serializer(list, active)
+		local initial_items, selected_index = opts.serializer(list, active)
 
 		-- Items and active_index are set in the handle_prop_change callback, since adding
 		-- a property observer triggers its handler immediately, we just let that initialize the items.
 		menu = Menu:open(
-			{type = options.type, title = options.title, items = initial_items, selected_index = selected_index},
-			options.on_select, {
+			{
+				type = opts.type,
+				title = opts.title,
+				items = initial_items,
+				selected_index = selected_index,
+				on_paste = opts.on_paste,
+			},
+			opts.on_select, {
 				on_open = function()
-					mp.observe_property(options.list_prop, 'native', handle_list_prop_change)
-					if options.active_prop then
-						mp.observe_property(options.active_prop, 'native', handle_active_prop_change)
+					mp.observe_property(opts.list_prop, 'native', handle_list_prop_change)
+					if opts.active_prop then
+						mp.observe_property(opts.active_prop, 'native', handle_active_prop_change)
 					end
 				end,
 				on_close = function()
 					mp.unobserve_property(handle_list_prop_change)
 					mp.unobserve_property(handle_active_prop_change)
 				end,
-				on_move_item = options.on_move_item,
-				on_delete_item = options.on_delete_item,
+				on_move_item = opts.on_move_item,
+				on_delete_item = opts.on_delete_item,
 			})
 	end
 end
@@ -192,7 +198,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 		return items, active_index or first_item_index
 	end
 
-	local function selection_handler(value)
+	local function handle_select(value)
 		if value == '{download}' then
 			mp.command(download_command)
 		elseif value == '{load}' then
@@ -212,7 +218,8 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 		type = track_type,
 		list_prop = 'track-list',
 		serializer = serialize_tracklist,
-		on_select = selection_handler,
+		on_select = handle_select,
+		on_paste = function(path) load_track(track_type, path) end,
 	})
 end
 
@@ -371,20 +378,33 @@ do
 		if items then return items end
 
 		local input_conf_property = mp.get_property_native('input-conf')
-		local input_conf = input_conf_property == '' and '~~/input.conf' or input_conf_property
-		local input_conf_path = mp.command_native({'expand-path', input_conf})
-		local input_conf_meta, meta_error = utils.file_info(input_conf_path)
+		local input_conf_iterator
+		if input_conf_property:sub(1, 9) == 'memory://' then
+			-- mpv.net v7
+			local input_conf_lines = split(input_conf_property:sub(10), '\n')
+			local i = 0
+			input_conf_iterator = function()
+				i = i + 1
+				return input_conf_lines[i]
+			end
+		else
+			local input_conf = input_conf_property == '' and '~~/input.conf' or input_conf_property
+			local input_conf_path = mp.command_native({'expand-path', input_conf})
+			local input_conf_meta, meta_error = utils.file_info(input_conf_path)
 
-		-- File doesn't exist
-		if not input_conf_meta or not input_conf_meta.is_file then
-			items = create_default_menu_items()
-			return items
+			-- File doesn't exist
+			if not input_conf_meta or not input_conf_meta.is_file then
+				items = create_default_menu_items()
+				return items
+			end
+
+			input_conf_iterator = io.lines(input_conf_path)
 		end
 
 		local main_menu = {items = {}, items_by_command = {}}
 		local by_id = {}
 
-		for line in io.lines(input_conf_path) do
+		for line in input_conf_iterator do
 			local key, command, comment = string.match(line, '%s*([%S]+)%s+(.-)%s+#%s*(.-)%s*$')
 			local title = ''
 
@@ -563,7 +583,7 @@ function open_open_file_menu()
 	)
 end
 
----@param opts {name: 'subtitles'|'audio'|'video'; prop: string; allowed_types: string[]}
+---@param opts {name: 'subtitles'|'audio'|'video'; prop: 'sub'|'audio'|'video'; allowed_types: string[]}
 function create_track_loader_menu_opener(opts)
 	local menu_type = 'load-' .. opts.name
 	local title = ({
@@ -590,17 +610,12 @@ function create_track_loader_menu_opener(opts)
 		if not path then
 			path = get_default_directory()
 		end
-		open_file_navigation_menu(
-			path,
-			function(path)
-				mp.commandv(opts.prop .. '-add', path)
-				-- If subtitle track was loaded, assume the user also wants to see it
-				if opts.prop == 'sub' then
-					mp.commandv('set', 'sub-visibility', 'yes')
-				end
-			end,
-			{type = menu_type, title = title, allowed_types = opts.allowed_types}
-		)
+
+		local function handle_select(path) load_track(opts.prop, path) end
+
+		open_file_navigation_menu(path, handle_select, {
+			type = menu_type, title = title, allowed_types = opts.allowed_types,
+		})
 	end
 end
 
@@ -705,8 +720,7 @@ function open_subtitle_downloader()
 
 			if not data then return end
 
-			mp.commandv('sub-add', data.file)
-			mp.commandv('set', 'sub-visibility', 'yes')
+			load_track('sub', data.file)
 
 			menu:update_items({
 				{

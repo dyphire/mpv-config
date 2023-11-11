@@ -43,6 +43,7 @@
 | slicing_copy.lua* | Cut video clips (depends on ffmpeg; configuration file: [slicing_copy.conf](../script-opts/slicing_copy.conf)) |
 | smartcopypaste_II.lua*       | OSD interactive clipping menu, smart copy and paste video path and progress (configuration file: [smartcopypaste_II.conf](../script-opts/smartcopypaste_II.conf)); dynamic key bindings are in the configuration file of the same name |
 | sponsorblock_minimal.lua | Skip sponsored segments of YouTube videos (depends on curl; configuration file: [sponsorblock_minimal.conf](../script-opts/sponsorblock_minimal.conf)) |
+| subtitle-lines.lua | Subtitle-lines Menu with uosc (depends on uosc) |
 | sub_export.lua* | Export the inner subtitles of the current video (depends on ffmpeg, supports subtitles in srt,ass and sup formats; configuration file: [sub_export.conf](../script-opts/sub_export.conf)) |
 | sub-fonts-dir-auto.lua* | Automatically find the fonts subdirectory in the playback directory and write the `sub-fonts-dir` parameter to automatically load a specific font path |
 | sub-select.lua | Specify subtitle track priority/black and white list (configuration file: [sub_select.conf](../script-opts/sub_select.conf); [sub-select.json](../script-opts/sub-select.json)) |
