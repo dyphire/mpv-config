@@ -1,13 +1,13 @@
 local Element = require('elements/Element')
 
 -- Menu data structure accepted by `Menu:open(menu)`.
----@alias MenuData {id?: string; type?: string; title?: string; hint?: string; search_style?: 'on_demand' | 'palette' | 'disabled'; keep_open?: boolean; bold?: boolean; italic?: boolean; muted?: boolean; separator?: boolean; align?: 'left'|'center'|'right'; items?: MenuDataItem[]; selected_index?: integer; on_search?: string|string[]|fun(search_text: string); search_debounce?: number|string; search_submenus?: boolean; search_suggestion?: string}
+---@alias MenuData {id?: string; type?: string; title?: string; hint?: string; search_style?: 'on_demand' | 'palette' | 'disabled'; keep_open?: boolean; bold?: boolean; italic?: boolean; muted?: boolean; separator?: boolean; align?: 'left'|'center'|'right'; items?: MenuDataItem[]; selected_index?: integer; on_search?: string|string[]|fun(search_text: string); on_paste?: string|string[]|fun(search_text: string); search_debounce?: number|string; search_submenus?: boolean; search_suggestion?: string}
 ---@alias MenuDataItem MenuDataValue|MenuData
 ---@alias MenuDataValue {title?: string; hint?: string; icon?: string; value: any; active?: boolean; keep_open?: boolean; selectable?: boolean; bold?: boolean; italic?: boolean; muted?: boolean; separator?: boolean; align?: 'left'|'center'|'right'}
 ---@alias MenuOptions {mouse_nav?: boolean; on_open?: fun(); on_close?: fun(); on_back?: fun(); on_move_item?: fun(from_index: integer, to_index: integer, submenu_path: integer[]); on_delete_item?: fun(index: integer, submenu_path: integer[])}
 
 -- Internal data structure created from `Menu`.
----@alias MenuStack {id?: string; type?: string; title?: string; hint?: string; search_style?: 'on_demand' | 'palette' | 'disabled', selected_index?: number; keep_open?: boolean; bold?: boolean; italic?: boolean; muted?: boolean; separator?: boolean; align?: 'left'|'center'|'right'; items: MenuStackItem[]; on_search?: string|string[]|fun(search_text: string); search_debounce?: number|string; search_submenus?: boolean; search_suggestion?: string; parent_menu?: MenuStack; submenu_path: integer[]; active?: boolean; width: number; height: number; top: number; scroll_y: number; scroll_height: number; title_width: number; hint_width: number; max_width: number; is_root?: boolean; fling?: Fling, search?: Search, ass_safe_title?: string}
+---@alias MenuStack {id?: string; type?: string; title?: string; hint?: string; search_style?: 'on_demand' | 'palette' | 'disabled', selected_index?: number; keep_open?: boolean; bold?: boolean; italic?: boolean; muted?: boolean; separator?: boolean; align?: 'left'|'center'|'right'; items: MenuStackItem[]; on_search?: string|string[]|fun(search_text: string); on_paste?: string|string[]|fun(search_text: string); search_debounce?: number|string; search_submenus?: boolean; search_suggestion?: string; parent_menu?: MenuStack; submenu_path: integer[]; active?: boolean; width: number; height: number; top: number; scroll_y: number; scroll_height: number; title_width: number; hint_width: number; max_width: number; is_root?: boolean; fling?: Fling, search?: Search, ass_safe_title?: string}
 ---@alias MenuStackItem MenuStackValue|MenuStack
 ---@alias MenuStackValue {title?: string; hint?: string; icon?: string; value: any; active?: boolean; keep_open?: boolean; selectable?: boolean; bold?: boolean; italic?: boolean; muted?: boolean; separator?: boolean; align?: 'left'|'center'|'right'; title_width: number; hint_width: number}
 ---@alias Fling {y: number, distance: number, time: number, easing: fun(x: number), duration: number, update_cursor?: boolean}
@@ -125,11 +125,8 @@ function Menu:init(data, callback, opts)
 	mp.set_property_native('user-data/uosc/menu/type', self.type or 'undefined')
 	self:update(data)
 
-	if self.mouse_nav then
-		if self.current then self.current.selected_index = nil end
-	else
-		for _, menu in ipairs(self.all) do self:scroll_to_index(menu.selected_index, menu) end
-	end
+	for _, menu in ipairs(self.all) do self:scroll_to_index(menu.selected_index, menu) end
+	if self.mouse_nav then self.current.selected_index = nil end
 
 	self:tween_property('opacity', 0, 1)
 	self:enable_key_bindings()
@@ -158,7 +155,7 @@ function Menu:update(data)
 	local menus_to_serialize = {{new_root, data}}
 	local old_current_id = self.current and self.current.id
 	local menu_props_to_copy = {
-		'title', 'hint', 'keep_open', 'search_style', 'search_submenus', 'search_suggestion', 'on_search',
+		'title', 'hint', 'keep_open', 'search_style', 'search_submenus', 'search_suggestion', 'on_search', 'on_paste',
 	}
 	local item_props_to_copy = itable_join(menu_props_to_copy, {
 		'icon', 'active', 'bold', 'italic', 'muted', 'value', 'separator', 'selectable', 'align',
@@ -338,8 +335,7 @@ function Menu:update_dimensions()
 			menu.search.max_width = math.max(menu.search.max_width, menu.width)
 		end
 		menu.scroll_height = math.max(content_height - menu.height - self.item_spacing, 0)
-		menu.scroll_y = menu.scroll_y or 0
-		self:scroll_to(menu.scroll_y, menu) -- clamps scroll_y to scroll limits
+		self:set_scroll_to(menu.scroll_y, menu) -- clamps scroll_y to scroll limits
 	end
 
 	self:update_coordinates()
@@ -516,6 +512,13 @@ function Menu:activate_submenu(id)
 	local submenu = self.by_id[id]
 	if submenu then
 		self:activate_menu(submenu)
+		local menu = self.current
+		local parent = menu.parent_menu
+		while parent do
+			parent.selected_index = itable_index_of(parent.items, menu)
+			self:scroll_to_index(parent.selected_index, parent)
+			menu, parent = parent, parent.parent_menu
+		end
 	else
 		msg.error(string.format('Requested submenu id "%s" doesn\'t exist', id))
 	end
@@ -716,6 +719,29 @@ function Menu:on_end()
 	self:navigate_by_offset(math.huge)
 end
 
+function Menu:paste()
+	local menu = self.current
+	local payload = get_clipboard()
+	if not payload then return end
+	if menu.search then
+		self:search_query_update(menu.search.query .. payload)
+	elseif menu.on_paste then
+		local paste_type = type(menu.on_paste)
+		if paste_type == 'string' then
+			mp.command(menu.on_paste .. ' ' .. payload)
+		elseif paste_type == 'table' then
+			local command = itable_join({}, menu.on_paste)
+			command[#command + 1] = payload
+			mp.command_native(command)
+		else
+			menu.on_paste(payload)
+		end
+	elseif menu.search_style ~= 'disabled' then
+		self:search_start(menu)
+		self:search_query_update(payload, menu)
+	end
+end
+
 ---@param menu MenuStack
 ---@param no_select_first? boolean
 function Menu:search_internal(menu, no_select_first)
@@ -752,10 +778,14 @@ function search_items(items, query, recursive, prefix)
 			else
 				local title = item.title and item.title:lower()
 				local hint = item.hint and item.hint:lower()
-				local ligature_title = title and char_conv(title, true)
-				local separator_title = title and char_conv(title, false)
-				if title and ligature_title:find(query, 1, true) or hint and hint:find(query, 1, true) or
-					title and table.concat(initials(separator_title)):find(query, 1, true) or
+				local initials_title = title and table.concat(initials(title))
+				local ligature_conv_title = title and char_conv(title, true)
+				local initials_conv_title = title and table.concat(initials(char_conv(title, false)))
+				if title and title:find(query, 1, true) or
+				    title and ligature_conv_title:find(query, 1, true) or
+				    hint and hint:find(query, 1, true) or
+					title and initials_title:find(query, 1, true) or
+					title and initials_conv_title:find(query, 1, true) or
 					hint and table.concat(initials(hint)):find(query, 1, true) then
 					item = table_assign({}, item)
 					item.title = prefixed_title
@@ -1018,6 +1048,7 @@ function Menu:enable_key_bindings()
 	self:add_key_binding('home', 'menu-home', self:create_key_action('on_home'))
 	self:add_key_binding('end', 'menu-end', self:create_key_action('on_end'))
 	self:add_key_binding('del', 'menu-delete-item', self:create_key_action('delete_selected_item'))
+	self:add_key_binding('ctrl+v', 'menu-paste', self:create_key_action('paste'))
 	if self.type_to_search then
 		self:search_enable_key_bindings()
 	else

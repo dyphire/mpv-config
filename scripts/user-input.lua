@@ -565,17 +565,11 @@ local function set_active(active)
 end
 
 
-utils.shared_script_property_observe("osc-margins", function(_, val)
+mp.observe_property("user-data/osc/margins", "native", function(_, val)
     if val then
-        -- formatted as "%f,%f,%f,%f" with left, right, top, bottom, each
-        -- value being the border size as ratio of the window size (0.0-1.0)
-        local vals = {}
-        for v in string.gmatch(val, "[^,]+") do
-            vals[#vals + 1] = tonumber(v)
-        end
-        global_margin_y = vals[4] -- bottom
+        global_margins = val
     else
-        global_margin_y = 0
+        global_margins = { t = 0, b = 0 }
     end
     update()
 end)

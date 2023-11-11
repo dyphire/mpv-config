@@ -92,6 +92,14 @@ local o = {
     --turn the OSC idle screen off and on when opening and closing the browser
     toggle_idlescreen = false,
 
+    --Set the current open status of the browser in the `file_browser/open` field of the `user-data` property.
+    --This property is only available in mpv v0.36+.
+    set_user_data = true,
+
+    --Set the current open status of the browser in the `file_browser-open` field of the `shared-script-properties` property.
+    --This property is deprecated. When it is removed in mpv v0.37 file-browser will automatically ignore this option.
+    set_shared_script_properties = true,
+
     --force file-browser to use a specific text alignment (default: top-left)
     --uses ass tag alignment numbers: https://aegi.vmoe.info/docs/3.0/ASS_Tags/#index23h3
     --set to 0 to use the default mpv osd-align options
@@ -124,9 +132,11 @@ local o = {
 }
 
 opt.read_options(o, 'file_browser')
-local shared_script_properties = utils.shared_script_property_set
-if shared_script_properties then utils.shared_script_property_set('file_browser-open', 'no') end
-mp.set_property('user-data/file_browser/open', 'no')
+
+
+o.set_shared_script_properties = o.set_shared_script_properties and utils.shared_script_property_set
+if o.set_shared_script_properties then utils.shared_script_property_set('file_browser-open', 'no') end
+if o.set_user_data then mp.set_property_bool('user-data/file_browser/open', false) end
 
 package.path = mp.command_native({"expand-path", o.module_directory}).."/?.lua;"..package.path
 local success, input = pcall(require, "user-input-module")
@@ -1185,8 +1195,8 @@ local function open()
         mp.add_forced_key_binding(v[1], 'dynamic/'..v[2], v[3], v[4])
     end
 
-    if shared_script_properties then utils.shared_script_property_set('file_browser-open', 'yes') end
-    mp.set_property('user-data/file_browser/open', 'yes')
+    if o.set_shared_script_properties then utils.shared_script_property_set('file_browser-open', 'yes') end
+    if o.set_user_data then mp.set_property_bool('user-data/file_browser/open', true) end
 
     if o.toggle_idlescreen then mp.commandv('script-message', 'osc-idlescreen', 'no', 'no_osd') end
     state.hidden = false
@@ -1210,8 +1220,8 @@ local function close()
         mp.remove_key_binding('dynamic/'..v[2])
     end
 
-    if shared_script_properties then utils.shared_script_property_set("file_browser-open", "no") end
-    mp.set_property('user-data/file_browser/open', 'no')
+    if o.set_shared_script_properties then utils.shared_script_property_set("file_browser-open", "no") end
+    if o.set_user_data then mp.set_property_bool('user-data/file_browser/open', false) end
 
     if o.toggle_idlescreen then mp.commandv('script-message', 'osc-idlescreen', 'yes', 'no_osd') end
     state.hidden = true

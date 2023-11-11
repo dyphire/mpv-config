@@ -88,6 +88,11 @@
     "dest":"~~/scripts"
   },
   {
+    "git":"https://github.com/christoph-heinrich/mpv-subtitle-lines",
+    "whitelist":"subtitle%-lines%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
     "git":"https://github.com/cvzi/mpv-youtube-download",
     "whitelist":"%.lua$",
     "dest":"~~/scripts",
