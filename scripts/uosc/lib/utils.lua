@@ -421,7 +421,7 @@ end
 ---@param current_index number
 ---@param delta number 1 or -1 for forward or backward
 function decide_navigation_in_list(paths, current_index, delta)
-	if #paths < 2 then return #paths, paths[#paths] end
+	if #paths < 2 then return end
 	delta = delta < 0 and -1 or 1
 
 	-- Shuffle looks at the played files history trimmed to 80% length of the paths
@@ -726,6 +726,42 @@ function find_active_keybindings(key)
 		end
 	end
 	return not key and active or active[key]
+end
+
+---@param type 'sub'|'audio'|'video'
+---@param path string
+function load_track(type, path)
+	mp.commandv(type .. '-add', path, 'cached')
+	-- If subtitle track was loaded, assume the user also wants to see it
+	if type == 'sub' then
+		mp.commandv('set', 'sub-visibility', 'yes')
+	end
+end
+
+---@return string|nil
+function get_clipboard()
+	local result = mp.command_native({
+		name = 'subprocess',
+		capture_stderr = true,
+		capture_stdout = true,
+		playback_only = false,
+		args = {config.ziggy_path, 'get-clipboard'},
+	})
+
+	local function print_error(message)
+		msg.error('Getting clipboard data failed. Error: ' .. message)
+	end
+
+	if result.status == 0 then
+		local data = utils.parse_json(result.stdout)
+		if data and data.payload then
+			return data.payload
+		else
+			print_error(data and (data.error and data.message or 'unknown error') or 'couldn\'t parse json')
+		end
+	else
+		print_error('exit code ' .. result.status .. ': ' .. result.stdout .. result.stderr)
+	end
 end
 
 --[[ RENDERING ]]

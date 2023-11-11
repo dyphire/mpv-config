@@ -427,13 +427,13 @@ local function info(w, h)
     local image = properties["current-tracks/video"] and properties["current-tracks/video"]["image"]
     local albumart = image and properties["current-tracks/video"]["albumart"]
     local cache_state = properties["demuxer-cache-state"]
-    local dir = mp.utils.split_path(properties["path"]):gsub("\\", "/")
-    local file_ext = properties["path"]:match("%.([^%.]+)$")
+    local dir = properties["path"] and mp.utils.split_path(properties["path"]):gsub("\\", "/")
+    local file_ext = properties["path"] and properties["path"]:match("%.([^%.]+)$")
     if cache_state then cached_ranges = cache_state["seekable-ranges"] end
 
     disabled = (w or 0) == 0 or (h or 0) == 0 or
         has_vid == 0 or
-        need_ignore(excluded_dir, dir) or
+        (dir and need_ignore(excluded_dir, dir)) or
         (file_ext and exclude(file_ext:lower(), ext_blacklist)) or
         ((properties["demuxer-via-network"] or is_protocol(properties["path"]) or (properties["cache"] == "auto" and #cached_ranges > 0)) and not options.network) or
         (albumart and not options.audio) or
