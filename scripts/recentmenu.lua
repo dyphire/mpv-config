@@ -178,7 +178,8 @@ function is_same_series(s1, s2, p1, p2)
         end
 
         -- by episode
-        local sub1, sub2 = f1:match("(%D+)0*%d+"), f2:match("(%D+)0*%d+")
+        local sub1 = f1:gsub("^[%[%(]+.-[%]%)]+[%s%[]*", ""):match("(.-%D+)0*%d+")
+        local sub2 = f2:gsub("^[%[%(]+.-[%]%)]+[%s%[]*", ""):match("(.-%D+)0*%d+")
         if sub1 and sub2 and sub1 == sub2 then
             return true
         end
