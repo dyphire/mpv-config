@@ -255,7 +255,8 @@ function is_same_series(f1, f2)
     local f1, f2 = get_filename_without_ext(f1), get_filename_without_ext(f2)
     if f1 ~= f2 then
         -- by episode
-        local sub1, sub2 = f1:match("(%D+)0*%d+"), f2:match("(%D+)0*%d+")
+        local sub1 = f1:gsub("^[%[%(]+.-[%]%)]+[%s%[]*", ""):match("(.-%D+)0*%d+")
+        local sub2 = f2:gsub("^[%[%(]+.-[%]%)]+[%s%[]*", ""):match("(.-%D+)0*%d+")
         if sub1 and sub2 and sub1 == sub2 then
             return true
         end
