@@ -770,6 +770,7 @@ end
 ---@return MenuStackItem[]
 function search_items(items, query, recursive, prefix)
 	local result = {}
+	local concat = table.concat
 	for _, item in ipairs(items) do
 		if item.selectable ~= false then
 			local prefixed_title = prefix and prefix .. ' / ' .. (item.title or '') or item.title
@@ -778,15 +779,18 @@ function search_items(items, query, recursive, prefix)
 			else
 				local title = item.title and item.title:lower()
 				local hint = item.hint and item.hint:lower()
-				local initials_title = title and table.concat(initials(title))
-				local ligature_conv_title = title and char_conv(title, true)
-				local initials_conv_title = title and table.concat(initials(char_conv(title, false)))
+				local initials_title = title and concat(initials(title))
+				local romanization = need_romanization()
+				if romanization then
+					ligature_conv_title = title and char_conv(title, true)
+					initials_conv_title = title and concat(initials(char_conv(title, false)))
+				end
 				if title and title:find(query, 1, true) or
-				    title and ligature_conv_title:find(query, 1, true) or
-				    hint and hint:find(query, 1, true) or
+					title and romanization and ligature_conv_title:find(query, 1, true) or
+					hint and hint:find(query, 1, true) or
 					title and initials_title:find(query, 1, true) or
-					title and initials_conv_title:find(query, 1, true) or
-					hint and table.concat(initials(hint)):find(query, 1, true) then
+					title and romanization and initials_conv_title:find(query, 1, true) or
+					hint and concat(initials(hint)):find(query, 1, true) then
 					item = table_assign({}, item)
 					item.title = prefixed_title
 					item.ass_safe_title = nil
@@ -1292,7 +1296,7 @@ function Menu:render()
 				menu.ass_safe_title = ass_escape(menu.title)
 			end
 
-            -- Background
+			-- Background
 			if menu.search then
 				ass:rect(ax + 3, rect.ay + 3, bx - 3, rect.ay + title_height - 1, {
 					color = fg .. '\\1a&HFF', opacity = menu_opacity * 0.1,
