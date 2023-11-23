@@ -37,7 +37,7 @@
   },
   {
     "git":"https://github.com/dyphire/mpv-playlistmanager",
-    "whitelist":"%.lua$",
+    "whitelist":"playlistmanager%.lua$",
     "dest":"~~/scripts",
     "branch":"dev"
   },
@@ -150,7 +150,7 @@
   },
   {
     "git":"https://github.com/CogentRedTester/mpv-file-browser",
-    "whitelist":"apache%-browser%.lua$|favourites%.lua$|find%.lua$|ftp%-browser%.lua$|home%-label%.lua$|m3u%-browser%.lua$|url%-decode%.lua$|windir%.lua$|winroot%.lua$",
+    "whitelist":"favourites%.lua$|find%.lua$|ftp%-browser%.lua$|home%-label%.lua$|m3u%-browser%.lua$|url%-decode%.lua$|windir%.lua$|winroot%.lua$",
     "dest":"~~/script-modules/file-browser-addons"
   },
   {

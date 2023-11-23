@@ -287,10 +287,62 @@ table.append = function(t1, t2)
     end
 end
 
+----- winapi start -----
+-- in windows system, we can use the sorting function provided by the win32 API
+-- see https://learn.microsoft.com/en-us/windows/win32/api/shlwapi/nf-shlwapi-strcmplogicalw
+-- this function was taken from https://github.com/mpvnet-player/mpv.net/issues/575#issuecomment-1817413401
+local winapi = {}
+local is_windows = mp.get_property_native("platform") == "windows"
+
+if is_windows then
+    -- is_ffi_loaded is false usually means the mpv builds without luajit
+    local is_ffi_loaded, ffi = pcall(require, "ffi")
+
+    if is_ffi_loaded then
+        winapi = {
+            ffi = ffi,
+            C = ffi.C,
+            CP_UTF8 = 65001,
+            shlwapi = ffi.load("shlwapi"),
+        }
+
+        -- ffi code from https://github.com/po5/thumbfast, Mozilla Public License Version 2.0
+        ffi.cdef[[
+            int __stdcall MultiByteToWideChar(unsigned int CodePage, unsigned long dwFlags, const char *lpMultiByteStr,
+            int cbMultiByte, wchar_t *lpWideCharStr, int cchWideChar);
+            int __stdcall StrCmpLogicalW(wchar_t *psz1, wchar_t *psz2);
+        ]]
+
+        winapi.utf8_to_wide = function(utf8_str)
+            if utf8_str then
+                local utf16_len = winapi.C.MultiByteToWideChar(winapi.CP_UTF8, 0, utf8_str, -1, nil, 0)
+
+                if utf16_len > 0 then
+                    local utf16_str = winapi.ffi.new("wchar_t[?]", utf16_len)
+
+                    if winapi.C.MultiByteToWideChar(winapi.CP_UTF8, 0, utf8_str, -1, utf16_str, utf16_len) > 0 then
+                        return utf16_str
+                    end
+                end
+            end
+
+            return ""
+        end
+    end
+end
+----- winapi end -----
+
+function alphanumsort_windows(filenames)
+    table.sort(filenames, function(a, b)
+        local a_wide = winapi.utf8_to_wide(a)
+        local b_wide = winapi.utf8_to_wide(b)
+        return winapi.shlwapi.StrCmpLogicalW(a_wide, b_wide) == -1
+    end)
+end
+
 -- alphanum sorting for humans in Lua
 -- http://notebook.kulchenko.com/algorithms/alphanumeric-natural-sorting-for-humans-in-lua
-
-function alphanumsort(filenames)
+function alphanumsort_lua(filenames)
     local function padnum(n, d)
         return #d > 0 and ("%03d%s%.12f"):format(#n, n, tonumber(d) / (10 ^ #d))
             or ("%03d%s"):format(#n, n)
@@ -305,6 +357,15 @@ function alphanumsort(filenames)
     end)
     for i, tuple in ipairs(tuples) do filenames[i] = tuple[2] end
     return filenames
+end
+
+function alphanumsort(filenames)
+    local is_ffi_loaded = pcall(require, "ffi")
+    if is_windows and is_ffi_loaded then
+        alphanumsort_windows(filenames)
+    else
+        alphanumsort_lua(filenames)
+    end
 end
 
 local autoloaded = nil

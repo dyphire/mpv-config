@@ -7,7 +7,6 @@
 | simple-mpv-webui (group)* | Implement a simple webui for mpv (depends on [luasocket](https://github.com/57op/simple-mpv-webui-windows-libs) ; configuration file: [webui.conf](../script-opts/webui.conf)) |
 | uosc* (group) | Third-party advanced OSC script, which implements many practical functions (configuration file: [uosc.conf](../script-opts/uosc.conf)) |
 | autoload.lua* | Automatically load files in the same directory (configuration file: [autoload.conf](../script-opts/autoload.conf)) |
-| autodeint.lua      | Automatically detect and switch deinterlacing |
 | auto-save-state.lua* | Automatically save the playback progress every 1 minute (rather than when exiting), and automatically delete the progress when the playback is completed |
 | blacklist-extensions.lua         | mpv Black/white list of file loading types when dragging and dropping directories directly |
 | change-refresh.lua   | Change the monitor refresh rate (depends on [nircmd](https://www.nirsoft.net/utils/nircmd.html) ，configuration file: [changerefresh.conf](../script-opts/changerefresh.conf)) |
@@ -33,7 +32,6 @@
 | ordered-chapters-playlist.lua | Ordered Chapter Playlist |
 | persist_properties.lua | Monitor and save global changes in preset parameters (such as volume) (configuration file: [persist_properties.conf](../script-opts/persist_properties.conf)) |
 | playlistmanager.lua* | OSD interactive playlist (configuration file: [playlistmanager.conf](../script-opts/playlistmanager.conf)) |
-| playlistmanager-save-interactive.lua | Enhanced script for playlistmanager.lua to rename playlists when saving |
 | quality-menu.lua* | Switch the OSD interactive menu of ytdl video/audio quality (depends on yt-dlp/youtube-dl; configuration file: [quality-menu.conf](../script-opts/quality-menu.conf)) |
 | recentmenu.lua* | Simple playback history menu integrated with uosc (depends on uosc; configuration file: [recentmenu.conf](../script-opts/recentmenu.conf)) |
 | segment-linking.lua | Implement support for matroska [hard segment linking](https://www.ietf.org/archive/id/draft-ietf-cellar-matroska-06.html#name-hard-linking)  (depends on  [read-file.lua](../script-modules/read-file.lua), `mkvinfo`; configuration file: [segment_linking.conf](../script-opts/segment_linking.conf)) |
