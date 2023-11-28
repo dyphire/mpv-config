@@ -56,6 +56,8 @@ function sort_filenames_windows(filenames)
 		local b_wide = winapi.utf8_to_wide(b)
 		return winapi.shlwapi.StrCmpLogicalW(a_wide, b_wide) == -1
 	end)
+
+	return filenames
 end
 
 function sort_filenames_lua(filenames)
