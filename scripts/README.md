@@ -9,7 +9,6 @@
 | autoload.lua* | Automatically load files in the same directory (configuration file: [autoload.conf](../script-opts/autoload.conf)) |
 | auto-save-state.lua* | Automatically save the playback progress every 1 minute (rather than when exiting), and automatically delete the progress when the playback is completed |
 | blacklist-extensions.lua         | mpv Black/white list of file loading types when dragging and dropping directories directly |
-| change-refresh.lua   | Change the monitor refresh rate (depends on [nircmd](https://www.nirsoft.net/utils/nircmd.html) ，configuration file: [changerefresh.conf](../script-opts/changerefresh.conf)) |
 | chapter-make-read.lua* | Mark/make/automatically read and load external chapter files (configuration file: [chapter_make_read.conf](../script-opts/chapter_make_read.conf)) |
 | chapter-list.lua* | OSD interactive chapter menu (depends on [scroll-list.lua](../script-modules/scroll-list.lua)) |
 | chapterskip.lua* | Automatically skip specified chapters (configuration file: [chapterskip.conf](../script-opts/chapterskip.conf)) |
@@ -17,7 +16,6 @@
 | cycle-commands.lua | Shortcut keys cycle to switch commands. Please see the instructions in the script for how to use it. |
 | delete-current-file.lua* | Delete the currently playing file (Windows can restore it in the Recycle Bin) |
 | display-name.lua* | Implement the mpv window to automatically switch parameters and configuration files according to the monitor name. For details, see the instructions in the script (depends on MultiMonitorTool.exe) |
-| drcbox.lua*   | Visual script for using and adjusting the dynaudnorm filter mix (configuration file: [drcbox.conf](../script-opts/drcboxp.conf)) |
 | dynamic-crop.lua* | Automatically detect variable black borders and crop (improved version of [autocrop.lua](https://github.com/mpv-player/mpv/blob/master/TOOLS/lua/autocrop.lua); configuration file: [dynamic_crop.conf](../script-opts/dynamic_crop.conf)) |
 | evafast.lua | Implement a more advanced speed-doubling function than mpv's built-in one, which will slow down when encountering subtitles (non-embedded) (configuration file: [evafast.conf](../script-opts/evafast.conf)) |
 | file-browser.lua* | OSD interactive file browser (depends on [user-input.lua](../scripts/user-input.lua); [user-input-module.lua](../script-modules/user-input-module.lua) ; configuration file: [file_browser.conf](../script-opts/file_browser.conf)) |

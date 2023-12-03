@@ -716,15 +716,23 @@ local file_parser = {
 --------------------------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------------------------
 
+local string_buffer = {}
+
 --appends the entered text to the overlay
-local function append(text)
-    if text == nil then return end
-    ass.data = ass.data .. text
+local function append(...)
+    for i = 1, select("#", ...) do
+        table.insert(string_buffer, select(i, ...) or '' )
+    end
 end
 
 --appends a newline character to the osd
 local function newline()
-ass.data = ass.data .. '\\N'
+    table.insert(string_buffer, '\\N')
+end
+
+local function flush_buffer()
+    ass.data = table.concat(string_buffer, '')
+    string_buffer = {}
 end
 
 --detects whether or not to highlight the given entry as being played
@@ -760,7 +768,7 @@ end
 local function update_ass()
     if state.hidden then state.flag_update = true ; return end
 
-    ass.data = style.global
+    append(style.global)
 
     local dir_name = state.directory_label or state.directory
     if dir_name == "" then dir_name = "ROOT" end
@@ -771,6 +779,7 @@ local function update_ass()
 
     if #state.list < 1 then
         append(state.empty_text)
+        flush_buffer()
         ass:update()
         return
     end
@@ -799,7 +808,7 @@ local function update_ass()
     if not overflow then finish = #state.list end
 
     --adding a header to show there are items above in the list
-    if start > 1 then append(style.footer_header..(start-1)..' item(s) above\\N\\N') end
+    if start > 1 then append(style.footer_header, (start-1), ' item(s) above\\N\\N') end
 
     for i=start, finish do
         local v = state.list[i]
@@ -815,9 +824,9 @@ local function update_ass()
                 if state.selection[state.multiselect_start] then append(style.cursor_select)
                 else append(style.cursor_deselect) end
             end
-            append(o.cursor_icon.."\\h"..style.body)
+            append(o.cursor_icon, "\\h", style.body)
         else
-            append(o.indent_icon.."\\h"..style.body)
+            append(o.indent_icon, "\\h", style.body)
         end
 
         --sets the selection colour scheme
@@ -834,7 +843,7 @@ local function update_ass()
 
         --sets the folder icon
         if v.type == 'dir' then
-            append(style.folder..o.folder_icon.."\\h"..style.body)
+            append(style.folder, o.folder_icon, "\\h", style.body)
             set_colour()
         end
 
@@ -843,7 +852,9 @@ local function update_ass()
         newline()
     end
 
-    if overflow then append('\\N'..style.footer_header..#state.list-finish..' item(s) remaining') end
+    if overflow then append('\\N', style.footer_header, #state.list-finish, ' item(s) remaining') end
+
+    flush_buffer()
     ass:update()
 end
 
