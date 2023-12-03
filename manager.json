@@ -31,7 +31,7 @@
   },
   {
     "git":"https://github.com/dyphire/mpv-scripts",
-    "whitelist":"chapter%-list%.lua$|chapter%-make%-read%.lua$|drcbox%.lua$|fix%-avsync%.lua$|mpv%-animated%.lua$|sub%_export%.lua$|track%-list%.lua$",
+    "whitelist":"chapter%-list%.lua$|chapter%-make%-read%.lua$|fix%-avsync%.lua$|mpv%-animated%.lua$|sub%_export%.lua$|track%-list%.lua$",
     "dest":"~~/scripts",
     "branch":"main"
   },
@@ -106,11 +106,6 @@
   {
     "git":"https://github.com/CogentRedTester/mpv-file-browser",
     "whitelist":"file%-browser%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
-    "git":"https://github.com/CogentRedTester/mpv-changerefresh",
-    "whitelist":"%.lua$",
     "dest":"~~/scripts"
   },
   {

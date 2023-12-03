@@ -84,7 +84,7 @@ function sort_filenames(filenames)
 	if state.platform == 'windows' and is_ffi_loaded then
 		sort_filenames_windows(filenames)
 	else
-		 sort_filenames_lua(filenames)
+		sort_filenames_lua(filenames)
 	end
 end
 

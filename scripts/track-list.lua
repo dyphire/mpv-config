@@ -1,5 +1,5 @@
 --[[
-    * track-list.lua v.2023-03-19
+    * track-list.lua v.2023-12-04
     *
     * AUTHORS: dyphire
     * License: MIT
@@ -165,14 +165,18 @@ local function getTrackTitle(trackId, dest)
 
     if dest == "video" then
         local trackImage = propNative("track-list/" .. trackId .. "/image")
-        local trackwh = propNative("track-list/" .. trackId .. "/demux-w") ..
-            "x" .. propNative("track-list/" .. trackId .. "/demux-h")
+        local trackw = propNative("track-list/" .. trackId .. "/demux-w")
+        local trackh = propNative("track-list/" .. trackId .. "/demux-h")
+        local trackwh = trackh and (trackw and trackw .. "x" .. trackh or trackh .. 'p')
         local trackFps = string.format("%.3f", propNative("track-list/" .. trackId .. "/demux-fps"))
         if trackTitle and not trackImage then TrackTitle = trackTitle ..
-            ", [" .. trackCodec .. "]" .. ", " .. trackwh .. ", " .. trackFps .. " FPS"
-        elseif trackTitle then TrackTitle = trackTitle .. ", [" .. trackCodec .. "]" .. ", " .. trackwh
-        elseif trackImage then TrackTitle = "[" .. trackCodec .. "]" .. ", " .. trackwh
-        elseif trackFps then TrackTitle = "[" .. trackCodec .. "]" .. ", " .. trackwh .. ", " .. trackFps .. " FPS"
+            ", [" .. trackCodec .. "]" .. ", " .. trackwh and trackwh .. ", " .. trackFps .. " FPS"
+        elseif trackTitle then TrackTitle = trackTitle .. ", [" .. trackCodec .. "]" ..
+            (trackwh and ", " .. trackwh or "")
+        elseif trackImage then TrackTitle = "[" .. trackCodec .. "]" .. (trackwh and ", " .. trackwh or "")
+            .. ", " .. trackFps .. " FPS"
+        elseif trackFps then TrackTitle = "[" .. trackCodec .. "]" .. (trackwh and ", " .. trackwh or "")
+            .. ", " .. trackFps .. " FPS"
         end
     end
 
