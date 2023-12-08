@@ -13,53 +13,42 @@ for i = #languages, 1, -1 do
 	end
 end
 
-local pyTable = {}
+local romanization = {}
 
-function getPyTable()
+local function get_romanization_table()
 	for k, v in pairs(data) do
 		for _, char in utf8_iter(v) do
-			pyTable[char] = k
+			romanization[char] = k
 		end
 	end
 end
-getPyTable()
+get_romanization_table()
 
 function need_romanization()
-	if next(pyTable) ~= nil then
-		return true
-	end
-	return false
+	return next(romanization) ~= nil
 end
 
-function utf8_length(str)
-	local length = 0
-	for _, c in utf8_iter(str) do
-		length = length + 1
-	end
-	return length
-end
-
-function char_conv(chars, ligature, separator)
-	local separator = separator or ' '
+function char_conv(chars, use_ligature, has_separator)
+	local separator = has_separator or ' '
 	local length = 0
 	local char_conv, sp, cache = {}, {}, {}
 	local chars_length = utf8_length(chars)
 	local concat = table.concat
 	for _, char in utf8_iter(chars) do
-		if ligature then
+		if use_ligature then
 			if #char == 1 then
 				char_conv[#char_conv + 1] = char
 			else
-				char_conv[#char_conv + 1] = pyTable[char] or char
+				char_conv[#char_conv + 1] = romanization[char] or char
 			end
 		else
 			length = length + 1
 			if #char <= 2 then
 				if (char ~= ' ' and length ~= chars_length) then
-					cache[#cache + 1] = pyTable[char] or char
+					cache[#cache + 1] = romanization[char] or char
 				elseif (char == ' ' or length == chars_length) then
 					if length == chars_length then
-						cache[#cache + 1] = pyTable[char] or char
+						cache[#cache + 1] = romanization[char] or char
 					end
 					sp[#sp + 1] = concat(cache)
 					itable_clear(cache)
@@ -69,11 +58,11 @@ function char_conv(chars, ligature, separator)
 					sp[#sp + 1] = concat(cache)
 					itable_clear(cache)
 				end
-				sp[#sp + 1] = pyTable[char] or char
+				sp[#sp + 1] = romanization[char] or char
 			end
 		end
 	end
-	if ligature then
+	if use_ligature then
 		return concat(char_conv)
 	else
 		return concat(sp, separator)
