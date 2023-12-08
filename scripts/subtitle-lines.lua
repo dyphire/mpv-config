@@ -40,7 +40,6 @@ local function same_time(t1, t2)
     -- misses some merges if offset isn't doubled (0.012 already works in testing)
     return math.abs(t1 - t2) < SUB_SEEK_OFFSET * 2
 end
-
 ---Merge lines with already collected subtitles
 ---returns lines that haven't been merged
 ---@param subtitles {start:number;stop:number;line:string}[]
@@ -49,20 +48,24 @@ end
 ---@param lines string[]
 ---@return string[]
 local function merge_subtitle_lines(subtitles, start, stop, lines)
+    -- remove duplicates in the current lines
+    for i = 1, #lines do
+        for j = #lines, i + 1, -1 do
+            if lines[i] == lines[j] then
+                table.remove(lines, j)
+            end
+        end
+    end
+
     -- merge identical lines that are right after each other
-    local merged_line_pos = {}
     for _, subtitle in ipairs(subtitles) do
         if same_time(subtitle.stop, start) then
-            for l, line in ipairs(lines) do
-                if line == subtitle.line then
-                    merged_line_pos[#merged_line_pos + 1] = l
+            for i = #lines, 1, -1 do
+                if lines[i] == subtitle.line then
+                    table.remove(lines, i)
                     if start < subtitle.start then subtitle.start = start end
                     if stop > subtitle.stop then subtitle.stop = stop end
                 end
-            end
-            for j = #merged_line_pos, 1, -1 do
-                table.remove(lines, merged_line_pos[j])
-                merged_line_pos[j] = nil
             end
         end
     end
@@ -81,18 +84,17 @@ local function acquire_subtitles()
     mp.commandv('sub-step', -1, 'primary')
 
     -- find first one
-    local start_time = mp.get_property_number('sub-start')
-    local old_start_time = start_time
-    local retry = 0
+    local retry_delay = sub_delay
     -- if we're not at the very beginning
     -- this missies the first subtitle for some reason
-    repeat
+    while true do
         mp.commandv('sub-step', -1, 'primary')
-        old_start_time = start_time
-        start_time = mp.get_property_number('sub-start')
-        if old_start_time == start_time then retry = retry + 1
-        else retry = 0 end
-    until retry > 10
+        local delay = mp.get_property_number('sub-delay')
+        if retry_delay == delay then
+            break
+        end
+        retry_delay = delay
+    end
 
     ---@type {start:number;stop:number;line:string}[]
     local subtitles = {}
@@ -101,8 +103,8 @@ local function acquire_subtitles()
     local prev_stop = -1
     local prev_text = nil
 
-    retry = 0
-    repeat
+    retry_delay = nil
+    while true do
         local start, stop, text, lines = get_current_subtitle()
         mp.commandv('sub-step', 1, 'primary')
         if start and (text ~= prev_text or not same_time(start, prev_start) or not same_time(stop, prev_stop)) then
@@ -122,11 +124,14 @@ local function acquire_subtitles()
             prev_start = start
             prev_stop = stop
             prev_text = text
-            retry = 0
         else
-            retry = retry + 1
+            local delay = mp.get_property_number('sub-delay')
+            if retry_delay == delay then
+                break
+            end
+            retry_delay = delay
         end
-    until retry > 10
+    end
 
     mp.set_property_number('sub-delay', sub_delay)
     mp.set_property_bool('sub-visibility', sub_visibility)
@@ -167,6 +172,8 @@ local function show_subtitle_list(subtitles)
     local last_started_index = 0
     local last_active_index = nil
     local time = mp.get_property_number('time-pos', 0) + SUB_SEEK_OFFSET
+
+    if not subtitles then return end
     for i, subtitle in ipairs(subtitles) do
         local has_started = subtitle.start <= time
         local has_ended = subtitle.stop < time
@@ -211,13 +218,8 @@ mp.add_key_binding(nil, 'list_subtitles', function()
         mp.commandv('script-message-to', 'uosc', 'close-menu', 'subtitle-lines-list')
         return
     end
-
     show_loading_indicator()
-
-    if not subtitles or true then
-        subtitles = acquire_subtitles()
-    end
-
+    subtitles = acquire_subtitles()
     mp.observe_property('sub-text', 'string', sub_text_update)
 end)
 
