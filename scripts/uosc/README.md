@@ -52,6 +52,8 @@ Features:
 
     _**NOTE**: If this command is run in an mpv installation directory with `portable_config`, it'll install there instead of `AppData`._
 
+    _**NOTE2**: The downloaded archive might trigger false positives in some antiviruses. This is explained in [FAQ below](#why-is-the-release-reported-as-malicious-by-some-antiviruses)._
+
     ### Linux & macOS
 
     _Requires **curl** and **unzip**._
@@ -104,7 +106,7 @@ Features:
 
 ## Options
 
-All of the available **uosc** options with their default values are documented in [`uosc.conf`](https://github.com/tomasklaen/uosc/blob/HEAD/script-opts/uosc.conf) file ([download](https://github.com/tomasklaen/uosc/releases/latest/download/uosc.conf)).
+All of the available **uosc** options with their default values are documented in [`uosc.conf`](https://github.com/tomasklaen/uosc/blob/HEAD/src/uosc.conf) file ([download](https://github.com/tomasklaen/uosc/releases/latest/download/uosc.conf)).
 
 To change the font, **uosc** respects the mpv's `osd-font` configuration.
 
@@ -752,9 +754,11 @@ Then you wouldn't be able to sync your mpv config between platforms and everythi
 
 #### Why is the release reported as malicious by some antiviruses?
 
-Some obscure antiviruses find our binaries suspicious due to the way go packages them. I think the only way to solve that would be to sign them (not 100% sure though), but I'm not paying to work on free stuff. If anyone is bothered by this, and would be willing to donate a code signing certificate, let me know.
+Some antiviruses find our binaries suspicious due to the way go packages them. This is a known issue with all go binaries (https://go.dev/doc/faq#virus). I think the only way to solve that would be to sign them (not 100% sure though), but I'm not paying to work on free stuff. If anyone is bothered by this, and would be willing to donate a code signing certificate, let me know.
 
-If you want to check the binaries are safe, the code is in `src/ziggy`, and you can build them yourself by running `tools/build ziggy` in the repository root and compare.
+If you want to check the binaries are safe, the code is in `src/ziggy`, and you can build them yourself by running `tools/build ziggy` in the repository root.
+
+We might eventually rewrite it in something else.
 
 #### Why _uosc_?
 

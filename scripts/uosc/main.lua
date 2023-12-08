@@ -101,7 +101,7 @@ defaults = {
 	chapter_range_patterns = 'openings:オープニング;endings:エンディング',
 	languages = 'slang,en',
 	disable_elements = '',
-	ziggy_path = '~~/scripts/uosc/bin',
+	ziggy_path = 'default',
 }
 options = table_copy(defaults)
 opt.read_options(options, 'uosc', function(_)
@@ -131,9 +131,7 @@ if options.autoload then mp.commandv('set', 'keep-open-pause', 'no') end
 --[[ INTERNATIONALIZATION ]]
 local intl = require('lib/intl')
 t = intl.t
-
---[[ CHARACTER CONVERSION ]]
-local char_conv = require('lib/char_conv')
+require('lib/char_conv')
 
 --[[ CONFIG ]]
 local config_defaults = {
@@ -401,7 +399,9 @@ require('lib/menus')
 -- Determine path to ziggy
 do
 	local bin = 'ziggy-' .. (state.platform == 'windows' and 'windows.exe' or state.platform)
-	config.ziggy_path = utils.join_path(mp.command_native({ 'expand-path', options.ziggy_path }), bin)
+	config.ziggy_path = os.getenv('MPV_UOSC_ZIGGY') or
+	options.ziggy_pth == 'default' and join_path(mp.get_script_directory(), join_path('bin', bin)) or
+	utils.join_path(mp.command_native({ 'expand-path', options.ziggy_path }), bin)
 end
 
 --[[ STATE UPDATERS ]]
@@ -933,7 +933,7 @@ bind_command('show-in-directory', function()
 	if not state.path or is_protocol(state.path) then return end
 
 	if state.platform == 'windows' then
-		utils.subprocess_detached({args = {'explorer', '/select,', state.path}, cancellable = false})
+		utils.subprocess_detached({args = {'explorer', '/select,', state.path .. ' '}, cancellable = false})
 	elseif state.platform == 'darwin' then
 		utils.subprocess_detached({args = {'open', '-R', state.path}, cancellable = false})
 	elseif state.platform == 'linux' then

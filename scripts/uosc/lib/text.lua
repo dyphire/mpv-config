@@ -80,6 +80,17 @@ function utf8_iter(str)
 	end
 end
 
+---Estimating string length based on the number of characters
+---@param char string
+---@return number
+function utf8_length(str)
+	local str_length = 0
+	for _, c in utf8_iter(str) do
+		str_length = str_length + 1
+	end
+	return str_length
+end
+
 ---Extract Unicode code point from utf-8 character at index i in str
 ---@param str string
 ---@param i integer
@@ -477,10 +488,10 @@ do
 end
 
 do
-	local word_separators = {
+	local word_separators = create_set({
 		' ', '　', '\t', '-', '–', '_', ',', '.', '+', '&', '(', ')', '[', ']', '{', '}', '<', '>', '/', '\\',
 		'（', '）', '【', '】', '；', '：', '《', '》', '“', '”', '‘', '’', '？', '！',
-	}
+	})
 
 	---Get the first character of each word
 	---@param str string
@@ -488,7 +499,7 @@ do
 	function initials(str)
 		local initials, is_word_start, word_separators = {}, true, word_separators
 		for _, char in utf8_iter(str) do
-			if itable_has(word_separators, char) then
+			if word_separators[char] then
 				is_word_start = true
 			elseif is_word_start then
 				initials[#initials + 1] = char
