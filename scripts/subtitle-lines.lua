@@ -229,6 +229,10 @@ mp.register_script_message('uosc-menu-closed', function()
     mp.unobserve_property(sub_text_update)
 end)
 
+mp.register_event('start-file', function()
+    mp.commandv('script-message-to', 'uosc', 'close-menu', 'subtitle-lines-list')
+end)
+
 mp.register_event('end-file', function()
-    subtitles = nil
+    mp.commandv('script-message-to', 'uosc', 'close-menu', 'subtitle-lines-list')
 end)
