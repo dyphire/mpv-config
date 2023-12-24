@@ -173,6 +173,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 						or t('%s channels', track['audio-channels']))
 				end
 				if track['demux-samplerate'] then h(string.format('%.3gkHz', track['demux-samplerate'] / 1000)) end
+				if track['demux-bitrate'] then h(string.format('%.3gkpbs', track['demux-bitrate'] / 1000)) end
 				if track.forced then h(t('forced')) end
 				if track.default then h(t('default')) end
 				if track.external then h(t('external')) end
