@@ -1,5 +1,5 @@
 --[[
-    * track-list.lua v.2023-12-04
+    * track-list.lua v.2023-12-24
     *
     * AUTHORS: dyphire
     * License: MIT
@@ -168,30 +168,44 @@ local function getTrackTitle(trackId, dest)
         local trackw = propNative("track-list/" .. trackId .. "/demux-w")
         local trackh = propNative("track-list/" .. trackId .. "/demux-h")
         local trackwh = trackh and (trackw and trackw .. "x" .. trackh or trackh .. 'p')
-        local trackFps = string.format("%.3f", propNative("track-list/" .. trackId .. "/demux-fps"))
-        if trackTitle and not trackImage then TrackTitle = trackTitle ..
-            ", [" .. trackCodec .. "]" .. ", " .. trackwh and trackwh .. ", " .. trackFps .. " FPS"
+        local trackFps = propNative("track-list/" .. trackId .. "/demux-fps")
+
+        if trackFps then trackFps = string.format("%.3f", trackFps) end
+
+        if trackTitle and not trackImage then TrackTitle = trackTitle ..", [" .. trackCodec .. "]" ..
+            (trackwh and ", " .. trackwh or "") .. ", " .. trackFps .. " FPS"
         elseif trackTitle then TrackTitle = trackTitle .. ", [" .. trackCodec .. "]" ..
-            (trackwh and ", " .. trackwh or "")
-        elseif trackImage then TrackTitle = "[" .. trackCodec .. "]" .. (trackwh and ", " .. trackwh or "")
-            .. ", " .. trackFps .. " FPS"
-        elseif trackFps then TrackTitle = "[" .. trackCodec .. "]" .. (trackwh and ", " .. trackwh or "")
+            (trackwh and ", " .. trackwh or "") .. ", " .. trackFps .. " FPS"
+        else TrackTitle = "[" .. trackCodec .. "]" .. (trackwh and ", " .. trackwh or "")
             .. ", " .. trackFps .. " FPS"
         end
     end
 
     if dest == "audio" then
-        -- local trackBitrate = propNative("track-list/" .. trackId .. "/demux-bitrate")/1000
-        local trackSamplerate = string.format("%.1f", propNative("track-list/" .. trackId .. "/demux-samplerate") / 1000)
         local trackChannels = propNative("track-list/" .. trackId .. "/demux-channel-count")
+        local trackSamplerate =propNative("track-list/" .. trackId .. "/demux-samplerate")
+        local trackBitrate = propNative("track-list/" .. trackId .. "/demux-bitrate")
+
+        if trackSamplerate then
+            trackSamplerate = string.format("%d", trackSamplerate / 1000)
+        end
+
+        if trackBitrate then
+            trackBitrate = string.format("%d", trackBitrate / 1000)
+        end
+
         if trackTitle and trackLang then TrackTitle = trackTitle .. ", " .. trackLang ..
             ", [" .. trackCodec .. "]" .. ", " .. trackChannels .. " ch" .. ", " .. trackSamplerate .. " kHz"
+            .. (trackBitrate and ", " .. trackBitrate .. " kbps" or "")
         elseif trackTitle then TrackTitle = trackTitle ..
             ", [" .. trackCodec .. "]" .. ", " .. trackChannels .. " ch" .. ", " .. trackSamplerate .. " kHz"
+            .. (trackBitrate and ", " .. trackBitrate .. " kbps" or "")
         elseif trackLang then TrackTitle = trackLang ..
             ", [" .. trackCodec .. "]" .. ", " .. trackChannels .. " ch" .. ", " .. trackSamplerate .. " kHz"
+            .. (trackBitrate and ", " .. trackBitrate .. " kbps" or "")
         elseif trackChannels then TrackTitle = 
             "[" .. trackCodec .. "]" .. ", " .. trackChannels .. " ch" .. ", " .. trackSamplerate .. " kHz"
+            .. (trackBitrate and ", " .. trackBitrate .. " kbps" or "")
         end
     end
 

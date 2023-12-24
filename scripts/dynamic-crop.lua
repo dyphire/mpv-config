@@ -67,10 +67,10 @@ local options = {
     offset_timer = 20, -- seconds, >= 'ratio_timer', new offset for asymmetric video
     fallback_timer = 40, -- seconds, >= 'offset_timer', not in ratios list and possibly with new offset
     linked_tolerance = 2, -- int, scale with detect_round to match against source width/height
-    ratios = "24/9 2.4 2.39 2.35 2.2 2.1 2 1.9 1.85 16/9 5/3 1.5 1.43 4/3 1.25 9/16", -- list
+    ratios = "2.76 2.55 24/9 2.4 2.39 2.35 2.2 2.1 2 1.9 1.85 16/9 5/3 1.5 1.43 4/3 1.25 9/16", -- list
     ratio_tolerance = 2, -- int (even number), adjust in order to match more easly the ratios list
     read_ahead_mode = 0, -- [0-2], 0 disable, 1 fast_change_timer, 2 ratio_timer, more details above
-    read_ahead_sync = 1, -- int/frame, increase for advance, more details above
+    read_ahead_sync = 0, -- int/frame, increase for advance, more details above
     segmentation = 0.5, -- [0.0-1] %, 0 will approved only a continuous metadata (strict)
     crop_method = 0, -- 0 lavfi-crop (ffmpeg/filter), 1 video-crop (mpv/VO)
     -- filter, see https://ffmpeg.org/ffmpeg-filters.html#cropdetect for details
@@ -285,6 +285,7 @@ local function compute_metadata(meta)
     meta.is_invalid = meta.h < 0 or meta.w < 0
     meta.is_trusted_offsets = is_trusted_offset(meta.offset.x, "x") and is_trusted_offset(meta.offset.y, "y")
     meta.time = {buffer = 0, overall = 0}
+    if options.read_ahead_mode > 0 then meta.pts = {} end
     local margin = options.detect_round * options.linked_tolerance
     meta.is_linked_to_source = meta.mt <= margin and meta.mb <= margin or meta.ml <= margin and meta.mr <= margin
     if meta.is_linked_to_source and not meta.is_invalid and s.ratios.w[meta.w] or s.ratios.h[meta.h] then
@@ -336,7 +337,7 @@ local function process_metadata(collected, timestamp, elapsed_time)
         end
     end
 
-    -- buffer: init s.stats.buffer[whxy]
+    -- buffer: init
     if not s.stats.buffer[collected.whxy] then
         s.stats.buffer[collected.whxy] = collected
         s.stats.buffer_unique = s.stats.buffer_unique + 1
@@ -347,6 +348,7 @@ local function process_metadata(collected, timestamp, elapsed_time)
         s.buffer.i_total = s.buffer.i_total + 1
         s.buffer.i_ratio = s.buffer.i_ratio + 1
         s.buffer.indexed_list[s.buffer.i_total] = {ref = collected, pts = timestamp, t_elapsed = elapsed_time}
+        if options.read_ahead_mode > 0 then table.insert(collected.pts, timestamp) end
     elseif s.last_collected == collected then
         s.buffer.indexed_list[s.buffer.i_total].t_elapsed = s.buffer.indexed_list[s.buffer.i_total].t_elapsed +
                                                                 elapsed_time
@@ -399,7 +401,7 @@ local function process_metadata(collected, timestamp, elapsed_time)
         collected.time.accumulated = collected.time.buffer
     end
 
-    -- use current as main metadata that can be collected/corrected/stabilized
+    -- use current as main metadata, override by corrected or stabilized if needed
     local current = collected
 
     -- correction with trusted metadata for fast change in dark/ambiguous scene
@@ -477,20 +479,9 @@ local function process_metadata(collected, timestamp, elapsed_time)
                                    not new_ready and ref.time.accumulated + elapsed_time or ref.time.accumulated
     end
 
+    -- crop validation
     local detect_source = current == s.last_current and (current.is_source or collected.is_source) and s.limit.target >=
                               0
-    -- read_ahead upstream timestamp
-    if s.f_limit_runtime and options.read_ahead_mode > 0 and not s.timestamps.read_ahead and current ~= s.approved then
-        if detect_source then
-            s.timestamps.read_ahead = s.last_timestamp
-        elseif not current.is_source and
-            (s.stats.trusted[current.whxy] or not current.is_invalid and current.is_known_ratio and
-                current.is_trusted_offsets) then
-            s.timestamps.read_ahead = timestamp
-        end
-    end
-
-    -- crop validation
     local confirmation = not current.is_source and s.stats.trusted[current.whxy] and current.time.accumulated >=
                              o_timer.fast_change and (not corrected.ref or current == s.last_current)
     local crop_filter = s.approved ~= current and (confirmation or detect_source)
@@ -500,7 +491,9 @@ local function process_metadata(collected, timestamp, elapsed_time)
             s.limit.min = s.limit.current -- store minimum limit
         end
         if s.f_limit_runtime and options.read_ahead_mode > 0 then
-            table.insert(s.indexed_read_ahead, {ref = current, pts = s.timestamps.read_ahead or timestamp})
+            local pts = current.time.accumulated < o_timer.ratio and timestamp - current.time.accumulated or
+                            current.pts[1]
+            table.insert(s.indexed_read_ahead, {ref = current, pts = pts})
             s.timestamps.read_ahead = nil
         else
             apply_crop(current, timestamp)
@@ -550,14 +543,15 @@ local function process_metadata(collected, timestamp, elapsed_time)
     -- buffer: reduce total size
     while is_time_to_cleanup_buffer(s.buffer.t_total, buffer_timer) or is_proactive_cleanup_needed() do
         s.buffer.i_to_shift = s.buffer.i_to_shift + 1
-        local ref = s.buffer.indexed_list[s.buffer.i_to_shift].ref
-        ref.time.buffer = ref.time.buffer - s.buffer.indexed_list[s.buffer.i_to_shift].t_elapsed
-        if s.stats.buffer[ref.whxy] and ref.time.buffer == 0 then
-            cleanup_stat(ref.whxy, s.stats.buffer, s.stats, "buffer_unique")
-            cleanup_stat(ref.whxy, s.candidate.offset, s.candidate, "i_offset")
-            cleanup_stat(ref.whxy, s.candidate.fallback, s.candidate, "i_fallback")
+        local entry = s.buffer.indexed_list[s.buffer.i_to_shift]
+        entry.ref.time.buffer = entry.ref.time.buffer - entry.t_elapsed
+        if options.read_ahead_mode > 0 then table.remove(entry.ref.pts, 1) end
+        if s.stats.buffer[entry.ref.whxy] and entry.ref.time.buffer == 0 then
+            cleanup_stat(entry.ref.whxy, s.stats.buffer, s.stats, "buffer_unique")
+            cleanup_stat(entry.ref.whxy, s.candidate.offset, s.candidate, "i_offset")
+            cleanup_stat(entry.ref.whxy, s.candidate.fallback, s.candidate, "i_fallback")
         end
-        s.buffer.t_total = s.buffer.t_total - s.buffer.indexed_list[s.buffer.i_to_shift].t_elapsed
+        s.buffer.t_total = s.buffer.t_total - entry.t_elapsed
     end
 
     -- buffer: shift the list to overwrite unused data
@@ -619,10 +613,9 @@ end
 local function time_pos(event, value, err)
     if value and s.indexed_read_ahead[1] then
         local time_pos = shifting_to(RIGHT, value)
-        local time_pos_read_ahead
         local deviation = math.abs(time_pos - s.pts)
         local crop_sync = s.frametime * (options.read_ahead_sync + s.crop_method_sync)
-        time_pos_read_ahead = time_pos - (s.read_ahead.int - deviation - crop_sync)
+        local time_pos_read_ahead = time_pos - (s.read_ahead.int - deviation - crop_sync)
         if time_pos_read_ahead >= s.indexed_read_ahead[1].pts then
             apply_crop(s.indexed_read_ahead[1].ref, s.indexed_read_ahead[1].pts)
             table.remove(s.indexed_read_ahead, 1)
@@ -767,6 +760,7 @@ function cleanup()
     mp.set_property("geometry", s.user_geometry)
     mp.unregister_event(playback_events)
     mp.unregister_event(collect_metadata)
+    mp.unobserve_property(time_pos)
     mp.unobserve_property(switch_hwdec)
     mp.unobserve_property(pause)
     for _, label in pairs(labels) do
