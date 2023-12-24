@@ -5,11 +5,6 @@
     "dest":"~~/scripts"
   },
   {
-    "git":"https://github.com/snylonue/mpv_slicing_copy",
-    "whitelist":"%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
     "git":"https://github.com/natural-harmonia-gropius/recent-menu",
     "whitelist":"%.lua$",
     "dest":"~~/scripts"
