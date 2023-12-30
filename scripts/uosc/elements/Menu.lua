@@ -1296,7 +1296,7 @@ function Menu:render()
 				menu.ass_safe_title = ass_escape(menu.title)
 			end
 
-			-- Background
+            -- Background
 			if menu.search then
 				ass:rect(ax + 3, rect.ay + 3, bx - 3, rect.ay + title_height - 1, {
 					color = fg .. '\\1a&HFF', opacity = menu_opacity * 0.1,
