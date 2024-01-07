@@ -135,65 +135,10 @@ local function append_sid()
     end
 end
 
-local function append_vfSub()
-    local was_ontop = mp.get_property_native("ontop")
-    if was_ontop then mp.set_property_native("ontop", false) end
-    local res = utils.subprocess({
-        args = { 'powershell', '-NoProfile', '-Command', [[& {
-			Trap {
-				Write-Error -ErrorRecord $_
-				Exit 1
-			}
-			Add-Type -AssemblyName PresentationFramework
-			$u8 = [System.Text.Encoding]::UTF8
-			$out = [Console]::OpenStandardOutput()
-			$ofd = New-Object -TypeName Microsoft.Win32.OpenFileDialog
-			$ofd.Multiselect = $false
-			If ($ofd.ShowDialog() -eq $true) {
-				ForEach ($filename in $ofd.FileNames) {
-					$u8filename = $u8.GetBytes("$filename")
-					$out.Write($u8filename, 0, $u8filename.Length)
-				}
-			}
-		}]]    },
-        cancellable = false,
-    })
-    if was_ontop then mp.set_property_native("ontop", true) end
-    if (res.status ~= 0) then return end
-    for filename in string.gmatch(res.stdout, '[^\n]+') do
-        local vfSub = "vf append ``@open_dialog-sub:subtitles=filename=\"" .. res.stdout .. "\"``"
-        mp.command(vfSub)
-    end
-end
-
-local function filter_state(label, key, value)
-    local filters = mp.get_property_native("vf")
-    for _, filter in pairs(filters) do
-        if filter["label"] == label and (not key or key and filter[key] == value) then return true end
-    end
-    return false
-end
-
-local function toggle_vfSub()
-    local vfSub = "vf toggle @open_dialog-sub"
-    if filter_state("open_dialog-sub") then mp.command(vfSub) end
-end
-
-local function remove_vfSub()
-    local vfSub = "vf remove @open_dialog-sub"
-    if filter_state("open_dialog-sub") then
-        mp.msg.info("Cleanup @open_dialog-sub.")
-        mp.command(vfSub)
-        mp.msg.info("Done.")
-    end
-end
-
 mp.register_event("end-file", remove_vfSub)
 
 mp.register_script_message('import_files', import_files)
 mp.register_script_message('import_url', import_url)
 mp.register_script_message('append_aid', append_aid)
 mp.register_script_message('append_sid', append_sid)
-mp.register_script_message('append_vfSub', append_vfSub)
-mp.register_script_message('toggle_vfSub', toggle_vfSub)
-mp.register_script_message('remove_vfSub', remove_vfSub)
+

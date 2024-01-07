@@ -38,7 +38,7 @@ local o = {
     --amount of entries to show before slicing. Optimal value depends on font/video size etc.
     num_entries = 16,
     --slice long filenames, and how many chars to show
-    slice_longfilenames_amount = 100,
+    max_title_length = 100,
     -- wrap the cursor around the top and bottom of the list
     wrap = true,
     -- reset cursor navigation when open the list
@@ -146,8 +146,8 @@ function edition_list(curr_edition)
         local item = {}
         local title = edition_list[i].title
         if not title then title = "Edition " .. string.format("%02.f", i) end
-        if title and title:len() > o.slice_longfilenames_amount + 5 then
-            title = title:sub(1, o.slice_longfilenames_amount) .. " ..."
+        if o.max_title_length > 0 and title:len() > o.max_title_length + 5 then
+            title = title:sub(1, o.max_title_length) .. " ..."
         end
         if (i - 1 == curr_edition) then
             list.selected = curr_edition + 1
@@ -216,3 +216,7 @@ mp.observe_property('edition-list', 'native', function()
 end)
 
 mp.register_event('file-loaded', main)
+mp.register_event('end-file', function()
+    list:close()
+    mp.unobserve_property(edition_list)
+end)

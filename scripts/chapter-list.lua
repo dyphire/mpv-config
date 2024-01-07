@@ -30,7 +30,7 @@ local o = {
     --amount of entries to show before slicing. Optimal value depends on font/video size etc.
     num_entries = 16,
     --slice long filenames, and how many chars to show
-    slice_longfilenames_amount = 100,
+    max_title_length = 100,
     -- wrap the cursor around the top and bottom of the list
     wrap = true,
     -- reset cursor navigation when open the list
@@ -99,8 +99,8 @@ function chapter_list(curr_chapter)
         if not title or title == '(unnamed)' or title == '' then
             title = "Chapter " .. string.format("%02.f", i)
         end
-        if title and title:len() > o.slice_longfilenames_amount + 5 then
-            title = title:sub(1, o.slice_longfilenames_amount) .. " ..."
+        if o.max_title_length > 0 and title:len() > o.max_title_length + 5 then
+            title = title:sub(1, o.max_title_length) .. " ..."
         end
         if time < 0 then time = 0
         else time = math.floor(time) end
@@ -233,3 +233,8 @@ end)
 if user_input_module then
     mp.add_hook("on_unload", 50, function() input.cancel_user_input() end)
 end
+
+mp.register_event('end-file', function()
+    list:close()
+    mp.unobserve_property(chapter_list)
+end)

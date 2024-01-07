@@ -92,41 +92,19 @@ function create_self_updating_menu_opener(opts)
 end
 
 function create_select_tracklist_type_menu_opener(menu_title, track_type, track_prop, load_command, download_command)
-	----- string
-	local function is_empty(input)
-		if input == nil or input == "" then
-			return true
-		end
-	end
-
-	local function replace(str, what, with)
-		if is_empty(str) then return "" end
-		if is_empty(what) then return str end
-		if with == nil then with = "" end
-		what = string.gsub(what, "[%(%)%.%+%-%*%?%[%]%^%$%%]", "%%%1")
-		with = string.gsub(with, "[%%]", "%%%%")
-		return string.gsub(str, what, with)
-	end
-
-	local function esc_for_title(str)
-		str = str:gsub('^[_%.%-%s]*', '')
-				:gsub('%.([^%.]+)$', '')
-		return str
-	end
-
-	local function esc_for_codec(str)
-		if str:find("MPEG2") then str = "MPEG2"
-		elseif str:find("DVVIDEO") then str = "DV"
-		elseif str:find("PCM") then str = "PCM"
-		elseif str:find("PGS") then str = "PGS"
-    	elseif str:find("SUBRIP") then str = "SRT"
-    	elseif str:find("VTT") then str = "VTT"
-    	elseif str:find("DVD_SUB") then str = "VOB_SUB"
-    	elseif str:find("DVB_SUB") then str = "DVB_SUB"
-    	elseif str:find("DVB_TELE") then str = "TELETEXT"
-    	elseif str:find("ARIB") then str = "ARIB"
-    	end
-		return str
+	local function escape_codec(str)
+		if not str or str == '' then return '' end
+		if str:find("mpeg2") then return "mpeg2"
+		elseif str:find("dvvideo") then return "dv"
+		elseif str:find("pcm") then return "pcm"
+		elseif str:find("pgs") then return "pgs"
+		elseif str:find("subrip") then return "srt"
+		elseif str:find("vtt") then return "vtt"
+		elseif str:find("dvd_sub") then return "vob"
+		elseif str:find("dvb_sub") then return "dvb"
+		elseif str:find("dvb_tele") then return "teletext"
+		elseif str:find("arib") then return "arib"
+		else return str end
 	end
 
 	local function serialize_tracklist(tracklist)
@@ -166,21 +144,25 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 					h(track['demux-w'] and (track['demux-w'] .. 'x' .. track['demux-h']) or (track['demux-h'] .. 'p'))
 				end
 				if track['demux-fps'] then h(string.format('%.5gfps', track['demux-fps'])) end
-				h(esc_for_codec(track.codec:upper()))
+				if track['codec'] then h(escape_codec(track.codec)) end
 				if track['audio-channels'] then
 					h(track['audio-channels'] == 1
 						and t('%s channel', track['audio-channels'])
 						or t('%s channels', track['audio-channels']))
 				end
 				if track['demux-samplerate'] then h(string.format('%.3gkHz', track['demux-samplerate'] / 1000)) end
-				if track['demux-bitrate'] then h(string.format('%.3gkpbs', track['demux-bitrate'] / 1000)) end
+				if track['demux-bitrate'] then h(string.format('%.3gkbps', track['demux-bitrate'] / 1000)) end
 				if track.forced then h(t('forced')) end
 				if track.default then h(t('default')) end
 				if track.external then h(t('external')) end
 
-				local filename = mp.get_property_native('filename/no-ext')
-				if track.title then track.title = replace(track.title, filename, '') end
-				if track.external then track.title = esc_for_title(track.title) end
+				local filename = mp.get_property_native('filename/no-ext'):gsub("[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0")
+				if track.external and track.title and filename then
+					track.title = track.title:gsub(filename .. '%.?', '')
+					if track.title:lower() == track.codec:lower() then
+						track.title = nil
+					end
+				end
 
 				items[#items + 1] = {
 					title = (track.title and track.title or t('Track %s', track.id)),
