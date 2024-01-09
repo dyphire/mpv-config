@@ -1,10 +1,6 @@
-local fb = require 'file-browser'
+local fb_utils = require 'modules.utils'
 
---gets the original API table
---the original is stored in the metatable to prevent addons from accidentally breaking the main script
-local original_fb = getmetatable(fb).__index
-
---this code is based on https://github.com/mpvnet-player/mpv.net/issues/575#issuecomment-1817413401
+-- this code is based on https://github.com/mpvnet-player/mpv.net/issues/575#issuecomment-1817413401
 local ffi = require "ffi"
 local winapi = {
         ffi = ffi,
@@ -36,7 +32,7 @@ winapi.utf8_to_wide = function(utf8_str)
     return ""
 end
 
-original_fb.sort = function (t)
+fb_utils.sort = function (t)
     table.sort(t, function(a, b)
         local a_wide = winapi.utf8_to_wide(a.type:sub(1, 1) .. (a.label or a.name))
         local b_wide = winapi.utf8_to_wide(b.type:sub(1, 1) .. (b.label or b.name))

@@ -6,21 +6,31 @@ This script allows users to browse and open files and folders entirely from with
 
 By default only file types compatible with mpv will be shown, but this can be changed in the config file.
 
-This script requires at least mpv v0.31.
+This script requires at least **mpv v0.33**.
+
+Originally, file-browser worked with versions of mpv going back to
+v0.31, you can find those (now unsupported) older versions of file-browser
+[here](https://github.com/CogentRedTester/mpv-file-browser/tree/mpv-v0.31)
 
 ## Installation
 
-Place the `file-browser.lua` file into the mpv `~~/scripts/` directory. `~~/` is the mpv config directory
-which is typically `~/.config/mpv/` on linux and `%APPDATA%/mpv/` on windows.
+### Basic
 
-Copy `file_browser.conf` into `~~/script-opts/` and customise the [`root` option](#root-directory) for your
-system. The file contains all the default settings for the script, but I would recommend deleting any
-options from the file that you don't understand so as to not override any future changes I make to the defaults.
+Clone this git repository into the mpv `~~/scripts` directory and
+change the name of the folder from `mpv-file-browser` to `file-browser`.
+You can then pull to receive updates.
+Alternatively, you can download the zip and extract the contents to `~~/scripts/file-browser`.
+`~~/` is the mpv config directory which is typically `~/.config/mpv/` on linux and `%APPDATA%/mpv/` on windows.
 
-To setup [custom keybinds](custom-keybinds.md) enable the `custom_keybinds` option in `file_browser.conf` and
+Create a `file_browser.conf` file in the `~~/script-opts/` directory and customise the [`root` option](#root-directory) for your
+system. The [`docs/file_browser.conf`](docs/file_browser.conf) file contains the full list of options and their defaults.
+
+### Advanced
+
+To setup [custom keybinds](docs/custom-keybinds.md) enable the `custom_keybinds` option in `file_browser.conf` and
 create a `~~/script-opts/file-browser-keybinds.json` file. Do **not** copy the `file-browser-keybinds.json` file
 stored in this repository, that file is a collection of random examples, many of which are for completely different
-operating systems. Use them and the [docs](custom-keybinds.md) to create your own collection of keybinds.
+operating systems. Use them and the [docs](docs/custom-keybinds.md) to create your own collection of keybinds.
 
 To setup [addons](addons/README.md) enable the `addons` option in `file_browser.conf` and place the addon files
 in the `~~/script-modules/file-browser-addons/` directory.
@@ -92,7 +102,7 @@ The currently selected (with the cursor) file will be ignored, instead the first
 File-browser also supports custom keybinds. These keybinds send normal input commands, but the script will substitute characters in the command strings for specific values depending on the currently open directory, and currently selected item.
 This allows for a wide range of customised behaviour, such as loading additional audio tracks from the browser, or copying the path of the selected item to the clipboard.
 
-To see how to enable and use custom keybinds, see [custom-keybinds.md](custom-keybinds.md).
+To see how to enable and use custom keybinds, see [custom-keybinds.md](docs/custom-keybinds.md).
 
 ## Add-ons
 
@@ -100,7 +110,7 @@ Add-ons are ways to add extra features to file-browser, for example adding suppo
 They can be enabled by setting `addon` script-opt to yes, and placing the addon file into the `~~/script-modules/file-browser-addons/` directory.
 
 For a list of existing addons see the [wiki](https://github.com/CogentRedTester/mpv-file-browser/wiki/Addon-List).
-For instructions on writing your own addons see [addons.md](addons/addons.md).
+For instructions on writing your own addons see [addons.md](docs/addons.md).
 
 ## Script Messages
 
@@ -120,10 +130,10 @@ Reads the given directory, and sends the resulting tables to the specified scrip
 
 `script-message [response-string] [list] [opts]`
 
-The [list](https://github.com/CogentRedTester/mpv-file-browser/blob/master/addons/addons.md#the-list-array)
-and [opts](https://github.com/CogentRedTester/mpv-file-browser/blob/master/addons/addons.md#the-opts-table)
+The [list](docs/addons.md#the-list-array)
+and [opts](docs/addons.md#the-opts-table)
 tables are formatted as json strings through the `mp.utils.format_json` function.
-See [addons.md](addons/addons.md) for how the tables are structured, and what each field means.
+See [addons.md](docs/addons.md) for how the tables are structured, and what each field means.
 The API_VERSION field of the `opts` table refers to what version of the addon API file browser is using.
 The `response-string` refers to an arbitrary script-message that the tables should be sent to.
 
@@ -131,20 +141,29 @@ This script-message allows other scripts to utilise file-browser's directory par
 
 ## Configuration
 
-See [file_browser.conf](file_browser.conf) for the full list of options and their default values.
+See [file_browser.conf](docs/file_browser.conf) for the full list of options and their default values.
 The file is placed in the `~~/script-opts/` folder.
 
 ## Conditional Auto-Profiles
 
 file-browser provides a property that can be used with [conditional auto-profiles](https://mpv.io/manual/master/#conditional-auto-profiles)
-to detect when the browser is open. It can be accessed with the `shared_script_properties["file_browser-open"]` key, and it will always
-evaluate to either `yes` or `no`.
+to detect when the browser is open.
+On mpv v0.36+ you should use the `user-data` property with the `file_browser/open` boolean.
 
 Here is an example of an auto-profile that hides the OSC logo when using file-browser in an idle window:
 
 ```properties
 [hide-logo]
-profile-cond=shared_script_properties["file_browser-open"] == "yes" and idle_active
+profile-cond= idle_active and user_data.file_browser.open
+profile-restore=copy
+osc=no
+```
+
+On older versions of mpv you can use the `file_browser-open` field of the `shared-script-properties` property:
+
+```properties
+[hide-logo]
+profile-cond= idle_active and shared_script_properties["file_browser-open"] == "yes"
 profile-restore=copy
 osc=no
 ```

@@ -28,10 +28,32 @@ local function split(str, pat, plain)
     return r
 end
 
+local sub_strings_available = {
+    primary = {
+        text = 'sub-text',
+        start = 'sub-start',
+        ['end'] = 'sub-end',
+        visibility = 'sub-visibility',
+        delay = 'sub-delay',
+        step = 'primary',
+        title = 'Subtitle lines',
+    },
+    secondary = {
+        text = 'secondary-sub-text',
+        start = 'secondary-sub-start',
+        ['end'] = 'secondary-sub-end',
+        visibility = 'secondary-sub-visibility',
+        delay = 'secondary-sub-delay',
+        step = 'secondary',
+        title = 'Secondary subtitle lines',
+    }
+}
+
+local sub_strings = sub_strings_available.primary
 local function get_current_subtitle()
-    local start = mp.get_property_number('sub-start')
-    local stop = mp.get_property_number('sub-end')
-    local text = mp.get_property('sub-text')
+    local start = mp.get_property_number(sub_strings.start)
+    local stop = mp.get_property_number(sub_strings['end'])
+    local text = mp.get_property(sub_strings.text)
     local lines = text and text:match('^[%s\n]*(.-)[%s\n]*$') or ''
     return start, stop, text, split(lines, '\n', true)
 end
@@ -75,21 +97,21 @@ end
 ---Get lines form current subtitle track
 ---@return {start:number;stop:number;line:string}[]
 local function acquire_subtitles()
-    local sub_delay = mp.get_property_number('sub-delay')
-    local sub_visibility = mp.get_property_bool('sub-visibility')
-    mp.set_property_bool('sub-visibility', false)
+    local sub_delay = mp.get_property_number(sub_strings.delay)
+    local sub_visibility = mp.get_property_bool(sub_strings.visibility)
+    mp.set_property_bool(sub_strings.visibility, false)
 
     -- ensure we're at some subtitle
-    mp.commandv('sub-step', 1, 'primary')
-    mp.commandv('sub-step', -1, 'primary')
+    mp.commandv('sub-step', 1, sub_strings.step)
+    mp.commandv('sub-step', -1, sub_strings.step)
 
     -- find first one
     local retry_delay = sub_delay
     -- if we're not at the very beginning
     -- this missies the first subtitle for some reason
     while true do
-        mp.commandv('sub-step', -1, 'primary')
-        local delay = mp.get_property_number('sub-delay')
+        mp.commandv('sub-step', -1, sub_strings.step)
+        local delay = mp.get_property_number(sub_strings.delay)
         if retry_delay == delay then
             break
         end
@@ -106,7 +128,7 @@ local function acquire_subtitles()
     retry_delay = nil
     while true do
         local start, stop, text, lines = get_current_subtitle()
-        mp.commandv('sub-step', 1, 'primary')
+        mp.commandv('sub-step', 1, sub_strings.step)
         if start and (text ~= prev_text or not same_time(start, prev_start) or not same_time(stop, prev_stop)) then
             -- remove empty lines
             for j = #lines, 1, -1 do
@@ -125,7 +147,7 @@ local function acquire_subtitles()
             prev_stop = stop
             prev_text = text
         else
-            local delay = mp.get_property_number('sub-delay')
+            local delay = mp.get_property_number(sub_strings.delay)
             if retry_delay == delay then
                 break
             end
@@ -133,14 +155,14 @@ local function acquire_subtitles()
         end
     end
 
-    mp.set_property_number('sub-delay', sub_delay)
-    mp.set_property_bool('sub-visibility', sub_visibility)
+    mp.set_property_number(sub_strings.delay, sub_delay)
+    mp.set_property_bool(sub_strings.visibility, sub_visibility)
     return subtitles
 end
 
 local function show_loading_indicator()
     local menu = {
-        title = 'Subtitle lines',
+        title = sub_strings.title,
         items = { {
             title = 'Loading...',
             icon = 'spinner',
@@ -159,7 +181,7 @@ end
 local menu_open = false
 local function show_subtitle_list(subtitles)
     local menu = {
-        title = 'Subtitle lines',
+        title = sub_strings.title,
         items = {},
         type = 'subtitle-lines-list',
         on_close = {
@@ -172,8 +194,6 @@ local function show_subtitle_list(subtitles)
     local last_started_index = 0
     local last_active_index = nil
     local time = mp.get_property_number('time-pos', 0) + SUB_SEEK_OFFSET
-
-    if not subtitles then return end
     for i, subtitle in ipairs(subtitles) do
         local has_started = subtitle.start <= time
         local has_ended = subtitle.stop < time
@@ -218,9 +238,21 @@ mp.add_key_binding(nil, 'list_subtitles', function()
         mp.commandv('script-message-to', 'uosc', 'close-menu', 'subtitle-lines-list')
         return
     end
+    sub_strings = sub_strings_available.primary
     show_loading_indicator()
     subtitles = acquire_subtitles()
-    mp.observe_property('sub-text', 'string', sub_text_update)
+    mp.observe_property(sub_strings.text, 'string', sub_text_update)
+end)
+
+mp.add_key_binding(nil, 'list_secondary_subtitles', function()
+    if menu_open then
+        mp.commandv('script-message-to', 'uosc', 'close-menu', 'subtitle-lines-list')
+        return
+    end
+    sub_strings = sub_strings_available.secondary
+    show_loading_indicator()
+    subtitles = acquire_subtitles()
+    mp.observe_property(sub_strings.text, 'string', sub_text_update)
 end)
 
 mp.register_script_message('uosc-menu-closed', function()
