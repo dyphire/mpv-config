@@ -4,17 +4,23 @@
 -- #@keyword support for dynamic menu
 --
 -- supported keywords:
---   #@tracks:   video/audio/sub tracks
---   #@tracks/video:         video track list
---   #@tracks/audio:         audio track list
---   #@tracks/sub:           subtitle list
---   #@tracks/sub-secondary: subtitle list (secondary)
---   #@chapters:             chapter list
---   #@editions:             edition list
---   #@audio-devices:        audio device list
---   #@profiles:             profile list
+--
+--   #@tracks               video/audio/sub tracks
+--   #@tracks/video         video track list
+--   #@tracks/audio         audio track list
+--   #@tracks/sub           subtitle list
+--   #@tracks/sub-secondary subtitle list (secondary)
+--   #@chapters             chapter list
+--   #@editions             edition list
+--   #@audio-devices        audio device list
+--   #@playlist             playlist
+--   #@profiles             profile list
+--
+--   #@prop:check           check menu item if property is true
+--   #@prop:check!          check menu item if property is false
 
 local opts = require('mp.options')
+local utils = require('mp.utils')
 
 -- user options
 local o = {
@@ -140,8 +146,21 @@ local function build_track_items(list, type, prop, prefix)
     return items
 end
 
+-- update menu item to a submenu
+local function to_submenu(item)
+    item.type = 'submenu'
+    item.submenu = {}
+    item.cmd = nil
+
+    menu_items_dirty = true
+
+    return item.submenu
+end
+
 -- handle #@tracks menu update
-local function update_tracks_menu(submenu)
+local function update_tracks_menu(item)
+    local submenu = to_submenu(item)
+
     mp.observe_property('track-list', 'native', function(_, track_list)
         for i = #submenu, 1, -1 do table.remove(submenu, i) end
         menu_items_dirty = true
@@ -161,7 +180,9 @@ local function update_tracks_menu(submenu)
 end
 
 -- handle #@tracks/<type> menu update for given type
-local function update_track_menu(submenu, type, prop)
+local function update_track_menu(item, type, prop)
+    local submenu = to_submenu(item)
+
     mp.observe_property('track-list', 'native', function(_, track_list)
         for i = #submenu, 1, -1 do table.remove(submenu, i) end
         menu_items_dirty = true
@@ -173,7 +194,9 @@ local function update_track_menu(submenu, type, prop)
 end
 
 -- handle #@chapters menu update
-local function update_chapters_menu(submenu)
+local function update_chapters_menu(item)
+    local submenu = to_submenu(item)
+
     mp.observe_property('chapter-list', 'native', function(_, chapter_list)
         for i = #submenu, 1, -1 do table.remove(submenu, i) end
         menu_items_dirty = true
@@ -203,7 +226,9 @@ local function update_chapters_menu(submenu)
 end
 
 -- handle #@edition menu update
-local function update_editions_menu(submenu)
+local function update_editions_menu(item)
+    local submenu = to_submenu(item)
+
     mp.observe_property('edition-list', 'native', function(_, edition_list)
         for i = #submenu, 1, -1 do table.remove(submenu, i) end
         menu_items_dirty = true
@@ -232,7 +257,9 @@ local function update_editions_menu(submenu)
 end
 
 -- handle #@audio-devices menu update
-local function update_audio_devices_menu(submenu)
+local function update_audio_devices_menu(item)
+    local submenu = to_submenu(item)
+
     mp.observe_property('audio-device-list', 'native', function(_, device_list)
         for i = #submenu, 1, -1 do table.remove(submenu, i) end
         menu_items_dirty = true
@@ -257,8 +284,43 @@ local function update_audio_devices_menu(submenu)
     end)
 end
 
+-- build playlist item title
+local function build_playlist_title(item, id)
+    local title = item.title or ''
+    local ext = ''
+    if item.filename and item.filename ~= '' then
+        local _, filename = utils.split_path(item.filename)
+        local n, e = filename:match('^(.+)%.([%w-_]+)$')
+        if title == '' then title = n and n or filename end
+        if e then ext = e end
+    end
+    title = title ~= '' and abbr_title(title) or 'Item ' .. id
+    return ext ~= '' and title .. "\t" .. ext:upper() or title
+end
+
+-- handle #@playlist menu update
+local function update_playlist_menu(item)
+    local submenu = to_submenu(item)
+
+    mp.observe_property('playlist', 'native', function(_, playlist)
+        for i = #submenu, 1, -1 do table.remove(submenu, i) end
+        menu_items_dirty = true
+        if not playlist or #playlist == 0 then return end
+
+        for id, item in ipairs(playlist) do
+            submenu[#submenu + 1] = {
+                title = build_playlist_title(item, id - 1),
+                cmd = string.format('playlist-play-index %d', id - 1),
+                state = item.current and { 'checked' } or {},
+            }
+        end
+    end)
+end
+
 -- handle #@profiles menu update
-local function update_profiles_menu(submenu)
+local function update_profiles_menu(item)
+    local submenu = to_submenu(item)
+
     mp.observe_property('profile-list', 'native', function(_, profile_list)
         for i = #submenu, 1, -1 do table.remove(submenu, i) end
         menu_items_dirty = true
@@ -276,31 +338,53 @@ local function update_profiles_menu(submenu)
     end)
 end
 
--- update dynamic menu item and handle submenu update
+-- handle #@prop:check
+function update_check_status(item, keyword)
+    local prop, e = keyword:match('^([%w-]+):check(!?)$')
+    if not prop then return false end
+
+    local function check(v)
+        local tp = type(v)
+        if tp == 'boolean' then return v end
+        if tp == 'string' then return v ~= '' end
+        if tp == 'number' then return v ~= 0 end
+        if tp == 'table' then return #v > 0 end
+        return v ~= nil
+    end
+    mp.observe_property(prop, 'native', function(name, value)
+        local ok = check(value)
+        if e == '!' then ok = not ok end
+        item.state = ok and { 'checked' } or {}
+        menu_items_dirty = true
+    end)
+
+    return true
+end
+
+-- update dynamic menu item and handle update
 local function dyn_menu_update(item, keyword)
-    item.type = 'submenu'
-    item.submenu = {}
-    item.cmd = nil
-    menu_items_dirty = true
+    if update_check_status(item, keyword) then return end
 
     if keyword == 'tracks' then
-        update_tracks_menu(item.submenu)
+        update_tracks_menu(item)
     elseif keyword == 'tracks/video' then
-        update_track_menu(item.submenu, "video", "vid")
+        update_track_menu(item, "video", "vid")
     elseif keyword == 'tracks/audio' then
-        update_track_menu(item.submenu, "audio", "aid")
+        update_track_menu(item, "audio", "aid")
     elseif keyword == 'tracks/sub' then
-        update_track_menu(item.submenu, "sub", "sid")
+        update_track_menu(item, "sub", "sid")
     elseif keyword == 'tracks/sub-secondary' then
-        update_track_menu(item.submenu, "sub", "secondary-sid")
+        update_track_menu(item, "sub", "secondary-sid")
     elseif keyword == 'chapters' then
-        update_chapters_menu(item.submenu)
+        update_chapters_menu(item)
     elseif keyword == 'editions' then
-        update_editions_menu(item.submenu)
+        update_editions_menu(item)
     elseif keyword == 'audio-devices' then
-        update_audio_devices_menu(item.submenu)
+        update_audio_devices_menu(item)
+    elseif keyword == 'playlist' then
+        update_playlist_menu(item)
     elseif keyword == 'profiles' then
-        update_profiles_menu(item.submenu)
+        update_profiles_menu(item)
     end
 end
 

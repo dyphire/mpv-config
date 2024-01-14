@@ -8,7 +8,7 @@
 ]]
 
 local msg = require 'mp.msg'
-local utils = require 'mp.utils'
+local input = require 'mp.input'
 local opts = require("mp.options")
 
 local o = {
@@ -58,7 +58,9 @@ local paused = false
 --adding the source directory to the package path and loading the module
 package.path = mp.command_native({"expand-path", "~~/script-modules/?.lua;"}) .. package.path
 local list = require "scroll-list"
-local user_input_module, input = pcall(require, "user-input-module")
+if not input then
+  user_input_module, input = pcall(require, "user-input-module")
+end
 
 --modifying the list settings
 local original_open = list.open
@@ -131,28 +133,57 @@ local function change_title_callback(user_input, err, chapter_index)
     if paused then return elseif o.pause_on_input then mp.set_property_native("pause", false) end
 end
 
+local function input_title(default_input, cursor_pos, chapter_index)
+    input.get({
+        prompt = 'Chapter title:',
+        default_text = default_input,
+        cursor_position = cursor_pos,
+        submit = function(text)
+            local chapter_list = mp.get_property_native("chapter-list")
+
+            if chapter_index > mp.get_property_number("chapter-list/count") then
+                msg.warn("can't set chapter title")
+                return
+            end
+
+            chapter_list[chapter_index].title = text
+            mp.set_property_native("chapter-list", chapter_list)
+            input.terminate()
+        end,
+        closed = function()
+            if paused then return elseif o.pause_on_input then mp.set_property_native("pause", false) end
+        end
+    })
+end
+
 --edit the selected chapter title
 local function edit_chapter()
-    local mpv_chapter_index = list.selected - 1
+    reset_curr = false
+    local chapter_index = list.selected - 1
     local chapter_list = mp.get_property_native("chapter-list")
+    local title = chapter_list[chapter_index + 1].title
 
-    if mpv_chapter_index == nil or mpv_chapter_index == -1 then
+    if chapter_index == nil or chapter_index == -1 then
         msg.verbose("no chapter selected, nothing to edit")
         return
     end
 
-    if not user_input_module then
+    if not input and not user_input_module then
         msg.error("no mpv-user-input, can't get user input, install: https://github.com/CogentRedTester/mpv-user-input")
         return
     end
-    -- ask user for chapter title
-    -- (+1 because mpv indexes from 0, lua from 1)
-    reset_curr = false
-    input.get_user_input(change_title_callback, {
-        request_text = "title of the chapter:",
-        default_input = chapter_list[mpv_chapter_index + 1].title,
-        cursor_pos = #(chapter_list[mpv_chapter_index + 1].title) + 1,
-    }, mpv_chapter_index + 1)
+
+    if user_input_module then
+        -- ask user for chapter title
+        -- (+1 because mpv indexes from 0, lua from 1)
+        input.get_user_input(change_title_callback, {
+            request_text = "Chapter title:",
+            default_input = title,
+            cursor_pos = #title,
+        }, chapter_index + 1)
+    elseif input then
+        input_title(title, #title, chapter_index + 1)
+    end
 
     if o.pause_on_input then
         paused = mp.get_property_native("pause")
