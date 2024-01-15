@@ -1,5 +1,5 @@
 --[[
-    * track-list.lua v.2024-01-07
+    * track-list.lua v.2024-01-15
     *
     * AUTHORS: dyphire
     * License: MIT
@@ -86,6 +86,22 @@ function list:format_header_string(str)
     return str
 end
 
+-- from http://lua-users.org/wiki/LuaUnicode
+local UTF8_PATTERN = '[%z\1-\127\194-\244][\128-\191]*'
+
+-- return a substring based on utf8 characters
+-- like string.sub, but negative index is not supported
+local function utf8_sub(s, i, j)
+    local t = {}
+    local idx = 1
+    for match in s:gmatch(UTF8_PATTERN) do
+        if j and idx > j then break end
+        if idx >= i then t[#t + 1] = match end
+        idx = idx + 1
+    end
+    return table.concat(t)
+end
+
 local function escape_codec(str)
     if not str or str == '' then return '' end
     if str:find("mpeg2") then return "mpeg2"
@@ -120,7 +136,7 @@ local function get_track_title(track, type, filename)
         if title:lower() == codec:lower() then title = '' end
     end
     if o.max_title_length > 0 and title:len() > o.max_title_length + 5 then
-        title = title:sub(1, o.max_title_length) .. " ..."
+        title = utf8_sub(title, 1, o.max_title_length) .. "..."
     end
     if title == '' then
         local name = type:sub(1, 1):upper() .. type:sub(2, #type)

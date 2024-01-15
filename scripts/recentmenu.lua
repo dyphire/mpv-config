@@ -18,6 +18,11 @@ local menu = {
     items = {},
 }
 
+local dyn_menu = {
+    type = 'submenu',
+    submenu = {}
+}
+
 local current_item = { nil, nil, nil }
 
 function utf8_char_bytes(str, i)
@@ -46,7 +51,19 @@ function utf8_iter(str)
     end
 end
 
+function utf8_to_table(str)
+    local t = {}
+    for _, ch in utf8_iter(str) do
+        t[#t + 1] = ch
+    end
+    return t
+end
+
 function utf8_subwidth(str, indexStart, indexEnd)
+    if indexStart > indexEnd then
+        return str
+    end
+
     local index = 1
     local substr = ""
     for _, char in utf8_iter(str) do
@@ -57,14 +74,6 @@ function utf8_subwidth(str, indexStart, indexEnd)
         end
     end
     return substr, index
-end
-
-function utf8_to_table(str)
-    local t = {}
-    for _, ch in utf8_iter(str) do
-        t[#t + 1] = ch
-    end
-    return t
 end
 
 function jaro(s1, s2)
@@ -147,46 +156,40 @@ function jaro_winkler_distance(s1, s2)
     return d + l * p * (1 - d)
 end
 
+function split_path(path)
+    -- return path, filename, extension
+    return path:match("(.-)([^\\/]-)%.?([^%.\\/]*)$")
+end
+
 function is_protocol(path)
     return type(path) == 'string' and (path:find('^%a[%w.+-]-://') ~= nil or path:find('^%a[%w.+-]-:%?') ~= nil)
 end
 
-function is_same_folder(s1, s2, p1, p2)
-    local i1 = p1:find(s1, 1, true)
-    local i2 = p2:find(s2, 1, true)
-    if i1 and i2 then
-        local t1 = p1:sub(1, i1 - 1)
-        local t2 = p2:sub(1, i2 - 1)
-        return t1 == t2, p1:sub(i1, #p1), p2:sub(i2, #p2)
-    end
-    return false
-end
-
-function is_same_series(s1, s2, p1, p2)
+function is_same_series(path1, path2)
     if not o.ignore_same_series then
         return false
     end
 
-    local _is_same_folder, f1, f2 = is_same_folder(s1, s2, p1, p2)
-    if _is_same_folder and f1 and f2 then
-        f1 = get_filename_without_ext(f1)
-        f2 = get_filename_without_ext(f2)
+    local dir1, filename1, extension1 = split_path(path1)
+    local dir2, filename2, extension2 = split_path(path2)
 
+    -- in same folder
+    if dir1 == dir2 then
         -- same filename but different extensions
-        if f1 == f2 then
+        if filename1 == filename2 then
             return false
         end
 
         -- by episode
-        local sub1 = f1:gsub("^[%[%(]+.-[%]%)]+[%s%[]*", ""):match("(.-%D+)0*%d+")
-        local sub2 = f2:gsub("^[%[%(]+.-[%]%)]+[%s%[]*", ""):match("(.-%D+)0*%d+")
-        if sub1 and sub2 and sub1 == sub2 then
+        local episode1 = filename1:gsub("^[%[%(]+.-[%]%)]+[%s%[]*", ""):match("(.-%D+)0*%d+")
+        local episode2 = filename2:gsub("^[%[%(]+.-[%]%)]+[%s%[]*", ""):match("(.-%D+)0*%d+")
+        if episode1 and episode2 and episode1 == episode2 then
             return true
         end
 
         -- by similarity
         local threshold = 0.8
-        local similarity = jaro_winkler_distance(f1, f2)
+        local similarity = jaro_winkler_distance(filename1, filename2)
         if similarity > threshold then
             return true
         end
@@ -195,12 +198,20 @@ function is_same_series(s1, s2, p1, p2)
     return false
 end
 
-function get_filename_without_ext(filename)
-    local idx = filename:match(".+()%.%w+$")
-    if idx then
-        filename = filename:sub(1, idx - 1)
+function get_dyn_menu_title(title, hint, path)
+    if is_protocol(path) then
+        local protocol = path:match("^(%a[%w.+-]-)://")
+        hint = protocol
+    else
+        local dir, filename, extension = split_path(path)
+        title = filename
+        hint = extension
     end
-    return filename
+    local title_clip = utf8_subwidth(title, 1, o.width)
+    if title ~= title_clip then
+        title = utf8_subwidth(title_clip, 1, o.width - 2) .. "..."
+    end
+    return string.format('%s\t%s', title, hint:upper())
 end
 
 function remove_deleted()
@@ -255,6 +266,7 @@ function write_json()
 
     json_file:write(json)
     json_file:close()
+    update_dyn_menu_items()
 end
 
 function append_item(path, filename, title)
@@ -273,7 +285,7 @@ function append_item(path, filename, title)
         local opath = value.value[2]
         if #new_items < o.length and
             opath ~= path and
-            not is_same_series(filename, ofilename, path, opath)
+            not is_same_series(path, opath)
         then
             new_items[#new_items + 1] = value
         end
@@ -288,6 +300,22 @@ function open_menu()
     mp.commandv('script-message-to', 'uosc', 'open-menu', json)
 end
 
+function update_dyn_menu_items()
+    if #menu.items == 0 then
+        read_json()
+    end
+    local submenu = {}
+    local menu_items = menu.items
+    for _, item in ipairs(menu_items) do
+        submenu[#submenu + 1] = {
+            title = get_dyn_menu_title(item.title, item.hint, item.value[2]),
+            cmd = string.format("%s '%s'", item.value[1], item.value[2]),
+        }
+    end
+    dyn_menu.submenu = submenu
+    mp.commandv('script-message-to', 'dyn_menu', 'update', 'recent', utils.format_json(dyn_menu))
+end
+
 function play_last()
     read_json()
     if menu.items[1] then
@@ -298,9 +326,8 @@ end
 function on_load()
     local path = mp.get_property("path")
     if not path then return end
-    if not is_protocol(path) then path = path:gsub("\\", "/") end
     local filename = mp.get_property("filename")
-    local filename_without_ext = get_filename_without_ext(filename)
+    local dir, filename_without_ext, ext = split_path(filename)
     local title = mp.get_property("media-title") or path
     if filename == title or filename_without_ext == title then
         title = ""
@@ -322,3 +349,5 @@ mp.add_key_binding(nil, "open", open_menu)
 mp.add_key_binding(nil, "last", play_last)
 mp.register_event("file-loaded", on_load)
 mp.register_event("end-file", on_end)
+
+mp.register_script_message('menu-ready', update_dyn_menu_items)
