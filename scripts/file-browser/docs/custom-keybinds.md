@@ -74,16 +74,18 @@ In this case the the keybind would look like the following:
 
 The script will scan every string in the command for the special substitution strings, they are:
 
-| code | description                                                         |
-|------|---------------------------------------------------------------------|
-| %%   | escape code for `%`                                                 |
-| %f   | filepath of the selected item                                       |
-| %n   | filename of the selected item                                       |
-| %p   | currently open directory                                            |
-| %d   | name of the current directory (characters between the last two '/') |
-| %r   | name of the parser for the currently open directory                 |
-| %i   | the 1-based index of the selected item in the list                  |
-| %j   | the 1-based index of the item in a multiselection - returns 1 for single selections |
+| code   | description                                                         |
+|--------|---------------------------------------------------------------------|
+| `%%`   | escape code for `%`                                                 |
+| `%f`   | filepath of the selected item                                       |
+| `%n`   | filename of the selected item                                       |
+| `%p`   | currently open directory                                            |
+| `%q`   | currently open directory but preferring the directory label         |
+| `%d`   | name of the current directory (characters between the last two '/') |
+| `%r`   | name of the parser for the currently open directory                 |
+| `%x`   | number of items in the currently open directory                     |
+| `%i`   | the 1-based index of the selected item in the list                  |
+| `%j`   | the 1-based index of the item in a multiselection - returns 1 for single selections |
 
 Additionally, using the uppercase forms of those codes will send the substituted string through the `string.format("%q", str)` function.
 This adds double quotes around the string and automatically escapes any characters which would break the string encapsulation.

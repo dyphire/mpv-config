@@ -2,13 +2,14 @@ local utils = require("mp.utils")
 local options = require("mp.options")
 
 local o = {
+    enabled = true,
     path = "~~/recent.json",
     title = 'Recently played',
     length = 10,
     width = 88,
     ignore_same_series = true,
 }
-options.read_options(o)
+options.read_options(o, _, function() end)
 
 local path = mp.command_native({ "expand-path", o.path })
 
@@ -19,6 +20,7 @@ local menu = {
 }
 
 local dyn_menu = {
+    ready = false,
     type = 'submenu',
     submenu = {}
 }
@@ -59,7 +61,7 @@ function utf8_to_table(str)
     return t
 end
 
-function utf8_subwidth(str, indexStart, indexEnd)
+function utf8_substring(str, indexStart, indexEnd)
     if indexStart > indexEnd then
         return str
     end
@@ -173,45 +175,31 @@ function is_same_series(path1, path2)
     local dir1, filename1, extension1 = split_path(path1)
     local dir2, filename2, extension2 = split_path(path2)
 
-    -- in same folder
-    if dir1 == dir2 then
-        -- same filename but different extensions
-        if filename1 == filename2 then
-            return false
-        end
+    -- don't remove files are not in same folder
+    if dir1 ~= dir2 then
+        return false
+    end
 
-        -- by episode
-        local episode1 = filename1:gsub("^[%[%(]+.-[%]%)]+[%s%[]*", ""):match("(.-%D+)0*%d+")
-        local episode2 = filename2:gsub("^[%[%(]+.-[%]%)]+[%s%[]*", ""):match("(.-%D+)0*%d+")
-        if episode1 and episode2 and episode1 == episode2 then
-            return true
-        end
+    -- don't remove same filename but different extensions
+    if filename1 == filename2 then
+        return false
+    end
 
-        -- by similarity
-        local threshold = 0.8
-        local similarity = jaro_winkler_distance(filename1, filename2)
-        if similarity > threshold then
-            return true
-        end
+    -- by episode
+    local episode1 = filename1:gsub("^[%[%(]+.-[%]%)]+[%s%[]*", ""):match("(.-%D+)0*%d+")
+    local episode2 = filename2:gsub("^[%[%(]+.-[%]%)]+[%s%[]*", ""):match("(.-%D+)0*%d+")
+    if episode1 and episode2 and episode1 == episode2 then
+        return true
+    end
+
+    -- by similarity
+    local threshold = 0.8
+    local similarity = jaro_winkler_distance(filename1, filename2)
+    if similarity > threshold then
+        return true
     end
 
     return false
-end
-
-function get_dyn_menu_title(title, hint, path)
-    if is_protocol(path) then
-        local protocol = path:match("^(%a[%w.+-]-)://")
-        hint = protocol
-    else
-        local dir, filename, extension = split_path(path)
-        title = filename
-        hint = extension
-    end
-    local title_clip = utf8_subwidth(title, 1, o.width)
-    if title ~= title_clip then
-        title = utf8_subwidth(title_clip, 1, o.width - 2) .. "..."
-    end
-    return string.format('%s\t%s', title, hint:upper())
 end
 
 function remove_deleted()
@@ -266,25 +254,19 @@ function write_json()
 
     json_file:write(json)
     json_file:close()
-    update_dyn_menu_items()
+
+    if dyn_menu.ready then
+        update_dyn_menu_items()
+    end
 end
 
 function append_item(path, filename, title)
-    if title and title ~= "" then
-        local width
-        filename, width = utf8_subwidth(filename, 1, o.width * 0.618)
-        title = utf8_subwidth(title, 1, o.width - width)
-    else
-        filename = utf8_subwidth(filename, 1, o.width)
-    end
-
     local new_items = { { title = filename, hint = title, value = { "loadfile", path } } }
     read_json()
     for index, value in ipairs(menu.items) do
-        local ofilename = value.title
         local opath = value.value[2]
         if #new_items < o.length and
-            opath ~= path and
+            path ~= opath and
             not is_same_series(path, opath)
         then
             new_items[#new_items + 1] = value
@@ -298,6 +280,22 @@ function open_menu()
     read_json()
     local json = utils.format_json(menu)
     mp.commandv('script-message-to', 'uosc', 'open-menu', json)
+end
+
+function get_dyn_menu_title(title, hint, path)
+    if is_protocol(path) then
+        local protocol = path:match("^(%a[%w.+-]-)://")
+        hint = protocol
+    else
+        local dir, filename, extension = split_path(path)
+        title = filename
+        hint = extension
+    end
+    local title_clip = utf8_substring(title, 1, o.width)
+    if title ~= title_clip then
+        title = utf8_substring(title_clip, 1, o.width - 2) .. "..."
+    end
+    return string.format('%s\t%s', title, hint:upper())
 end
 
 function update_dyn_menu_items()
@@ -324,8 +322,11 @@ function play_last()
 end
 
 function on_load()
+    current_item = { nil, nil, nil }
+    if not o.enabled then return end
     local path = mp.get_property("path")
     if not path then return end
+    if not is_protocol(path) then path = path:gsub("\\", "/") end
     local filename = mp.get_property("filename")
     local dir, filename_without_ext, ext = split_path(filename)
     local title = mp.get_property("media-title") or path
@@ -335,14 +336,25 @@ function on_load()
     if is_protocol(path) and title and title ~= "" then
         filename, title = title, filename
     end
+    if title and title ~= "" then
+        local width
+        filename, width = utf8_substring(filename, 1, o.width * 0.618)
+        title = utf8_substring(title, 1, o.width - width)
+    else
+        filename = utf8_substring(filename, 1, o.width)
+    end
     current_item = { path, filename, title }
-    append_item(path, filename, title)
+    append_item(unpack(current_item))
 end
 
 function on_end(e)
-    if e and e.reason and e.reason == "quit" then
-        append_item(current_item[1], current_item[2], current_item[3])
+    if not (e and e.reason and e.reason == "quit") then
+        return
     end
+    if not current_item[1] then
+        return
+    end
+    append_item(unpack(current_item))
 end
 
 mp.add_key_binding(nil, "open", open_menu)
@@ -350,4 +362,7 @@ mp.add_key_binding(nil, "last", play_last)
 mp.register_event("file-loaded", on_load)
 mp.register_event("end-file", on_end)
 
-mp.register_script_message('menu-ready', update_dyn_menu_items)
+mp.register_script_message('menu-ready', function()
+    dyn_menu.ready = true
+    update_dyn_menu_items()
+end)

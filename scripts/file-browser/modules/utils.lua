@@ -30,7 +30,8 @@ if not table.pack then
     end
 end
 
--- returns true if the given item exists inside the given table
+-- returns the index of the given item in the table
+-- return -1 if item does not exist
 function API.list.indexOf(t, item, from_index)
     for i = from_index or 1, #t, 1 do
         if t[i] == item then return i end
@@ -352,5 +353,72 @@ function API.copy_table(t, depth)
     --this is to handle cyclic table references
     return copy_table_recursive(t, {}, depth or math.huge)
 end
+
+--format the item string for either single or multiple items
+local function create_item_string(base_code_fn, items, state, cmd, quoted)
+    if not items[1] then return end
+    local func = quoted and function(...) return ("%q"):format(base_code_fn(...)) end or base_code_fn
+
+    local out = {}
+    for _, item in ipairs(items) do
+        table.insert(out, func(item, state))
+    end
+
+    return table.concat(out, cmd['concat-string'] or ' ')
+end
+
+--functions to replace custom-keybind codes
+API.code_fns = {
+    ["%"] = "%",
+
+    f = function(item, s) return item and API.get_full_path(item, s.directory) or "" end,
+    n = function(item, s) return item and (item.label or item.name) or "" end,
+    i = function(item, s) local i = API.list.indexOf(s.list, item) ; return i ~= -1 and i or 0 end,
+    j = function (item, s) return API.list.indexOf(s.list, item) ~= -1 and math.abs(API.list.indexOf( API.sort_keys(s.selection) , item)) or 0 end,
+
+    x = function(_, s) return #s.list or 0 end,
+    p = function(_, s) return s.directory or "" end,
+    q = function(_, s) return s.directory == '' and 'ROOT' or s.directory_label or s.directory or "" end,
+    d = function(_, s) return (s.directory_label or s.directory):match("([^/]+)/?$") or "" end,
+    r = function(_, s) return s.parser.keybind_name or s.parser.name or "" end,
+}
+
+-- programatically creates a pattern that matches any key code
+-- this will result in some duplicates but that shouldn't really matter
+function API.get_code_pattern(codes)
+    local CUSTOM_KEYBIND_CODES = ""
+    for key in pairs(codes) do CUSTOM_KEYBIND_CODES = CUSTOM_KEYBIND_CODES..key:lower()..key:upper() end
+    for key in pairs((getmetatable(codes) or {}).__index or {}) do CUSTOM_KEYBIND_CODES = CUSTOM_KEYBIND_CODES..key:lower()..key:upper() end
+    return('%%%%([%s])'):format(API.pattern_escape(CUSTOM_KEYBIND_CODES))
+end
+
+-- substitutes codes in the given string for other substrings
+-- overrides is a map of characters->strings|functions that determines the replacement string is
+-- item and state are values passed to functions in the map
+-- modifier_fn is given the replacement substrings before they are placed in the main string (the return value is the new replacement string)
+function API.substitute_codes(str, overrides, item, state, modifier_fn)
+    local replacers = overrides and setmetatable(API.copy_table(overrides), {__index = API.code_fns}) or API.code_fns
+    item = item or g.state.list[g.state.selected]
+    state = state or g.state
+
+    return (string.gsub(str, API.get_code_pattern(replacers), function(code)
+        local result
+
+        if type(replacers[code]) == "string" then
+            result = replacers[code]
+        --encapsulates the string if using an uppercase code
+        elseif not replacers[code] then
+            local lower_fn = replacers[code:lower()]
+            if not lower_fn then return end
+            result = string.format("%q", lower_fn(item, state))
+        else
+            result = replacers[code](item, state)
+        end
+
+        if modifier_fn then return modifier_fn(result) end
+        return result
+    end))
+end
+
 
 return API

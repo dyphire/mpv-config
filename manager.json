@@ -100,7 +100,12 @@
   },
   {
     "git":"https://github.com/CogentRedTester/mpv-file-browser",
-    "whitelist":"file%-browser%.lua$",
+    "whitelist":"main%.lua$|readme%.md$|doc|modules",
+    "dest":"~~/scripts/file-browser"
+  },
+  {
+    "git":"https://github.com/CogentRedTester/mpv-clipboard",
+    "whitelist":"%.lua$",
     "dest":"~~/scripts"
   },
   {

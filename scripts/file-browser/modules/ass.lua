@@ -48,6 +48,11 @@ local function highlight_entry(v)
     end
 end
 
+-- escape ass values and replace newlines
+local function ass_escape(str)
+    return API.ass_escape(str, true)
+end
+
 --refreshes the ass text using the contents of the list
 local function update_ass()
     if state.hidden then state.flag_update = true ; return end
@@ -57,8 +62,7 @@ local function update_ass()
     local dir_name = state.directory_label or state.directory
     if dir_name == "" then dir_name = "ROOT" end
     append(style.header)
-    append(API.ass_escape(dir_name, style.cursor.."\\\239\187\191n"..style.header))
-    append('\\N ----------------------------------------------------')
+    append(API.substitute_codes(o.format_string_header, nil, nil, nil, ass_escape))
     newline()
 
     if #state.list < 1 then
@@ -91,8 +95,14 @@ local function update_ass()
     --this is necessary when the number of items in the dir is less than the max
     if not overflow then finish = #state.list end
 
+    -- these are the number values to place into the wrappers
+    local wrapper_overrides = {['<'] = tostring(start-1), ['>'] = tostring(#state.list-finish)}
+
     --adding a header to show there are items above in the list
-    if start > 1 then append(style.footer_header, (start-1), ' item(s) above\\N\\N') end
+    if o.format_string_topwrapper ~= '' and start > 1 then
+        append(style.footer_header, API.substitute_codes(o.format_string_topwrapper, wrapper_overrides, nil, nil, ass_escape))
+        newline()
+    end
 
     for i=start, finish do
         local v = state.list[i]
@@ -132,11 +142,14 @@ local function update_ass()
         end
 
         --adds the actual name of the item
-        append(v.ass or API.ass_escape(v.label or v.name, true))
+        append(v.ass or ass_escape(v.label or v.name))
         newline()
     end
 
-    if overflow then append('\\N', style.footer_header, #state.list-finish, ' item(s) remaining') end
+    if o.format_string_bottomwrapper ~= '' and overflow then
+        append(style.footer_header)
+        append(API.substitute_codes(o.format_string_bottomwrapper, wrapper_overrides, nil, nil, ass_escape))
+    end
 
     flush_buffer()
     draw()

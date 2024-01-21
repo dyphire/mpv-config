@@ -104,7 +104,10 @@ defaults = {
 	ziggy_path = 'default',
 }
 options = table_copy(defaults)
-opt.read_options(options, 'uosc', function(_)
+opt.read_options(options, 'uosc', function(changed_options)
+	if changed_options.time_precision then
+		timestamp_zero_rep_clear_cache()
+	end
 	update_config()
 	update_human_times()
 	Manager:disable('user', options.disable_elements)

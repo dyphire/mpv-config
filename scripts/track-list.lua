@@ -1,5 +1,5 @@
 --[[
-    * track-list.lua v.2024-01-15
+    * track-list.lua v.2024-01-20
     *
     * AUTHORS: dyphire
     * License: MIT
@@ -80,8 +80,8 @@ list.selected_style = o.selected_style
 --escape header specifies the format
 --display the cursor position and the total number of lists in the header
 function list:format_header_string(str)
-    if #list.list > 0 then
-        str = str:gsub("%%(%a+)%%", { cursor = list.selected, total = #list.list })
+    if #list.list > 1 then
+        str = str:gsub("%%(%a+)%%", { cursor = list.selected - 1, total = #list.list - 1 })
     else str = str:gsub("%[.*%]", "") end
     return str
 end

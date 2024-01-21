@@ -93,6 +93,10 @@ local o = {
     alignment = 7,
 
     --style settings
+    format_string_header = '%q\\N----------------------------------------------------',
+    format_string_topwrapper = '%< item(s) above\\N',
+    format_string_bottomwrapper = '\\N%> item(s) remaining',
+
     font_bold_header = true,
     font_opacity_selection_marker = "99",
 

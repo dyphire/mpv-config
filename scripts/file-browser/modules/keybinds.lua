@@ -42,62 +42,31 @@ g.state.keybinds = {
 local top_level_keys = {}
 
 --format the item string for either single or multiple items
-local function create_item_string(fn)
-    local quoted_fn = function(...) return ("%q"):format(fn(...)) end
-    return function(cmd, items, state, code)
-        if not items[1] then return end
-        local func = code == code:upper() and quoted_fn or fn
+local function create_item_string(base_code_fn, items, state, cmd, quoted)
+    if not items[1] then return end
+    local func = quoted and function(...) return ("%q"):format(base_code_fn(...)) end or base_code_fn
 
-        local str = func(cmd, items[1], state, code)
-        for i = 2, #items, 1 do
-            str = str .. ( cmd["concat-string"] or " " ) .. func(cmd, items[i], state, code)
-        end
-        return str
+    local out = {}
+    for _, item in ipairs(items) do
+        table.insert(out, func(item, state))
     end
+
+    return table.concat(out, cmd['concat-string'] or ' ')
 end
 
---functions to replace custom-keybind codes
-local code_fns
-code_fns = {
-    ["%"] = "%",
-
-    f = create_item_string(function(_, item, s) return item and API.get_full_path(item, s.directory) or "" end),
-    n = create_item_string(function(_, item, _) return item and (item.label or item.name) or "" end),
-    i = create_item_string(function(_, item, s) return API.list.indexOf(s.list, item) end),
-    j = create_item_string(function(_, item, s) return math.abs(API.list.indexOf( API.sort_keys(s.selection) , item)) end),
-
-    p = function(_, _, s) return s.directory or "" end,
-    d = function(_, _, s) return (s.directory_label or s.directory):match("([^/]+)/?$") or "" end,
-    r = function(_, _, s) return s.parser.keybind_name or s.parser.name or "" end,
-}
-
---codes that are specific to individual items require custom encapsulation behaviour
---hence we need to manually specify the uppercase codes in the table
-code_fns.F = code_fns.f
-code_fns.N = code_fns.n
-code_fns.I = code_fns.i
-code_fns.J = code_fns.j
-
---programatically creates a pattern that matches any key code
---this will result in some duplicates but that shouldn't really matter
-local CUSTOM_KEYBIND_CODES = ""
-for key in pairs(code_fns) do CUSTOM_KEYBIND_CODES = CUSTOM_KEYBIND_CODES..key:lower()..key:upper() end
-local KEYBIND_CODE_PATTERN = ('%%%%([%s])'):format(API.ass_escape(CUSTOM_KEYBIND_CODES))
+local KEYBIND_CODE_PATTERN = API.get_code_pattern(API.code_fns)
+local item_specific_codes = 'fnij'
 
 --substitutes the key codes for the 
 local function substitute_codes(str, cmd, items, state)
-    return string.gsub(str, KEYBIND_CODE_PATTERN, function(code)
-        if type(code_fns[code]) == "string" then return code_fns[code] end
+    local overrides = {}
 
-        --encapsulates the string if using an uppercase code
-        if not code_fns[code] then
-            local lower = code_fns[code:lower()]
-            if not lower then return end
-            return string.format("%q", lower(cmd, items, state, code))
-        end
+    for code in item_specific_codes:gmatch('.') do
+        overrides[code] = function(_,s) return create_item_string(API.code_fns[code], items, s, cmd) end
+        overrides[code:upper()] = function(_,s) return create_item_string(API.code_fns[code], items, s, cmd, true) end
+    end
 
-        return code_fns[code](cmd, items, state, code)
-    end)
+    return API.substitute_codes(str, overrides, items[1], state)
 end
 
 --iterates through the command table and substitutes special
@@ -129,7 +98,7 @@ end
 --returns true if the given code set has item specific codes (%f, %i, etc)
 local function has_item_codes(codes)
     for code in pairs(codes) do
-        if code_fns[code:upper()] then return true end
+        if item_specific_codes:find(code:lower(), 1, true) then return true end
     end
     return false
 end
