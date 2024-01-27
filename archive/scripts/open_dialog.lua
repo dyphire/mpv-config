@@ -1,4 +1,4 @@
--- Copyright (c) 2023 dyphire <qimoge@gmail.com>
+-- Copyright (c) 2022-2024 dyphire <qimoge@gmail.com>
 -- License: MIT
 -- link: https://github.com/dyphire/mpv-scripts
 
