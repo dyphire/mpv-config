@@ -101,14 +101,13 @@ local function acquire_subtitles()
     local sub_visibility = mp.get_property_bool(sub_strings.visibility)
     mp.set_property_bool(sub_strings.visibility, false)
 
-    -- ensure we're at some subtitle
+    -- go to the first subtitle line
+    mp.commandv('set', sub_strings.delay, mp.get_property_number('duration', 0) + 365 * 24 * 60 * 60)
     mp.commandv('sub-step', 1, sub_strings.step)
-    mp.commandv('sub-step', -1, sub_strings.step)
 
-    -- find first one
+    -- this shouldn't be necessary, but it's kept just in case there actually
+    -- are subtitles further in the past then the huge delay used above
     local retry_delay = sub_delay
-    -- if we're not at the very beginning
-    -- this missies the first subtitle for some reason
     while true do
         mp.commandv('sub-step', -1, sub_strings.step)
         local delay = mp.get_property_number(sub_strings.delay)

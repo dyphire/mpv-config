@@ -512,3 +512,14 @@ if #menu_items > 0 then
 else
     mp.observe_property(menu_prop, 'native', menu_data_cb)
 end
+
+mp.register_script_message('menu-open', function()
+    mp.add_forced_key_binding('MBTN_LEFT', 'click_ignore')
+end)
+
+mp.register_script_message('menu-close', function()
+    local sec = mp.get_property_number("input-doubleclick-time", 300) / 1000
+    mp.add_timeout(sec, function()
+        mp.remove_key_binding('click_ignore')
+    end)
+end)
