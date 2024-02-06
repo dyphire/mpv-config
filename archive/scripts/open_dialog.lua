@@ -253,18 +253,23 @@ end
 
 -- open for clipboard
 local function import_clipboard(type)
-    local clip = get_clipboard()
-    local meta = utils.file_info(clip)
+    local clip = get_clipboard():gsub("^[\'\"]", ""):gsub("[\'\"]$", "")
     if clip ~= '' then
         if clip:find('^%a[%w.+-]-://') then
             mp.commandv('loadfile', clip)
-        elseif meta.is_dir then
-            open_folder(clip)
-        elseif meta.is_file then
-            open_files(clip, type, 1, true)
         else
-            mp.osd_message('Clipboard is not a valid URL or file path')
-            msg.warn('Clipboard is not a valid URL or file path')
+            local meta = utils.file_info(clip)
+            if not meta then
+                mp.osd_message('Clipboard is not a valid URL or file path')
+                msg.warn('Clipboard is not a valid URL or file path')
+            elseif meta.is_dir then
+                open_folder(clip)
+            elseif meta.is_file then
+                open_files(clip, type, 1, true)
+            else
+                mp.osd_message('Clipboard is not a valid URL or file path')
+                msg.warn('Clipboard is not a valid URL or file path')
+            end
         end
     else
         mp.osd_message('Clipboard is empty')
