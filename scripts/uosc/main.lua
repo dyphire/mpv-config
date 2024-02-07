@@ -1,5 +1,5 @@
 --[[ uosc | https://github.com/tomasklaen/uosc ]]
-local uosc_version = '5.1.1'
+local uosc_version = '5.2.0'
 
 mp.commandv('script-message', 'uosc-version', uosc_version)
 
@@ -593,14 +593,17 @@ if options.click_threshold > 0 then
 		if delta > 0 and delta < click_time and delta > 0.02 then mp.command(options.click_command) end
 	end)
 	click_timer:kill()
-	mp.set_key_bindings({{'mbtn_left',
-		function() last_up = mp.get_time() end,
-		function()
-			last_down = mp.get_time()
-			if click_timer:is_enabled() then click_timer:kill() else click_timer:resume() end
-		end,
-	}}, 'mouse_movement', 'force')
-	mp.enable_key_bindings('mouse_movement', 'allow-vo-dragging+allow-hide-cursor')
+	local function handle_up() last_up = mp.get_time() end
+	local function handle_down()
+		last_down = mp.get_time()
+		if click_timer:is_enabled() then click_timer:kill() else click_timer:resume() end
+	end
+	-- If this function exists, it'll be called at the beginning of render().
+	function setup_click_detection()
+		local hitbox = {ax = 0, ay = 0, bx = display.width, by = display.height, window_drag = true}
+		cursor:zone('primary_down', hitbox, handle_down)
+		cursor:zone('primary_up', hitbox, handle_up)
+	end
 end
 
 mp.observe_property('osc', 'bool', function(name, value) if value == true then mp.set_property('osc', 'no') end end)
@@ -845,7 +848,7 @@ bind_command('keybinds', function()
 	if Menu:is_open('keybinds') then
 		Menu:close()
 	else
-		open_command_menu({type = 'keybinds', items = get_keybinds_items(), palette = true})
+		open_command_menu({type = 'keybinds', items = get_keybinds_items(), search_style = 'palette'})
 	end
 end)
 bind_command('download-subtitles', open_subtitle_downloader)

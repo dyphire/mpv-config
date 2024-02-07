@@ -16,7 +16,7 @@ function TopBarButton:init(id, props)
 	self.command = props.command
 end
 
-function TopBarButton:handle_cursor_down()
+function TopBarButton:handle_click()
 	mp.command(type(self.command) == 'function' and self.command() or self.command)
 end
 
@@ -29,7 +29,7 @@ function TopBarButton:render()
 	if self.proximity_raw == 0 then
 		ass:rect(self.ax, self.ay, self.bx, self.by, {color = self.background, opacity = visibility})
 	end
-	cursor:zone('primary_down', self, function() self:handle_cursor_down() end)
+	cursor:zone('primary_click', self, function() self:handle_click() end)
 
 	local width, height = self.bx - self.ax, self.by - self.ay
 	local icon_size = math.min(width, height) * 0.5
@@ -199,6 +199,7 @@ function TopBar:render()
 	if state.title or state.has_playlist then
 		local bg_margin = math.floor((self.size - self.font_size) / 4)
 		local padding = self.font_size / 2
+		local spacing = 1
 		local title_ax = self.ax + bg_margin
 		local title_ay = self.ay + bg_margin
 		local max_bx = self.title_bx - self.spacing
@@ -226,7 +227,7 @@ function TopBar:render()
 			title_ax = rect.bx + bg_margin
 
 			-- Click action
-			cursor:zone('primary_down', rect, function() mp.command('script-binding uosc/playlist') end)
+			cursor:zone('primary_click', rect, function() mp.command('script-binding uosc/playlist') end)
 		end
 
 		-- Skip rendering titles if there's not enough horizontal space
@@ -248,14 +249,14 @@ function TopBar:render()
 				local title_rect = {ax = title_ax, ay = title_ay, bx = bx, by = by}
 
 				if options.top_bar_alt_title_place == 'toggle' then
-					cursor:zone('primary_down', title_rect, function() self:toggle_title() end)
+					cursor:zone('primary_click', title_rect, function() self:toggle_title() end)
 				end
 
 				ass:rect(title_rect.ax, title_rect.ay, title_rect.bx, title_rect.by, {
 					color = bg, opacity = visibility * config.opacity.title, radius = state.radius,
 				})
 				ass:txt(title_ax + padding, self.ay + (self.size / 2), 4, main_title, opts)
-				title_ay = by + 1
+				title_ay = by + spacing
 			end
 
 			-- Alt title
@@ -277,14 +278,19 @@ function TopBar:render()
 					color = bg, opacity = visibility * config.opacity.title, radius = state.radius,
 				})
 				ass:txt(title_ax + padding, title_ay + height / 2, 4, self.alt_title, opts)
-				title_ay = by + 1
+				title_ay = by + spacing
 			end
 
-			-- Subtitle: current chapter
+			-- Current chapter
 			if state.current_chapter then
+				local padding_half = round(padding / 2)
 				local font_size = self.font_size * 0.8
 				local height = font_size * 1.3
 				local text = '└ ' .. state.current_chapter.index .. ': ' .. state.current_chapter.title
+				local next_chapter = state.chapters[state.current_chapter.index + 1]
+				local chapter_end = next_chapter and next_chapter.time or state.duration or 0
+				local remaining_time = (state.time and state.time or 0) - chapter_end
+				local remaining_human = format_time(remaining_time, math.abs(remaining_time))
 				local opts = {
 					size = font_size,
 					italic = true,
@@ -294,10 +300,17 @@ function TopBar:render()
 					border_color = bg,
 					opacity = visibility * 0.8,
 				}
+				local remaining_width = timestamp_width(remaining_human, opts)
+				local remaining_box_width = remaining_width + padding_half * 2
+
+				-- Title
 				local rect = {
 					ax = title_ax,
 					ay = title_ay,
-					bx = round(math.min(max_bx, title_ax + text_width(text, opts) + padding * 2)),
+					bx = round(math.min(
+						max_bx - remaining_box_width - spacing,
+						title_ax + text_width(text, opts) + padding * 2
+					)),
 					by = title_ay + height,
 				}
 				opts.clip = string.format('\\clip(%d, %d, %d, %d)', title_ax, title_ay, rect.bx, rect.by)
@@ -305,10 +318,20 @@ function TopBar:render()
 					color = bg, opacity = visibility * config.opacity.title, radius = state.radius,
 				})
 				ass:txt(rect.ax + padding, rect.ay + height / 2, 4, text, opts)
-				title_ay = rect.by + 1
 
 				-- Click action
-				cursor:zone('primary_down', rect, function() mp.command('script-binding uosc/chapters') end)
+				cursor:zone('primary_click', rect, function() mp.command('script-binding uosc/chapters') end)
+
+				-- Time
+				rect.ax = rect.bx + spacing
+				rect.bx = rect.ax + remaining_box_width
+				opts.clip = nil
+				ass:rect(rect.ax, rect.ay, rect.bx, rect.by, {
+					color = bg, opacity = visibility * config.opacity.title, radius = state.radius,
+				})
+				ass:txt(rect.ax + padding_half, rect.ay + height / 2, 4, remaining_human, opts)
+
+				title_ay = rect.by + spacing
 			end
 		end
 		self.title_by = title_ay - 1
