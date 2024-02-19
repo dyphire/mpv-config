@@ -149,11 +149,6 @@
     "dest":"~~/script-modules/file-browser-addons"
   },
   {
-    "git":"https://github.com/deus0ww/mpv-conf",
-    "whitelist":"fsrcnnx%_x2%_8%-0%-4%-1%.glsl$|fsrcnnx%_x2%_16%-0%-4%-1%.glsl$|fsrcnnx%_x2%_8%-0%-4%-1%_lineart%.glsl$|fsrcnnx%_x2%_16%-0%-4%-1%_enhance%.glsl$|fsrcnnx%_x2%_16%-0%-4%-1%_anime%_enhance%.glsl$",
-    "dest":"~~/shaders/igv"
-  },
-  {
     "git":"https://gist.github.com/igv/8a77e4eb8276753b54bb94c1c50c317e",
     "whitelist":"%.glsl$",
     "dest":"~~/shaders/igv"
@@ -172,11 +167,6 @@
     "git":"https://gist.github.com/igv/36508af3ffc84410fe39761d6969be10",
     "whitelist":"%.glsl$",
     "dest":"~~/shaders/igv"
-  },
-  {
-    "git":"https://github.com/TianZerL/ACNetGLSL",
-    "whitelist":"acnet%.glsl$|acnet%_hdn%_l1%.glsl$|acnet%_hdn%_l2%.glsl$|acnet%_hdn%_l3%.glsl$",
-    "dest":"~~/shaders/ACNet"
   },
   {
     "git":"https://github.com/Artoriuz/glsl-joint-bilateral",
