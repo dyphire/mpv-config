@@ -176,7 +176,8 @@
   },
   {
     "git":"https://github.com/bloc97/Anime4K",
-    "whitelist":"%.glsl$",
+    "whitelist":"%.md$|%.glsl$",
+    "blacklist":"tensorflow",
     "dest":"~~/shaders/Anime4k"
   }
 ]
