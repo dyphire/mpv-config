@@ -26,39 +26,39 @@
   },
   {
     "git":"https://github.com/dyphire/mpv-scripts",
+    "branch":"main",
     "whitelist":"chapter%-list%.lua$|chapter%-make%-read%.lua$|fix%-avsync%.lua$|mpv%-animated%.lua$|sub%_export%.lua$|track%-list%.lua$",
-    "dest":"~~/scripts",
-    "branch":"main"
+    "dest":"~~/scripts"
   },
   {
     "git":"https://github.com/dyphire/mpv-playlistmanager",
+    "branch":"dev",
     "whitelist":"playlistmanager%.lua$",
-    "dest":"~~/scripts",
-    "branch":"dev"
+    "dest":"~~/scripts"
   },
   {
     "git":"https://github.com/dyphire/chapterskip",
+    "branch":"dev",
     "whitelist":"%.lua$",
-    "dest":"~~/scripts",
-    "branch":"dev"
+    "dest":"~~/scripts"
   },
   {
     "git":"https://github.com/dyphire/Eisa01_mpv-scripts",
+    "branch":"dev",
     "whitelist":"undoredo%.lua$|simplehistory%.lua$|simplebookmark%.lua$|smartcopypaste_*%.lua$",
-    "dest":"~~/scripts",
-    "branch":"dev"
+    "dest":"~~/scripts"
   },
   {
     "git":"https://github.com/dyphire/autosubsync-mpv",
+    "branch":"v0.33_CM",
     "whitelist":"readme%.md$|%.lua$",
-    "dest":"~~/scripts/autosubsync",
-    "branch":"v0.33_CM"
+    "dest":"~~/scripts/autosubsync"
   },
   {
     "git":"https://github.com/open-dynaMIX/simple-mpv-webui",
+    "branch":"main",
     "whitelist":"readme%.md$|main%.lua$|webui%-page",
-    "dest":"~~/scripts/simple-mpv-webui",
-    "branch":"main"
+    "dest":"~~/scripts/simple-mpv-webui"
   },
   {
     "git":"https://github.com/datasone/MPVMediaControl",
@@ -83,9 +83,9 @@
   },
   {
     "git":"https://github.com/cvzi/mpv-youtube-download",
+    "branch":"main",
     "whitelist":"%.lua$",
-    "dest":"~~/scripts",
-    "branch":"main"
+    "dest":"~~/scripts"
   },
   {
     "git":"https://codeberg.org/jouni/mpv_sponsorblock_minimal",
@@ -164,15 +164,15 @@
   },
   {
     "git":"https://github.com/Artoriuz/glsl-joint-bilateral",
+    "branch":"main",
     "whitelist":"jointbilateral%.glsl$",
-    "dest":"~~/shaders/other",
-    "branch":"main"
+    "dest":"~~/shaders/other"
   },
   {
     "git":"https://github.com/Artoriuz/glsl-pixel-clipper",
+    "branch":"main",
     "whitelist":"%.glsl$",
-    "dest":"~~/shaders/other",
-    "branch":"main"
+    "dest":"~~/shaders/other"
   },
   {
     "git":"https://github.com/bloc97/Anime4K",
