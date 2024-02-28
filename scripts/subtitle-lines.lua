@@ -80,9 +80,9 @@ local function merge_subtitle_lines(subtitles, start, stop, lines)
         end
     end
 
-    -- merge identical lines that are right after each other
+    -- merge identical lines that overlap or are right after each other
     for _, subtitle in ipairs(subtitles) do
-        if same_time(subtitle.stop, start) then
+        if subtitle.stop >= start or same_time(subtitle.stop, start) then
             for i = #lines, 1, -1 do
                 if lines[i] == subtitle.line then
                     table.remove(lines, i)

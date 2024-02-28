@@ -1,5 +1,5 @@
 --[[
-    * track-list.lua v.2024-01-20
+    * track-list.lua v.2024-02-28
     *
     * AUTHORS: dyphire
     * License: MIT
@@ -61,7 +61,6 @@ opts.read_options(o)
 package.path = mp.command_native({"expand-path", "~~/script-modules/?.lua;"}) .. package.path
 local list = require "scroll-list"
 local list_type = nil
-local track_list = {}
 
 --modifying the list settings
 local original_open = list.open
@@ -293,17 +292,58 @@ add_keys(o.key_reload_track, 'reload_track', reloadTrack, {})
 add_keys(o.key_remove_track, 'remove_track', removeTrack, {})
 add_keys(o.key_close_browser, 'close_browser', function() list:close() end, {})
 
-local function toggleListDelayed(type)
-    list_type = type
+function list:open()
+    if list_type == "video" then
+        video_menu = true
+        audio_menu = false
+        sub_menu = false
+        sub2_menu = false
+    elseif list_type == "audio" then
+        video_menu = false
+        audio_menu = true
+        sub_menu = false
+        sub2_menu = false
+    elseif list_type == "sub" then
+        video_menu = false
+        audio_menu = false
+        sub_menu = true
+        sub2_menu = false
+    elseif list_type == "sub2" then
+        video_menu = false
+        audio_menu = false
+        sub_menu = false
+        sub2_menu = true
+    end
+    original_open(self)
+end
+
+local function toggleListDelayed()
     mp.add_timeout(0.1, function()
         list:toggle()
     end)
 end
 
+local function toggleList(type)
+    list_type = type
+    if type == "video" then
+        if video_menu then video_menu = false
+        else toggleListDelayed() end
+    elseif type == "audio" then
+        if audio_menu then audio_menu = false
+        else toggleListDelayed() end
+    elseif type == "sub" then
+        if sub_menu then sub_menu = false
+        else toggleListDelayed() end
+    elseif type == "sub2" then
+        if sub2_menu then sub2_menu = false
+        else toggleListDelayed() end
+    end
+end
+
 local function openTrackList(title, type, prop)
     list:close()
     updateTrackList(title, type, prop)
-    toggleListDelayed(type)
+    toggleList(type)
 end
 
 mp.register_script_message("toggle-vidtrack-browser", function()
