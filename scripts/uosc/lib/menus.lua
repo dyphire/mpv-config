@@ -143,15 +143,15 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 				if track['demux-h'] then
 					h(track['demux-w'] and (track['demux-w'] .. 'x' .. track['demux-h']) or (track['demux-h'] .. 'p'))
 				end
-				if track['demux-fps'] then h(string.format('%.5gfps', track['demux-fps'])) end
+				if track['demux-fps'] then h(string.format('%.5g fps', track['demux-fps'])) end
 				if track['codec'] then h(escape_codec(track.codec)) end
 				if track['audio-channels'] then
 					h(track['audio-channels'] == 1
 						and t('%s channel', track['audio-channels'])
 						or t('%s channels', track['audio-channels']))
 				end
-				if track['demux-samplerate'] then h(string.format('%.3gkHz', track['demux-samplerate'] / 1000)) end
-				if track['demux-bitrate'] then h(string.format('%.3gkbps', track['demux-bitrate'] / 1000)) end
+				if track['demux-samplerate'] then h(string.format('%.3g kHz', track['demux-samplerate'] / 1000)) end
+				if track['demux-bitrate'] then h(string.format('%.0f kbps', track['demux-bitrate'] / 1000)) end
 				if track.forced then h(t('forced')) end
 				if track.default then h(t('default')) end
 				if track.external then h(t('external')) end
