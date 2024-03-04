@@ -50,8 +50,10 @@ local sub_strings_available = {
     }
 }
 
+---@alias Subtitle {start:number;stop:number;line:string}
+
 local sub_strings = sub_strings_available.primary
-local function get_current_subtitle()
+local function get_current_subtitle_lines()
     local start = mp.get_property_number(sub_strings.start)
     local stop = mp.get_property_number(sub_strings['end'])
     local text = mp.get_property(sub_strings.text)
@@ -63,23 +65,15 @@ local function same_time(t1, t2)
     -- misses some merges if offset isn't doubled (0.012 already works in testing)
     return math.abs(t1 - t2) < SUB_SEEK_OFFSET * 2
 end
+
 ---Merge lines with already collected subtitles
----returns lines that haven't been merged
----@param subtitles {start:number;stop:number;line:string}[]
+---removes merged lines from the lines array
+---@param subtitles Subtitle[]
 ---@param start number
 ---@param stop number
 ---@param lines string[]
 ---@return string[]
 local function merge_subtitle_lines(subtitles, start, stop, lines)
-    -- remove duplicates in the current lines
-    for i = 1, #lines do
-        for j = #lines, i + 1, -1 do
-            if lines[i] == lines[j] then
-                table.remove(lines, j)
-            end
-        end
-    end
-
     -- merge identical lines that overlap or are right after each other
     for _, subtitle in ipairs(subtitles) do
         if subtitle.stop >= start or same_time(subtitle.stop, start) then
@@ -95,8 +89,46 @@ local function merge_subtitle_lines(subtitles, start, stop, lines)
     return lines
 end
 
+---Fix end time of already collected subtitles and finds the currect start time
+---for current lines
+---@param subtitles Subtitle[]
+---@param prev_lines string[]
+---@param lines string[]
+---@param start number
+---@param prev_start number
+---@return number
+local function fix_line_timing(subtitles, prev_lines, lines, start, prev_start)
+    -- detect subtitles appearing after their reported sub-start time
+    if start == prev_start then
+        local start_approx = mp.get_property_number('time-pos', 0) - mp.get_property_number(sub_strings.delay) - SUB_SEEK_OFFSET
+        -- 0.1s tolarance to avoid false positives
+        if start_approx - start > 0.1 then
+            start = start_approx
+        end
+    end
+    -- detect subtitle lines disappearing before their reported sub-end time.
+    for j = #prev_lines, 1, -1 do
+        local prev_line = prev_lines[j]
+        for _, line in ipairs(lines) do
+            if prev_line == line then
+                table.remove(prev_lines, j)
+            end
+        end
+    end
+    for j = #prev_lines, 1, -1 do
+        local prev_line = prev_lines[j]
+        for _, subtitle in ipairs(subtitles) do
+            if subtitle.line == prev_line and subtitle.stop > start then
+                subtitle.stop = start
+                break
+            end
+        end
+    end
+    return start
+end
+
 ---Get lines form current subtitle track
----@return {start:number;stop:number;line:string}[]
+---@return Subtitle[]
 local function acquire_subtitles()
     local sub_delay = mp.get_property_number(sub_strings.delay)
     local sub_visibility = mp.get_property_bool(sub_strings.visibility)
@@ -118,17 +150,17 @@ local function acquire_subtitles()
         retry_delay = delay
     end
 
-    ---@type {start:number;stop:number;line:string}[]
+    ---@type Subtitle[]
     local subtitles = {}
     local i = 0
     local prev_start = -1
     local prev_stop = -1
     local prev_text = nil
+    local prev_lines = {}
 
     retry_delay = nil
     while true do
-        local start, stop, text, lines = get_current_subtitle()
-        mp.commandv('sub-step', 1, sub_strings.step)
+        local start, stop, text, lines = get_current_subtitle_lines()
         if start and (text ~= prev_text or not same_time(start, prev_start) or not same_time(stop, prev_stop)) then
             -- remove empty lines
             for j = #lines, 1, -1 do
@@ -136,16 +168,32 @@ local function acquire_subtitles()
                     table.remove(lines, j)
                 end
             end
-            if #lines > 0 then
-                lines = merge_subtitle_lines(subtitles, start, stop, lines)
-                for _, line in ipairs(lines) do
-                    i = i + 1
-                    subtitles[i] = { start = start, stop = stop, line = line }
+            -- remove duplicates in the current lines
+            for j = 1, #lines do
+                for k = #lines, j + 1, -1 do
+                    if lines[j] == lines[k] then
+                        table.remove(lines, k)
+                    end
                 end
             end
-            prev_start = start
-            prev_stop = stop
-            prev_text = text
+
+            ---mpv reports the earliest sub-start and the latest sub-end of all
+            ---current lines, so a line that's there for a long time
+            ---can mess up the timing of all other current lines
+            local start_fixed = fix_line_timing(subtitles, prev_lines, lines, start, prev_start)
+
+            for j = #prev_lines, 1, -1 do
+                prev_lines[j] = nil
+            end
+            for j, line in ipairs(lines) do
+                prev_lines[j] = line
+            end
+
+            merge_subtitle_lines(subtitles, start_fixed, stop, lines)
+            for _, line in ipairs(lines) do
+                i = i + 1
+                subtitles[i] = { start = start_fixed, stop = stop, line = line }
+            end
         else
             local delay = mp.get_property_number(sub_strings.delay)
             if retry_delay == delay then
@@ -153,6 +201,10 @@ local function acquire_subtitles()
             end
             retry_delay = delay
         end
+        prev_start = start
+        prev_stop = stop
+        prev_text = text
+        mp.commandv('sub-step', 1, sub_strings.step)
     end
 
     mp.set_property_number(sub_strings.delay, sub_delay)
@@ -226,7 +278,7 @@ local function show_subtitle_list(subtitles)
 end
 
 
----@type {start:number;stop:number;line:string}[]|nil
+---@type Subtitle[]|nil
 local subtitles = nil
 
 local function sub_text_update()
