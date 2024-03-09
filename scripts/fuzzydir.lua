@@ -51,7 +51,7 @@ local utils = require 'mp.utils'
 local options = require 'mp.options'
 
 o = {
-    max_search_depth = 3,
+    max_search_depth = 1,
     discovery_threshold = 10,
     excluded_dir = [[
         []

@@ -1,4 +1,4 @@
--- subtitle-lines 1.1.0 - 2024-Feb-02
+-- subtitle-lines 1.1.1 - 2024-Mar-08
 -- https://github.com/christoph-heinrich/mpv-subtitle-lines
 --
 -- List and search subtitle lines of the selected subtitle track.
@@ -50,7 +50,7 @@ local sub_strings_available = {
     }
 }
 
----@alias Subtitle {start:number;stop:number;line:string}
+---@alias Subtitle {start:number;stop:number;line:string;timespan:string}
 
 local sub_strings = sub_strings_available.primary
 local function get_current_subtitle_lines()
@@ -68,14 +68,14 @@ end
 
 ---Merge lines with already collected subtitles
 ---removes merged lines from the lines array
----@param subtitles Subtitle[]
+---@param prev_subs_visible Subtitle[]
 ---@param start number
 ---@param stop number
 ---@param lines string[]
 ---@return string[]
-local function merge_subtitle_lines(subtitles, start, stop, lines)
+local function merge_subtitle_lines(prev_subs_visible, start, stop, lines)
     -- merge identical lines that overlap or are right after each other
-    for _, subtitle in ipairs(subtitles) do
+    for _, subtitle in ipairs(prev_subs_visible) do
         if subtitle.stop >= start or same_time(subtitle.stop, start) then
             for i = #lines, 1, -1 do
                 if lines[i] == subtitle.line then
@@ -91,13 +91,12 @@ end
 
 ---Fix end time of already collected subtitles and finds the currect start time
 ---for current lines
----@param subtitles Subtitle[]
----@param prev_lines string[]
+---@param prev_subs_visible Subtitle[]
 ---@param lines string[]
 ---@param start number
 ---@param prev_start number
 ---@return number
-local function fix_line_timing(subtitles, prev_lines, lines, start, prev_start)
+local function fix_line_timing(prev_subs_visible, lines, start, prev_start)
     -- detect subtitles appearing after their reported sub-start time
     if start == prev_start then
         local start_approx = mp.get_property_number('time-pos', 0) - mp.get_property_number(sub_strings.delay) - SUB_SEEK_OFFSET
@@ -106,21 +105,17 @@ local function fix_line_timing(subtitles, prev_lines, lines, start, prev_start)
             start = start_approx
         end
     end
-    -- detect subtitle lines disappearing before their reported sub-end time.
-    for j = #prev_lines, 1, -1 do
-        local prev_line = prev_lines[j]
-        for _, line in ipairs(lines) do
-            if prev_line == line then
-                table.remove(prev_lines, j)
+    for _, subtitle in ipairs(prev_subs_visible) do
+        if subtitle.stop > start then
+            local still_visible = false
+            for _, line in ipairs(lines) do
+                if subtitle.line == line then
+                    still_visible = true
+                    break
+                end
             end
-        end
-    end
-    for j = #prev_lines, 1, -1 do
-        local prev_line = prev_lines[j]
-        for _, subtitle in ipairs(subtitles) do
-            if subtitle.line == prev_line and subtitle.stop > start then
+            if not still_visible then
                 subtitle.stop = start
-                break
             end
         end
     end
@@ -156,12 +151,13 @@ local function acquire_subtitles()
     local prev_start = -1
     local prev_stop = -1
     local prev_text = nil
-    local prev_lines = {}
+    ---@type Subtitle[]
+    local prev_subs_visible = {}
 
     retry_delay = nil
     while true do
         local start, stop, text, lines = get_current_subtitle_lines()
-        if start and (text ~= prev_text or not same_time(start, prev_start) or not same_time(stop, prev_stop)) then
+        if start and stop and text and (text ~= prev_text or start ~= prev_start or stop ~= prev_stop) then
             -- remove empty lines
             for j = #lines, 1, -1 do
                 if not lines[j]:find('[^%s]') then
@@ -180,19 +176,23 @@ local function acquire_subtitles()
             ---mpv reports the earliest sub-start and the latest sub-end of all
             ---current lines, so a line that's there for a long time
             ---can mess up the timing of all other current lines
-            local start_fixed = fix_line_timing(subtitles, prev_lines, lines, start, prev_start)
+            local start_fixed = fix_line_timing(prev_subs_visible, lines, start, prev_start)
 
-            for j = #prev_lines, 1, -1 do
-                prev_lines[j] = nil
-            end
-            for j, line in ipairs(lines) do
-                prev_lines[j] = line
+            merge_subtitle_lines(prev_subs_visible, start_fixed, stop, lines)
+
+            for j = #prev_subs_visible, 1, -1 do
+                if prev_subs_visible[j].stop <= start_fixed then
+                    table.remove(prev_subs_visible, j)
+                end
             end
 
-            merge_subtitle_lines(subtitles, start_fixed, stop, lines)
+            local j = #prev_subs_visible
             for _, line in ipairs(lines) do
                 i = i + 1
-                subtitles[i] = { start = start_fixed, stop = stop, line = line }
+                j = j + 1
+                local subtitle = { start = start_fixed, stop = stop, line = line }
+                subtitles[i] = subtitle
+                prev_subs_visible[j] = subtitle
             end
         else
             local delay = mp.get_property_number(sub_strings.delay)
@@ -209,6 +209,11 @@ local function acquire_subtitles()
 
     mp.set_property_number(sub_strings.delay, sub_delay)
     mp.set_property_bool(sub_strings.visibility, sub_visibility)
+
+    for _, subtitle in ipairs(subtitles) do
+        subtitle.timespan = mp.format_time(subtitle.start) .. '-' .. mp.format_time(subtitle.stop)
+    end
+
     return subtitles
 end
 
@@ -252,7 +257,7 @@ local function show_subtitle_list(subtitles)
         local is_active = has_started and not has_ended
         menu.items[i] = {
             title = subtitle.line,
-            hint = mp.format_time(subtitle.start) .. '-' .. mp.format_time(subtitle.stop),
+            hint = subtitle.timespan,
             active = is_active,
             value = {
                 'seek',
