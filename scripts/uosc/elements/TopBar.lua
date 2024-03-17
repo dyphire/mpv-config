@@ -290,7 +290,8 @@ function TopBar:render()
 				local text = '└ ' .. state.current_chapter.index .. ': ' .. state.current_chapter.title
 				local next_chapter = state.chapters[state.current_chapter.index + 1]
 				local chapter_end = next_chapter and next_chapter.time or state.duration or 0
-				local remaining_time = (state.time and state.time or 0) - chapter_end
+				local remaining_time = ((state.time or 0) - chapter_end) /
+					(options.destination_time == 'time-remaining' and 1 or state.speed)
 				local remaining_human = format_time(remaining_time, math.abs(remaining_time))
 				local opts = {
 					size = font_size,
