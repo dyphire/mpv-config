@@ -1,5 +1,5 @@
 --[[
-  * chapter-make-read.lua v.2024-01-14
+  * chapter-make-read.lua v.2024-03-21
   *
   * AUTHORS: dyphire
   * License: MIT
@@ -7,7 +7,6 @@
 --]]
 
 --[[
-Copyright (c) 2023 Mariusz Libera <mariusz.libera@gmail.com>
 Copyright (c) 2023 dyphire <qimoge@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -54,7 +53,6 @@ SOFTWARE.
 
 local msg = require 'mp.msg'
 local utils = require 'mp.utils'
-local input = require 'mp.input'
 local options = require "mp.options"
 
 local o = {
@@ -84,7 +82,8 @@ local o = {
 
 options.read_options(o)
 
-if not input then
+local success, input = pcall(require, 'mp.input')
+if not success then
     -- Requires: https://github.com/CogentRedTester/mpv-user-input
     package.path = mp.command_native({"expand-path", "~~/script-modules/?.lua;"}) .. package.path
     user_input_module, input = pcall(require, "user-input-module")

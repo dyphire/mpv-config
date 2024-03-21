@@ -8,7 +8,6 @@
 ]]
 
 local msg = require 'mp.msg'
-local input = require 'mp.input'
 local opts = require("mp.options")
 
 local o = {
@@ -58,8 +57,11 @@ local paused = false
 --adding the source directory to the package path and loading the module
 package.path = mp.command_native({"expand-path", "~~/script-modules/?.lua;"}) .. package.path
 local list = require "scroll-list"
-if not input then
-  user_input_module, input = pcall(require, "user-input-module")
+
+local success, input = pcall(require, 'mp.input')
+if not success then
+    -- Requires: https://github.com/CogentRedTester/mpv-user-input
+    user_input_module, input = pcall(require, "user-input-module")
 end
 
 --modifying the list settings
