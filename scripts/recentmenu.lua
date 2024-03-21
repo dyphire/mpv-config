@@ -326,6 +326,7 @@ function on_load()
     if not o.enabled then return end
     local path = mp.get_property("path")
     if not path then return end
+    if path:match("bd://") or path:match("dvd://")  or path:match("dvb://") or path:match("cdda://") then return end
     if not is_protocol(path) then path = path:gsub("\\", "/") end
     local filename = mp.get_property("filename")
     local dir, filename_without_ext, ext = split_path(filename)
