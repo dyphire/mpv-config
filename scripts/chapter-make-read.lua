@@ -1,5 +1,5 @@
 --[[
-  * chapter-make-read.lua v.2024-03-21
+  * chapter-make-read.lua v.2024-03-24
   *
   * AUTHORS: dyphire
   * License: MIT
@@ -422,10 +422,10 @@ local function input_choice(title, chapter_index)
         input.get_user_input(change_title_callback, {
             request_text = "Chapter title:",
             default_input = title,
-            cursor_pos = #title,
+            cursor_pos = #title + 1,
         }, chapter_index)
     elseif input then
-        input_title(title, #title, chapter_index)
+        input_title(title, #title + 1, chapter_index)
     end
 end
 
@@ -468,7 +468,7 @@ local function create_chapter()
     
     if o.ask_for_title then
         local chapter_index = mp.get_property_number("chapter") + 1
-        local title = o.placeholder_title .. string.format("%02.f", chapter_index) .. " "
+        local title = o.placeholder_title .. string.format("%02.f", chapter_index)
 
         input_choice(title, chapter_index)
 

@@ -197,10 +197,10 @@ local function edit_chapter()
         input.get_user_input(change_title_callback, {
             request_text = "Chapter title:",
             default_input = title,
-            cursor_pos = #title,
+            cursor_pos = #title + 1,
         }, chapter_index + 1)
     elseif input then
-        input_title(title, #title, chapter_index + 1)
+        input_title(title, #title + 1, chapter_index + 1)
     end
 
     if o.pause_on_input then

@@ -20,11 +20,6 @@
     "dest":"~~/scripts"
   },
   {
-    "git":"https://github.com/po5/thumbfast",
-    "whitelist":"%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
     "git":"https://github.com/dyphire/mpv-scripts",
     "branch":"main",
     "whitelist":"chapter%-list%.lua$|chapter%-make%-read%.lua$|fix%-avsync%.lua$|mpv%-animated%.lua$|sub%_export%.lua$|track%-list%.lua$",

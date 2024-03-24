@@ -22,9 +22,6 @@ local options = {
     max_height = 200,
     max_width = 200,
 
-    -- Apply tone-mapping, no to disable
-    tone_mapping = "auto",
-
     -- Overlay id
     overlay_id = 42,
 
@@ -202,9 +199,6 @@ local filters_reset = {["lavfi-crop"]=true, ["crop"]=true}
 local filters_runtime = {["hflip"]=true, ["vflip"]=true}
 local filters_all = {["hflip"]=true, ["vflip"]=true, ["lavfi-crop"]=true, ["crop"]=true}
 
-local tone_mappings = {["none"]=true, ["clip"]=true, ["linear"]=true, ["gamma"]=true, ["reinhard"]=true, ["hable"]=true, ["mobius"]=true}
-local last_tone_mapping = nil
-
 local last_vf_reset = ""
 local last_vf_runtime = ""
 
@@ -317,6 +311,13 @@ end
 
 local mpv_path = options.mpv_path
 
+if mpv_path == "mpv" then
+    local frontend_name = mp.get_property_native("user-data/frontend/name")
+    if frontend_name == "mpv.net" then
+        mpv_path = mp.get_property_native("user-data/frontend/process-path")
+    end
+end
+
 if mpv_path == "mpv" and os_name == "darwin" and unique then
     -- TODO: look into ~~osxbundle/
     mpv_path = string.gsub(subprocess({"ps", "-o", "comm=", "-p", tostring(unique)}).stdout, "[\n\r]", "")
@@ -331,22 +332,6 @@ if mpv_path == "mpv" and os_name == "darwin" and unique then
                 mp.msg.warn("symlink mpv to fix Dock icons: `sudo ln -s /Applications/mpv.app/Contents/MacOS/mpv /usr/local/mpv`")
             else
                 mp.msg.warn("drag to your Applications folder and symlink mpv to fix Dock icons: `sudo ln -s /Applications/mpv.app/Contents/MacOS/mpv /usr/local/mpv`")
-            end
-        end
-    end
-end
-
-local function vo_tone_mapping()
-    local passes = mp.get_property_native("vo-passes")
-    if passes and passes["fresh"] then
-        for k, v in pairs(passes["fresh"]) do
-            for k2, v2 in pairs(v) do
-                if k2 == "desc" and v2 then
-                    local tone_mapping = string.match(v2, "([0-9a-z.-]+) tone map")
-                    if tone_mapping then
-                        return tone_mapping
-                    end
-                end
             end
         end
     end
@@ -371,26 +356,7 @@ local function vf_string(filters, full)
         end
     end
 
-    if (full and options.tone_mapping ~= "no") or options.tone_mapping == "auto" then
-        local tone_mapping = vo_tone_mapping()
-        if properties["video-params"] and (properties["video-params"]["primaries"] == "bt.2020" or tone_mapping) then
-            local tone_mapping = options.tone_mapping
-            if tone_mapping == "auto" then
-                tone_mapping = last_tone_mapping or properties["tone-mapping"]
-                if tone_mapping == "auto" and properties["current-vo"] == "gpu-next" then
-                    tone_mapping = vo_tone_mapping()
-                end
-            end
-            if not tone_mappings[tone_mapping] then
-                tone_mapping = "hable"
-            end
-            last_tone_mapping = tone_mapping
-            vf = vf.."scale=w="..effective_w..":h="..effective_h..par..",pad=w="..effective_w..":h="..effective_h..":x=-1:y=-1,format=yuv420p,"
-            .."hwupload,libplacebo=tonemapping="..tone_mapping..":colorspace=bt709:color_primaries=bt709:color_trc=bt709:format=yuv420p,hwdownload,format=bgra"
-        else
-            vf = vf.."scale=w="..effective_w..":h="..effective_h..par..",pad=w="..effective_w..":h="..effective_h..":x=-1:y=-1,format=bgra"
-        end
-    elseif full then
+    if full then
         vf = vf.."scale=w="..effective_w..":h="..effective_h..par..",pad=w="..effective_w..":h="..effective_h..":x=-1:y=-1,format=bgra"
     end
 
@@ -424,6 +390,7 @@ local info_timer = nil
 
 local function info(w, h)
     local rotate = properties["video-params"] and properties["video-params"]["rotate"]
+    local dovi_p5 = properties["video-params"] and properties["video-params"]["colormatrix"] == "dolbyvision" and properties["video-params"]["colorlevels"] == "full"
     local image = properties["current-tracks/video"] and properties["current-tracks/video"]["image"]
     local albumart = image and properties["current-tracks/video"]["albumart"]
     local cache_state = properties["demuxer-cache-state"]
@@ -436,6 +403,7 @@ local function info(w, h)
         (dir and need_ignore(excluded_dir, dir)) or
         (file_ext and exclude(file_ext:lower(), ext_blacklist)) or
         ((properties["demuxer-via-network"] or is_protocol(properties["path"]) or (properties["cache"] == "auto" and #cached_ranges > 0)) and not options.network) or
+        (dovi_p5) or
         (albumart and not options.audio) or
         (image and not albumart) or
         force_disabled
@@ -539,7 +507,6 @@ local function spawn(time)
             if spawn_waiting and (success == false or (result.status ~= 0 and result.status ~= -2)) then
                 spawned = false
                 spawn_waiting = false
-                options.tone_mapping = "no"
                 mp.msg.error("mpv subprocess create failed")
                 if not spawn_working then -- notify users of required configuration
                     if options.mpv_path == "mpv" then
@@ -557,10 +524,6 @@ local function spawn(time)
                             end
                         else
                             mp.commandv("show-text", "thumbfast: ERROR! cannot create mpv subprocess", 5000)
-                            if os_name == "windows" then
-                                mp.commandv("script-message-to", "mpvnet", "show-text", "thumbfast: ERROR! install standalone mpv, see README", 5000, 20)
-                                mp.commandv("script-message", "mpv.net", "show-text", "thumbfast: ERROR! install standalone mpv, see README", 5000, 20)
-                            end
                         end
                     else
                         mp.commandv("show-text", "thumbfast: ERROR! cannot create mpv subprocess", 5000)
@@ -873,9 +836,6 @@ end
 local function update_property_dirty(name, value)
     properties[name] = value
     dirty = true
-    if name == "tone-mapping" then
-        last_tone_mapping = nil
-    end
 end
 
 local function update_tracklist(name, value)
@@ -918,7 +878,6 @@ local function file_load()
     spawned = false
     real_w, real_h = nil, nil
     last_real_w, last_real_h = nil, nil
-    last_tone_mapping = nil
     last_seek_time = nil
     if info_timer then
         info_timer:kill()
