@@ -20,7 +20,7 @@ local o = {
     -- use hash to bookmark_name
     hash = true,
     -- set false to get playlist from directory
-    use_playlist = false,
+    use_playlist = true,
     -- specifies a whitelist of files to find in a directory
     whitelist = "3gp,amr,amv,asf,avi,avi,bdmv,f4v,flv,m2ts,m4v,mkv,mov,mp4,mpeg,mpg,ogv,rm,rmvb,ts,vob,webm,wmv",
     -- excluded directories for shared, #windows: ["X:", "Z:", "F:/Download/", "Download"]
