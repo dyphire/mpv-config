@@ -31,7 +31,7 @@ local o = {
     []
     ]]
 }
-options.read_options(o)
+options.read_options(o, _, function() end)
 
 o.excluded_dir = utils.parse_json(o.excluded_dir)
 o.included_dir = utils.parse_json(o.included_dir)
@@ -409,6 +409,7 @@ end
 
 -- creat a .history file
 local function record_history()
+    if not o.enabled then return end
     refresh_globals()
     if not path or is_protocol(path) then return end
     get_bookmark_path(dir)
