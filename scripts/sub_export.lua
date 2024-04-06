@@ -90,7 +90,7 @@ local function export_selected_subtitles()
             cmd = string.format("%s -y -hide_banner -loglevel error -i '%s' -map '%s' -vn -an -c:s copy '%s'",
                 o.ffmpeg_path, video_file, index, subtitles_file)
             windows_args = { 'powershell', '-NoProfile', '-Command', cmd }
-            unix_args = { 'bash', cmd }
+            unix_args = { '/bin/bash', '-c', cmd }
             args = is_windows and windows_args or unix_args
 
             mp.add_timeout(mp.get_property_number("osd-duration") * 0.001, process)
