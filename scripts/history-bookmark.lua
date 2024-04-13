@@ -36,8 +36,6 @@ options.read_options(o, _, function() end)
 o.excluded_dir = utils.parse_json(o.excluded_dir)
 o.included_dir = utils.parse_json(o.included_dir)
 
-local cwd_root = utils.getcwd()
-
 -- `pl` stands for playlist
 local path = nil
 local dir = nil
@@ -62,7 +60,7 @@ elseif o.history_dir:find('^/:dir%%script%%') then
 elseif o.history_dir:find('/:var%%(.*)%%') then
     local os_variable = o.history_dir:match('/:var%%(.*)%%')
     history_dir = o.history_dir:gsub('/:var%%(.*)%%', os.getenv(os_variable))
-elseif o.history_dir:find('^~') then
+else
     history_dir = mp.command_native({ "expand-path", o.history_dir }) -- Expands both ~ and ~~
 end
 
