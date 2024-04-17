@@ -216,7 +216,7 @@ local function is_valid_audio(audio, pref)
             elseif lang == "default" then
                 if audio.default then return true end
             else
-                if audio.lang and audio.lang:find(lang) then return true end
+                if audio.lang and audio.lang:lower():find(lang) then return true end
             end
         end
     end
@@ -238,7 +238,7 @@ local function is_valid_sub(sub, slang, pref)
             if not sub.forced then return false end
         else
             if sub.forced and o.explicit_forced_subs then return false end
-            if not sub.lang:find(slang) and slang ~= "*" then return false end
+            if not sub.lang:lower():find(slang) and slang ~= "*" then return false end
         end
     end
 

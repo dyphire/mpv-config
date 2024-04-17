@@ -1,143 +1,7 @@
 [
     {
-        "alang": "j[ap]n?",
-        "slang": ["chs", "sc", "cht", "tc", "chi", "zh", "und"],
-        "whitelist": ["chs&j[ap]n?"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["sc&j[ap]n?"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["cht&j[ap]n?"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["ch&j[ap]n?"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["tc&j[ap]n?"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["zh&j[ap]n?"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["中日"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["chs"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["sc"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["cht"]
-    },
-    {
-        "inherit": "^",
-        "blacklist": ["dutch"],
-        "whitelist": ["tc"]
-    },
-    {
-        "alang": "eng?",
-        "slang": ["chs", "sc", "cht", "tc", "chi", "zh", "und"],
-        "whitelist": ["chs&eng?"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["sc&eng?"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["cht&eng?"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["ch&eng?"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["tc&eng?"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["zh&eng?"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["中英"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["中上英下"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["简英"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["双语"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["特效"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["简体&英文"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["繁英"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["繁体&英文"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["繁體&英文"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["chs"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["sc"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["cht"]
-    },
-    {
-        "inherit": "^",
-        "blacklist": ["dutch"],
-        "whitelist": ["tc"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["简"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["中"]
-    },
-    {
-        "inherit": "^",
-        "whitelist": ["繁"]
-    },
-    {
         "alang": "*",
-        "slang": ["chs", "sc", "cht", "tc", "chi", "zh", "und"],
+        "slang": ["chs", "sc", "zho?%-cn", "zho?%-hans", "zho?%-tw", "cht", "tc", "zho?%-hant", "zho?%-hk", "chi", "zho?", "und"],
         "whitelist": ["chs&j[ap]n?"]
     },
     {
@@ -280,7 +144,7 @@
     },
     {
         "alang": "*",
-        "slang": ["chi", "zh", "und"],
+        "slang": ["chi", "zho?", "und"],
         "whitelist": ["simplified"]
     },
     {
@@ -289,11 +153,31 @@
     },
     {
         "alang": "*",
+        "slang": "zho?%-cn"
+    },
+    {
+        "alang": "*",
+        "slang": "zho?%-hans"
+    },
+    {
+        "alang": "*",
+        "slang": "zho?%-hant"
+    },
+    {
+        "alang": "*",
+        "slang": "zho?%-hk"
+    },
+    {
+        "alang": "*",
+        "slang": "zho?%-tw"
+    },
+    {
+        "alang": "*",
         "slang": "chi"
     },
     {
         "alang": "*",
-        "slang": "zh"
+        "slang": "zho?"
     },
     {
         "alang": "*",
