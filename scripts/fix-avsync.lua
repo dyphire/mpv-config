@@ -11,10 +11,11 @@ local function fix_avsync()
     local vid = mp.get_property_number("vid")
     local image = mp.get_property_native("current-tracks/video/image", false)
     local albumart = image and mp.get_property_native("current-tracks/video/albumart", false)
+    local path = mp.get_property("path", "")
     local paused = mp.get_property_native("pause")
     local muted = mp.get_property_native("mute")
 
-    if not aid or not vid or image or albumart then return end
+    if path:find('^%a[%w.+-]-://') ~= nil or not aid or not vid or image or albumart then return end
     msg.info("fix A/V sync.")
     mp.commandv("frame-step")
     if not muted then mp.set_property_native("mute", true) end
