@@ -245,7 +245,7 @@ local function build_track_items(list, type, prop, prefix)
 
             items[#items + 1] = {
                 title = build_track_title(track, prefix, filename),
-                shortcut = (track.lang and track.lang ~= '') and track.lang:upper() or nil,
+                shortcut = (track.lang and track.lang ~= '') and track.lang or nil,
                 cmd = string.format('set %s %d', prop, track.id),
                 state = state,
             }
