@@ -1,7 +1,7 @@
 [
     {
         "alang": "*",
-        "slang": ["chs", "sc", "zho?%-cn", "zho?%-hans", "zho?%-tw", "cht", "tc", "zho?%-hant", "zho?%-hk", "chi", "zho?", "und"],
+        "slang": ["chs", "sc", "zho?%-cn", "zho?%-hans", "cht", "tc", "zho?%-hant", "zho?%-tw", "zho?%-hk", "zho?%-", "chi", "zho?", "und"],
         "whitelist": ["chs&j[ap]n?"]
     },
     {
@@ -170,6 +170,10 @@
     {
         "alang": "*",
         "slang": "zho?%-tw"
+    },
+    {
+        "alang": "*",
+        "slang": "zho?%-"
     },
     {
         "alang": "*",
