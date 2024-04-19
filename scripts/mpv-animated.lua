@@ -9,7 +9,6 @@
 
 --  Note:
 --     Requires FFmpeg in PATH environment variable or edit ffmpeg_path in the script options,
---     for example, by replacing "ffmpeg" with "C:\Programs\ffmpeg\bin\ffmpeg.exe"
 --  Note: 
 --     A small circle at the top-right corner is a sign that creat is happenning now.
 
@@ -18,7 +17,7 @@ local msg = require 'mp.msg'
 local utils = require "mp.utils"
 
 local options = {
-    type = "webp",
+    type = "gif",   -- gif or webp
     ffmpeg_path = "ffmpeg",
     dir = "~~desktop/",
     rez = 600,
@@ -54,7 +53,7 @@ end
 
 -- Set this to the filters to pass into ffmpeg's -vf option.
 -- filters="fps=24,scale=320:-1:flags=spline"
-filters=string.format("fps=%s,zscale='trunc(ih*dar/2)*2:trunc(ih/2)*2':f=spline36,setsar=1/1,zscale=%s:-1:f=spline36", fps, options.rez)  
+filters=string.format("fps=%s,scale='trunc(ih*dar/2)*2:trunc(ih/2)*2',setsar=1/1,scale=%s:-1:flags=lanczos", fps, options.rez)  
 
 -- Setup output directory
 local output_directory = mp.command_native({ "expand-path", options.dir })
@@ -62,7 +61,10 @@ local output_directory = mp.command_native({ "expand-path", options.dir })
 if output_directory ~= '' then
     local meta, meta_error = utils.file_info(output_directory)
     if not meta or not meta.is_dir then
-        local args = { 'powershell', '-NoProfile', '-Command', 'mkdir', string.format("\"%s\"", output_directory) }
+        local is_windows = package.config:sub(1, 1) == "\\"
+        local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', string.format("\"%s\"", output_directory) }
+        local unix_args = { 'mkdir', '-p', output_directory }
+        local args = is_windows and windows_args or unix_args
         local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})
         if res.status ~= 0 then
             msg.error("Failed to create animated_dir save directory "..output_directory..". Error: "..(res.error or "unknown"))
@@ -102,10 +104,10 @@ function make_animated_internal(burn_subtitles)
 
     -- shell escape
     function esc_for_sub(s)
-        s = string.gsub(s, [[\]], [[/]])
-        s = string.gsub(s, '"', '"\\""')
-        s = string.gsub(s, ":", [[\\:]])
-        s = string.gsub(s, "'", [[\\']])
+        s = string.gsub(s, "\\", "/")
+        s = string.gsub(s, '"', '\\"')
+        s = string.gsub(s, ":", "\\:")
+        s = string.gsub(s, "'", "\\'")
         s = string.gsub(s, "%[", "\\%[")
         s = string.gsub(s, "%]", "\\%]")
         return s
@@ -190,9 +192,12 @@ function make_animated_internal(burn_subtitles)
     if options.type == "webp" then
         arg = string.format("%s -y -hide_banner -loglevel error -ss %s %s -t %s -i '%s' -lavfi %s -lossless %s -q:v %s -compression_level %s -loop %s '%s'", options.ffmpeg_path, position, copyts, duration, pathname, trim_filters, options.lossless, options.quality, options.compression_level, options.loop, animated_name)
     else
-        arg = string.format("%s -y -hide_banner -loglevel error -ss %s %s -t %s -i '%s' -lavfi 'split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse',%s -loop %s '%s'", options.ffmpeg_path, position, copyts, duration, pathname, trim_filters, options.loop, animated_name)
+        arg = string.format("%s -y -hide_banner -loglevel error -ss %s %s -t %s -i '%s' -lavfi %s,'split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse' -loop %s '%s'", options.ffmpeg_path, position, copyts, duration, pathname, trim_filters, options.loop, animated_name)
     end
-    args =  { 'powershell', '-NoProfile', '-Command', arg }
+    local is_windows = package.config:sub(1, 1) == "\\"
+    local windows_args = { 'powershell', '-NoProfile', '-Command', arg }
+    local unix_args = { '/bin/bash', '-c', arg }
+    local args = is_windows and windows_args or unix_args
     local screenx, screeny, aspect = mp.get_osd_size()
     mp.set_osd_ass(screenx, screeny, "{\\an9}● ")
     local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})
