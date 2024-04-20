@@ -91,20 +91,12 @@ function jaro(s1, s2)
         local final = math.min(i + match_window + 1, #s2)
 
         for k = start, final, 1 do
-            if matches2[k] then
-                goto continue
+            if not (matches2[k] or s1[i] ~= s2[k]) then
+                matches1[i] = true
+                matches2[k] = true
+                m = m + 1
+                break
             end
-
-            if s1[i] ~= s2[k] then
-                goto continue
-            end
-
-            matches1[i] = true
-            matches2[k] = true
-            m = m + 1
-            break
-
-            ::continue::
         end
     end
 
@@ -114,21 +106,17 @@ function jaro(s1, s2)
 
     local k = 0
     for i = 0, #s1, 1 do
-        if (not matches1[i]) then
-            goto continue
-        end
+        if matches1[i] then
+            while not matches2[k] do
+                k = k + 1
+            end
 
-        while not matches2[k] do
+            if s1[i] ~= s2[k] then
+                t = t + 1
+            end
+
             k = k + 1
         end
-
-        if s1[i] ~= s2[k] then
-            t = t + 1
-        end
-
-        k = k + 1
-
-        ::continue::
     end
 
     t = t / 2.0
