@@ -2,7 +2,8 @@
     {
         "alang": "*",
         "slang": ["chs", "sc", "zho?%-cn", "zho?%-hans", "cht", "tc", "zho?%-hant", "zho?%-tw", "zho?%-hk", "zho?%-", "chi", "zho?", "und"],
-        "whitelist": ["chs&j[ap]n?"]
+        "whitelist": ["chs&j[ap]n?"],
+        "condition": "sub.codec ~= 'null'"
     },
     {
         "inherit": "^",
@@ -140,12 +141,14 @@
     {
         "alang": "*",
         "slang": "und",
-        "blacklist": [ "sign", "song", "danmaku" ]
+        "blacklist": [ "sign", "song", "comment", "danmaku", "danmu", "xml" ],
+        "condition": "sub.codec ~= 'null'"
     },
     {
         "alang": "*",
         "slang": ["chi", "zho?", "und"],
-        "whitelist": ["simplified"]
+        "whitelist": ["simplified"],
+        "condition": "sub.codec ~= 'null'"
     },
     {
         "inherit": "^",
@@ -153,51 +156,52 @@
     },
     {
         "alang": "*",
-        "slang": "zho?%-cn"
+        "slang": "zho?%-cn",
+        "condition": "sub.codec ~= 'null'"
     },
     {
-        "alang": "*",
+        "inherit": "^",
         "slang": "zho?%-hans"
     },
     {
-        "alang": "*",
+        "inherit": "^",
         "slang": "zho?%-hant"
     },
     {
-        "alang": "*",
+        "inherit": "^",
         "slang": "zho?%-hk"
     },
     {
-        "alang": "*",
+        "inherit": "^",
         "slang": "zho?%-tw"
     },
     {
-        "alang": "*",
+        "inherit": "^",
         "slang": "zho?%-"
     },
     {
-        "alang": "*",
+        "inherit": "^",
         "slang": "chi"
     },
     {
-        "alang": "*",
+        "inherit": "^",
         "slang": "zho?"
     },
     {
-        "alang": "*",
+        "inherit": "^",
         "slang": "default"
     },
     {
-        "alang": "*",
+        "inherit": "^",
         "slang": "forced"
     },
     {
-        "alang": "*",
+        "inherit": "^",
         "slang": "j[ap]n?",
         "blacklist": [ "sign", "song" ]
     },
     {
-        "alang": "*",
+        "inherit": "^",
         "slang": "eng?",
         "blacklist": [ "sign", "song" ]
     }
