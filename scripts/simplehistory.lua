@@ -2143,7 +2143,7 @@ function history_resume_option()
 		if video_time > 0 then return end
 		local logged_time = 0
 		local percentage = 0
-		local video_duration = mp.get_property_number('duration')
+		local video_duration = (mp.get_property_number('duration') or 0)
 		list_contents = read_log_table()
 		if not list_contents or not list_contents[1] then return end
 		for i = #list_contents, 1, -1 do
