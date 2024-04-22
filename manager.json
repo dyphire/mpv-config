@@ -1,10 +1,5 @@
 [
   {
-    "git":"https://github.com/detuur/mpv-scripts",
-    "whitelist":"skiptosilence%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
     "git":"https://github.com/natural-harmonia-gropius/recent-menu",
     "whitelist":"%.lua$",
     "dest":"~~/scripts"
