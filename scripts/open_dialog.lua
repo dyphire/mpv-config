@@ -45,6 +45,19 @@ local file_types = {
     playlist = table.concat(split(o.playlist_types), ';'),
 }
 
+local powershell = nil
+
+local function pwsh_check()
+    local arg = {"cmd", "/c", "pwsh", "--version"}
+    local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = arg})
+    if res.status ~= 0 or res.stdout:match("^PowerShell") == nil then
+        powershell = "powershell"
+    else
+        powershell = "pwsh"
+    end
+end
+pwsh_check()
+
 -- open bluray iso or dir
 local function open_bluray(path)
     mp.set_property('bluray-device', path)
@@ -99,38 +112,23 @@ local function import_folder()
     local was_ontop = mp.get_property_native("ontop")
     if was_ontop then mp.set_property_native("ontop", false) end
     local powershell_script = [[
+        Add-Type -AssemblyName System.Windows.Forms
         $u8 = [System.Text.Encoding]::UTF8
         $out = [Console]::OpenStandardOutput()
-        $AssemblyFullName = 'System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'
-        $Assembly = [System.Reflection.Assembly]::Load($AssemblyFullName)
         $TopForm = New-Object System.Windows.Forms.Form
         $TopForm.TopMost = $true
         $TopForm.ShowInTaskbar = $false
         $TopForm.Visible = $false
         $TopForm.ShowIcon = $false
-        $OpenFileDialog = New-Object System.Windows.Forms.OpenFileDialog
-        $OpenFileDialog.AddExtension = $false
-        $OpenFileDialog.CheckFileExists = $false
-        $OpenFileDialog.DereferenceLinks = $true
-        $OpenFileDialog.Filter = "Folders|`n"
-        $OpenFileDialog.Multiselect = $false
-        $OpenFileDialogType = $OpenFileDialog.GetType()
-        $FileDialogInterfaceType = $Assembly.GetType('System.Windows.Forms.FileDialogNative+IFileDialog')
-        $IFileDialog = $OpenFileDialogType.GetMethod('CreateVistaDialog',@('NonPublic','Public','Static','Instance')).Invoke($OpenFileDialog,$null)
-        $null = $OpenFileDialogType.GetMethod('OnBeforeVistaDialog',@('NonPublic','Public','Static','Instance')).Invoke($OpenFileDialog,$IFileDialog)
-        [uint32]$PickFoldersOption = $Assembly.GetType('System.Windows.Forms.FileDialogNative+FOS').GetField('FOS_PICKFOLDERS').GetValue($null)
-        $FolderOptions = $OpenFileDialogType.GetMethod('get_Options',@('NonPublic','Public','Static','Instance')).Invoke($OpenFileDialog,$null) -bor $PickFoldersOption
-        $null = $FileDialogInterfaceType.GetMethod('SetOptions',@('NonPublic','Public','Static','Instance')).Invoke($IFileDialog,$FolderOptions)
-        $VistaDialogEvent = [System.Activator]::CreateInstance($AssemblyFullName,'System.Windows.Forms.FileDialog+VistaDialogEvents',$false,0,$null,$OpenFileDialog,$null,$null).Unwrap()
-        [uint32]$AdviceCookie = 0
-        $AdvisoryParameters = @($VistaDialogEvent,$AdviceCookie)
-        $AdviseResult = $FileDialogInterfaceType.GetMethod('Advise',@('NonPublic','Public','Static','Instance')).Invoke($IFileDialog,$AdvisoryParameters)
-        $AdviceCookie = $AdvisoryParameters[1]
-        $Result = $FileDialogInterfaceType.GetMethod('Show',@('NonPublic','Public','Static','Instance')).Invoke($IFileDialog, $TopForm.Handle)
-        $null = $FileDialogInterfaceType.GetMethod('Unadvise',@('NonPublic','Public','Static','Instance')).Invoke($IFileDialog,$AdviceCookie)
-        If (($Result -eq 0) -or ($Result -eq [System.Windows.Forms.DialogResult]::OK)) {
-            $u8filename = $u8.GetBytes("$($OpenFileDialog.FileName)`n")
-            $out.Write($u8filename, 0, $u8filename.Length)
+        $folderBrowser = New-Object -TypeName System.Windows.Forms.FolderBrowserDialog
+        $folderBrowser.RootFolder = "Desktop"
+        $folderBrowser.ShowNewFolderButton = $true
+        $folderBrowser.Owner = $TopForm
+        $result = $folderBrowser.ShowDialog($TopForm)
+        if ($result -eq "OK") {
+            $selectedFolder = $folderBrowser.SelectedPath
+            $u8selectedFolder = $u8.GetBytes("$selectedFolder`n")
+            $out.Write($u8selectedFolder, 0, $u8selectedFolder.Length)
         }
         $TopForm.Dispose()
     ]]
@@ -139,7 +137,7 @@ local function import_folder()
         name = 'subprocess',
         playback_only = false,
         capture_stdout = true,
-        args = {'powershell', '-NoProfile', '-Command', powershell_script},
+        args = { powershell, '-NoProfile', '-Command', powershell_script },
     })
 
     if was_ontop then mp.set_property_native("ontop", true) end
@@ -172,7 +170,7 @@ local function import_files(type)
         name = 'subprocess',
         playback_only = false,
         capture_stdout = true,
-        args = { 'powershell', '-NoProfile', '-Command', string.format([[& {
+        args = { powershell, '-NoProfile', '-Command', string.format([[& {
             Trap {
                 Write-Error -ErrorRecord $_
                 Exit 1
@@ -214,7 +212,7 @@ local function import_url()
         name = 'subprocess',
         playback_only = false,
         capture_stdout = true,
-        args = { 'powershell', '-NoProfile', '-Command', [[& {
+        args = { powershell, '-NoProfile', '-Command', [[& {
             Trap {
                 Write-Error -ErrorRecord $_
                 Exit 1
@@ -238,7 +236,7 @@ local function get_clipboard()
         name = 'subprocess',
         playback_only = false,
         capture_stdout = true,
-        args = { 'powershell', '-NoProfile', '-Command', [[& {
+        args = { powershell, '-NoProfile', '-Command', [[& {
             Trap {
                 Write-Error -ErrorRecord $_
                 Exit 1
