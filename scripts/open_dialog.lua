@@ -103,6 +103,11 @@ local function import_folder()
         $out = [Console]::OpenStandardOutput()
         $AssemblyFullName = 'System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'
         $Assembly = [System.Reflection.Assembly]::Load($AssemblyFullName)
+        $TopForm = New-Object System.Windows.Forms.Form
+        $TopForm.TopMost = $true
+        $TopForm.ShowInTaskbar = $false
+        $TopForm.Visible = $false
+        $TopForm.ShowIcon = $false
         $OpenFileDialog = New-Object System.Windows.Forms.OpenFileDialog
         $OpenFileDialog.AddExtension = $false
         $OpenFileDialog.CheckFileExists = $false
@@ -121,12 +126,13 @@ local function import_folder()
         $AdvisoryParameters = @($VistaDialogEvent,$AdviceCookie)
         $AdviseResult = $FileDialogInterfaceType.GetMethod('Advise',@('NonPublic','Public','Static','Instance')).Invoke($IFileDialog,$AdvisoryParameters)
         $AdviceCookie = $AdvisoryParameters[1]
-        $Result = $FileDialogInterfaceType.GetMethod('Show',@('NonPublic','Public','Static','Instance')).Invoke($IFileDialog,[System.IntPtr]::Zero)
+        $Result = $FileDialogInterfaceType.GetMethod('Show',@('NonPublic','Public','Static','Instance')).Invoke($IFileDialog, $TopForm.Handle)
         $null = $FileDialogInterfaceType.GetMethod('Unadvise',@('NonPublic','Public','Static','Instance')).Invoke($IFileDialog,$AdviceCookie)
         If (($Result -eq 0) -or ($Result -eq [System.Windows.Forms.DialogResult]::OK)) {
             $u8filename = $u8.GetBytes("$($OpenFileDialog.FileName)`n")
             $out.Write($u8filename, 0, $u8filename.Length)
         }
+        $TopForm.Dispose()
     ]]
 
     local res = mp.command_native({
@@ -171,18 +177,24 @@ local function import_files(type)
                 Write-Error -ErrorRecord $_
                 Exit 1
             }
-            Add-Type -AssemblyName PresentationFramework
+            Add-Type -AssemblyName System.Windows.Forms
             $u8 = [System.Text.Encoding]::UTF8
             $out = [Console]::OpenStandardOutput()
-            $ofd = New-Object -TypeName Microsoft.Win32.OpenFileDialog
+            $TopForm = New-Object System.Windows.Forms.Form
+            $TopForm.TopMost = $true
+            $TopForm.ShowInTaskbar = $false
+            $TopForm.Visible = $false
+            $TopForm.ShowIcon = $false
+            $ofd = New-Object System.Windows.Forms.OpenFileDialog
             $ofd.Multiselect = $true
             $ofd.Filter = "%s"
-            If ($ofd.ShowDialog() -eq $true) {
+            If ($ofd.ShowDialog($TopForm) -eq $true) {
                 ForEach ($filename in $ofd.FileNames) {
                     $u8filename = $u8.GetBytes("$filename`n")
                     $out.Write($u8filename, 0, $u8filename.Length)
                 }
             }
+            $TopForm.Dispose()
         }]], filter) }
     })
     if was_ontop then mp.set_property_native("ontop", true) end
