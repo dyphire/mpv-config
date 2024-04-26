@@ -67,7 +67,6 @@ mute_state = false
 sub_state = nil
 secondary_sub_state = nil
 vid_state = nil
-window_state = nil
 skip_flag = false
 initial_skip_time = 0
 
@@ -75,7 +74,6 @@ local function restoreProp(pause)
     if not pause then pause = pause_state end
 
     mp.set_property("vid", vid_state)
-    mp.set_property("force-window", window_state)
     mp.set_property_bool("mute", mute_state)
     mp.set_property("speed", speed_state)
     mp.unobserve_property(foundSilence)
@@ -159,8 +157,6 @@ local function doSkip()
     mp.set_property("sub-visibility", "no")
     secondary_sub_state = mp.get_property("secondary-sub-visibility")
     mp.set_property("secondary-sub-visibility", "no")
-    window_state = mp.get_property("force-window")
-    mp.set_property("force-window", "yes")
     vid_state = mp.get_property("vid")
     mp.set_property("vid", "no")
     mute_state = mp.get_property_native("mute")

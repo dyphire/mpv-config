@@ -36,6 +36,15 @@ end
 
 local platform = detect_platform()
 
+local function make_raw(s)
+	if not s then return end
+	s = string.gsub(s, '^[\'\"]', '')
+	s = string.gsub(s, '[\'\"]$', '')
+	s = string.gsub(s, '^%s+', '')
+	s = string.gsub(s, '%s+$', '')
+	return s
+end
+
 -- this is based on mpv-copyTime:
 -- https://github.com/Arieleg/mpv-copyTime/blob/master/copyTime.lua
 local function get_command()
@@ -112,22 +121,16 @@ local function get_clipboard()
         end
     elseif platform == 'windows' then
         local res = subprocess({ 'powershell', '-NoProfile', '-Command', [[& {
-                Trap {
-                    Write-Error -ErrorRecord $_
-                    Exit 1
-                }
-
-                $clip = ""
-                if (Get-Command "Get-Clipboard" -errorAction SilentlyContinue) {
-                    $clip = Get-Clipboard -Raw -Format Text -TextFormatType UnicodeText
-                } else {
-                    Add-Type -AssemblyName PresentationCore
-                    $clip = [Windows.Clipboard]::GetText()
-                }
-
-                $clip = $clip -Replace "`r",""
-                $u8clip = [System.Text.Encoding]::UTF8.GetBytes($clip)
-                [Console]::OpenStandardOutput().Write($u8clip, 0, $u8clip.Length)
+            Trap {
+                Write-Error -ErrorRecord $_
+                Exit 1
+            }
+            $clip = Get-Clipboard -Raw -Format Text -TextFormatType UnicodeText
+            if (-not $clip) {
+                $clip = Get-Clipboard -Raw -Format FileDropList
+            }
+            $u8clip = [System.Text.Encoding]::UTF8.GetBytes($clip)
+            [Console]::OpenStandardOutput().Write($u8clip, 0, $u8clip.Length)
             }]]
         })
         if not res.error then
@@ -144,7 +147,7 @@ end
 
 local function substitute(str, clip)
     return string.gsub(str, '%b%%', function(text)
-        if text == '%clip%' then return clip end
+        if text == '%clip%' then return make_raw(clip) end
         if text == '%%' then return '%' end
     end)
 end

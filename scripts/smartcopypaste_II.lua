@@ -2168,9 +2168,11 @@ end
 
 function make_raw(s)
 	if not s then return end
+	s = string.gsub(s, '^[\'\"]', '')
+	s = string.gsub(s, '[\'\"]$', '')
 	s = string.gsub(s, '^%s+', '')
 	s = string.gsub(s, '%s+$', '')
-	s = string.gsub(s, '[\n\r]+', ' ')
+	s = string.gsub(s, '[\r\n]+', ' ')
 	return s
 end
 
@@ -2287,7 +2289,7 @@ function parse_clipboard(text)
 	clip = text
 
 
-	for c in clip:gmatch("[^\n\r]+") do --3.2.1# fix for #80 , accidentally additional "+" was added to the gmatch
+	for c in clip:gmatch("[^\r\n]+") do --3.2.1# fix for #80 , accidentally additional "+" was added to the gmatch
 		local c_pre_attribute, c_clip_file, c_clip_time, c_clip_extension
 		c = make_raw(c)
 		
@@ -2298,8 +2300,6 @@ function parse_clipboard(text)
 					if string.match(c, '(.*)'..c_pre_attribute) then
 						c_clip_file = string.match(c_protocols, '(.*)'..c_pre_attribute)
 						c_clip_time = tonumber(string.match(c_protocols, c_pre_attribute..'(%d*%.?%d*)'))
-					elseif string.match(c, '^\"(.*)\"$') then
-						c_clip_file = string.match(c, '^\"(.*)\"$')
 					else
 						c_clip_file = c_protocols
 					end			
@@ -2312,8 +2312,6 @@ function parse_clipboard(text)
 			if string.match(c, '(.*)'..c_pre_attribute) then
 				c_clip_file = string.match(c, '(.*)'..c_pre_attribute)
 				c_clip_time = tonumber(string.match(c, c_pre_attribute..'(%d*%.?%d*)'))
-			elseif string.match(c, '^\"(.*)\"$') then
-				c_clip_file = string.match(c, '^\"(.*)\"$')
 			else
 				c_clip_file = c
 			end
@@ -2329,8 +2327,6 @@ function parse_clipboard(text)
 	if string.match(clip, '(.*)'..pre_attribute) then
 		clip_file = string.match(clip, '(.*)'..pre_attribute)
 		clip_time = tonumber(string.match(clip, pre_attribute..'(%d*%.?%d*)'))
-	elseif string.match(clip, '^\"(.*)\"$') then
-		clip_file = string.match(clip, '^\"(.*)\"$')
 	else
 		clip_file = clip
 	end
@@ -2340,7 +2336,7 @@ end
 
 function copy()
 	if filePath ~= nil then
-		if o.copy_time_method == 'none' or copy_time_method == '' then
+		if o.copy_time_method == 'none' or o.copy_time_method == '' then
 			copy_specific('path')
 			return
 		elseif o.copy_time_method == 'protocols' and not starts_protocol(protocols, filePath) then

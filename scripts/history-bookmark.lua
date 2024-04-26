@@ -224,10 +224,9 @@ local function get_bookmark_path(dir)
     bookmark_path = utils.join_path(history_dir, bookmark_name):gsub("\\", "/")
 end
 
-local function is_bookmark_exist(bookmark_path)
-    local file = io.open(bookmark_path, "r")
-    if file == nil then
-        msg.info('No bookmark file is found.')
+local function file_exist(path)
+    local meta = utils.file_info(path)
+    if not meta or not meta.is_file then
         return false
     end
     return true
@@ -453,7 +452,7 @@ local function record()
     if not o.enabled then return end
     refresh_globals()
     if pl_count and pl_count < 1 then return end
-    if not path or is_protocol(path) then return end
+    if not path or is_protocol(path) or not file_exist(path) then return end
     if not dir or not fname then return end
     get_bookmark_path(dir)
     included_dir_count = tablelength(o.included_dir)
@@ -466,8 +465,9 @@ local function record()
     msg.info('playing -- ' .. fname)
     msg.info('bookmark path -- ' .. bookmark_path)
 
-    if (not is_bookmark_exist(bookmark_path)) then
+    if (not file_exist(bookmark_path)) then
         pl_name = nil
+        return
     else
         pl_name = get_record(bookmark_path)
         pl_path = utils.join_path(dir, pl_name)
