@@ -68,11 +68,6 @@
     "dest":"~~/scripts/simple-mpv-webui"
   },
   {
-    "git":"https://github.com/datasone/MPVMediaControl",
-    "whitelist":"%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
     "git":"https://github.com/qwerty12/mpv-taskbar-buttons",
     "whitelist":"readme%.md$|%.lua$|res|ljf%-com",
     "blacklist":"script%-opts",
