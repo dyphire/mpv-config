@@ -23,7 +23,7 @@ local root_parser = require 'modules.parsers.root'
 
 -- setting the package paths
 package.path = mp.command_native({"expand-path", o.module_directory}).."/?.lua;"..package.path
-local _, input = pcall(require, "user-input-module")
+local user_input_loaded, input = pcall(require, "user-input-module")
 
 -- root and addon setup
 setup.root()
@@ -53,7 +53,7 @@ mp.register_script_message("get-directory-contents", script_messages.get_directo
 mp.add_key_binding('MENU','browse-files', controls.toggle)
 mp.add_key_binding('Ctrl+o','open-browser', controls.open)
 
-if input then
+if user_input_loaded then
     mp.add_key_binding("Alt+o", "browse-directory/get-user-input", function()
         input.get_user_input(controls.browse_directory, {request_text = "open directory:"})
     end)
