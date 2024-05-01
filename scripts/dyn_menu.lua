@@ -690,13 +690,10 @@ if use_mpv_impl then
     local ignore_id = 0
     mp.add_key_binding(nil, 'show', function()
         mp.commandv('context-menu')
-        ignore_id = ignore_id + 1
-        local current_id = ignore_id
-        mp.add_forced_key_binding('MBTN_LEFT', 'left-ignore-'..current_id)
+        mp.add_forced_key_binding('MBTN_LEFT', 'left-ignore')
         mp.add_forced_key_binding('MOUSE_MOVE', 'menu-close', function()
             mp.remove_key_binding('menu-close')
-            local delay = mp.get_property_number('input-doubleclick-time', 300) / 1000
-            mp.add_timeout(delay, function() mp.remove_key_binding('left-ignore-'..current_id) end)
+            mp.remove_key_binding('left-ignore')
         end)
     end)
 else
