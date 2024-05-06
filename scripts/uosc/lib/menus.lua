@@ -124,6 +124,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 			items[#items].separator = true
 		end
 
+		local track_prop_index = tonumber(mp.get_property(track_prop))
 		local first_item_index = #items + 1
 		local active_index = nil
 		local disabled_item = nil
@@ -137,6 +138,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 		for _, track in ipairs(tracklist) do
 			if track.type == track_type then
 				local hint_values = {}
+				local track_selected = track.selected and track.id == track_prop_index
 				local function h(value) hint_values[#hint_values + 1] = value end
 
 				if track.lang then h(track.lang) end
@@ -168,10 +170,10 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 					title = (track.title and track.title or t('Track %s', track.id)),
 					hint = table.concat(hint_values, ', '),
 					value = track.id,
-					active = track.selected,
+					active = track_selected,
 				}
 
-				if track.selected then
+				if track_selected then
 					if disabled_item then disabled_item.active = false end
 					active_index = #items
 				end
@@ -270,7 +272,10 @@ function open_file_navigation_menu(directory_path, handle_select, opts)
 		local is_drives = path == '{drives}'
 		local is_to_parent = is_drives or #path < #directory_path
 		local inheritable_options = {
-			type = opts.type, title = opts.title, allowed_types = opts.allowed_types, active_path = opts.active_path,
+			type = opts.type,
+			title = opts.title,
+			allowed_types = opts.allowed_types,
+			active_path = opts.active_path,
 			keep_open = opts.keep_open,
 		}
 
@@ -358,9 +363,16 @@ end
 
 -- On demand menu items loading
 do
-	local items = nil
-	function get_menu_items()
-		if items then return items end
+	---@type {key: string; cmd: string; comment: string}[]|nil
+	local all_user_bindings = nil
+	---@type MenuStackItem[]|nil
+	local menu_items = nil
+
+	-- Returns all relevant bindings from `input.conf`, even if they are overwritten
+	-- (same key bound to something else later) or have no keys (uosc menu items).
+	function get_all_user_bindings()
+		if all_user_bindings then return all_user_bindings end
+		all_user_bindings = {}
 
 		local input_conf_property = mp.get_property_native('input-conf')
 		local input_conf_iterator
@@ -379,18 +391,32 @@ do
 
 			-- File doesn't exist
 			if not input_conf_meta or not input_conf_meta.is_file then
-				items = create_default_menu_items()
-				return items
+				menu_items = create_default_menu_items()
+				return menu_items, all_user_bindings
 			end
 
 			input_conf_iterator = io.lines(input_conf_path)
 		end
 
+		for line in input_conf_iterator do
+			local key, command, comment = string.match(line, '%s*([%S]+)%s+(.-)%s+#%s*(.-)%s*$')
+			if key and command and command ~= '' then
+				all_user_bindings[#all_user_bindings + 1] = {key = key, cmd = command, comment = comment or ''}
+			end
+		end
+
+		return all_user_bindings
+	end
+
+	function get_menu_items()
+		if menu_items then return menu_items end
+
+		local all_user_bindings = get_all_user_bindings()
 		local main_menu = {items = {}, items_by_command = {}}
 		local by_id = {}
 
-		for line in input_conf_iterator do
-			local key, command, comment = string.match(line, '%s*([%S]+)%s+(.-)%s+#%s*(.-)%s*$')
+		for _, bind in ipairs(all_user_bindings) do
+			local key, command, comment = bind.key, bind.cmd, bind.comment
 			local title = ''
 
 			if comment then
@@ -450,19 +476,31 @@ do
 			end
 		end
 
-		items = #main_menu.items > 0 and main_menu.items or create_default_menu_items()
-		return items
+		menu_items = #main_menu.items > 0 and main_menu.items or create_default_menu_items()
+		return menu_items
 	end
 end
 
 -- Adapted from `stats.lua`
 function get_keybinds_items()
 	local items = {}
-	local active = find_active_keybindings()
+	local active_bindings = find_active_keybindings()
+	local user_bindings = get_all_user_bindings()
 
 	-- Convert to menu items
-	for _, bind in pairs(active) do
+	for _, bind in pairs(active_bindings) do
 		items[#items + 1] = {title = bind.cmd, hint = bind.key, value = bind.cmd}
+	end
+
+	-- Add overwritten or keyless keybinds from `input.conf`
+	for _, user in ipairs(user_bindings) do
+		-- Deduplicate against `active_bindings`
+		local exists = itable_find(active_bindings, function(active)
+			return active.cmd == user.cmd and active.key == user.key
+		end) ~= nil
+		if not exists then
+			items[#items + 1] = {title = user.cmd, hint = user.key, value = user.cmd}
+		end
 	end
 
 	-- Sort
