@@ -63,6 +63,8 @@ local properties = {}
 local pre_0_30_0 = mp.command_native_async == nil
 local pre_0_33_0 = true
 
+local is_windows = package.config:sub(1, 1) == "\\" -- detect path separator, windows uses backslashes
+
 local function split(input)
     local ret = {}
     for str in string.gmatch(input, "([^,]+)") do
@@ -394,8 +396,10 @@ local function info(w, h)
     local image = properties["current-tracks/video"] and properties["current-tracks/video"]["image"]
     local albumart = image and properties["current-tracks/video"]["albumart"]
     local cache_state = properties["demuxer-cache-state"]
-    local dir = properties["path"] and mp.utils.split_path(properties["path"]):gsub("\\", "/")
+    local dir = properties["path"] and mp.utils.split_path(properties["path"])
     local file_ext = properties["path"] and properties["path"]:match("%.([^%.]+)$")
+
+    if is_windows and dir then dir = dir:gsub("\\", "/") end
     if cache_state then cached_ranges = cache_state["seekable-ranges"] end
 
     disabled = (w or 0) == 0 or (h or 0) == 0 or

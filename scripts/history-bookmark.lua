@@ -64,11 +64,11 @@ else
     history_dir = mp.command_native({ "expand-path", o.history_dir }) -- Expands both ~ and ~~
 end
 
+local is_windows = package.config:sub(1, 1) == "\\" -- detect path separator, detect path separator, windows uses backslashes
 --create history_dir if it doesn't exist
 if history_dir ~= '' then
     local meta, meta_error = utils.file_info(history_dir)
     if not meta or not meta.is_dir then
-        local is_windows = package.config:sub(1, 1) == "\\"
         local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', string.format("\"%s\"", history_dir) }
         local unix_args = { 'mkdir', '-p', history_dir }
         local args = is_windows and windows_args or unix_args
@@ -133,7 +133,8 @@ function refresh_globals()
     fname = mp.get_property("filename")
     pl_count = mp.get_property_number('playlist-count', 0)
     if path and not is_protocol(path) then
-        path = utils.join_path(mp.get_property('working-directory'), path):gsub("\\", "/")
+        path = utils.join_path(mp.get_property('working-directory'), path)
+        if is_windows then path = path:gsub("\\", "/") end
         dir = utils.split_path(path)
     else
         dir = nil
@@ -221,7 +222,8 @@ local function get_bookmark_path(dir)
         history_name = name
     end
     local bookmark_name = history_name .. o.bookmark_ext
-    bookmark_path = utils.join_path(history_dir, bookmark_name):gsub("\\", "/")
+    bookmark_path = utils.join_path(history_dir, bookmark_name)
+    if is_windows then bookmark_path = bookmark_path:gsub("\\", "/") end
 end
 
 local function file_exist(path)
@@ -239,10 +241,10 @@ local function get_record(bookmark_path)
     local file = io.open(bookmark_path, 'r')
     local record = file:read()
     if record == nil then
-        msg.info('No history record is found in the bookmark file.')
+        msg.verbose('No history record is found in the bookmark file.')
         return nil
     end
-    msg.info('last play: ' .. record)
+    msg.verbose('last play: ' .. record)
     file:close()
     return record
 end
@@ -375,7 +377,7 @@ local function get_playlist_idx(dst_file)
 end
 
 local function unbind_key()
-    msg.info('Unbinding keys')
+    msg.verbose('Unbinding keys')
     mp.remove_key_binding('resume_yes')
     mp.remove_key_binding('resume_not')
 end
@@ -391,7 +393,7 @@ local function key_jump()
     wait_jump_timer:kill()
     current_idx = pl_idx
     mp.register_event('file-loaded', jump_resume)
-    msg.info('Jumping to ' .. pl_path)
+    msg.verbose('Jumping to ' .. pl_path)
     mp.commandv('loadfile', pl_path)
 end
 
@@ -461,9 +463,9 @@ local function record()
     end
     if need_ignore(o.excluded_dir, dir) then return end
 
-    msg.info('folder -- ' .. dir)
-    msg.info('playing -- ' .. fname)
-    msg.info('bookmark path -- ' .. bookmark_path)
+    msg.verbose('folder -- ' .. dir)
+    msg.verbose('playing -- ' .. fname)
+    msg.verbose('bookmark path -- ' .. bookmark_path)
 
     if (not file_exist(bookmark_path)) then
         pl_name = nil
@@ -481,13 +483,13 @@ local function record()
 
     pl_idx = get_playlist_idx(pl_name)
     if (pl_idx == nil) then
-        msg.info('Playlist not found. Creating a new one...')
+        msg.verbose('Playlist not found. Creating a new one...')
     else
-        msg.info('playlist index --' .. pl_idx)
+        msg.verbose('playlist index --' .. pl_idx)
     end
 
     current_idx = get_playlist_idx(fname)
-    if current_idx then msg.info('current index -- ' .. current_idx) end
+    if current_idx then msg.verbose('current index -- ' .. current_idx) end
 
     if current_idx and (pl_idx == nil) then
         pl_idx = current_idx
@@ -495,7 +497,7 @@ local function record()
         pl_path = path
     elseif current_idx and (pl_idx ~= current_idx) then
         wait_msg = pl_idx
-        msg.info('Last watched episode -- ' .. wait_msg)
+        msg.verbose('Last watched episode -- ' .. wait_msg)
         wait_jump_timer = mp.add_periodic_timer(1, wait4jumping)
         bind_key()
     end
@@ -506,7 +508,8 @@ end
 mp.register_event('file-loaded', function()
     local path = mp.get_property("path")
     if not is_protocol(path) then
-        path = utils.join_path(mp.get_property('working-directory'), path):gsub("\\", "/")
+        path = utils.join_path(mp.get_property('working-directory'), path)
+        if is_windows then path = path:gsub("\\", "/") end
         directory = utils.split_path(path)
     else
         directory = nil

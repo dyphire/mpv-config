@@ -12,10 +12,11 @@ local opts = {
 (require 'mp.options').read_options(opts)
 local luacurl_available, cURL = pcall(require, 'cURL')
 
+local is_windows = package.config:sub(1, 1) == "\\" -- detect path separator, windows uses backslashes
+
 local function find_executable(name)
     local os_path = os.getenv("PATH") or ""
     local fallback_path = utils.join_path("/usr/bin", name)
-    local is_windows = package.config:sub(1, 1) == "\\"
     local exec_path
     for path in os_path:gmatch("[^:]+") do
         exec_path = utils.join_path(path, name)
@@ -30,7 +31,6 @@ end
 
 local function init()
     local exec_path = find_executable(opts.torrserver_path)
-    local is_windows = package.config:sub(1, 1) == "\\"
     local windows_args = { 'powershell', '-NoProfile', '-Command', exec_path }
     local unix_args = { '/bin/bash', '-c', exec_path }
     local args = is_windows and windows_args or unix_args

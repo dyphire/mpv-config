@@ -60,7 +60,7 @@ o = {
 options.read_options(o)
 
 ----------
-
+local is_windows = package.config:sub(1, 1) == "\\" -- detect path separator, windows uses backslashes
 excluded_dir = utils.parse_json(o.excluded_dir)
 
 local default_audio_paths = mp.get_property_native("options/audio-file-paths")
@@ -265,7 +265,8 @@ function explode_all()
     msg.debug("max_search_depth = ".. o.max_search_depth .. ", discovery_threshold = " .. o.discovery_threshold)
 
     local video_path = mp.get_property("path")
-    local search_path, _ = utils.split_path(video_path):gsub("\\", "/")
+    local search_path, _ = utils.split_path(video_path)
+    if is_windows then search_path = search_path:gsub("\\", "/") end
     msg.debug("search_path = " .. search_path)
 
     local cache = {}

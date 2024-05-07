@@ -288,6 +288,8 @@ o.open_list_keybind = utils.parse_json(o.open_list_keybind)
 o.list_filter_jump_keybind = utils.parse_json(o.list_filter_jump_keybind)
 o.list_ignored_keybind = utils.parse_json(o.list_ignored_keybind)
 
+local is_windows = package.config:sub(1, 1) == "\\" -- detect path separator, windows uses backslashes
+
 if utils.shared_script_property_set then
     utils.shared_script_property_set('smartcopypaste-menu-open', 'no')
 end
@@ -432,7 +434,8 @@ function get_file()
 	local path = mp.get_property('path')
 	if not path then return end
 	if not path:match('^%a[%a%d-_]+://') then
-		path = utils.join_path(mp.get_property('working-directory'), path):gsub("\\", "/")
+		path = utils.join_path(mp.get_property('working-directory'), path)
+		if is_windows then path = path:gsub("/", "\\") end
 	end
 	
 	local length = (mp.get_property_number('duration') or 0)
@@ -954,7 +957,7 @@ function draw_list()
 		
 		-- example in the mpv source suggests this escape method for set_osd_ass:
 		-- https://github.com/mpv-player/mpv/blob/94677723624fb84756e65c8f1377956667244bc9/player/lua/stats.lua#L145
-		p = p:gsub("\\", "/")
+		p = p:gsub('\\', '\\\239\187\191')
 		   :gsub("{", "\\{")
 		   :gsub("^ ", "\\h")
 		osd_msg = osd_msg .. osd_color .. osd_key .. osd_index .. p

@@ -11,6 +11,9 @@ local o = require 'modules.options'
 --sets the version for the file-browser API
 globals.API_VERSION = "1.4.0"
 
+--gets the current platform (only works in mpv v0.36+)
+globals.PLATFORM = mp.get_property_native('platform')
+
 --the osd_overlay API was not added until v0.31. The expand-path command was not added until 0.30
 assert(mp.create_osd_overlay, "Script requires minimum mpv version 0.33")
 

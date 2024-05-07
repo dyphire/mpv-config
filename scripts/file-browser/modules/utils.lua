@@ -174,7 +174,9 @@ end
 
 --standardises filepaths across systems
 function API.fix_path(str, is_directory)
-    str = string.gsub(str, [[\]],[[/]])
+    if o.normalise_backslash == 'yes' or (o.normalise_backslash == 'auto' and g.PLATFORM == 'windows') then
+        str = string.gsub(str, [[\]],[[/]])
+    end
     str = str:gsub([[/%./]], [[/]])
     if is_directory and str:sub(-1) ~= '/' then str = str..'/' end
     return str

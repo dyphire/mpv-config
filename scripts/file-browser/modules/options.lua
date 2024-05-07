@@ -49,6 +49,14 @@ local o = {
     --potentially useful on windows systems
     substitute_backslash = false,
 
+    --interpret backslashes `\` in paths as forward slashes `/`
+    --this is useful on Windows, which natively uses backslashes.
+    --As backslashes are valid filename characters in Unix systems this could
+    --cause mangled paths, though such filenames are rare.
+    --Use `yes` and `no` to enable/disable. `auto` tries to use the mpv `platform`
+    --property (mpv v0.36+) to decide. If the property is unavailable it defaults to `yes`.
+    normalise_backslash = 'auto',
+
     --this option reverses the behaviour of the alt+ENTER keybind
     --when disabled the keybind is required to enable autoload for the file
     --when enabled the keybind disables autoload for the file

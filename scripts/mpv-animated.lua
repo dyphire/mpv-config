@@ -55,13 +55,13 @@ end
 -- filters="fps=24,scale=320:-1:flags=spline"
 filters=string.format("fps=%s,scale='trunc(ih*dar/2)*2:trunc(ih/2)*2',setsar=1/1,scale=%s:-1:flags=lanczos", fps, options.rez)  
 
+local is_windows = package.config:sub(1, 1) == "\\" -- detect path separator, windows uses backslashes
 -- Setup output directory
 local output_directory = mp.command_native({ "expand-path", options.dir })
 --create output_directory if it doesn't exist
 if output_directory ~= '' then
     local meta, meta_error = utils.file_info(output_directory)
     if not meta or not meta.is_dir then
-        local is_windows = package.config:sub(1, 1) == "\\"
         local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', string.format("\"%s\"", output_directory) }
         local unix_args = { 'mkdir', '-p', output_directory }
         local args = is_windows and windows_args or unix_args
@@ -194,7 +194,6 @@ function make_animated_internal(burn_subtitles)
     else
         arg = string.format("%s -y -hide_banner -loglevel error -ss %s %s -t %s -i '%s' -lavfi %s,'split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse' -loop %s '%s'", options.ffmpeg_path, position, copyts, duration, pathname, trim_filters, options.loop, animated_name)
     end
-    local is_windows = package.config:sub(1, 1) == "\\"
     local windows_args = { 'powershell', '-NoProfile', '-Command', arg }
     local unix_args = { '/bin/bash', '-c', arg }
     local args = is_windows and windows_args or unix_args
