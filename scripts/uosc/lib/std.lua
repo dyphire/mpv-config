@@ -17,9 +17,14 @@ function serialize_rgba(rgba)
 	}
 end
 
--- Escape special characters in url.
+-- Trim any white space from the start and end of the string.
 ---@param str string
 ---@return string
+function trim(str) return str:match('^%s*(.-)%s*$') end
+
+-- Escape special characters in url.
+---@param str string
+---@return string|nil
 function url_decode(str)
 	local function hex_to_char(x)
 		return string.char(tonumber(x, 16))
@@ -30,10 +35,8 @@ function url_decode(str)
 		if str:find('://localhost:?') then
 			str = str:gsub('^.*/', '')
 		end
-		return str
-	else
-		return
 	end
+	return str
 end
 
 -- Trim any `char` from the end of the string.
