@@ -4,29 +4,29 @@ local utils = require 'mp.utils'
 
 local o = require 'modules.options'
 local g = require 'modules.globals'
-local API = require 'modules.utils'
+local fb_utils = require 'modules.utils'
 local scanning = require 'modules.navigation.scanning'
 
 local script_messages = {}
 
 --allows other scripts to request directory contents from file-browser
 function script_messages.get_directory_contents(directory, response_str)
-    API.coroutine.run(function()
+    fb_utils.coroutine.run(function()
         if not directory then msg.error("did not receive a directory string"); return end
         if not response_str then msg.error("did not receive a response string"); return end
 
         directory = mp.command_native({"expand-path", directory}, "")
-        if directory ~= "" then directory = API.fix_path(directory, true) end
+        if directory ~= "" then directory = fb_utils.fix_path(directory, true) end
         msg.verbose(("recieved %q from 'get-directory-contents' script message - returning result to %q"):format(directory, response_str))
 
         local list, opts = scanning.scan_directory(directory, { source = "script-message" } )
         if opts then opts.API_VERSION = g.API_VERSION end
 
         local err
-        list, err = API.format_json_safe(list)
+        list, err = fb_utils.format_json_safe(list)
         if not list then msg.error(err) end
 
-        opts, err = API.format_json_safe(opts)
+        opts, err = fb_utils.format_json_safe(opts)
         if not opts then msg.error(err) end
 
         mp.commandv("script-message", response_str, list or "", opts or "")
@@ -48,7 +48,7 @@ end
 --sends a command after the specified delay
 function script_messages.delay_command(delay, ...)
     local command = table.pack(...)
-    local success, err = pcall(mp.add_timeout, API.evaluate_string('return '..delay), function() mp.commandv(table.unpack(command)) end)
+    local success, err = pcall(mp.add_timeout, fb_utils.evaluate_string('return '..delay), function() mp.commandv(table.unpack(command)) end)
     if not success then return msg.error(err) end
 end
 
@@ -56,8 +56,8 @@ end
 --sends a command only if the given expression returns true
 function script_messages.conditional_command(condition, ...)
     local command = table.pack(...)
-    API.coroutine.run(function()
-        if API.evaluate_string('return '..condition) == true then mp.commandv(table.unpack(command)) end
+    fb_utils.coroutine.run(function()
+        if fb_utils.evaluate_string('return '..condition) == true then mp.commandv(table.unpack(command)) end
     end)
 end
 
@@ -66,12 +66,12 @@ end
 --expressions must be surrounded by !{}. Another ! before the { will escape the evaluation
 function script_messages.evaluate_expressions(...)
     local args = table.pack(...)
-    API.coroutine.run(function()
+    fb_utils.coroutine.run(function()
         for i, arg in ipairs(args) do
             args[i] = arg:gsub('(!+)(%b{})', function(lead, expression)
                 if #lead % 2 == 0 then return string.rep('!', #lead/2)..expression end
 
-                local eval = API.evaluate_string('return '..expression:sub(2, -2))
+                local eval = fb_utils.evaluate_string('return '..expression:sub(2, -2))
                 return type(eval) == "table" and utils.to_string(eval) or tostring(eval)
             end)
         end
@@ -85,7 +85,7 @@ end
 --string as a statement of code
 function script_messages.run_statement(...)
     local statement = table.concat(table.pack(...), '\n')
-    API.coroutine.run(API.evaluate_string, statement)
+    fb_utils.coroutine.run(fb_utils.evaluate_string, statement)
 end
 
 return script_messages

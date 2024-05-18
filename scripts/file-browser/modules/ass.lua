@@ -5,7 +5,7 @@
 
 local g = require 'modules.globals'
 local o = require 'modules.options'
-local API = require 'modules.utils'
+local fb_utils = require 'modules.utils'
 
 local state = g.state
 local style = g.style
@@ -41,16 +41,16 @@ end
 --detects whether or not to highlight the given entry as being played
 local function highlight_entry(v)
     if g.current_file.name == nil then return false end
-    if API.parseable_item(v) then
-        return string.find(g.current_file.directory, API.get_full_path(v), 1, true)
+    if fb_utils.parseable_item(v) then
+        return string.find(g.current_file.directory, fb_utils.get_full_path(v), 1, true)
     else
-        return g.current_file.path == API.get_full_path(v)
+        return g.current_file.path == fb_utils.get_full_path(v)
     end
 end
 
 -- escape ass values and replace newlines
 local function ass_escape(str)
-    return API.ass_escape(str, true)
+    return fb_utils.ass_escape(str, true)
 end
 
 --refreshes the ass text using the contents of the list
@@ -62,7 +62,7 @@ local function update_ass()
     local dir_name = state.directory_label or state.directory
     if dir_name == "" then dir_name = "ROOT" end
     append(style.header)
-    append(API.substitute_codes(o.format_string_header, nil, nil, nil, ass_escape))
+    append(fb_utils.substitute_codes(o.format_string_header, nil, nil, nil, ass_escape))
     newline()
 
     if #state.list < 1 then
@@ -100,7 +100,7 @@ local function update_ass()
 
     --adding a header to show there are items above in the list
     if o.format_string_topwrapper ~= '' and start > 1 then
-        append(style.footer_header, API.substitute_codes(o.format_string_topwrapper, wrapper_overrides, nil, nil, ass_escape))
+        append(style.footer_header, fb_utils.substitute_codes(o.format_string_topwrapper, wrapper_overrides, nil, nil, ass_escape))
         newline()
     end
 
@@ -148,7 +148,7 @@ local function update_ass()
 
     if o.format_string_bottomwrapper ~= '' and overflow then
         append(style.footer_header)
-        append(API.substitute_codes(o.format_string_bottomwrapper, wrapper_overrides, nil, nil, ass_escape))
+        append(fb_utils.substitute_codes(o.format_string_bottomwrapper, wrapper_overrides, nil, nil, ass_escape))
     end
 
     flush_buffer()

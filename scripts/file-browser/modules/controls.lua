@@ -5,7 +5,7 @@ local utils = require 'mp.utils'
 
 local o = require 'modules.options'
 local g = require 'modules.globals'
-local API = require 'modules.utils'
+local fb_utils = require 'modules.utils'
 local movement = require 'modules.navigation.directory-movement'
 local ass = require 'modules.ass'
 local cursor = require 'modules.navigation.cursor'
@@ -76,7 +76,7 @@ function controls.browse_directory(directory)
     directory = mp.command_native({"expand-path", directory}) or ''
     -- directory = join_path( mp.get_property("working-directory", ""), directory )
 
-    if directory ~= "" then directory = API.fix_path(directory, true) end
+    if directory ~= "" then directory = fb_utils.fix_path(directory, true) end
     msg.verbose('recieved directory from script message: '..directory)
 
     if directory == "dvd://" then directory = g.dvd_device end

@@ -58,7 +58,7 @@ local function get_current_subtitle_lines()
     local stop = mp.get_property_number(sub_strings['end'])
     local text = mp.get_property(sub_strings.text)
     local lines = text and text:match('^[%s\n]*(.-)[%s\n]*$') or ''
-    return start, stop, text, split(lines, '\n', true)
+    return start, stop, text, split(lines, '%s*\n%s*', false)
 end
 
 local function same_time(t1, t2)

@@ -9,7 +9,7 @@ local utils = require 'mp.utils'
 
 local o = require 'modules.options'
 local g = require 'modules.globals'
-local API = require 'modules.utils'
+local fb_utils = require 'modules.utils'
 local playlist = require 'modules.playlist'
 local controls = require 'modules.controls'
 local movement = require 'modules.navigation.directory-movement'
@@ -54,7 +54,7 @@ local function create_item_string(base_code_fn, items, state, cmd, quoted)
     return table.concat(out, cmd['concat-string'] or ' ')
 end
 
-local KEYBIND_CODE_PATTERN = API.get_code_pattern(API.code_fns)
+local KEYBIND_CODE_PATTERN = fb_utils.get_code_pattern(fb_utils.code_fns)
 local item_specific_codes = 'fnij'
 
 --substitutes the key codes for the 
@@ -62,11 +62,11 @@ local function substitute_codes(str, cmd, items, state)
     local overrides = {}
 
     for code in item_specific_codes:gmatch('.') do
-        overrides[code] = function(_,s) return create_item_string(API.code_fns[code], items, s, cmd) end
-        overrides[code:upper()] = function(_,s) return create_item_string(API.code_fns[code], items, s, cmd, true) end
+        overrides[code] = function(_,s) return create_item_string(fb_utils.code_fns[code], items, s, cmd) end
+        overrides[code:upper()] = function(_,s) return create_item_string(fb_utils.code_fns[code], items, s, cmd, true) end
     end
 
-    return API.substitute_codes(str, overrides, items[1], state)
+    return fb_utils.substitute_codes(str, overrides, items[1], state)
 end
 
 --iterates through the command table and substitutes special
@@ -108,7 +108,7 @@ local function run_custom_keybind(cmd, state, co)
     --evaluates a condition and passes through the correct values
     local function evaluate_condition(condition, items)
         local cond = substitute_codes(condition, cmd, items, state)
-        return API.evaluate_string('return '..cond) == true
+        return fb_utils.evaluate_string('return '..cond) == true
     end
 
     -- evaluates the string condition to decide if the keybind should be run
@@ -127,7 +127,7 @@ local function run_custom_keybind(cmd, state, co)
     end
 
     --these are for the default keybinds, or from addons which use direct functions
-    if type(cmd.command) == 'function' then return cmd.command(cmd, cmd.addon and API.copy_table(state) or state, co) end
+    if type(cmd.command) == 'function' then return cmd.command(cmd, cmd.addon and fb_utils.copy_table(state) or state, co) end
 
     --the function terminates here if we are running the command on a single item
     if not (cmd.multiselect and next(state.selection)) then
@@ -149,7 +149,7 @@ local function run_custom_keybind(cmd, state, co)
     end
 
     --runs the command on all multi-selected items
-    local selection = API.sort_keys(state.selection, function(item)
+    local selection = fb_utils.sort_keys(state.selection, function(item)
         if do_item_condition and not evaluate_condition(cmd.condition, { item }) then return false end
         return not cmd.filter or item.type == cmd.filter
     end)
@@ -163,7 +163,7 @@ local function run_custom_keybind(cmd, state, co)
             run_custom_command(cmd, {selection[i]}, state)
 
             if cmd.delay then
-                mp.add_timeout(cmd.delay, function() API.coroutine.resume_err(co) end)
+                mp.add_timeout(cmd.delay, function() fb_utils.coroutine.resume_err(co) end)
                 coroutine.yield()
             end
         end
@@ -204,13 +204,13 @@ local function run_keybind_coroutine(key)
         directory_label = g.state.directory_label,
         list = g.state.list,                      --the list should remain unchanged once it has been saved to the global state, new directories get new tables
         selected = g.state.selected,
-        selection = API.copy_table(g.state.selection),
+        selection = fb_utils.copy_table(g.state.selection),
         parser = g.state.parser,
     }
     local success, err = coroutine.resume(co, key, state_copy, co)
     if not success then
         msg.error("error running keybind:", utils.to_string(key))
-        API.traceback(err, co)
+        fb_utils.traceback(err, co)
     end
 end
 
@@ -222,7 +222,9 @@ local function scan_for_codes(command_table, codes)
         if type == "table" then
             scan_for_codes(value, codes)
         elseif type == "string" then
-            value:gsub(KEYBIND_CODE_PATTERN, function(code) codes[code] = true end)
+            for code in value:gmatch(KEYBIND_CODE_PATTERN) do
+                codes[code] = true
+            end
         end
     end
     return codes
@@ -267,7 +269,7 @@ local function setup_keybinds()
                 for i, keybind in ipairs(parser.keybinds) do
                     --if addons use the native array command format, then we need to convert them over to the custom command format
                     if not keybind.key then keybind = { key = keybind[1], name = keybind[2], command = keybind[3], flags = keybind[4] }
-                    else keybind = API.copy_table(keybind) end
+                    else keybind = fb_utils.copy_table(keybind) end
 
                     keybind.name = g.parsers[parser].id.."/"..(keybind.name or tostring(i))
                     keybind.addon = true

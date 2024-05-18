@@ -3,17 +3,21 @@ local msg = require 'mp.msg'
 local utils = require 'mp.utils'
 
 local g = require 'modules.globals'
-local API = require 'modules.utils'
-local root_parser = require 'modules.parsers.root'
+local fb_utils = require 'modules.utils'
 local cache = require 'modules.cache'
 local cursor = require 'modules.navigation.cursor'
 local ass = require 'modules.ass'
 
 local parse_state_API = require 'modules.apis.parse-state'
 
+local function clear_non_adjacent_state()
+    g.state.directory_label = nil
+    cache:clear()
+end
+
 --parses the given directory or defers to the next parser if nil is returned
 local function choose_and_parse(directory, index)
-    msg.debug("finding parser for", directory)
+    msg.debug(("finding parser for %q"):format(directory))
     local parser, list, opts
     local parse_state = g.parse_states[coroutine.running() or ""]
     while list == nil and not parse_state.already_deferred and index <= #g.parsers do
@@ -34,20 +38,19 @@ end
 
 --sets up the parse_state table and runs the parse operation
 local function run_parse(directory, parse_state)
-    msg.verbose("scanning files in", directory)
+    msg.verbose(("scanning files in %q"):format(directory))
     parse_state.directory = directory
 
     local co = coroutine.running()
     g.parse_states[co] = setmetatable(parse_state, { __index = parse_state_API })
 
-    if directory == "" then return root_parser:parse() end
     local list, opts = choose_and_parse(directory, 1)
 
     if list == nil then return msg.debug("no successful parsers found") end
     opts.parser = g.parsers[opts.id]
 
-    if not opts.filtered then API.filter(list) end
-    if not opts.sorted then API.sort(list) end
+    if not opts.filtered then fb_utils.filter(list) end
+    if not opts.sorted then fb_utils.sort(list) end
     return list, opts
 end
 
@@ -55,21 +58,21 @@ end
 --if a coroutine has already been used for a parse then create a new coroutine so that
 --the every parse operation has a unique thread ID
 local function parse_directory(directory, parse_state)
-    local co = API.coroutine.assert("scan_directory must be executed from within a coroutine - aborting scan "..utils.to_string(parse_state))
+    local co = fb_utils.coroutine.assert("scan_directory must be executed from within a coroutine - aborting scan "..utils.to_string(parse_state))
     if not g.parse_states[co] then return run_parse(directory, parse_state) end
 
     --if this coroutine is already is use by another parse operation then we create a new
     --one and hand execution over to that
     local new_co = coroutine.create(function()
-        API.coroutine.resume_err(co, run_parse(directory, parse_state))
+        fb_utils.coroutine.resume_err(co, run_parse(directory, parse_state))
     end)
 
     --queue the new coroutine on the mpv event queue
     mp.add_timeout(0, function()
         local success, err = coroutine.resume(new_co)
         if not success then
-            API.traceback(err, new_co)
-            API.coroutine.resume_err(co)
+            fb_utils.traceback(err, new_co)
+            fb_utils.coroutine.resume_err(co)
         end
     end)
     return g.parse_states[co]:yield()
@@ -110,8 +113,12 @@ local function update_list(moving_adjacent)
         cache:apply()
         return
     elseif not list then
-        msg.warn("could not read directory", g.state.directory)
-        list, opts = root_parser:parse()
+        --opens the root instead
+        msg.warn("could not read directory", g.state.directory, "redirecting to root")
+        list, opts = parse_directory("", { source = "browser" })
+
+        -- sets the directory redirect flag
+        opts.directory = ''
     end
 
     g.state.list = list
@@ -120,7 +127,7 @@ local function update_list(moving_adjacent)
     --this only matters when displaying the list on the screen, so it doesn't need to be in the scan function
     if not opts.escaped then
         for i = 1, #list do
-            list[i].ass = list[i].ass or API.ass_escape(list[i].label or list[i].name, true)
+            list[i].ass = list[i].ass or fb_utils.ass_escape(list[i].label or list[i].name, true)
         end
     end
 
@@ -129,10 +136,11 @@ local function update_list(moving_adjacent)
     g.state.empty_text = opts.empty_text or g.state.empty_text
 
     --we assume that directory is only changed when redirecting to a different location
-    --therefore, the cache should be wiped
+    --therefore we need to change the `moving_adjacent` flag and clear some state values
     if opts.directory then
         g.state.directory = opts.directory
-        cache:clear()
+        moving_adjacent = false
+        clear_non_adjacent_state()
     end
 
     if opts.selected_index then
@@ -149,10 +157,7 @@ end
 --rescans the folder and updates the list
 local function update(moving_adjacent)
     --we can only make assumptions about the directory label when moving from adjacent directories
-    if not moving_adjacent then
-        g.state.directory_label = nil
-        cache:clear()
-    end
+    if not moving_adjacent then clear_non_adjacent_state() end
 
     g.state.empty_text = "~"
     g.state.list = {}
@@ -161,10 +166,10 @@ local function update(moving_adjacent)
 
     --the directory is always handled within a coroutine to allow addons to
     --pause execution for asynchronous operations
-    API.coroutine.run(function()
+    fb_utils.coroutine.run(function()
         g.state.co = coroutine.running()
         update_list(moving_adjacent)
-        g.state.empty_text = "empty directory"
+        if g.state.empty_text == "~" then g.state.empty_text = "empty directory" end
         ass.update_ass()
     end)
 end

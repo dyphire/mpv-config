@@ -4,7 +4,7 @@
 --------------------------------------------------------------------------------------------------------
 
 local g = require 'modules.globals'
-local API = require 'modules.utils'
+local fb_utils = require 'modules.utils'
 local ass = require 'modules.ass'
 
 local cursor = {}
@@ -18,7 +18,7 @@ end
 --enables multiselect
 function cursor.enable_select_mode()
     g.state.multiselect_start = g.state.selected
-    g.state.initial_selection = API.copy_table(g.state.selection)
+    g.state.initial_selection = fb_utils.copy_table(g.state.selection)
 end
 
 --calculates what drag behaviour is required for that specific movement
@@ -80,8 +80,8 @@ end
 function cursor.select_prev_directory()
     if g.state.prev_directory:find(g.state.directory, 1, true) == 1 then
         local i = 1
-        while (g.state.list[i] and API.parseable_item(g.state.list[i])) do
-            if g.state.prev_directory:find(API.get_full_path(g.state.list[i]), 1, true) then
+        while (g.state.list[i] and fb_utils.parseable_item(g.state.list[i])) do
+            if g.state.prev_directory:find(fb_utils.get_full_path(g.state.list[i]), 1, true) then
                 g.state.selected = i
                 return
             end

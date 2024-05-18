@@ -15,10 +15,10 @@ if not success then input = nil end
 
 --creates a table for the API functions
 --adds one metatable redirect to prevent addon authors from accidentally breaking file-browser
-local API = { API_VERSION = g.API_VERSION }
+local fb_utils = { API_VERSION = g.API_VERSION }
 
-API.list = {}
-API.coroutine = {}
+fb_utils.list = {}
+fb_utils.coroutine = {}
 
 --implements table.pack if on lua 5.1
 if not table.pack then
@@ -32,7 +32,7 @@ end
 
 -- returns the index of the given item in the table
 -- return -1 if item does not exist
-function API.list.indexOf(t, item, from_index)
+function fb_utils.list.indexOf(t, item, from_index)
     for i = from_index or 1, #t, 1 do
         if t[i] == item then return i end
     end
@@ -41,7 +41,7 @@ end
 
 --returns whether or not the given table contains an entry that
 --causes the given function to evaluate to true
-function API.list.some(t, fn)
+function fb_utils.list.some(t, fn)
     for i, v in ipairs(t) do
         if fn(v, i, t) then return true end
     end
@@ -51,7 +51,7 @@ end
 --prints an error message and a stack trace
 --accepts an error object and optionally a coroutine
 --can be passed directly to xpcall
-function API.traceback(errmsg, co)
+function fb_utils.traceback(errmsg, co)
     if co then
         msg.warn(debug.traceback(co))
     else
@@ -62,67 +62,67 @@ end
 
 --returns a table that stores the given table t as the __index in its metatable
 --creates a prototypally inherited table
-function API.redirect_table(t)
+function fb_utils.redirect_table(t)
     return setmetatable({}, { __index = t })
 end
 
 --prints an error if a coroutine returns an error
 --unlike the next function this one still returns the results of coroutine.resume()
-function API.coroutine.resume_catch(...)
+function fb_utils.coroutine.resume_catch(...)
     local returns = table.pack(coroutine.resume(...))
     if not returns[1] and returns[2] ~= g.ABORT_ERROR then
-        API.traceback(returns[2], select(1, ...))
+        fb_utils.traceback(returns[2], select(1, ...))
     end
     return table.unpack(returns, 1, returns.n)
 end
 
 --resumes a coroutine and prints an error if it was not sucessful
-function API.coroutine.resume_err(...)
+function fb_utils.coroutine.resume_err(...)
     local success, err = coroutine.resume(...)
     if not success and err ~= g.ABORT_ERROR then
-        API.traceback(err, select(1, ...))
+        fb_utils.traceback(err, select(1, ...))
     end
     return success
 end
 
 --in lua 5.1 there is only one return value which will be nil if run from the main thread
 --in lua 5.2 main will be true if running from the main thread
-function API.coroutine.assert(err)
+function fb_utils.coroutine.assert(err)
     local co, main = coroutine.running()
     assert(not main and co, err or "error - function must be executed from within a coroutine")
     return co
 end
 
 --creates a callback fuction to resume the current coroutine
-function API.coroutine.callback()
-    local co = API.coroutine.assert("cannot create a coroutine callback for the main thread")
+function fb_utils.coroutine.callback()
+    local co = fb_utils.coroutine.assert("cannot create a coroutine callback for the main thread")
     return function(...)
-        return API.coroutine.resume_err(co, ...)
+        return fb_utils.coroutine.resume_err(co, ...)
     end
 end
 
 --puts the current coroutine to sleep for the given number of seconds
-function API.coroutine.sleep(n)
-    mp.add_timeout(n, API.coroutine.callback())
+function fb_utils.coroutine.sleep(n)
+    mp.add_timeout(n, fb_utils.coroutine.callback())
     coroutine.yield()
 end
 
 --runs the given function in a coroutine, passing through any additional arguments
 --this is for triggering an event in a coroutine
-function API.coroutine.run(fn, ...)
+function fb_utils.coroutine.run(fn, ...)
     local co = coroutine.create(fn)
-    API.coroutine.resume_err(co, ...)
+    fb_utils.coroutine.resume_err(co, ...)
 end
 
 --get the full path for the current file
-function API.get_full_path(item, dir)
+function fb_utils.get_full_path(item, dir)
     if item.path then return item.path end
     return (dir or g.state.directory)..item.name
 end
 
 --gets the path for a new subdirectory, redirects if the path field is set
 --returns the new directory path and a boolean specifying if a redirect happened
-function API.get_new_directory(item, directory)
+function fb_utils.get_new_directory(item, directory)
     if item.path and item.redirect ~= false then return item.path, true end
     if directory == "" then return item.name end
     if string.sub(directory, -1) == "/" then return directory..item.name end
@@ -130,18 +130,18 @@ function API.get_new_directory(item, directory)
 end
 
 --returns the file extension of the given file
-function API.get_extension(filename, def)
+function fb_utils.get_extension(filename, def)
     return string.lower(filename):match("%.([^%./]+)$") or def
 end
 
 --returns the protocol scheme of the given url, or nil if there is none
-function API.get_protocol(filename, def)
+function fb_utils.get_protocol(filename, def)
     return string.lower(filename):match("^(%a[%w+-.]*)://") or def
 end
 
 --formats strings for ass handling
 --this function is based on a similar function from https://github.com/mpv-player/mpv/blob/master/player/lua/console.lua#L110
-function API.ass_escape(str, replace_newline)
+function fb_utils.ass_escape(str, replace_newline)
     if replace_newline == true then replace_newline = "\\\239\187\191n" end
 
     --escape the invalid single characters
@@ -168,12 +168,13 @@ function API.ass_escape(str, replace_newline)
 end
 
 --escape lua pattern characters
-function API.pattern_escape(str)
+function fb_utils.pattern_escape(str)
     return string.gsub(str, "([%^%$%(%)%%%.%[%]%*%+%-])", "%%%1")
 end
 
 --standardises filepaths across systems
-function API.fix_path(str, is_directory)
+function fb_utils.fix_path(str, is_directory)
+    if str == '' then return str end
     if o.normalise_backslash == 'yes' or (o.normalise_backslash == 'auto' and g.PLATFORM == 'windows') then
         str = string.gsub(str, [[\]],[[/]])
     end
@@ -183,14 +184,14 @@ function API.fix_path(str, is_directory)
 end
 
 --wrapper for utils.join_path to handle protocols
-function API.join_path(working, relative)
-    return API.get_protocol(relative) and relative or utils.join_path(working, relative)
+function fb_utils.join_path(working, relative)
+    return fb_utils.get_protocol(relative) and relative or utils.join_path(working, relative)
 end
 
 --sorts the table lexicographically ignoring case and accounting for leading/non-leading zeroes
 --the number format functionality was proposed by github user twophyro, and was presumably taken
 --from here: http://notebook.kulchenko.com/algorithms/alphanumeric-natural-sorting-for-humans-in-lua
-function API.sort(t)
+function fb_utils.sort(t)
     local function padnum(n, d)
         return #d > 0 and ("%03d%s%.12f"):format(#n, n, tonumber(d) / (10 ^ #d))
             or ("%03d%s"):format(#n, n)
@@ -208,33 +209,33 @@ function API.sort(t)
     return t
 end
 
-function API.valid_dir(dir)
+function fb_utils.valid_dir(dir)
     if o.filter_dot_dirs and string.sub(dir, 1, 1) == "." then return false end
     return true
 end
 
-function API.valid_file(file)
+function fb_utils.valid_file(file)
     if o.filter_dot_files and (string.sub(file, 1, 1) == ".") then return false end
-    if o.filter_files and not g.extensions[ API.get_extension(file, "") ] then return false end
+    if o.filter_files and not g.extensions[ fb_utils.get_extension(file, "") ] then return false end
     return true
 end
 
 --returns whether or not the item can be parsed
-function API.parseable_item(item)
-    return item.type == "dir" or g.parseable_extensions[API.get_extension(item.name, "")]
+function fb_utils.parseable_item(item)
+    return item.type == "dir" or g.parseable_extensions[fb_utils.get_extension(item.name, "")]
 end
 
 --removes items and folders from the list
 --this is for addons which can't filter things during their normal processing
-function API.filter(t)
+function fb_utils.filter(t)
     local max = #t
     local top = 1
     for i = 1, max do
         local temp = t[i]
         t[i] = nil
 
-        if  ( temp.type == "dir" and API.valid_dir(temp.label or temp.name) ) or
-            ( temp.type == "file" and API.valid_file(temp.label or temp.name) )
+        if  ( temp.type == "dir" and fb_utils.valid_dir(temp.label or temp.name) ) or
+            ( temp.type == "file" and fb_utils.valid_file(temp.label or temp.name) )
         then
             t[top] = temp
             top = top+1
@@ -244,14 +245,14 @@ function API.filter(t)
 end
 
 --returns a string iterator that uses the root separators
-function API.iterate_opt(str)
-    return string.gmatch(str, "([^"..API.pattern_escape(o.root_separators).."]+)")
+function fb_utils.iterate_opt(str)
+    return string.gmatch(str, "([^"..fb_utils.pattern_escape(o.root_separators).."]+)")
 end
 
 --sorts a table into an array of selected items in the correct order
 --if a predicate function is passed, then the item will only be added to
 --the table if the function returns true
-function API.sort_keys(t, include_item)
+function fb_utils.sort_keys(t, include_item)
     local keys = {}
     for k in pairs(t) do
         local item = g.state.list[k]
@@ -299,9 +300,9 @@ local function json_safe_recursive(t)
 end
 
 --formats a table into a json string but ensures there are no invalid datatypes inside the table first
-function API.format_json_safe(t)
+function fb_utils.format_json_safe(t)
     --operate on a copy of the table to prevent any data loss in the original table
-    t = json_safe_recursive(API.copy_table(t))
+    t = json_safe_recursive(fb_utils.copy_table(t))
     local success, result, err = pcall(utils.format_json, t)
     if success then return result, err
     else return nil, result end
@@ -310,13 +311,13 @@ end
 --evaluates and runs the given string in both Lua 5.1 and 5.2
 --the name argument is used for error reporting
 --provides the mpv modules and the fb module to the string
-function API.evaluate_string(str, name)
-    local env = API.redirect_table(_G)
-    env.mp = API.redirect_table(mp)
-    env.msg = API.redirect_table(msg)
-    env.utils = API.redirect_table(utils)
-    env.fb = API.redirect_table(API)
-    env.input = input and API.redirect_table(input)
+function fb_utils.evaluate_string(str, name)
+    local env = fb_utils.redirect_table(_G)
+    env.mp = fb_utils.redirect_table(mp)
+    env.msg = fb_utils.redirect_table(msg)
+    env.utils = fb_utils.redirect_table(utils)
+    env.fb = fb_utils.redirect_table(fb_utils)
+    env.input = input and fb_utils.redirect_table(input)
 
     local chunk, err
     if setfenv then
@@ -351,7 +352,7 @@ local function copy_table_recursive(t, references, depth)
 end
 
 --a wrapper around copy_table to provide the reference table
-function API.copy_table(t, depth)
+function fb_utils.copy_table(t, depth)
     --this is to handle cyclic table references
     return copy_table_recursive(t, {}, depth or math.huge)
 end
@@ -370,13 +371,13 @@ local function create_item_string(base_code_fn, items, state, cmd, quoted)
 end
 
 --functions to replace custom-keybind codes
-API.code_fns = {
+fb_utils.code_fns = {
     ["%"] = "%",
 
-    f = function(item, s) return item and API.get_full_path(item, s.directory) or "" end,
+    f = function(item, s) return item and fb_utils.get_full_path(item, s.directory) or "" end,
     n = function(item, s) return item and (item.label or item.name) or "" end,
-    i = function(item, s) local i = API.list.indexOf(s.list, item) ; return i ~= -1 and i or 0 end,
-    j = function (item, s) return API.list.indexOf(s.list, item) ~= -1 and math.abs(API.list.indexOf( API.sort_keys(s.selection) , item)) or 0 end,
+    i = function(item, s) local i = fb_utils.list.indexOf(s.list, item) ; return i ~= -1 and i or 0 end,
+    j = function (item, s) return fb_utils.list.indexOf(s.list, item) ~= -1 and math.abs(fb_utils.list.indexOf( fb_utils.sort_keys(s.selection) , item)) or 0 end,
 
     x = function(_, s) return #s.list or 0 end,
     p = function(_, s) return s.directory or "" end,
@@ -387,23 +388,23 @@ API.code_fns = {
 
 -- programatically creates a pattern that matches any key code
 -- this will result in some duplicates but that shouldn't really matter
-function API.get_code_pattern(codes)
+function fb_utils.get_code_pattern(codes)
     local CUSTOM_KEYBIND_CODES = ""
     for key in pairs(codes) do CUSTOM_KEYBIND_CODES = CUSTOM_KEYBIND_CODES..key:lower()..key:upper() end
     for key in pairs((getmetatable(codes) or {}).__index or {}) do CUSTOM_KEYBIND_CODES = CUSTOM_KEYBIND_CODES..key:lower()..key:upper() end
-    return('%%%%([%s])'):format(API.pattern_escape(CUSTOM_KEYBIND_CODES))
+    return('%%%%([%s])'):format(fb_utils.pattern_escape(CUSTOM_KEYBIND_CODES))
 end
 
 -- substitutes codes in the given string for other substrings
 -- overrides is a map of characters->strings|functions that determines the replacement string is
 -- item and state are values passed to functions in the map
 -- modifier_fn is given the replacement substrings before they are placed in the main string (the return value is the new replacement string)
-function API.substitute_codes(str, overrides, item, state, modifier_fn)
-    local replacers = overrides and setmetatable(API.copy_table(overrides), {__index = API.code_fns}) or API.code_fns
+function fb_utils.substitute_codes(str, overrides, item, state, modifier_fn)
+    local replacers = overrides and setmetatable(fb_utils.copy_table(overrides), {__index = fb_utils.code_fns}) or fb_utils.code_fns
     item = item or g.state.list[g.state.selected]
     state = state or g.state
 
-    return (string.gsub(str, API.get_code_pattern(replacers), function(code)
+    return (string.gsub(str, fb_utils.get_code_pattern(replacers), function(code)
         local result
 
         if type(replacers[code]) == "string" then
@@ -423,4 +424,4 @@ function API.substitute_codes(str, overrides, item, state, modifier_fn)
 end
 
 
-return API
+return fb_utils

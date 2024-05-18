@@ -8,7 +8,7 @@ local msg = require 'mp.msg'
 
 local o = require 'modules.options'
 local g = require 'modules.globals'
-local API = require 'modules.utils'
+local fb_utils = require 'modules.utils'
 local ass = require 'modules.ass'
 local cursor = require 'modules.navigation.cursor'
 local controls = require 'modules.controls'
@@ -20,7 +20,7 @@ local state = g.state
 --adds a file to the playlist and changes the flag to `append-play` in preparation
 --for future items
 local function loadfile(file, opts)
-    if o.substitute_backslash and not API.get_protocol(file) then
+    if o.substitute_backslash and not fb_utils.get_protocol(file) then
         file = file:gsub("/", "\\")
     end
 
@@ -59,8 +59,8 @@ local function concurrent_loadlist_parse(directory, load_opts, prev_dirs, item_t
 
     --launches new parse operations for directories, each in a different coroutine
     for _, item in ipairs(list) do
-        if API.parseable_item(item) then
-            API.coroutine.run(concurrent_loadlist_wrapper, API.get_new_directory(item, directory), load_opts, prev_dirs, item)
+        if fb_utils.parseable_item(item) then
+            fb_utils.coroutine.run(concurrent_loadlist_wrapper, fb_utils.get_new_directory(item, directory), load_opts, prev_dirs, item)
         end
     end
     return true
@@ -73,14 +73,14 @@ function concurrent_loadlist_wrapper(directory, opts, prev_dirs, item)
     --command_native_async should use that, events like mp.add_timeout (which coroutine.sleep() uses) should
     --be handled enturely on the Lua side with a table, which has a significantly larger maximum size.
     while (opts.concurrency > o.max_concurrency) do
-        API.coroutine.sleep(0.1)
+        fb_utils.coroutine.sleep(0.1)
     end
     opts.concurrency = opts.concurrency + 1
 
     local success = concurrent_loadlist_parse(directory, opts, prev_dirs, item)
     opts.concurrency = opts.concurrency - 1
     if not success then item._sublist = {} end
-    if coroutine.status(opts.co) == "suspended" then API.coroutine.resume_err(opts.co) end
+    if coroutine.status(opts.co) == "suspended" then fb_utils.coroutine.resume_err(opts.co) end
 end
 
 --recursively appends items to the playlist, acts as a consumer to the previous functions producer;
@@ -89,17 +89,17 @@ local function concurrent_loadlist_append(list, load_opts)
     local directory = list._directory
 
     for _, item in ipairs(list) do
-        if not g.sub_extensions[ API.get_extension(item.name, "") ]
-        and not g.audio_extensions[ API.get_extension(item.name, "") ]
+        if not g.sub_extensions[ fb_utils.get_extension(item.name, "") ]
+        and not g.audio_extensions[ fb_utils.get_extension(item.name, "") ]
         then
-            while (not item._sublist and API.parseable_item(item)) do
+            while (not item._sublist and fb_utils.parseable_item(item)) do
                 coroutine.yield()
             end
 
-            if API.parseable_item(item) then
+            if fb_utils.parseable_item(item) then
                 concurrent_loadlist_append(item._sublist, load_opts)
             else
-                loadfile(API.get_full_path(item, directory), load_opts)
+                loadfile(fb_utils.get_full_path(item, directory), load_opts)
             end
         end
     end
@@ -126,13 +126,13 @@ local function custom_loadlist_recursive(directory, load_opts, prev_dirs)
     if directory == "" then return end
 
     for _, item in ipairs(list) do
-        if not g.sub_extensions[ API.get_extension(item.name, "") ]
-        and not g.audio_extensions[ API.get_extension(item.name, "") ]
+        if not g.sub_extensions[ fb_utils.get_extension(item.name, "") ]
+        and not g.audio_extensions[ fb_utils.get_extension(item.name, "") ]
         then
-            if API.parseable_item(item) then
-                custom_loadlist_recursive( API.get_new_directory(item, directory) , load_opts, prev_dirs)
+            if fb_utils.parseable_item(item) then
+                custom_loadlist_recursive( fb_utils.get_new_directory(item, directory) , load_opts, prev_dirs)
             else
-                local path = API.get_full_path(item, directory)
+                local path = fb_utils.get_full_path(item, directory)
                 loadfile(path, load_opts)
             end
         end
@@ -142,18 +142,18 @@ end
 
 --a wrapper for the custom_loadlist_recursive function
 local function loadlist(item, opts)
-    local dir = API.get_full_path(item, opts.directory)
+    local dir = fb_utils.get_full_path(item, opts.directory)
     local num_items = opts.items_appended
 
     if o.concurrent_recursion then
-        item = API.copy_table(item)
-        opts.co = API.coroutine.assert()
+        item = fb_utils.copy_table(item)
+        opts.co = fb_utils.coroutine.assert()
         opts.concurrency = 0
 
         --we need the current coroutine to suspend before we run the first parse operation, so
         --we schedule the coroutine to run on the mpv event queue
         mp.add_timeout(0, function()
-            API.coroutine.run(concurrent_loadlist_wrapper, dir, opts, {}, item)
+            fb_utils.coroutine.run(concurrent_loadlist_wrapper, dir, opts, {}, item)
         end)
         concurrent_loadlist_append({item, _directory = opts.directory}, opts)
     else
@@ -175,10 +175,10 @@ local function autoload_dir(path, opts)
     local file_count = 0
     for _,item in ipairs(state.list) do
         if item.type == "file" 
-        and not g.sub_extensions[ API.get_extension(item.name, "") ]
-        and not g.audio_extensions[ API.get_extension(item.name, "") ]
+        and not g.sub_extensions[ fb_utils.get_extension(item.name, "") ]
+        and not g.audio_extensions[ fb_utils.get_extension(item.name, "") ]
         then
-            local p = API.get_full_path(item)
+            local p = fb_utils.get_full_path(item)
 
             if p == path then pos = file_count
             else loadfile( p, opts) end
@@ -191,14 +191,14 @@ end
 
 --runs the loadfile or loadlist command
 local function open_item(item, opts)
-    if API.parseable_item(item) then
+    if fb_utils.parseable_item(item) then
         return loadlist(item, opts)
     end
 
-    local path = API.get_full_path(item, opts.directory)
-    if g.sub_extensions[ API.get_extension(item.name, "") ] then
+    local path = fb_utils.get_full_path(item, opts.directory)
+    if g.sub_extensions[ fb_utils.get_extension(item.name, "") ] then
         mp.commandv("sub-add", path, opts.flag == "replace" and "select" or "auto")
-    elseif g.audio_extensions[ API.get_extension(item.name, "") ] then
+    elseif g.audio_extensions[ fb_utils.get_extension(item.name, "") ] then
         mp.commandv("audio-add", path, opts.flag == "replace" and "select" or "auto")
     else
         if opts.autoload then autoload_dir(path, opts)
@@ -220,7 +220,7 @@ local function open_file_coroutine(opts)
 
     --handles multi-selection behaviour
     if next(state.selection) then
-        local selection = API.sort_keys(state.selection)
+        local selection = fb_utils.sort_keys(state.selection)
         --reset the selection after
         state.selection = {}
 
@@ -244,7 +244,7 @@ end
 
 --opens the selelected file(s)
 local function open_file(flag, autoload)
-    API.coroutine.run(open_file_coroutine, {
+    fb_utils.coroutine.run(open_file_coroutine, {
         flag = flag,
         autoload = (autoload ~= o.autoload and flag == "replace"),
         directory = state.directory,

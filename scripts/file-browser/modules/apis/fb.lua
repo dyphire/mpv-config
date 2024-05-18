@@ -3,13 +3,14 @@ local utils = require 'mp.utils'
 
 local o = require 'modules.options'
 local g = require 'modules.globals'
-local API = require 'modules.utils'
+local fb_utils = require 'modules.utils'
 local ass = require 'modules.ass'
 local scanning = require 'modules.navigation.scanning'
 local cache = require 'modules.cache'
 local controls = require 'modules.controls'
 
-local fb = setmetatable({}, { __index = setmetatable({}, { __index = API }) })
+local fb = setmetatable({}, { __index = setmetatable({}, { __index = fb_utils }) })
+package.loaded["file-browser"] = setmetatable({}, { __index = fb })
 
 --these functions we'll provide as-is
 fb.redraw = ass.update_ass

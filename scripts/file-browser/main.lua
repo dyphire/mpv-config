@@ -18,18 +18,14 @@ local controls = require 'modules.controls'
 local observers = require 'modules.observers'
 local script_messages = require 'modules.script-messages'
 
-local file_parser = require 'modules.parsers.file'
-local root_parser = require 'modules.parsers.root'
-
 -- setting the package paths
 package.path = mp.command_native({"expand-path", o.module_directory}).."/?.lua;"..package.path
 local user_input_loaded, input = pcall(require, "user-input-module")
 
 -- root and addon setup
 setup.root()
-addons.setup_parser(file_parser, "file-browser.lua")
-addons.setup_parser(root_parser, 'file-browser.lua')
-if o.addons then addons.setup_addons() end
+addons.load_internal_parsers()
+if o.addons then addons.load_external_addons() end
 
 --these need to be below the addon setup in case any parsers add custom entries
 setup.extensions_list()

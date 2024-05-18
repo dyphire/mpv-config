@@ -5,7 +5,7 @@ local o = require 'modules.options'
 local g = require 'modules.globals'
 local cache = require 'modules.cache'
 local scanning = require 'modules.navigation.scanning'
-local API = require 'modules.utils'
+local fb_utils = require 'modules.utils'
 
 local directory_movement = {}
 
@@ -48,10 +48,10 @@ end
 --moves down a directory
 function directory_movement.down_dir()
     local current = g.state.list[g.state.selected]
-    if not current or not API.parseable_item(current) then return end
+    if not current or not fb_utils.parseable_item(current) then return end
 
     cache:push()
-    local directory, redirected = API.get_new_directory(current, g.state.directory)
+    local directory, redirected = fb_utils.get_new_directory(current, g.state.directory)
     g.state.directory = directory
 
     --we can make some assumptions about the next directory label when moving up or down

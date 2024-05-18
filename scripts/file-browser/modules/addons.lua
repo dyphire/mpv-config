@@ -5,10 +5,8 @@ local utils = require 'mp.utils'
 local o = require 'modules.options'
 local g = require 'modules.globals'
 local fb = require 'modules.apis.fb'
-local API = require 'modules.utils'
+local fb_utils = require 'modules.utils'
 local parser_API = require 'modules.apis.parser'
-
-local root_parser = require 'modules.parsers.root'
 
 local API_MAJOR, API_MINOR, API_PATCH = g.API_VERSION:match("(%d+)%.(%d+)%.(%d+)")
 
@@ -44,15 +42,15 @@ local function set_parser_id(parser)
     g.parsers[parser] = { id = name }
 end
 
---loads an addon in a separate environment
-local function load_addon(path)
+--runs an addon in a separate environment
+local function run_addon(path)
     local name_sqbr = string.format("[%s]", path:match("/([^/]*)%.lua$"))
-    local addon_environment = API.redirect_table(_G)
+    local addon_environment = fb_utils.redirect_table(_G)
     addon_environment._G = addon_environment
 
     --gives each addon custom debug messages
-    addon_environment.package = API.redirect_table(addon_environment.package)
-    addon_environment.package.loaded = API.redirect_table(addon_environment.package.loaded)
+    addon_environment.package = fb_utils.redirect_table(addon_environment.package)
+    addon_environment.package.loaded = fb_utils.redirect_table(addon_environment.package.loaded)
     local msg_module = {
         log = function(level, ...) msg.log(level, name_sqbr, ...) end,
         fatal = function(...) return msg.fatal(name_sqbr, ...) end,
@@ -82,7 +80,7 @@ local function load_addon(path)
         if not chunk then return msg.error(err) end
     end
 
-    local success, result = xpcall(chunk, API.traceback)
+    local success, result = xpcall(chunk, fb_utils.traceback)
     return success and result or nil
 end
 
@@ -105,8 +103,6 @@ local function setup_parser(parser, file)
     if parser.priority == nil then parser.priority = 0 end
     if type(parser.priority) ~= "number" then return msg.error("parser", parser:get_id(), "needs a numeric priority") end
 
-    --the root parser has special behaviour, so it should not be in the list of parsers
-    if parser == root_parser then return end
     table.insert(g.parsers, parser)
 end
 
@@ -114,7 +110,7 @@ end
 local function setup_addon(file, path)
     if file:sub(-4) ~= ".lua" then return msg.verbose(path, "is not a lua file - aborting addon setup") end
 
-    local addon_parsers = load_addon(path)
+    local addon_parsers = run_addon(path)
     if not addon_parsers or type(addon_parsers) ~= "table" then return msg.error("addon", path, "did not return a table") end
 
     --if the table contains a priority key then we assume it isn't an array of parsers
@@ -126,15 +122,14 @@ local function setup_addon(file, path)
 end
 
 --loading external addons
-local function setup_addons()
-    package.loaded["file-browser"] = setmetatable({}, { __index = fb })
+local function load_addons(directory)
+    directory = fb_utils.fix_path(directory, true)
 
-    local addon_dir = mp.command_native({"expand-path", o.addon_directory..'/'})
-    local files = utils.readdir(addon_dir)
+    local files = utils.readdir(directory)
     if not files then error("could not read addon directory") end
 
     for _, file in ipairs(files) do
-        setup_addon(file, addon_dir..file)
+        setup_addon(file, directory..file)
     end
     table.sort(g.parsers, function(a, b) return a.priority < b.priority end)
 
@@ -144,7 +139,7 @@ local function setup_addons()
     --we want to run the setup functions for each addon
     for index, parser in ipairs(g.parsers) do
         if parser.setup then
-            local success = xpcall(function() parser:setup() end, API.traceback)
+            local success = xpcall(function() parser:setup() end, fb_utils.traceback)
             if not success then
                 msg.error("parser", parser:get_id(), "threw an error in the setup method - removing from list of parsers")
                 table.remove(g.parsers, index)
@@ -153,7 +148,17 @@ local function setup_addons()
     end
 end
 
+local function load_internal_parsers()
+    local internal_addon_dir = mp.get_script_directory()..'/modules/parsers/'
+    load_addons(internal_addon_dir)
+end
+
+local function load_external_addons()
+    local addon_dir = mp.command_native({"expand-path", o.addon_directory..'/'})
+    load_addons(addon_dir)
+end
+
 return {
-    setup_parser = setup_parser,
-    setup_addons = setup_addons,
+    load_internal_parsers = load_internal_parsers,
+    load_external_addons = load_external_addons
 }
