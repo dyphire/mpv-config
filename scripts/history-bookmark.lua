@@ -8,6 +8,8 @@ local msg = require 'mp.msg' -- this is for debugging
 
 local o = {
     enabled = true,
+    -- eng=English, chs=Chinese Simplified
+    language = 'eng',
     save_period = 30,
     -- Set '/:dir%mpvconf%/historybookmarks' to use mpv config directory
     -- OR change to '/:dir%script%/historybookmarks' for placing it in the same directory of script
@@ -35,6 +37,20 @@ options.read_options(o, _, function() end)
 
 o.excluded_dir = utils.parse_json(o.excluded_dir)
 o.included_dir = utils.parse_json(o.included_dir)
+
+local locals = {
+    ['eng'] = {
+        msg1 = 'resume successfully',
+        msg2 = 'resume the last played file in current directory',
+    },
+    ['chs'] = {
+        msg1 = '成功恢复上次播放',
+        msg2 = '是否恢复当前目录的上次播放文件',
+    }
+}
+
+-- apply lang opts
+local texts = locals[o.language]
 
 -- `pl` stands for playlist
 local path = nil
@@ -376,34 +392,37 @@ local function get_playlist_idx(dst_file)
     return idx
 end
 
-local function unbind_key()
-    msg.verbose('Unbinding keys')
-    mp.remove_key_binding('resume_yes')
-    mp.remove_key_binding('resume_not')
-end
-
 local function jump_resume()
     mp.unregister_event(jump_resume)
-    prompt_msg("resume successfully", 1500)
+    prompt_msg(texts.msg1, 1500)
+end
+
+local function unbind_key()
+    msg.verbose('Unbinding keys')
+    wait_jump_timer:kill()
+    mp.remove_key_binding('key_jump')
+    mp.remove_key_binding('key_cancel')
 end
 
 local function key_jump()
-    unbind_key()
     on_key = true
     wait_jump_timer:kill()
+    unbind_key()
     current_idx = pl_idx
     mp.register_event('file-loaded', jump_resume)
     msg.verbose('Jumping to ' .. pl_path)
     mp.commandv('loadfile', pl_path)
 end
 
+local function key_cancel()
+    on_key = true
+    wait_jump_timer:kill()
+    unbind_key()
+end
+
 local function bind_key()
-    mp.register_script_message('resume_yes', key_jump)
-    mp.register_script_message('resume_not', function()
-        unbind_key()
-        on_key = true
-        wait_jump_timer:kill()
-    end)
+    mp.add_forced_key_binding('ENTER', 'key_jump', key_jump)
+    mp.add_forced_key_binding('ESC', 'key_cancel', key_cancel)
 end
 
 -- creat a .history file
@@ -422,19 +441,19 @@ end
 local timeout = 15
 local function wait4jumping()
     timeout = timeout - 1
-    if (timeout >= 0) then
-        if (timeout < 1) then
+    if timeout > 0 then
+        if not on_key then
+            local msg = string.format("%s -- %s? %02d [ENTER/ESC]", wait_msg, texts.msg2, timeout)
+            prompt_msg(msg, 1000)
+            bind_key()
+        else
+            timeout = 0
             wait_jump_timer:kill()
             unbind_key()
         end
-        local msg = ""
-        if timeout < 10 then
-            msg = "0"
-        end
-        if not on_key then
-            msg = wait_msg .. " -- continue? " .. timeout .. " [EN/IG]"
-            prompt_msg(msg, 1000)
-        end
+    else
+        wait_jump_timer:kill()
+        unbind_key()
     end
 end
 
@@ -499,7 +518,6 @@ local function record()
         wait_msg = pl_idx
         msg.verbose('Last watched episode -- ' .. wait_msg)
         wait_jump_timer = mp.add_periodic_timer(1, wait4jumping)
-        bind_key()
     end
     timer4saving_history = mp.add_periodic_timer(o.save_period, record_history)
     mp.observe_property("pause", "bool", pause)
