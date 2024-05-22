@@ -14,17 +14,11 @@ function TopBar:init()
 	self.main_title, self.alt_title = nil, nil
 
 	local function maximized_command()
-		if state.platform == 'windows' then
-			mp.command(state.border
-				and (state.fullscreen and 'set fullscreen no;cycle window-maximized' or 'cycle window-maximized')
-				or 'set window-maximized no;cycle fullscreen')
-		else
-			mp.command(state.fullormaxed and 'set fullscreen no;set window-maximized no' or 'set window-maximized yes')
-		end
+		mp.command(state.fullormaxed and 'set fullscreen no;set window-maximized no' or 'set window-maximized yes')
 	end
 
 	local close = {icon = 'close', hover_bg = '2311e8', hover_fg = 'ffffff', command = function() mp.command('quit') end}
-	local max = {icon = 'crop_square', command = maximized_command}
+	local max = {icon = 'crop_square', command = maximized_command, is_max = true}
 	local min = {icon = 'minimize', command = function() mp.command('cycle window-minimized') end}
 	self.buttons = options.top_bar_controls == 'left' and {close, max, min} or {min, max, close}
 
@@ -143,6 +137,11 @@ function TopBar:render()
 		end
 
 		for _, button in ipairs(self.buttons) do
+			if button.is_max then
+				button.icon = state.fullscreen and 'close_fullscreen' or
+				(state.maximized and 'filter_none' or 'crop_square')
+			end
+
 			local rect = {ax = button_ax, ay = self.ay, bx = button_ax + self.size, by = self.by}
 			local is_hover = get_point_to_rectangle_proximity(cursor, rect) == 0
 			local opacity = is_hover and 1 or 0.5
