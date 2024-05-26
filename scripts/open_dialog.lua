@@ -60,6 +60,21 @@ end
 -- https://github.com/mpv-player/mpv/blob/master/etc/mpv-icon-8bit-16x16.png
 local mpv_icon_base64 = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAACvklEQVQ4y3WTSWhUWRSGv/MmU1UpwYSoFbs0VXFo7IhTowgaJGrEhbYLFw44LNqFjWD3Og3dLsSFLlwILgRbXShuXPRCEcUhEUQRIyZROnGImipRkjhVXr2q9+69LrpSiMOBs7nn8t9z7v8d4esQwKqkVM4MoCtpvrz8edhL61obG+KTf3fEaReRZkFcbfRAaKKLw/6bI7dHO/OA+paAuza1YWvcTRwVpPYbnWEwBT8c23vp1b9ngBDArtSc9tT67bVu8h9BPICmWRl+Xr2YzNwMumx4P/oOQTzP9jam401PnxT6ewEtgCyZtHz2tGT6niDxmpoYew79yoK2FrTWKKXQWtN9tZcTf56mFAQYjJ/7+HLRnbc3+y3ArY817BMkDrDn8G4WtLVw8q+zvBkaRmuN1pp5rT+y8++tlbklXh9r2Ae4FjDBs712gMzsLPNXzkUpxcDdJxz57RgXTl4h8EsopfhpxRx+yKQB8GxvDeBZgGuJ1QQwc1G2+mIYhRT9IhdPXWL/joN0dz1AKcWMef8LWGJlAM+p+B0CtjGmKhCUivgln6BcxC5bRGGE1hqjqxiEgOUARhmVd8TJPu5+Wv20QlBAmYg1m1exdlsbtmujtWaw9wUAyqg8YBwgKoZ+V9KbmB3sf8b9a320rJjDzIXNbNr7C/VTJ1W76rnxiPxgDoBi6HcBkQ1YEsnrKYnUFkGcns4+UtkU63atJpaoqVrZd/M/zh08j1IKgwkejfT+8TYaGZIKTHXL6lfuTiUaD4wPmG6ezoyWNNponve8JPdsqErkq7F8x62R68eB0XGUJwBTlta17misndYhSM13UA7yhdyB26Odp4HXQGkcZQ2Uc8XnA37gX4u5cXEsJ2mJFQNUpKOhD+X3F/pGHnQ8LNy/DAwDpS+XSQAPSAITgQTgfmbZGPAB+AiUx9f6E25gOc5E3m0HAAAAAElFTkSuQmCC"
 
+local function end_file(event)
+    mp.unregister_event(end_file)
+    if event["reason"] == "eof" or event["reason"] == "stop" or event["reason"] == "error" then
+        local bd_device = mp.get_property_native("bluray-device")
+        local dvd_device = mp.get_property_native("dvd-device")
+        if event["reason"] == "error" and bd_device and bd_device ~= "" then
+            loaded_fail = true
+        else
+            loaded_fail = false
+        end
+        if bd_device then mp.set_property("bluray-device", "") end
+        if dvd_device then mp.set_property("dvd-device", "") end
+    end
+end
+
 -- open bluray iso or dir
 local function open_bluray(path)
     mp.set_property('bluray-device', path)
@@ -98,9 +113,14 @@ local function open_files(path, type, i, is_clip)
     elseif type == 'aid' and (not is_clip or file_types['audio']:match(ext)) then
         mp.commandv('audio-add', path, 'cached')
     elseif file_types['iso']:match(ext) then
+        local idle = mp.get_property('idle')
+        if idle ~= 'yes' then mp.set_property('idle', 'yes') end
+        mp.register_event("end-file", end_file)
         open_bluray(path)
         mp.add_timeout(1.0, function()
+            if idle ~= 'yes' then mp.set_property('idle', idle) end
             if loaded_fail then
+                loaded_fail = false
                 open_dvd(path)
             end
         end)
@@ -129,7 +149,6 @@ local function import_folder()
         $folderBrowser = New-Object -TypeName System.Windows.Forms.FolderBrowserDialog
         $folderBrowser.RootFolder = "Desktop"
         $folderBrowser.ShowNewFolderButton = $true
-        $folderBrowser.Owner = $TopForm
         $result = $folderBrowser.ShowDialog($TopForm)
         if ($result -eq "OK") {
             $selectedFolder = $folderBrowser.SelectedPath
@@ -285,23 +304,6 @@ local function set_clipboard(text)
     msg.verbose('setting clipboard text:', text)
     mp.commandv('run', 'powershell', '-NoProfile', '-command', 'set-clipboard', escape_powershell(text))
 end
-
-local function end_file(event)
-    mp.unregister_event(end_file)
-    if event["reason"] == "eof" or event["reason"] == "stop" or event["reason"] == "error" then
-        local bd_device = mp.get_property_native("bluray-device")
-        local dvd_device = mp.get_property_native("dvd-device")
-        if event["reason"] == "error" and bd_device and bd_device ~= "" then
-            loaded_fail = true
-        else
-            loaded_fail = false
-        end
-        if bd_device then mp.set_property("bluray-device", "") end
-        if dvd_device then mp.set_property("dvd-device", "") end
-    end
-end
-
-mp.register_event("end-file", end_file)
 
 mp.register_script_message('import_folder', import_folder)
 mp.register_script_message('import_files', import_files)
