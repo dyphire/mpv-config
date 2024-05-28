@@ -254,8 +254,10 @@ o.open_list_keybind = utils.parse_json(o.open_list_keybind)
 o.list_filter_jump_keybind = utils.parse_json(o.list_filter_jump_keybind)
 o.list_ignored_keybind = utils.parse_json(o.list_ignored_keybind)
 
+local is_windows = package.config:sub(1, 1) == "\\" -- detect path separator, windows uses backslashes
+
 if utils.shared_script_property_set then
-    utils.shared_script_property_set('simplehistory-menu-open', 'no')
+	utils.shared_script_property_set('simplehistory-menu-open', 'no')
 end
 mp.set_property('user-data/simplehistory/menu-open', 'no')
 
@@ -272,15 +274,15 @@ local log_fullpath = utils.join_path(o.log_path, o.log_file)
 --create log_path if it doesn't exist
 local log_path = utils.split_path(log_fullpath)
 if utils.readdir(log_path) == nil then
-    local is_windows = package.config:sub(1, 1) == "\\"
-    local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', string.format("\"%s\"", log_path) }
-    local unix_args = { 'mkdir', '-p', log_path }
-    local args = is_windows and windows_args or unix_args
-    local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})
-    if res.status ~= 0 then
-        msg.error("Failed to create log_path save directory "..log_path..". Error: "..(res.error or "unknown"))
-        return
-    end
+	local is_windows = package.config:sub(1, 1) == "\\"
+	local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', string.format("\"%s\"", log_path) }
+	local unix_args = { 'mkdir', '-p', log_path }
+	local args = is_windows and windows_args or unix_args
+	local res = mp.command_native({name = "subprocess", capture_stdout = true, playback_only = false, args = args})
+	if res.status ~= 0 then
+		msg.error("Failed to create log_path save directory "..log_path..". Error: "..(res.error or "unknown"))
+		return
+	end
 end
 
 local log_length_text = 'length='
@@ -312,7 +314,7 @@ local sortName
 function starts_protocol(tab, val)
 	for index, element in ipairs(tab) do
 		if string.find(val, element) then
-             		return true
+			 		return true
 		end
 	end
 	return false
@@ -402,8 +404,10 @@ function get_file()
 
 	local path = mp.get_property('path')
 	if not path then return end
+	if path:match("bd://") or path:match("dvd://")  or path:match("dvb://") or path:match("cdda://") then return end
 	if not path:match('^%a[%a%d-_]+://') then
-		path = utils.join_path(mp.get_property('working-directory'), path):gsub("\\", "/")
+		path = utils.join_path(mp.get_property('working-directory'), path)
+		if is_windows then path = path:gsub("/", "\\") end
 	end
 	
 	local length = (mp.get_property_number('duration') or 0)
@@ -893,7 +897,7 @@ function draw_list()
 
 		-- example in the mpv source suggests this escape method for set_osd_ass:
 		-- https://github.com/mpv-player/mpv/blob/94677723624fb84756e65c8f1377956667244bc9/player/lua/stats.lua#L145
-		p = p:gsub("\\", "/")
+		p = p:gsub('\\', '\\\239\187\191')
 		   :gsub("{", "\\{")
 		   :gsub("^ ", "\\h")
 		osd_msg = osd_msg .. osd_color .. osd_key .. osd_index .. p
@@ -2142,7 +2146,7 @@ function history_resume_option()
 		if video_time > 0 then return end
 		local logged_time = 0
 		local percentage = 0
-		local video_duration = mp.get_property_number('duration')
+		local video_duration = (mp.get_property_number('duration') or 0)
 		list_contents = read_log_table()
 		if not list_contents or not list_contents[1] then return end
 		for i = #list_contents, 1, -1 do

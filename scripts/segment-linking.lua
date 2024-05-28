@@ -14,6 +14,8 @@ local opts = require "mp.options"
 package.path = mp.command_native({"expand-path", "~~/script-modules/?.lua;"}) .. package.path
 local RF_LOADED, rf = pcall(function() return require "read-file" end)
 
+local is_windows = package.config:sub(1, 1) == "\\" -- detect path separator, windows uses backslashes
+
 local o = {
     --loads segment information from the given segment metafile instead of scanning for it
     metafile = "",
@@ -35,8 +37,15 @@ local ORDERED_CHAPTERS_ENABLED
 local REFERENCES_ENABLED
 local MERGE_THRESHOLD
 
+local function esc_path(str)
+    if is_windows then
+        str = str:gsub("\\", "/")
+    end
+    return str
+end
+
 --saves the working directory with forward slashes and a trailing slash
-local WORKING_DIRECTORY = mp.get_property("working-directory", ""):gsub("\\", "/"):gsub("/?$", "/")
+local WORKING_DIRECTORY = esc_path(mp.get_property("working-directory", "")):gsub("/?$", "/")
 
 --file extensions that support segment linking
 local file_extensions = {
@@ -180,13 +189,13 @@ end
 --returns the uids for the specified path from the table
 local function get_uids_from_table(path, uids)
     path = path:gsub("^%./", "")
-    path = path:gsub("\\", "/"):gsub("/%./", "/")
+    path = esc_path(path):gsub("/%./", "/")
     path = decodeURI(path)
     local in_working = get_directory(path) == WORKING_DIRECTORY
 
     if not uids then return nil end
     for uid, t in pairs(uids) do
-        local file = decodeURI( t.file:gsub("\\", "/") )
+        local file = decodeURI( esc_path(t.file) )
         if  file == path or
             in_working and (WORKING_DIRECTORY..file) == path
         then

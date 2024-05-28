@@ -10,6 +10,12 @@
 To configure this script use file autoload.conf in directory script-opts (the "script-opts"
 directory must be in the mpv configuration directory, typically ~/.config/mpv/).
 
+Option `ignore_patterns` is a comma-separated list of patterns (see lua.org/pil/20.2.html).
+Additionally to the standard lua patterns, you can also escape commas with `%`,
+for example, the option `bak%,x%,,another` will be resolved as patterns `bak,x,` and `another`.
+But it does not mean you need to escape all lua patterns twice,
+so the option `bak%%,%。mp4,` will be resolved as two patterns `bak%%` and `%.mp4`.
+
 Example configuration would be:
 
 disabled=no
@@ -23,6 +29,7 @@ ignore_hidden=yes
 same_type=yes
 same_series=yes
 directory_mode=recursive
+ignore_patterns=^~,^bak-,%.bak$
 
 --]]
 
@@ -44,7 +51,8 @@ o = {
     ignore_hidden = true,
     same_type = false,
     same_series = false,
-    directory_mode = "ignore"
+    directory_mode = "ignore",
+    ignore_patterns = ""
 }
 options.read_options(o, nil, function(list)
     split_option_exts(list.additional_video_exts, list.additional_audio_exts, list.additional_image_exts)
@@ -69,23 +77,59 @@ function SetUnion (a,b)
     return a
 end
 
-function Split (s)
+-- Returns first and last positions in string or past-to-end indices
+function FindOrPastTheEnd (string, pattern, start_at)
+    local pos1, pos2 = string.find(string, pattern, start_at)
+    return pos1 or #string + 1,
+           pos2 or #string + 1
+end
+
+function Split (list)
     local set = {}
-    for v in string.gmatch(s, '([^,]+)') do set[v] = true end
+
+    local item_pos = 1
+    local item = ""
+
+    while item_pos <= #list do
+        local pos1, pos2 = FindOrPastTheEnd(list, "%%*,", item_pos)
+
+        local pattern_length = pos2 - pos1
+        local is_comma_escaped = pattern_length % 2
+
+        local pos_before_escape = pos1 - 1
+        local item_escape_count = pattern_length - is_comma_escaped
+
+        item = item .. string.sub(list, item_pos, pos_before_escape + item_escape_count)
+
+        if is_comma_escaped == 1 then
+            item = item .. ","
+        else
+            set[item] = true
+            item = ""
+        end
+
+        item_pos = pos2 + 1
+    end
+
+    set[item] = true
+
+    -- exclude empty items
+    set[""] = nil
+
     return set
 end
 
-EXTENSIONS_VIDEO = Set {
+EXTENSIONS_VIDEO_DEFAULT = Set {
     '3g2', '3gp', 'avi', 'flv', 'm2ts', 'm4v', 'mj2', 'mkv', 'mov',
     'mp4', 'mpeg', 'mpg', 'ogv', 'rmvb', 'webm', 'wmv', 'y4m'
 }
 
-EXTENSIONS_AUDIO = Set {
+EXTENSIONS_AUDIO_DEFAULT = Set {
     'aiff', 'ape', 'au', 'flac', 'm4a', 'mka', 'mp3', 'oga', 'ogg',
     'ogm', 'opus', 'wav', 'wma'
 }
 
-EXTENSIONS_IMAGES = Set {
+EXTENSIONS_IMAGES_DEFAULT = Set {
     'avif', 'bmp', 'gif', 'j2k', 'jp2', 'jpeg', 'jpg', 'jxl', 'png',
     'svg', 'tga', 'tif', 'tiff', 'webp'
 }
@@ -97,11 +141,28 @@ function split_option_exts(video, audio, image)
 end
 split_option_exts(true, true, true)
 
+function split_patterns()
+    o.ignore_patterns = Split(o.ignore_patterns)
+end
+split_patterns()
+
 function create_extensions()
     EXTENSIONS = {}
-    if o.videos then SetUnion(SetUnion(EXTENSIONS, EXTENSIONS_VIDEO), o.additional_video_exts) end
-    if o.audio then SetUnion(SetUnion(EXTENSIONS, EXTENSIONS_AUDIO), o.additional_audio_exts) end
-    if o.images then SetUnion(SetUnion(EXTENSIONS, EXTENSIONS_IMAGES), o.additional_image_exts) end
+    EXTENSIONS_VIDEO = {}
+    EXTENSIONS_AUDIO = {}
+    EXTENSIONS_IMAGES = {}
+    if o.videos then
+        SetUnion(SetUnion(EXTENSIONS_VIDEO, EXTENSIONS_VIDEO_DEFAULT), o.additional_video_exts)
+        SetUnion(EXTENSIONS, EXTENSIONS_VIDEO)
+    end
+    if o.audio then
+        SetUnion(SetUnion(EXTENSIONS_AUDIO, EXTENSIONS_AUDIO_DEFAULT), o.additional_audio_exts)
+        SetUnion(EXTENSIONS, EXTENSIONS_AUDIO)
+    end
+    if o.images then
+        SetUnion(SetUnion(EXTENSIONS_IMAGES, EXTENSIONS_IMAGES_DEFAULT), o.additional_image_exts)
+        SetUnion(EXTENSIONS, EXTENSIONS_IMAGES)
+    end
 end
 create_extensions()
 
@@ -184,20 +245,12 @@ function jaro(s1, s2)
         local final = math.min(i + match_window + 1, #s2)
 
         for k = start, final, 1 do
-            if matches2[k] then
-                goto continue
+            if not (matches2[k] or s1[i] ~= s2[k]) then
+                matches1[i] = true
+                matches2[k] = true
+                m = m + 1
+                break
             end
-
-            if s1[i] ~= s2[k] then
-                goto continue
-            end
-
-            matches1[i] = true
-            matches2[k] = true
-            m = m + 1
-            break
-
-            ::continue::
         end
     end
 
@@ -207,21 +260,17 @@ function jaro(s1, s2)
 
     local k = 0
     for i = 0, #s1, 1 do
-        if (not matches1[i]) then
-            goto continue
-        end
+        if matches1[i] then
+            while not matches2[k] do
+                k = k + 1
+            end
 
-        while not matches2[k] do
+            if s1[i] ~= s2[k] then
+                t = t + 1
+            end
+
             k = k + 1
         end
-
-        if s1[i] ~= s2[k] then
-            t = t + 1
-        end
-
-        k = k + 1
-
-        ::continue::
     end
 
     t = t / 2.0
@@ -269,6 +318,15 @@ function is_same_series(f1, f2)
         end
     end
 
+    return false
+end
+
+function is_ignored(file)
+    for pattern, _ in pairs(o.ignore_patterns) do
+        if string.match(file, pattern) then
+            return true
+        end
+    end
     return false
 end
 
@@ -385,9 +443,14 @@ function scan_dir(path, current_file, dir_mode, separator, dir_depth, total_file
     table.filter(files, function (v)
         -- The current file could be a hidden file, ignoring it doesn't load other
         -- files from the current directory.
-        if (o.ignore_hidden and not (prefix .. v == current_file) and string.match(v, "^%.")) then
+        local current = prefix .. v == current_file
+        if o.ignore_hidden and not current and string.match(v, "^%.") then
             return false
         end
+        if not current and is_ignored(v) then
+            return false
+        end
+
         local ext = get_extension(v)
         if ext == nil then
             return false

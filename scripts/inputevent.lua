@@ -131,6 +131,7 @@ local function now()
 end
 
 local function command(command)
+    if not command or command == '' then return true end
     return mp.command(command)
 end
 

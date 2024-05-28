@@ -289,6 +289,8 @@ o.open_list_keybind = utils.parse_json(o.open_list_keybind)
 o.list_filter_jump_keybind = utils.parse_json(o.list_filter_jump_keybind)
 o.list_ignored_keybind = utils.parse_json(o.list_ignored_keybind)
 
+local is_windows = package.config:sub(1, 1) == "\\" -- detect path separator, windows uses backslashes
+
 if utils.shared_script_property_set then
     utils.shared_script_property_set('simplebookmark-menu-open', 'no')
 end
@@ -433,7 +435,8 @@ function get_file() --1.3# removed prefer filename overtitle
 	local path = mp.get_property('path')
 	if not path then return end
 	if not path:match('^%a[%a%d-_]+://') then
-		path = utils.join_path(mp.get_property('working-directory'), path):gsub("\\", "/")
+		path = utils.join_path(mp.get_property('working-directory'), path)
+		if is_windows then path = path:gsub("/", "\\") end
 	end
 	
 	local length = (mp.get_property_number('duration') or 0)

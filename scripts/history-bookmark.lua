@@ -8,6 +8,8 @@ local msg = require 'mp.msg' -- this is for debugging
 
 local o = {
     enabled = true,
+    -- eng=English, chs=Chinese Simplified
+    language = 'eng',
     save_period = 30,
     -- Set '/:dir%mpvconf%/historybookmarks' to use mpv config directory
     -- OR change to '/:dir%script%/historybookmarks' for placing it in the same directory of script
@@ -20,7 +22,7 @@ local o = {
     -- use hash to bookmark_name
     hash = true,
     -- set false to get playlist from directory
-    use_playlist = false,
+    use_playlist = true,
     -- specifies a whitelist of files to find in a directory
     whitelist = "3gp,amr,amv,asf,avi,avi,bdmv,f4v,flv,m2ts,m4v,mkv,mov,mp4,mpeg,mpg,ogv,rm,rmvb,ts,vob,webm,wmv",
     -- excluded directories for shared, #windows: ["X:", "Z:", "F:/Download/", "Download"]
@@ -31,12 +33,24 @@ local o = {
     []
     ]]
 }
-options.read_options(o)
+options.read_options(o, _, function() end)
 
 o.excluded_dir = utils.parse_json(o.excluded_dir)
 o.included_dir = utils.parse_json(o.included_dir)
 
-local cwd_root = utils.getcwd()
+local locals = {
+    ['eng'] = {
+        msg1 = 'resume successfully',
+        msg2 = 'resume the last played file in current directory',
+    },
+    ['chs'] = {
+        msg1 = '成功恢复上次播放',
+        msg2 = '是否恢复当前目录的上次播放文件',
+    }
+}
+
+-- apply lang opts
+local texts = locals[o.language]
 
 -- `pl` stands for playlist
 local path = nil
@@ -62,15 +76,15 @@ elseif o.history_dir:find('^/:dir%%script%%') then
 elseif o.history_dir:find('/:var%%(.*)%%') then
     local os_variable = o.history_dir:match('/:var%%(.*)%%')
     history_dir = o.history_dir:gsub('/:var%%(.*)%%', os.getenv(os_variable))
-elseif o.history_dir:find('^~') then
+else
     history_dir = mp.command_native({ "expand-path", o.history_dir }) -- Expands both ~ and ~~
 end
 
+local is_windows = package.config:sub(1, 1) == "\\" -- detect path separator, detect path separator, windows uses backslashes
 --create history_dir if it doesn't exist
 if history_dir ~= '' then
     local meta, meta_error = utils.file_info(history_dir)
     if not meta or not meta.is_dir then
-        local is_windows = package.config:sub(1, 1) == "\\"
         local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', string.format("\"%s\"", history_dir) }
         local unix_args = { 'mkdir', '-p', history_dir }
         local args = is_windows and windows_args or unix_args
@@ -135,7 +149,8 @@ function refresh_globals()
     fname = mp.get_property("filename")
     pl_count = mp.get_property_number('playlist-count', 0)
     if path and not is_protocol(path) then
-        path = utils.join_path(mp.get_property('working-directory'), path):gsub("\\", "/")
+        path = utils.join_path(mp.get_property('working-directory'), path)
+        if is_windows then path = path:gsub("\\", "/") end
         dir = utils.split_path(path)
     else
         dir = nil
@@ -223,13 +238,13 @@ local function get_bookmark_path(dir)
         history_name = name
     end
     local bookmark_name = history_name .. o.bookmark_ext
-    bookmark_path = utils.join_path(history_dir, bookmark_name):gsub("\\", "/")
+    bookmark_path = utils.join_path(history_dir, bookmark_name)
+    if is_windows then bookmark_path = bookmark_path:gsub("\\", "/") end
 end
 
-local function is_bookmark_exist(bookmark_path)
-    local file = io.open(bookmark_path, "r")
-    if file == nil then
-        msg.info('No bookmark file is found.')
+local function file_exist(path)
+    local meta = utils.file_info(path)
+    if not meta or not meta.is_file then
         return false
     end
     return true
@@ -242,10 +257,10 @@ local function get_record(bookmark_path)
     local file = io.open(bookmark_path, 'r')
     local record = file:read()
     if record == nil then
-        msg.info('No history record is found in the bookmark file.')
+        msg.verbose('No history record is found in the bookmark file.')
         return nil
     end
-    msg.info('last play: ' .. record)
+    msg.verbose('last play: ' .. record)
     file:close()
     return record
 end
@@ -377,38 +392,42 @@ local function get_playlist_idx(dst_file)
     return idx
 end
 
-local function unbind_key()
-    msg.info('Unbinding keys')
-    mp.remove_key_binding('resume_yes')
-    mp.remove_key_binding('resume_not')
-end
-
 local function jump_resume()
     mp.unregister_event(jump_resume)
-    prompt_msg("resume successfully", 1500)
+    prompt_msg(texts.msg1, 1500)
+end
+
+local function unbind_key()
+    msg.verbose('Unbinding keys')
+    wait_jump_timer:kill()
+    mp.remove_key_binding('key_jump')
+    mp.remove_key_binding('key_cancel')
 end
 
 local function key_jump()
-    unbind_key()
     on_key = true
     wait_jump_timer:kill()
+    unbind_key()
     current_idx = pl_idx
     mp.register_event('file-loaded', jump_resume)
-    msg.info('Jumping to ' .. pl_path)
+    msg.verbose('Jumping to ' .. pl_path)
     mp.commandv('loadfile', pl_path)
 end
 
+local function key_cancel()
+    on_key = true
+    wait_jump_timer:kill()
+    unbind_key()
+end
+
 local function bind_key()
-    mp.register_script_message('resume_yes', key_jump)
-    mp.register_script_message('resume_not', function()
-        unbind_key()
-        on_key = true
-        wait_jump_timer:kill()
-    end)
+    mp.add_forced_key_binding('ENTER', 'key_jump', key_jump)
+    mp.add_forced_key_binding('ESC', 'key_cancel', key_cancel)
 end
 
 -- creat a .history file
 local function record_history()
+    if not o.enabled then return end
     refresh_globals()
     if not path or is_protocol(path) then return end
     get_bookmark_path(dir)
@@ -422,19 +441,19 @@ end
 local timeout = 15
 local function wait4jumping()
     timeout = timeout - 1
-    if (timeout >= 0) then
-        if (timeout < 1) then
+    if timeout > 0 then
+        if not on_key then
+            local msg = string.format("%s -- %s? %02d [ENTER/ESC]", wait_msg, texts.msg2, timeout)
+            prompt_msg(msg, 1000)
+            bind_key()
+        else
+            timeout = 0
             wait_jump_timer:kill()
             unbind_key()
         end
-        local msg = ""
-        if timeout < 10 then
-            msg = "0"
-        end
-        if not on_key then
-            msg = wait_msg .. " -- continue? " .. timeout .. " [EN/IG]"
-            prompt_msg(msg, 1000)
-        end
+    else
+        wait_jump_timer:kill()
+        unbind_key()
     end
 end
 
@@ -454,7 +473,7 @@ local function record()
     if not o.enabled then return end
     refresh_globals()
     if pl_count and pl_count < 1 then return end
-    if not path or is_protocol(path) then return end
+    if not path or is_protocol(path) or not file_exist(path) then return end
     if not dir or not fname then return end
     get_bookmark_path(dir)
     included_dir_count = tablelength(o.included_dir)
@@ -463,12 +482,13 @@ local function record()
     end
     if need_ignore(o.excluded_dir, dir) then return end
 
-    msg.info('folder -- ' .. dir)
-    msg.info('playing -- ' .. fname)
-    msg.info('bookmark path -- ' .. bookmark_path)
+    msg.verbose('folder -- ' .. dir)
+    msg.verbose('playing -- ' .. fname)
+    msg.verbose('bookmark path -- ' .. bookmark_path)
 
-    if (not is_bookmark_exist(bookmark_path)) then
+    if (not file_exist(bookmark_path)) then
         pl_name = nil
+        return
     else
         pl_name = get_record(bookmark_path)
         pl_path = utils.join_path(dir, pl_name)
@@ -482,13 +502,13 @@ local function record()
 
     pl_idx = get_playlist_idx(pl_name)
     if (pl_idx == nil) then
-        msg.info('Playlist not found. Creating a new one...')
+        msg.verbose('Playlist not found. Creating a new one...')
     else
-        msg.info('playlist index --' .. pl_idx)
+        msg.verbose('playlist index --' .. pl_idx)
     end
 
     current_idx = get_playlist_idx(fname)
-    if current_idx then msg.info('current index -- ' .. current_idx) end
+    if current_idx then msg.verbose('current index -- ' .. current_idx) end
 
     if current_idx and (pl_idx == nil) then
         pl_idx = current_idx
@@ -496,9 +516,8 @@ local function record()
         pl_path = path
     elseif current_idx and (pl_idx ~= current_idx) then
         wait_msg = pl_idx
-        msg.info('Last watched episode -- ' .. wait_msg)
+        msg.verbose('Last watched episode -- ' .. wait_msg)
         wait_jump_timer = mp.add_periodic_timer(1, wait4jumping)
-        bind_key()
     end
     timer4saving_history = mp.add_periodic_timer(o.save_period, record_history)
     mp.observe_property("pause", "bool", pause)
@@ -507,7 +526,8 @@ end
 mp.register_event('file-loaded', function()
     local path = mp.get_property("path")
     if not is_protocol(path) then
-        path = utils.join_path(mp.get_property('working-directory'), path):gsub("\\", "/")
+        path = utils.join_path(mp.get_property('working-directory'), path)
+        if is_windows then path = path:gsub("\\", "/") end
         directory = utils.split_path(path)
     else
         directory = nil

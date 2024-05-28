@@ -122,7 +122,7 @@ end
 function preferred_or_equals(track, words, attr, title)
     local score = contains(track, words, attr)
     if not score then
-        if tracks[track.type][title] == nil then
+        if tracks[track.type][title] == nil or tracks[track.type][title] == -math.huge then
             return true
         end
         return false
@@ -199,8 +199,8 @@ function trackselect()
             if track.title then
                 track.title = string.gsub(string.gsub(track.title, "[%(%)%.%+%-%*%?%[%]%^%$%%]", "%%%1"), filename, "")
             end
-            if next(tracks[track.type].best) == nil or
-                not (tracks[track.type].best.external and tracks[track.type].best.lang ~= nil) then
+            if next(tracks[track.type].best) == nil or not (tracks[track.type].best.external
+            and tracks[track.type].best.lang ~= nil and not track.external) then
                 if options["excluded_" .. track.type .. "_words"] == "" or
                     not contains(track, options["excluded_" .. track.type .. "_words"], "title") then
                     if options["expected_" .. track.type .. "_words"] == "" or

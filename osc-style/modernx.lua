@@ -54,7 +54,7 @@ local user_opts = {
     windowcontrols = 'auto',    -- whether to show window controls
     greenandgrumpy = false,     -- disable santa hat
     language = 'eng',		-- eng=English, chs=Chinese
-    volumecontrol = true,       -- whether to show mute button and volumne slider
+    volumecontrol = true,       -- whether to show mute button and volume slider
     keyboardnavigation = false, -- enable directional keyboard navigation
     chapter_fmt = "Chapter: %s", -- chapter print format for seekbar-hover. "no" to disable
 }
@@ -823,6 +823,7 @@ function render_elements(master_ass)
 
                             elem_ass:new_event()
                             elem_ass:pos(thumbX * r_w, ty - thumbMarginY - thumbfast.height * r_h)
+                            elem_ass:an(7)
                             elem_ass:append(osc_styles.Tooltip)
                             elem_ass:draw_start()
                             elem_ass:rect_cw(-thumbPad * r_w, -thumbPad * r_h, (thumbfast.width + thumbPad) * r_w, (thumbfast.height + thumbPad) * r_h)
@@ -2513,8 +2514,8 @@ function visibility_mode(mode, no_osd)
         return
     end
 
-	user_opts.visibility = mode
-    utils.shared_script_property_set("osc-visibility", mode)
+    user_opts.visibility = mode
+    mp.set_property_native("user-data/osc/visibility", user_opts.visibility)
 
     if not no_osd and tonumber(mp.get_property('osd-level')) >= 1 then
         mp.osd_message('OSC visibility: ' .. mode)

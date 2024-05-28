@@ -1,5 +1,5 @@
 --[[ uosc | https://github.com/tomasklaen/uosc ]]
-local uosc_version = '5.1.1'
+local uosc_version = '5.2.0'
 
 mp.commandv('script-message', 'uosc-version', uosc_version)
 
@@ -51,7 +51,7 @@ defaults = {
 	top_bar = 'no-border',
 	top_bar_size = 40,
 	top_bar_persistency = '',
-	top_bar_controls = true,
+	top_bar_controls = 'right',
 	top_bar_title = 'yes',
 	top_bar_alt_title = '',
 	top_bar_alt_title_place = 'below',
@@ -72,7 +72,7 @@ defaults = {
 	color = '',
 	opacity = '',
 	animation_duration = 100,
-	text_width_estimation = true,
+	refine = '',
 	pause_on_click_shorter_than = 0, -- deprecated by below
 	click_threshold = 0,
 	click_command = 'cycle pause; script-binding uosc/flash-pause-indicator',
@@ -104,7 +104,10 @@ defaults = {
 	ziggy_path = 'default',
 }
 options = table_copy(defaults)
-opt.read_options(options, 'uosc', function(_)
+opt.read_options(options, 'uosc', function(changed_options)
+	if changed_options.time_precision then
+		timestamp_zero_rep_clear_cache()
+	end
 	update_config()
 	update_human_times()
 	Manager:disable('user', options.disable_elements)
@@ -124,6 +127,9 @@ if options.total_time and options.destination_time == 'playtime-remaining' then
 	options.destination_time = 'total'
 elseif not itable_index_of({'total', 'playtime-remaining', 'time-remaining'}, options.destination_time) then
 	options.destination_time = 'playtime-remaining'
+end
+if not itable_index_of({'left', 'right'}, options.top_bar_controls) then
+	options.top_bar_controls = options.top_bar_controls == 'yes' and 'right' or nil
 end
 -- Ensure required environment configuration
 if options.autoload then mp.commandv('set', 'keep-open-pause', 'no') end
@@ -177,6 +183,7 @@ config = {
 	osd_margin_y = mp.get_property('osd-margin-y'),
 	osd_alignment_x = mp.get_property('osd-align-x'),
 	osd_alignment_y = mp.get_property('osd-align-y'),
+	refine = create_set(comma_split(options.refine)),
 	types = {
 		video = comma_split(options.video_types),
 		audio = comma_split(options.audio_types),
@@ -371,6 +378,7 @@ state = {
 	cache = nil,
 	cache_buffering = 100,
 	cache_underrun = false,
+	cache_duration = nil,
 	core_idle = false,
 	eof_reached = false,
 	render_delay = config.render_delay,
@@ -430,22 +438,24 @@ function update_fullormaxed()
 end
 
 function update_human_times()
+	state.speed = state.speed or 1
 	if state.time then
-		state.time_human = format_time(state.time, state.duration)
+		local max_seconds = state.duration
 		if state.duration then
-			local speed = state.speed or 1
 			if options.destination_time == 'playtime-remaining' then
-				state.destination_time_human = format_time((state.time - state.duration) / speed, state.duration)
+				max_seconds = state.speed >= 1 and state.duration or state.duration / state.speed
+				state.destination_time_human = format_time((state.time - state.duration) / state.speed, max_seconds)
 			elseif options.destination_time == 'total' then
-				state.destination_time_human = format_time(state.duration, state.duration)
+				state.destination_time_human = format_time(state.duration, max_seconds)
 			else
-				state.destination_time_human = format_time(state.time - state.duration, state.duration)
+				state.destination_time_human = format_time(state.time - state.duration, max_seconds)
 			end
 		else
 			state.destination_time_human = nil
 		end
+		state.time_human = format_time(state.time, max_seconds)
 	else
-		state.time_human = nil
+		state.time_human, state.destination_time_human = nil, nil
 	end
 end
 
@@ -546,7 +556,7 @@ function load_file_index_in_current_directory(index)
 		})
 
 		if not files then return end
-		sort_filenames(files)
+		sort_strings(files)
 		if index < 0 then index = #files + index + 1 end
 
 		if files[index] then
@@ -589,14 +599,17 @@ if options.click_threshold > 0 then
 		if delta > 0 and delta < click_time and delta > 0.02 then mp.command(options.click_command) end
 	end)
 	click_timer:kill()
-	mp.set_key_bindings({{'mbtn_left',
-		function() last_up = mp.get_time() end,
-		function()
-			last_down = mp.get_time()
-			if click_timer:is_enabled() then click_timer:kill() else click_timer:resume() end
-		end,
-	}}, 'mouse_movement', 'force')
-	mp.enable_key_bindings('mouse_movement', 'allow-vo-dragging+allow-hide-cursor')
+	local function handle_up() last_up = mp.get_time() end
+	local function handle_down()
+		last_down = mp.get_time()
+		if click_timer:is_enabled() then click_timer:kill() else click_timer:resume() end
+	end
+	-- If this function exists, it'll be called at the beginning of render().
+	function setup_click_detection()
+		local hitbox = {ax = 0, ay = 0, bx = display.width, by = display.height, window_drag = true}
+		cursor:zone('primary_down', hitbox, handle_down)
+		cursor:zone('primary_up', hitbox, handle_up)
+	end
 end
 
 mp.observe_property('osc', 'bool', function(name, value) if value == true then mp.set_property('osc', 'no') end end)
@@ -761,6 +774,7 @@ mp.observe_property('demuxer-cache-state', 'native', function(prop, cache_state)
 	if cache_state then
 		cached_ranges, bof, eof = cache_state['seekable-ranges'], cache_state['bof-cached'], cache_state['eof-cached']
 		set_state('cache_underrun', cache_state['underrun'])
+		set_state('cache_duration', not cache_state.eof and cache_state['cache-duration'] or nil)
 	else
 		cached_ranges = {}
 	end
@@ -768,6 +782,7 @@ mp.observe_property('demuxer-cache-state', 'native', function(prop, cache_state)
 	if not (state.duration and (#cached_ranges > 0 or state.cache == 'yes' or
 			(state.cache == 'auto' and state.is_stream))) then
 		if state.uncached_ranges then set_state('uncached_ranges', nil) end
+		set_state('cache_duration', nil)
 		return
 	end
 
@@ -831,6 +846,7 @@ bind_command('flash-top-bar', function() Elements:flash({'top_bar'}) end)
 bind_command('flash-volume', function() Elements:flash({'volume'}) end)
 bind_command('flash-speed', function() Elements:flash({'speed'}) end)
 bind_command('flash-pause-indicator', function() Elements:flash({'pause_indicator'}) end)
+bind_command('flash-progress', function() Elements:flash({'progress'}) end)
 bind_command('toggle-progress', function() Elements:maybe('timeline', 'toggle_progress') end)
 bind_command('toggle-title', function() Elements:maybe('top_bar', 'toggle_title') end)
 bind_command('decide-pause-indicator', function() Elements:maybe('pause_indicator', 'decide') end)
@@ -840,7 +856,7 @@ bind_command('keybinds', function()
 	if Menu:is_open('keybinds') then
 		Menu:close()
 	else
-		open_command_menu({type = 'keybinds', items = get_keybinds_items(), palette = true})
+		open_command_menu({type = 'keybinds', items = get_keybinds_items(), search_style = 'palette'})
 	end
 end)
 bind_command('download-subtitles', open_subtitle_downloader)
