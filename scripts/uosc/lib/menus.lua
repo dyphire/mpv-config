@@ -92,41 +92,19 @@ function create_self_updating_menu_opener(opts)
 end
 
 function create_select_tracklist_type_menu_opener(menu_title, track_type, track_prop, load_command, download_command)
-	----- string
-	local function is_empty(input)
-		if input == nil or input == "" then
-			return true
-		end
-	end
-
-	local function replace(str, what, with)
-		if is_empty(str) then return "" end
-		if is_empty(what) then return str end
-		if with == nil then with = "" end
-		what = string.gsub(what, "[%(%)%.%+%-%*%?%[%]%^%$%%]", "%%%1")
-		with = string.gsub(with, "[%%]", "%%%%")
-		return string.gsub(str, what, with)
-	end
-
-	local function esc_for_title(str)
-		str = str:gsub('^[_%.%-%s]*', '')
-				:gsub('%.([^%.]+)$', '')
-		return str
-	end
-
-	local function esc_for_codec(str)
-		if str:find("MPEG2") then str = "MPEG2"
-		elseif str:find("DVVIDEO") then str = "DV"
-		elseif str:find("PCM") then str = "PCM"
-		elseif str:find("PGS") then str = "PGS"
-    	elseif str:find("SUBRIP") then str = "SRT"
-    	elseif str:find("VTT") then str = "VTT"
-    	elseif str:find("DVD_SUB") then str = "VOB_SUB"
-    	elseif str:find("DVB_SUB") then str = "DVB_SUB"
-    	elseif str:find("DVB_TELE") then str = "TELETEXT"
-    	elseif str:find("ARIB") then str = "ARIB"
-    	end
-		return str
+	local function escape_codec(str)
+		if not str or str == '' then return '' end
+		if str:find("mpeg2") then return "mpeg2"
+		elseif str:find("dvvideo") then return "dv"
+		elseif str:find("pcm") then return "pcm"
+		elseif str:find("pgs") then return "pgs"
+		elseif str:find("subrip") then return "srt"
+		elseif str:find("vtt") then return "vtt"
+		elseif str:find("dvd_sub") then return "vob"
+		elseif str:find("dvb_sub") then return "dvb"
+		elseif str:find("dvb_tele") then return "teletext"
+		elseif str:find("arib") then return "arib"
+		else return str end
 	end
 
 	local function serialize_tracklist(tracklist)
@@ -146,6 +124,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 			items[#items].separator = true
 		end
 
+		local track_prop_index = tonumber(mp.get_property(track_prop))
 		local first_item_index = #items + 1
 		local active_index = nil
 		local disabled_item = nil
@@ -159,37 +138,42 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 		for _, track in ipairs(tracklist) do
 			if track.type == track_type then
 				local hint_values = {}
+				local track_selected = track.selected and track.id == track_prop_index
 				local function h(value) hint_values[#hint_values + 1] = value end
 
-				if track.lang then h(track.lang:upper()) end
+				if track.lang then h(track.lang) end
 				if track['demux-h'] then
 					h(track['demux-w'] and (track['demux-w'] .. 'x' .. track['demux-h']) or (track['demux-h'] .. 'p'))
 				end
-				if track['demux-fps'] then h(string.format('%.5gfps', track['demux-fps'])) end
-				h(esc_for_codec(track.codec:upper()))
+				if track['demux-fps'] then h(string.format('%.5g fps', track['demux-fps'])) end
+				if track['codec'] then h(escape_codec(track.codec)) end
 				if track['audio-channels'] then
 					h(track['audio-channels'] == 1
 						and t('%s channel', track['audio-channels'])
 						or t('%s channels', track['audio-channels']))
 				end
-				if track['demux-samplerate'] then h(string.format('%.3gkHz', track['demux-samplerate'] / 1000)) end
-				if track['demux-bitrate'] then h(string.format('%.3gkpbs', track['demux-bitrate'] / 1000)) end
+				if track['demux-samplerate'] then h(string.format('%.3g kHz', track['demux-samplerate'] / 1000)) end
+				if track['demux-bitrate'] then h(string.format('%.0f kbps', track['demux-bitrate'] / 1000)) end
 				if track.forced then h(t('forced')) end
 				if track.default then h(t('default')) end
 				if track.external then h(t('external')) end
 
-				local filename = mp.get_property_native('filename/no-ext')
-				if track.title then track.title = replace(track.title, filename, '') end
-				if track.external then track.title = esc_for_title(track.title) end
+				local filename = mp.get_property_native('filename/no-ext'):gsub("[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0")
+				if track.external and track.title and filename then
+					track.title = track.title:gsub(filename .. '%.?', '')
+					if track.title:lower() == track.codec:lower() then
+						track.title = nil
+					end
+				end
 
 				items[#items + 1] = {
 					title = (track.title and track.title or t('Track %s', track.id)),
 					hint = table.concat(hint_values, ', '),
 					value = track.id,
-					active = track.selected,
+					active = track_selected,
 				}
 
-				if track.selected then
+				if track_selected then
 					if disabled_item then disabled_item.active = false end
 					active_index = #items
 				end
@@ -224,11 +208,11 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 	})
 end
 
----@alias NavigationMenuOptions {type: string, title?: string, allowed_types?: string[], active_path?: string, selected_path?: string; on_open?: fun(); on_close?: fun()}
+---@alias NavigationMenuOptions {type: string, title?: string, allowed_types?: string[], keep_open?: boolean, active_path?: string, selected_path?: string; on_open?: fun(); on_close?: fun()}
 
 -- Opens a file navigation menu with items inside `directory_path`.
 ---@param directory_path string
----@param handle_select fun(path: string): nil
+---@param handle_select fun(path: string, mods: Modifiers): nil
 ---@param opts NavigationMenuOptions
 function open_file_navigation_menu(directory_path, handle_select, opts)
 	directory = serialize_path(normalize_path(directory_path))
@@ -248,8 +232,8 @@ function open_file_navigation_menu(directory_path, handle_select, opts)
 
 	if not files or not directories then return end
 
-	sort_filenames(directories)
-	sort_filenames(files)
+	sort_strings(directories)
+	sort_strings(files)
 
 	-- Pre-populate items with parent directory selector if not at root
 	-- Each item value is a serialized path table it points to.
@@ -288,7 +272,11 @@ function open_file_navigation_menu(directory_path, handle_select, opts)
 		local is_drives = path == '{drives}'
 		local is_to_parent = is_drives or #path < #directory_path
 		local inheritable_options = {
-			type = opts.type, title = opts.title, allowed_types = opts.allowed_types, active_path = opts.active_path,
+			type = opts.type,
+			title = opts.title,
+			allowed_types = opts.allowed_types,
+			active_path = opts.active_path,
+			keep_open = opts.keep_open,
 		}
 
 		if is_drives then
@@ -311,7 +299,7 @@ function open_file_navigation_menu(directory_path, handle_select, opts)
 			return
 		end
 
-		if info.is_dir and not meta.modifiers.alt then
+		if info.is_dir and not meta.modifiers.alt and not meta.modifiers.ctrl then
 			--  Preselect directory we are coming from
 			if is_to_parent then
 				inheritable_options.selected_path = directory.path
@@ -319,7 +307,7 @@ function open_file_navigation_menu(directory_path, handle_select, opts)
 
 			open_file_navigation_menu(path, handle_select, inheritable_options)
 		else
-			handle_select(path)
+			handle_select(path, meta.modifiers)
 		end
 	end
 
@@ -331,6 +319,7 @@ function open_file_navigation_menu(directory_path, handle_select, opts)
 		type = opts.type,
 		title = opts.title or directory.basename .. path_separator,
 		items = items,
+		keep_open = opts.keep_open,
 		selected_index = selected_index,
 	}
 	local menu_options = {on_open = opts.on_open, on_close = opts.on_close, on_back = handle_back}
@@ -374,9 +363,18 @@ end
 
 -- On demand menu items loading
 do
-	local items = nil
-	function get_menu_items()
-		if items then return items end
+	---@type {key: string; cmd: string; comment: string; is_menu_item: boolean}[]|nil
+	local all_user_bindings = nil
+	---@type MenuStackItem[]|nil
+	local menu_items = nil
+
+	local function is_uosc_menu_comment(v) return v:match('^!') or v:match('^menu:') end
+
+	-- Returns all relevant bindings from `input.conf`, even if they are overwritten
+	-- (same key bound to something else later) or have no keys (uosc menu items).
+	function get_all_user_bindings()
+		if all_user_bindings then return all_user_bindings end
+		all_user_bindings = {}
 
 		local input_conf_property = mp.get_property_native('input-conf')
 		local input_conf_iterator
@@ -395,23 +393,53 @@ do
 
 			-- File doesn't exist
 			if not input_conf_meta or not input_conf_meta.is_file then
-				items = create_default_menu_items()
-				return items
+				menu_items = create_default_menu_items()
+				return menu_items, all_user_bindings
 			end
 
 			input_conf_iterator = io.lines(input_conf_path)
 		end
 
+		for line in input_conf_iterator do
+			local key, command, comment = string.match(line, '%s*([%S]+)%s+([^#]*)%s*(.-)%s*$')
+			local is_commented_out = key and key:sub(1, 1) == '#'
+
+			if comment and #comment > 0 then comment = comment:sub(2) end
+			if command then command = trim(command) end
+
+			local is_menu_item = comment and is_uosc_menu_comment(comment)
+
+			if key
+				-- Filter out stuff like `#F2`, which is clearly intended to be disabled
+				and not (is_commented_out and #key > 1)
+				-- Filter out comments that are not uosc menu items
+				and (not is_commented_out or is_menu_item) then
+				all_user_bindings[#all_user_bindings + 1] = {
+					key = key,
+					cmd = command,
+					comment = comment or '',
+					is_menu_item = is_menu_item,
+				}
+			end
+		end
+
+		return all_user_bindings
+	end
+
+	function get_menu_items()
+		if menu_items then return menu_items end
+
+		local all_user_bindings = get_all_user_bindings()
 		local main_menu = {items = {}, items_by_command = {}}
 		local by_id = {}
 
-		for line in input_conf_iterator do
-			local key, command, comment = string.match(line, '%s*([%S]+)%s+(.-)%s+#%s*(.-)%s*$')
+		for _, bind in ipairs(all_user_bindings) do
+			local key, command, comment = bind.key, bind.cmd, bind.comment
 			local title = ''
 
 			if comment then
 				local comments = split(comment, '#')
-				local titles = itable_filter(comments, function(v, i) return v:match('^!') or v:match('^menu:') end)
+				local titles = itable_filter(comments, is_uosc_menu_comment)
 				if titles and #titles > 0 then
 					title = titles[1]:match('^!%s*(.*)%s*') or titles[1]:match('^menu:%s*(.*)%s*')
 				end
@@ -435,7 +463,6 @@ do
 
 						target_menu = by_id[submenu_id]
 					else
-						if command == 'ignore' then break end
 						-- If command is already in menu, just append the key to it
 						if key ~= '#' and command ~= '' and target_menu.items_by_command[command] then
 							local hint = target_menu.items_by_command[command].hint
@@ -445,7 +472,7 @@ do
 							if title_part:sub(1, 3) == '---' then
 								local last_item = target_menu.items[#target_menu.items]
 								if last_item then last_item.separator = true end
-							else
+							elseif command ~= 'ignore' then
 								local item = {
 									title = title_part,
 									hint = not is_dummy and key or nil,
@@ -466,19 +493,29 @@ do
 			end
 		end
 
-		items = #main_menu.items > 0 and main_menu.items or create_default_menu_items()
-		return items
+		menu_items = #main_menu.items > 0 and main_menu.items or create_default_menu_items()
+		return menu_items
 	end
 end
 
 -- Adapted from `stats.lua`
 function get_keybinds_items()
 	local items = {}
-	local active = find_active_keybindings()
+	-- uosc and mpv-menu-plugin binds with no keys
+	local no_key_menu_binds = itable_filter(
+		get_all_user_bindings(),
+		function(b) return b.is_menu_item and b.cmd and b.cmd ~= '' and (b.key == '#' or b.key == '_') end
+	)
+	local binds_dump = itable_join(find_active_keybindings(), no_key_menu_binds)
+	local ids = {}
 
 	-- Convert to menu items
-	for _, bind in pairs(active) do
-		items[#items + 1] = {title = bind.cmd, hint = bind.key, value = bind.cmd}
+	for _, bind in pairs(binds_dump) do
+		local id = bind.key .. '<>' .. bind.cmd
+		if not ids[id] and bind.cmd ~= 'ignore' then
+			ids[id] = true
+			items[#items + 1] = {title = bind.cmd, hint = bind.key, value = bind.cmd}
+		end
 	end
 
 	-- Sort
@@ -573,11 +610,19 @@ function open_open_file_menu()
 
 	menu = open_file_navigation_menu(
 		directory,
-		function(path) mp.commandv('loadfile', path) end,
+		function(path, mods)
+			if mods.ctrl then
+				mp.commandv('loadfile', path, 'append')
+			else
+				mp.commandv('loadfile', path)
+				Menu:close()
+			end
+		end,
 		{
 			type = 'open-file',
 			allowed_types = config.types.media,
 			active_path = active_file,
+			keep_open = true,
 			on_open = function() mp.register_event('file-loaded', handle_file_loaded) end,
 			on_close = function() mp.unregister_event(handle_file_loaded) end,
 		}
@@ -849,7 +894,7 @@ function open_subtitle_downloader()
 			type = menu_type,
 			title = t('enter query'),
 			items = initial_items,
-			palette = true,
+			search_style = 'palette',
 			on_search = handle_search,
 			search_debounce = 'submit',
 			search_suggestion = search_suggestion,

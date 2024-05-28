@@ -288,6 +288,8 @@ o.open_list_keybind = utils.parse_json(o.open_list_keybind)
 o.list_filter_jump_keybind = utils.parse_json(o.list_filter_jump_keybind)
 o.list_ignored_keybind = utils.parse_json(o.list_ignored_keybind)
 
+local is_windows = package.config:sub(1, 1) == "\\" -- detect path separator, windows uses backslashes
+
 if utils.shared_script_property_set then
     utils.shared_script_property_set('smartcopypaste-menu-open', 'no')
 end
@@ -432,7 +434,8 @@ function get_file()
 	local path = mp.get_property('path')
 	if not path then return end
 	if not path:match('^%a[%a%d-_]+://') then
-		path = utils.join_path(mp.get_property('working-directory'), path):gsub("\\", "/")
+		path = utils.join_path(mp.get_property('working-directory'), path)
+		if is_windows then path = path:gsub("/", "\\") end
 	end
 	
 	local length = (mp.get_property_number('duration') or 0)
@@ -954,7 +957,7 @@ function draw_list()
 		
 		-- example in the mpv source suggests this escape method for set_osd_ass:
 		-- https://github.com/mpv-player/mpv/blob/94677723624fb84756e65c8f1377956667244bc9/player/lua/stats.lua#L145
-		p = p:gsub("\\", "/")
+		p = p:gsub('\\', '\\\239\187\191')
 		   :gsub("{", "\\{")
 		   :gsub("^ ", "\\h")
 		osd_msg = osd_msg .. osd_color .. osd_key .. osd_index .. p
@@ -2168,9 +2171,11 @@ end
 
 function make_raw(s)
 	if not s then return end
+	s = string.gsub(s, '^[\'\"]', '')
+	s = string.gsub(s, '[\'\"]$', '')
 	s = string.gsub(s, '^%s+', '')
 	s = string.gsub(s, '%s+$', '')
-	s = string.gsub(s, '[\n\r]+', ' ')
+	s = string.gsub(s, '[\r\n]+', ' ')
 	return s
 end
 
@@ -2287,7 +2292,7 @@ function parse_clipboard(text)
 	clip = text
 
 
-	for c in clip:gmatch("[^\n\r]+") do --3.2.1# fix for #80 , accidentally additional "+" was added to the gmatch
+	for c in clip:gmatch("[^\r\n]+") do --3.2.1# fix for #80 , accidentally additional "+" was added to the gmatch
 		local c_pre_attribute, c_clip_file, c_clip_time, c_clip_extension
 		c = make_raw(c)
 		
@@ -2298,8 +2303,6 @@ function parse_clipboard(text)
 					if string.match(c, '(.*)'..c_pre_attribute) then
 						c_clip_file = string.match(c_protocols, '(.*)'..c_pre_attribute)
 						c_clip_time = tonumber(string.match(c_protocols, c_pre_attribute..'(%d*%.?%d*)'))
-					elseif string.match(c, '^\"(.*)\"$') then
-						c_clip_file = string.match(c, '^\"(.*)\"$')
 					else
 						c_clip_file = c_protocols
 					end			
@@ -2312,8 +2315,6 @@ function parse_clipboard(text)
 			if string.match(c, '(.*)'..c_pre_attribute) then
 				c_clip_file = string.match(c, '(.*)'..c_pre_attribute)
 				c_clip_time = tonumber(string.match(c, c_pre_attribute..'(%d*%.?%d*)'))
-			elseif string.match(c, '^\"(.*)\"$') then
-				c_clip_file = string.match(c, '^\"(.*)\"$')
 			else
 				c_clip_file = c
 			end
@@ -2329,8 +2330,6 @@ function parse_clipboard(text)
 	if string.match(clip, '(.*)'..pre_attribute) then
 		clip_file = string.match(clip, '(.*)'..pre_attribute)
 		clip_time = tonumber(string.match(clip, pre_attribute..'(%d*%.?%d*)'))
-	elseif string.match(clip, '^\"(.*)\"$') then
-		clip_file = string.match(clip, '^\"(.*)\"$')
 	else
 		clip_file = clip
 	end
@@ -2340,7 +2339,7 @@ end
 
 function copy()
 	if filePath ~= nil then
-		if o.copy_time_method == 'none' or copy_time_method == '' then
+		if o.copy_time_method == 'none' or o.copy_time_method == '' then
 			copy_specific('path')
 			return
 		elseif o.copy_time_method == 'protocols' and not starts_protocol(protocols, filePath) then

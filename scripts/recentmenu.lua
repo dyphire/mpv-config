@@ -2,20 +2,28 @@ local utils = require("mp.utils")
 local options = require("mp.options")
 
 local o = {
+    enabled = true,
     path = "~~/recent.json",
     title = 'Recently played',
     length = 10,
     width = 88,
     ignore_same_series = true,
 }
-options.read_options(o)
+options.read_options(o, _, function() end)
 
 local path = mp.command_native({ "expand-path", o.path })
+local is_windows = package.config:sub(1, 1) == "\\" -- detect path separator, windows uses backslashes
 
 local menu = {
     type = 'recent_menu',
     title = o.title,
     items = {},
+}
+
+local dyn_menu = {
+    ready = false,
+    type = 'submenu',
+    submenu = {}
 }
 
 local current_item = { nil, nil, nil }
@@ -46,7 +54,19 @@ function utf8_iter(str)
     end
 end
 
-function utf8_subwidth(str, indexStart, indexEnd)
+function utf8_to_table(str)
+    local t = {}
+    for _, ch in utf8_iter(str) do
+        t[#t + 1] = ch
+    end
+    return t
+end
+
+function utf8_substring(str, indexStart, indexEnd)
+    if indexStart > indexEnd then
+        return str
+    end
+
     local index = 1
     local substr = ""
     for _, char in utf8_iter(str) do
@@ -57,14 +77,6 @@ function utf8_subwidth(str, indexStart, indexEnd)
         end
     end
     return substr, index
-end
-
-function utf8_to_table(str)
-    local t = {}
-    for _, ch in utf8_iter(str) do
-        t[#t + 1] = ch
-    end
-    return t
 end
 
 function jaro(s1, s2)
@@ -80,20 +92,12 @@ function jaro(s1, s2)
         local final = math.min(i + match_window + 1, #s2)
 
         for k = start, final, 1 do
-            if matches2[k] then
-                goto continue
+            if not (matches2[k] or s1[i] ~= s2[k]) then
+                matches1[i] = true
+                matches2[k] = true
+                m = m + 1
+                break
             end
-
-            if s1[i] ~= s2[k] then
-                goto continue
-            end
-
-            matches1[i] = true
-            matches2[k] = true
-            m = m + 1
-            break
-
-            ::continue::
         end
     end
 
@@ -103,21 +107,17 @@ function jaro(s1, s2)
 
     local k = 0
     for i = 0, #s1, 1 do
-        if (not matches1[i]) then
-            goto continue
-        end
+        if matches1[i] then
+            while not matches2[k] do
+                k = k + 1
+            end
 
-        while not matches2[k] do
+            if s1[i] ~= s2[k] then
+                t = t + 1
+            end
+
             k = k + 1
         end
-
-        if s1[i] ~= s2[k] then
-            t = t + 1
-        end
-
-        k = k + 1
-
-        ::continue::
     end
 
     t = t / 2.0
@@ -147,60 +147,48 @@ function jaro_winkler_distance(s1, s2)
     return d + l * p * (1 - d)
 end
 
+function split_path(path)
+    -- return path, filename, extension
+    return path:match("(.-)([^\\/]-)%.?([^%.\\/]*)$")
+end
+
 function is_protocol(path)
     return type(path) == 'string' and (path:find('^%a[%w.+-]-://') ~= nil or path:find('^%a[%w.+-]-:%?') ~= nil)
 end
 
-function is_same_folder(s1, s2, p1, p2)
-    local i1 = p1:find(s1, 1, true)
-    local i2 = p2:find(s2, 1, true)
-    if i1 and i2 then
-        local t1 = p1:sub(1, i1 - 1)
-        local t2 = p2:sub(1, i2 - 1)
-        return t1 == t2, p1:sub(i1, #p1), p2:sub(i2, #p2)
-    end
-    return false
-end
-
-function is_same_series(s1, s2, p1, p2)
+function is_same_series(path1, path2)
     if not o.ignore_same_series then
         return false
     end
 
-    local _is_same_folder, f1, f2 = is_same_folder(s1, s2, p1, p2)
-    if _is_same_folder and f1 and f2 then
-        f1 = get_filename_without_ext(f1)
-        f2 = get_filename_without_ext(f2)
+    local dir1, filename1, extension1 = split_path(path1)
+    local dir2, filename2, extension2 = split_path(path2)
 
-        -- same filename but different extensions
-        if f1 == f2 then
-            return false
-        end
+    -- don't remove files are not in same folder
+    if dir1 ~= dir2 then
+        return false
+    end
 
-        -- by episode
-        local sub1 = f1:gsub("^[%[%(]+.-[%]%)]+[%s%[]*", ""):match("(.-%D+)0*%d+")
-        local sub2 = f2:gsub("^[%[%(]+.-[%]%)]+[%s%[]*", ""):match("(.-%D+)0*%d+")
-        if sub1 and sub2 and sub1 == sub2 then
-            return true
-        end
+    -- don't remove same filename but different extensions
+    if filename1 == filename2 then
+        return false
+    end
 
-        -- by similarity
-        local threshold = 0.8
-        local similarity = jaro_winkler_distance(f1, f2)
-        if similarity > threshold then
-            return true
-        end
+    -- by episode
+    local episode1 = filename1:gsub("^[%[%(]+.-[%]%)]+[%s%[]*", ""):match("(.-%D+)0*%d+")
+    local episode2 = filename2:gsub("^[%[%(]+.-[%]%)]+[%s%[]*", ""):match("(.-%D+)0*%d+")
+    if episode1 and episode2 and episode1 == episode2 then
+        return true
+    end
+
+    -- by similarity
+    local threshold = 0.8
+    local similarity = jaro_winkler_distance(filename1, filename2)
+    if similarity > threshold then
+        return true
     end
 
     return false
-end
-
-function get_filename_without_ext(filename)
-    local idx = filename:match(".+()%.%w+$")
-    if idx then
-        filename = filename:sub(1, idx - 1)
-    end
-    return filename
 end
 
 function remove_deleted()
@@ -255,25 +243,20 @@ function write_json()
 
     json_file:write(json)
     json_file:close()
+
+    if dyn_menu.ready then
+        update_dyn_menu_items()
+    end
 end
 
 function append_item(path, filename, title)
-    if title and title ~= "" then
-        local width
-        filename, width = utf8_subwidth(filename, 1, o.width * 0.618)
-        title = utf8_subwidth(title, 1, o.width - width)
-    else
-        filename = utf8_subwidth(filename, 1, o.width)
-    end
-
     local new_items = { { title = filename, hint = title, value = { "loadfile", path } } }
     read_json()
     for index, value in ipairs(menu.items) do
-        local ofilename = value.title
         local opath = value.value[2]
         if #new_items < o.length and
-            opath ~= path and
-            not is_same_series(filename, ofilename, path, opath)
+            path ~= opath and
+            not is_same_series(path, opath)
         then
             new_items[#new_items + 1] = value
         end
@@ -288,6 +271,38 @@ function open_menu()
     mp.commandv('script-message-to', 'uosc', 'open-menu', json)
 end
 
+function get_dyn_menu_title(title, hint, path)
+    if is_protocol(path) then
+        local protocol = path:match("^(%a[%w.+-]-)://")
+        hint = protocol
+    else
+        local dir, filename, extension = split_path(path)
+        title = filename
+        hint = extension
+    end
+    local title_clip = utf8_substring(title, 1, o.width)
+    if title ~= title_clip then
+        title = utf8_substring(title_clip, 1, o.width - 2) .. "..."
+    end
+    return string.format('%s\t%s', title, hint:upper())
+end
+
+function update_dyn_menu_items()
+    if #menu.items == 0 then
+        read_json()
+    end
+    local submenu = {}
+    local menu_items = menu.items
+    for _, item in ipairs(menu_items) do
+        submenu[#submenu + 1] = {
+            title = get_dyn_menu_title(item.title, item.hint, item.value[2]),
+            cmd = string.format("%s '%s'", item.value[1], item.value[2]),
+        }
+    end
+    dyn_menu.submenu = submenu
+    mp.commandv('script-message-to', 'dyn_menu', 'update', 'recent', utils.format_json(dyn_menu))
+end
+
 function play_last()
     read_json()
     if menu.items[1] then
@@ -296,11 +311,14 @@ function play_last()
 end
 
 function on_load()
+    current_item = { nil, nil, nil }
+    if not o.enabled then return end
     local path = mp.get_property("path")
     if not path then return end
-    if not is_protocol(path) then path = path:gsub("\\", "/") end
+    if path:match("bd://") or path:match("dvd://")  or path:match("dvb://") or path:match("cdda://") then return end
+    if not is_protocol(path) and is_windows then path = path:gsub("/", "\\") end
     local filename = mp.get_property("filename")
-    local filename_without_ext = get_filename_without_ext(filename)
+    local dir, filename_without_ext, ext = split_path(filename)
     local title = mp.get_property("media-title") or path
     if filename == title or filename_without_ext == title then
         title = ""
@@ -308,17 +326,33 @@ function on_load()
     if is_protocol(path) and title and title ~= "" then
         filename, title = title, filename
     end
+    if title and title ~= "" then
+        local width
+        filename, width = utf8_substring(filename, 1, o.width * 0.618)
+        title = utf8_substring(title, 1, o.width - width)
+    else
+        filename = utf8_substring(filename, 1, o.width)
+    end
     current_item = { path, filename, title }
-    append_item(path, filename, title)
+    append_item(unpack(current_item))
 end
 
 function on_end(e)
-    if e and e.reason and e.reason == "quit" then
-        append_item(current_item[1], current_item[2], current_item[3])
+    if not (e and e.reason and e.reason == "quit") then
+        return
     end
+    if not current_item[1] then
+        return
+    end
+    append_item(unpack(current_item))
 end
 
 mp.add_key_binding(nil, "open", open_menu)
 mp.add_key_binding(nil, "last", play_last)
 mp.register_event("file-loaded", on_load)
 mp.register_event("end-file", on_end)
+
+mp.register_script_message('menu-ready', function()
+    dyn_menu.ready = true
+    update_dyn_menu_items()
+end)

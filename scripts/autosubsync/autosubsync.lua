@@ -211,6 +211,8 @@ local function extract_to_file(subtitle_track)
     end
     local temp_sub_fp = utils.join_path(os_temp(), 'autosubsync_extracted.' .. ext)
     notify("提取内封字幕...", nil, 3)
+    local screenx, screeny, aspect = mp.get_osd_size()
+    mp.set_osd_ass(screenx, screeny, "{\\an9}● ")
     local ret = subprocess {
         config.ffmpeg_path,
         "-hide_banner",
@@ -224,6 +226,7 @@ local function extract_to_file(subtitle_track)
         "-f", ext,
         temp_sub_fp
     }
+    mp.set_osd_ass(screenx, screeny, "")
     if ret == nil or ret.status ~= 0 then
         return notify("无法提取内封字幕.\n请先确保在脚本配置文件中为 ffmpeg 指定了正确的路径\n并确保视频有内封字幕.", "error", 7)
     end
@@ -256,15 +259,20 @@ local function sync_subtitles(ref_sub_path)
     notify(string.format("开始 %s...", engine_name), nil, 2)
 
     local ret
+    local screenx, screeny, aspect = mp.get_osd_size()
     if engine_name == "ffsubsync" then
         local args = { config.ffsubsync_path, reference_file_path, "-i", subtitle_path, "-o", retimed_subtitle_path }
         if not ref_sub_path then
             table.insert(args, '--reference-stream')
             table.insert(args, '0:' .. get_active_track('audio'))
         end
+        mp.set_osd_ass(screenx, screeny, "{\\an9}● ")
         ret = subprocess(args)
+        mp.set_osd_ass(screenx, screeny, "")
     else
+        mp.set_osd_ass(screenx, screeny, "{\\an9}● ")
         ret = subprocess { config.alass_path, reference_file_path, subtitle_path, retimed_subtitle_path }
+        mp.set_osd_ass(screenx, screeny, "")
     end
 
     if ret == nil then
@@ -283,7 +291,7 @@ local function sync_subtitles(ref_sub_path)
             notify("错误: 不能添加同步字幕.", "error", 3)
         end
     else
-        notify(string.format("字幕同步失败.\n请确保在脚本配置文件中为 %s 指定了正确的路径.", engine_name), "error", 3)
+        notify(string.format("字幕同步失败.\n请确保在脚本配置文件中为 %s 指定了正确的路径.\n或音轨提取失败", engine_name), "error", 3)
     end
 end
 

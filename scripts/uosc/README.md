@@ -173,7 +173,7 @@ Only relevant if top bar is enabled, `top_bar_alt_title` is configured, and `top
 
 Command(s) to briefly flash the whole UI. Elements are revealed for a second and then fade away.
 
-To flash individual elements, you can use: `flash-timeline`, `flash-top-bar`, `flash-volume`, `flash-speed`, `flash-pause-indicator`, `decide-pause-indicator`
+To flash individual elements, you can use: `flash-timeline`, `flash-progress`, `flash-top-bar`, `flash-volume`, `flash-speed`, `flash-pause-indicator`, `decide-pause-indicator`
 
 There's also a `flash-elements <ids>` message you can use to flash one or more specific elements. Example:
 
@@ -181,7 +181,7 @@ There's also a `flash-elements <ids>` message you can use to flash one or more s
 script-message-to uosc flash-elements timeline,speed
 ```
 
-Available element IDs: `timeline`, `controls`, `volume`, `top_bar`, `speed`, `pause_indicator`
+Available element IDs: `timeline`, `progress`, `controls`, `volume`, `top_bar`, `speed`, `pause_indicator`
 
 This is useful in combination with other commands that modify values represented by flashed elements, for example: flashing volume element when changing the volume.
 
@@ -257,7 +257,8 @@ Displays a command palette menu with all key bindings defined in your `input.con
 
 Open file menu. Browsing starts in current file directory, or user directory when file not available. The explorer only displays file types defined in the `video_types`, `audio_types`, and `image_types` options.
 
-You can use `ctrl+enter` or `ctrl+click` to load the whole directory in mpv instead of navigating its contents.
+You can use `alt+enter` or `alt+click` to load the whole directory in mpv instead of navigating its contents.
+You can also use `ctrl+enter` or `ctrl+click` to append a file or directory to the playlist.
 
 #### `items`
 
