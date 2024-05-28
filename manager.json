@@ -169,11 +169,6 @@
     "dest":"~~/shaders/igv"
   },
   {
-    "git":"https://github.com/TianZerL/ACNetGLSL",
-    "whitelist":"acnet%.glsl$|acnet%_hdn%_l1%.glsl$|acnet%_hdn%_l2%.glsl$|acnet%_hdn%_l3%.glsl$",
-    "dest":"~~/shaders/ACNet"
-  },
-  {
     "git":"https://github.com/Artoriuz/glsl-joint-bilateral",
     "whitelist":"jointbilateral%.glsl$",
     "dest":"~~/shaders/other",

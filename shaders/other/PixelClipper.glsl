@@ -28,7 +28,7 @@
 
 #define TWELVE_TAP_AR 0
 
-const float strength = 1.0;
+const float strength = 0.8;
 
 vec4 hook() {
     vec2 pp = PREKERNEL_pos * PREKERNEL_size - vec2(0.5);
@@ -97,7 +97,7 @@ vec4 hook() {
 
 #define TWELVE_TAP_AR 0
 
-const float strength = 1.0;
+const float strength = 0.8;
 
 vec4 hook() {
     vec2 pp = CHROMA_pos * CHROMA_size - vec2(0.5);
