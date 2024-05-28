@@ -1,10 +1,5 @@
 [
   {
-    "git":"https://github.com/detuur/mpv-scripts",
-    "whitelist":"skiptosilence%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
     "git":"https://github.com/natural-harmonia-gropius/recent-menu",
     "whitelist":"%.lua$",
     "dest":"~~/scripts"
@@ -20,56 +15,57 @@
     "dest":"~~/scripts"
   },
   {
-    "git":"https://github.com/po5/thumbfast",
-    "whitelist":"%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
     "git":"https://github.com/dyphire/mpv-scripts",
+    "branch":"main",
     "whitelist":"chapter%-list%.lua$|chapter%-make%-read%.lua$|fix%-avsync%.lua$|mpv%-animated%.lua$|sub%_export%.lua$|track%-list%.lua$",
-    "dest":"~~/scripts",
-    "branch":"main"
+    "dest":"~~/scripts"
   },
   {
     "git":"https://github.com/dyphire/mpv-playlistmanager",
+    "branch":"dev",
     "whitelist":"playlistmanager%.lua$",
-    "dest":"~~/scripts",
-    "branch":"dev"
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/dyphire/mpv-clipboard",
+    "branch":"dev",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts"
   },
   {
     "git":"https://github.com/dyphire/chapterskip",
+    "branch":"dev",
     "whitelist":"%.lua$",
-    "dest":"~~/scripts",
-    "branch":"dev"
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/dyphire/detuur-mpv-scripts",
+    "branch":"dev",
+    "whitelist":"skiptosilence%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/dyphire/yuukidach-mpv-scripts",
+    "whitelist":"history%-bookmark%.lua$",
+    "dest":"~~/scripts"
   },
   {
     "git":"https://github.com/dyphire/Eisa01_mpv-scripts",
+    "branch":"dev",
     "whitelist":"undoredo%.lua$|simplehistory%.lua$|simplebookmark%.lua$|smartcopypaste_*%.lua$",
-    "dest":"~~/scripts",
-    "branch":"dev"
-  },
-  {
-    "git":"https://github.com/dyphire/uosc",
-    "whitelist":"readme%.md$|src/uosc/",
-    "dest":"~~/scripts/uosc",
-    "branch":"dev"
+    "dest":"~~/scripts"
   },
   {
     "git":"https://github.com/dyphire/autosubsync-mpv",
+    "branch":"v0.33_CM",
     "whitelist":"readme%.md$|%.lua$",
-    "dest":"~~/scripts/autosubsync",
-    "branch":"v0.33_CM"
+    "dest":"~~/scripts/autosubsync"
   },
   {
     "git":"https://github.com/open-dynaMIX/simple-mpv-webui",
+    "branch":"main",
     "whitelist":"readme%.md$|main%.lua$|webui%-page",
-    "dest":"~~/scripts/simple-mpv-webui",
-    "branch":"main"
-  },
-  {
-    "git":"https://github.com/datasone/MPVMediaControl",
-    "whitelist":"%.lua$",
-    "dest":"~~/scripts"
+    "dest":"~~/scripts/simple-mpv-webui"
   },
   {
     "git":"https://github.com/qwerty12/mpv-taskbar-buttons",
@@ -89,9 +85,9 @@
   },
   {
     "git":"https://github.com/cvzi/mpv-youtube-download",
+    "branch":"main",
     "whitelist":"%.lua$",
-    "dest":"~~/scripts",
-    "branch":"main"
+    "dest":"~~/scripts"
   },
   {
     "git":"https://codeberg.org/jouni/mpv_sponsorblock_minimal",
@@ -100,8 +96,8 @@
   },
   {
     "git":"https://github.com/CogentRedTester/mpv-file-browser",
-    "whitelist":"file%-browser%.lua$",
-    "dest":"~~/scripts"
+    "whitelist":"main%.lua$|readme%.md$|doc|modules",
+    "dest":"~~/scripts/file-browser"
   },
   {
     "git":"https://github.com/CogentRedTester/mpv-segment-linking",
@@ -144,11 +140,6 @@
     "dest":"~~/script-modules/file-browser-addons"
   },
   {
-    "git":"https://github.com/deus0ww/mpv-conf",
-    "whitelist":"fsrcnnx%_x2%_8%-0%-4%-1%.glsl$|fsrcnnx%_x2%_16%-0%-4%-1%.glsl$|fsrcnnx%_x2%_8%-0%-4%-1%_lineart%.glsl$|fsrcnnx%_x2%_16%-0%-4%-1%_enhance%.glsl$|fsrcnnx%_x2%_16%-0%-4%-1%_anime%_enhance%.glsl$",
-    "dest":"~~/shaders/igv"
-  },
-  {
     "git":"https://gist.github.com/igv/8a77e4eb8276753b54bb94c1c50c317e",
     "whitelist":"%.glsl$",
     "dest":"~~/shaders/igv"
@@ -170,19 +161,20 @@
   },
   {
     "git":"https://github.com/Artoriuz/glsl-joint-bilateral",
+    "branch":"main",
     "whitelist":"jointbilateral%.glsl$",
-    "dest":"~~/shaders/other",
-    "branch":"main"
+    "dest":"~~/shaders/other"
   },
   {
     "git":"https://github.com/Artoriuz/glsl-pixel-clipper",
+    "branch":"main",
     "whitelist":"%.glsl$",
-    "dest":"~~/shaders/other",
-    "branch":"main"
+    "dest":"~~/shaders/other"
   },
   {
     "git":"https://github.com/bloc97/Anime4K",
-    "whitelist":"%.glsl$",
+    "whitelist":"%.md$|%.glsl$",
+    "blacklist":"tensorflow",
     "dest":"~~/shaders/Anime4k"
   }
 ]
