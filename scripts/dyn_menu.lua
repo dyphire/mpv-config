@@ -701,13 +701,8 @@ if use_mpv_impl then
     end)
 
     local ignore_id = 0
-    mp.add_key_binding(nil, 'show', function()
+    mp.add_key_binding(nil, nil, function()
         mp.commandv('context-menu')
-        mp.add_forced_key_binding('MBTN_LEFT', 'left-ignore')
-        mp.add_forced_key_binding('MOUSE_MOVE', 'menu-close', function()
-            mp.remove_key_binding('menu-close')
-            mp.remove_key_binding('left-ignore')
-        end)
     end)
 else
     local menu_native = 'menu'
