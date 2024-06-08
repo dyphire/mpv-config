@@ -14,9 +14,10 @@ local o = {
 
     --external config file path
     external_config = "~~/script-opts/inputevent_key.conf",
+    prefix = "event",
 }
 
-opt.read_options(o, "inputevent")
+opt.read_options(o, _, function() end)
 
 local bind_map = {}
 
@@ -30,9 +31,16 @@ local event_pattern = {
     { to = "release", from = "up", length = 1 },
 }
 
+local supported_events = {
+    ["repeat"] = true
+}
+for _, value in ipairs(event_pattern) do
+    supported_events[value.to] = true
+end
+
 -- https://mpv.io/manual/master/#input-command-prefixes
-local prefixes = { "osd-auto", "no-osd", "osd-bar", "osd-msg", "osd-msg-bar", "raw", "expand-properties", "repeatable",
-    "async", "sync" }
+local prefixes = { "osd-auto", "no-osd", "osd-bar", "osd-msg", "osd-msg-bar", "raw", "expand-properties",
+    "repeatable", "nonrepeatable", "async", "sync" }
 
 -- https://mpv.io/manual/master/#list-of-input-commands
 local commands = { "set", "cycle", "add", "multiply" }
@@ -76,10 +84,6 @@ function table:filter(filter)
     return nt
 end
 
-function table:remove(element)
-    return table.filter(self, function(i, v) return v ~= element end)
-end
-
 function table:join(separator)
     local result = ""
     for i, v in ipairs(self) do
@@ -113,8 +117,10 @@ local function debounce(func, wait)
 
     local timer = nil
     local timer_end = function()
-        timer:kill()
-        timer = nil
+        if timer then
+            timer:kill()
+            timer = nil
+        end
         func()
     end
 
@@ -135,9 +141,42 @@ local function command(command)
     return mp.command(command)
 end
 
+local function command_split(command)
+    local separator = { ";" }
+    local escape = { "\\" }
+    local quotation = { '"', "'" }
+    local quotation_stack = {}
+    local result = {}
+    local temp = ""
+
+    for i = 1, #command do
+        local char = command:sub(i, i)
+
+        if table.has(separator, char) and #quotation_stack == 0 then
+            result = table.push(result, temp)
+            temp = ""
+        elseif table.has(quotation, char) and not table.has(escape, temp:sub(#temp, #temp)) then
+            temp = temp .. char
+            if quotation_stack[#quotation_stack] == char then
+                quotation_stack = table.filter(quotation_stack, function(i, v) return i ~= #quotation_stack end)
+            else
+                quotation_stack = table.push(quotation_stack, char)
+            end
+        else
+            temp = temp .. char
+        end
+    end
+
+    if #temp then
+        result = table.push(result, temp)
+    end
+
+    return result
+end
+
 local function command_invert(command)
     local invert = ""
-    local command_list = command:split(";")
+    local command_list = command_split(command)
     for i, v in ipairs(command_list) do
         local trimed = v:trim()
         local subs = trimed:split("%s*")
@@ -329,7 +368,7 @@ function InputEvent:emit(event)
     end
 
     local expand = mp.command_native({'expand-text', cmd})
-    if #cmd:split(";") == #expand:split(";") then
+    if #command_split(cmd) == #command_split(expand) then
         cmd = mp.command_native({'expand-text', cmd})
     else
         mp.msg.warn("Unsafe property-expansion detected.")
@@ -368,6 +407,16 @@ function InputEvent:handler(event)
         end
     end
 
+    if event == "cancel" then
+        if #self.queue == 0 then
+            self:emit("release")
+            return
+        end
+
+        table.remove(self.queue)
+        return
+    end
+
     self.queue = table.push(self.queue, event)
     self.exec_debounced()
 end
@@ -402,7 +451,10 @@ end
 
 function InputEvent:bind()
     self.exec_debounced = debounce(function() self:exec() end, self.duration)
-    mp.add_forced_key_binding(self.key, self.key, function(e) self:handler(e.event) end, { complex = true })
+    mp.add_forced_key_binding(self.key, self.key, function(e)
+        local event = e.canceled and "cancel" or e.event
+        self:handler(event)
+    end, { complex = true })
 end
 
 function InputEvent:unbind()
@@ -438,46 +490,48 @@ local function unbind(key)
     bind_map[key]:unbind()
 end
 
-local function comment_filter(i, v) return v:match("^@") end
-
-local function read_conf(conf_path)
-    local conf_meta, meta_error = utils.file_info(conf_path)
-    if not conf_meta or not conf_meta.is_file then
-        msg.error("File not exist : " .. conf_path)
-        return
-    end -- File doesn't exist
-
+local function bind_from_conf(conf)
     local parsed = {}
-    for line in io.lines(conf_path) do
+    for _, line in pairs(conf:split("\n")) do
         line = line:trim()
         if line ~= "" and line:sub(1, 1) ~= "#" then
-            local key, cmd, comments = line:match("%s*([%S]+)%s+(.-)%s+#%s*(.-)%s*$")
-            if comments then
-                local comment = table.filter(comments:split("#"), comment_filter)
-                if comment and #comment > 0 then
-                    local statement = comment[1]:match("^@(.*)"):trim()
-                    if statement and statement ~= "" then
-                        msg.verbose(string.format("Statement for [%s]:%s",key,statement))
-                        local parts = statement:split("|")
-                        local event, cond = statement ,nil
-                        if #parts > 1 then
-                            event, cond = statement:match("(.-)%s*|%s*(.-)$")
-                        end
-
-                        if parsed[key] == nil then
-                            parsed[key] = {}
-                        end
-                        if parsed[key][event] == nil then
-                            parsed[key][event] = {}
-                        end
-
-                        local index = table.isEmpty(parsed[key][event]) and 1 or #parsed[key][event]+1
-                        local cond_name = string.format("%s-%s-%d", key, event, index)
-                        table.insert(parsed[key][event], 1,{
-                            cmd = cmd, 
-                            cond = cond ~= nil and compile_cond(cond_name, cond) or nil
-                        })
+            local key, cmd, comment = line:trim():match("^([%S]+)%s+(.-)%s+#%s*(.-)$")
+            if comment then
+                local comments = {}
+                for _, item in ipairs(comment:split("#")) do
+                    item = item:trim()
+                    local prefix, value = item:match("^(.-)%s*:%s*(.-)$")
+                    if not prefix then
+                        prefix, value = item:match("^(%p)%s*(.-)$")
                     end
+                    if prefix then
+                        comments[prefix] = value
+                    end
+                end
+
+                local event, cond = comments[o.prefix], nil
+                local parts = event and event:split("|")
+                if parts and #parts > 1 then
+                    event, cond = event:match("(.-)%s*|%s*(.-)$")
+                end
+
+                if event and event ~= "" then
+                    if not supported_events[event] then
+                        event = "click"
+                    end
+                    if parsed[key] == nil then
+                        parsed[key] = {}
+                    end
+                    if parsed[key][event] == nil then
+                        parsed[key][event] = {}
+                    end
+
+                    local index = table.isEmpty(parsed[key][event]) and 1 or #parsed[key][event]+1
+                    local cond_name = string.format("%s-%s-%d", key, event, index)
+                    table.insert(parsed[key][event], 1,{
+                        cmd = cmd,
+                        cond = cond ~= nil and compile_cond(cond_name, cond) or nil
+                    })
                 end
             end
         end
@@ -485,36 +539,62 @@ local function read_conf(conf_path)
     return parsed
 end
 
-mp.observe_property("input-doubleclick-time", "native", function(_, new_duration)
-    for _, binding in pairs(bind_map) do
-        binding:rebind({ duration = new_duration })
-    end
-end)
-
-mp.observe_property("focused", "native", function(_, focused)
-    local binding = bind_map["MBTN_LEFT"]
-    if not binding or not focused then return end
-    binding:ignore("click", 100)
-end)
-
-mp.register_script_message("bind", bind)
-mp.register_script_message("unbind", unbind)
-
-local input_conf = mp.get_property_native("input-conf")
-local input_conf_path = mp.command_native({ "expand-path", input_conf == "" and "~~/input.conf" or input_conf })
-if o.enable_external_config then
-    local external_config_path = mp.command_native({ "expand-path", o.external_config })
-    local parsed = read_conf(external_config_path)
-    if parsed and not table.isEmpty(parsed) then
-        for key, on in pairs(parsed) do
-            bind(key, on)
-        end
-    end
-else
-    local parsed = read_conf(input_conf_path)
+local function bind_content(content)
+    local parsed = bind_from_conf(content)
     if parsed and not table.isEmpty(parsed) then
         for key, on in pairs(parsed) do
             bind(key, on)
         end
     end
 end
+
+local function read_conf(path)
+    local content = ""
+    local meta, meta_error = utils.file_info(path)
+    if meta and meta.is_file then
+        local file = io.open(path, "r")
+        if file then
+            content = file:read("*all")
+            file:close()
+        end
+    end
+    return content
+end
+
+local function on_input_doubleclick_time_update(_, duration)
+    for _, binding in pairs(bind_map) do
+        binding:rebind({ duration = duration })
+    end
+end
+
+local function on_focused_update(_, focused)
+    if not focused then
+        return
+    end
+
+    local binding = bind_map["MBTN_LEFT"]
+    if not binding then
+        return
+    end
+
+    binding:ignore("click", binding.duration)
+end
+
+
+mp.register_script_message("bind", bind)
+mp.register_script_message("unbind", unbind)
+mp.observe_property("input-doubleclick-time", "native", on_input_doubleclick_time_update)
+mp.observe_property("focused", "native", on_focused_update)
+
+local content = ""
+local input_conf = mp.get_property_native("input-conf")
+local input_conf_path = mp.command_native({ "expand-path", input_conf == "" and "~~/input.conf" or input_conf })
+if o.enable_external_config then
+    local external_config_path = mp.command_native({ "expand-path", o.external_config })
+    content = read_conf(external_config_path)
+elseif input_conf:match("^memory://") then
+    content = input_conf:replace("^memory://", "")
+else
+    content = read_conf(input_conf_path)
+end
+if content ~= "" then bind_content(content) end

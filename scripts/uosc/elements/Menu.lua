@@ -422,7 +422,9 @@ end
 ---@param fling_options? Fling
 function Menu:scroll_by(delta, menu, fling_options)
 	menu = menu or self.current
-	self:scroll_to((menu.fling and (menu.fling.y + menu.fling.distance) or menu.scroll_y) + delta, menu, fling_options)
+	if menu ~= nil then
+		self:scroll_to((menu.fling and (menu.fling.y + menu.fling.distance) or menu.scroll_y) + delta, menu, fling_options)
+	end
 end
 
 ---@param index? integer
