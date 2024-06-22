@@ -128,19 +128,17 @@ local settings = {
     --allow the playlist cursor to loop from end to start and vice versa
     loop_cursor = true,
 
-    --youtube-dl executable for title resolving if enabled, probably "youtube-dl" or "yt-dlp", can be absolute path
-    youtube_dl_executable = "youtube-dl",
-
     -- allow playlistmanager to write watch later config when navigating between files
     allow_write_watch_later_config = true,
 
     -- reset cursor navigation when closing or opening playlist
     reset_cursor_on_close = true,
 
-    --####  VISUAL SETTINGS
-
     --prefer to display titles for following files: "all", "url", "none". Sorting still uses filename.
     prefer_titles = "url",
+
+    --youtube-dl executable for title resolving if enabled, probably "youtube-dl" or "yt-dlp", can be absolute path
+    youtube_dl_executable = "yt-dlp",
 
     --call youtube-dl to resolve the titles of urls in the playlist
     resolve_url_titles = false,
@@ -484,17 +482,9 @@ function get_name_from_index(i, notitle)
     local name = mp.get_property('playlist/' .. i .. '/filename')
 
     local should_use_title = settings.prefer_titles == 'all' or is_protocol(name) and settings.prefer_titles == 'url'
-    --check if file has a media title stored or as property
-    if not title and should_use_title then
-        local mtitle = mp.get_property('media-title')
-        if i == pos and mp.get_property('filename') ~= mtitle then
-            if not title_table[name] then
-                title_table[name] = mtitle
-                title = mtitle
-            end
-        elseif title_table[name] then
-            title = title_table[name]
-        end
+    --check if file has a media title stored
+    if not title and should_use_title and title_table[name] then
+        title = title_table[name]
     end
 
     --if we have media title use a more conservative strip
@@ -1352,14 +1342,6 @@ end
 url_title_fetch_timer = mp.add_periodic_timer(0.1, url_fetching_throttler)
 url_title_fetch_timer:kill()
 
-local_request_queue = {}
-function local_request_queue.push(item) table.insert(local_request_queue, item) end
-
-function local_request_queue.pop() return table.remove(local_request_queue, 1) end
-
-local local_titles_to_fetch = local_request_queue
-local ongoing_local_request = false
-
 function resolve_titles()
     if settings.prefer_titles == 'none' or not settings.resolve_url_titles then return end
 
@@ -1367,7 +1349,6 @@ function resolve_titles()
     if length < 2 then return end
     -- loop all items in playlist because we can't predict how it has changed
     local added_urls = false
-    local added_local = false
     for i = 0, length - 1, 1 do
         local filename = mp.get_property('playlist/' .. i .. '/filename')
         local title = mp.get_property('playlist/' .. i .. '/title')
@@ -1378,12 +1359,9 @@ function resolve_titles()
             and not requested_titles[filename]
         then
             requested_titles[filename] = true
-            if filename:find('^https?://') then
+            if filename:find('^https?://') and settings.resolve_url_titles then
                 url_titles_to_fetch.push(filename)
                 added_urls = true
-            elseif settings.prefer_titles == "all" then
-                local_titles_to_fetch.push(filename)
-                added_local = true
             end
         end
     end
@@ -1421,6 +1399,7 @@ function resolve_ytdl_title(filename)
                     local title = (is_playlist and '[playlist]: ' or '') .. json['title']
                     msg.verbose(filename .. " resolved to '" .. title .. "'")
                     title_table[filename] = title
+                    mp.set_property_native('user-data/playlistmanager/titles', title_table)
                     refresh_globals()
                     if playlist_visible then showplaylist() end
                 else
