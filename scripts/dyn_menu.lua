@@ -161,12 +161,18 @@ local UTF8_PATTERN = '[%z\1-\127\194-\244][\128-\191]*'
 -- return a substring based on utf8 characters
 -- like string.sub, but negative index is not supported
 local function utf8_sub(s, i, j)
+    if i > j then
+        return s
+    end
+
     local t = {}
     local idx = 1
-    for match in s:gmatch(UTF8_PATTERN) do
-        if j and idx > j then break end
-        if idx >= i then t[#t + 1] = match end
-        idx = idx + 1
+    for char in s:gmatch(UTF8_PATTERN) do
+        if i <= idx and idx <= j then
+            local width = #char > 2 and 2 or 1
+            idx = idx + width
+            t[#t + 1] = char
+        end
     end
     return table.concat(t)
 end
@@ -174,8 +180,9 @@ end
 -- abbreviate title if it's too long
 local function abbr_title(str)
     if not str or str == '' then return '' end
-    if o.max_title_length > 0 and str:len() > o.max_title_length then
-        return utf8_sub(str, 1, o.max_title_length) .. '...'
+    local str_clip = utf8_sub(str, 1, o.max_title_length)
+    if str ~= str_clip then
+        return str_clip .. '...'
     end
     return str
 end
@@ -234,19 +241,18 @@ local function build_track_items(list, type, prop, prefix)
     -- filename without extension, escaped for pattern matching
     local filename = get('filename/no-ext', ''):gsub("[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0")
     local pos = tonumber(get(prop)) or -1
-    local sub_visibility = get('sub-visibility')
-    local secondary_visibility = get('secondary-sub-visibility')
 
     for _, track in ipairs(list) do
         if track.type == type then
             local state = {}
             if track.selected and track.id == pos then
                 state[#state + 1] = 'checked'
-                if not sub_visibility and prop == 'sid' then
-                    state[#state + 1] = 'disabled'
-                end
-                if not secondary_visibility and prop == 'secondary-sid' then
-                    state[#state + 1] = 'disabled'
+                if type == 'sub' then
+                    if (prop == 'sid' and not get('sub-visibility')) or 
+                        (prop == 'secondary-sid' and not get('secondary-sub-visibility'))
+                    then
+                        state[#state + 1] = 'disabled'
+                    end
                 end
             end
 

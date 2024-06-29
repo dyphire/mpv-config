@@ -423,12 +423,18 @@ local UTF8_PATTERN = '[%z\1-\127\194-\244][\128-\191]*'
 -- return a substring based on utf8 characters
 -- like string.sub, but negative index is not supported
 local function utf8_sub(s, i, j)
+    if i > j then
+        return s
+    end
+
     local t = {}
     local idx = 1
-    for match in s:gmatch(UTF8_PATTERN) do
-        if j and idx > j then break end
-        if idx >= i then t[#t + 1] = match end
-        idx = idx + 1
+    for char in s:gmatch(UTF8_PATTERN) do
+        if i <= idx and idx <= j then
+            local width = #char > 2 and 2 or 1
+            idx = idx + width
+            t[#t + 1] = char
+        end
     end
     return table.concat(t)
 end
@@ -452,8 +458,9 @@ function stripfilename(pathfile, media_title)
             end
         end
     end
-    if settings.slice_longfilenames and tmp:len() > settings.slice_longfilenames_amount + 5 then
-        tmp = utf8_sub(tmp, 1, settings.slice_longfilenames_amount) .. " ..." 
+    local tmp_clip = utf8_sub(tmp, 1, settings.slice_longfilenames_amount)
+    if tmp ~= tmp_clip then
+        tmp = tmp_clip .. "..."
     end
     return tmp
 end
