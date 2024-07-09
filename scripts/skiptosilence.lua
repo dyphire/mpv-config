@@ -1,5 +1,5 @@
 --[[
-  * skiptosilence.lua v.2024-04-22
+  * skiptosilence.lua v.2024-07-09
   *
   * AUTHORS: detuur, microraptor, Eisa01, dyphire
   * License: MIT
@@ -67,13 +67,18 @@ mute_state = false
 sub_state = nil
 secondary_sub_state = nil
 vid_state = nil
+geometry_state = nil
 skip_flag = false
 initial_skip_time = 0
 
 local function restoreProp(pause)
     if not pause then pause = pause_state end
+    local fullscreen = mp.get_property("fullscreen")
 
     mp.set_property("vid", vid_state)
+    if not fullscreen then
+        mp.set_property("geometry", geometry_state)
+    end
     mp.set_property_bool("mute", mute_state)
     mp.set_property("speed", speed_state)
     mp.unobserve_property(foundSilence)
@@ -142,6 +147,7 @@ local function doSkip()
     local width = mp.get_property_native("osd-width")
     local height = mp.get_property_native("osd-height")
     local fullscreen = mp.get_property_native("fullscreen")
+    geometry_state = mp.get_property("geometry")
     if not fullscreen then
         mp.set_property_native("geometry", ("%dx%d"):format(width, height))
     end
@@ -184,7 +190,11 @@ end)
 
 mp.observe_property('percent-pos', 'number', function(_, value)
     if skip_flag and value and value > 99 then
+        local fullscreen = mp.get_property("fullscreen")
         mp.set_property("vid", vid_state)
+        if not fullscreen then
+            mp.set_property("geometry", geometry_state)
+        end
     end
 end)
 

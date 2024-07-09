@@ -1,15 +1,5 @@
 [
   {
-    "git":"https://github.com/natural-harmonia-gropius/recent-menu",
-    "whitelist":"%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
-    "git":"https://github.com/Ashyni/mpv-scripts",
-    "whitelist":"dynamic%-crop%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
     "git":"https://github.com/po5/evafast",
     "whitelist":"%.lua$",
     "dest":"~~/scripts"

@@ -103,23 +103,17 @@ local function shifting_to(left, value)
     return left and (value / shift) or value >= 1 and math.ceil(value * shift) or value * shift
 end
 
--- computed options
-local o_timer = {}
+-- options: compute timer and other stuff
 for k, v in pairs(options) do
-    local t = string.match(tostring(k), "_timer")
-    if t then
-        t = string.gsub(tostring(k), "_timer", "")
-        o_timer[t] = shifting_to(RIGHT, v)
-    end
+    local timer = string.match(tostring(k), "_timer")
+    if timer then options[k] = shifting_to(RIGHT, v) end
 end
-s.read_ahead = {
-    int = options.read_ahead_mode == 1 and o_timer.fast_change or options.read_ahead_mode == 2 and o_timer.ratio *
-        (1 + options.segmentation) or nil,
-    float = options.read_ahead_mode == 1 and options.fast_change_timer or options.read_ahead_mode == 2 and
-        options.ratio_timer * (1 + options.segmentation) or nil
-}
-s.reverse_segmentation = 1 / (1 * (1 + options.segmentation))
-s.crop_method_sync = options.crop_method == 0 and 1 or 0
+options.read_ahead_timer =
+    options.read_ahead_mode == 1 and options.fast_change_timer or options.read_ahead_mode == 2 and options.ratio_timer *
+        (1 + options.segmentation) or nil
+options.read_ahead_cropdetect = options.read_ahead_timer and shifting_to(LEFT, options.read_ahead_timer) or nil
+options.reverse_segmentation = 1 / (1 * (1 + options.segmentation))
+options.crop_method_sync = options.crop_method == 0 and 1 or 0 -- lavfi-crop is slower, so give it some advance for read_ahead
 
 local function print_debug(msg_type, meta, label)
     if not options.debug then
@@ -221,8 +215,8 @@ local function insert_cropdetect_filter(limit, change)
             return true
         elseif s.f_limit_runtime and options.read_ahead_mode > 0 then
             return mp.commandv("vf", "pre",
-                string.format("@%s:lavfi=[split[a][b];[b]setpts=PTS-%.1f/TB,%s[b];%s]", labels.cropdetect,
-                    s.read_ahead.float, cropdetect, s.f_sync))
+                string.format("@%s:lavfi=[split[a][b];[b]setpts=PTS-%s/TB,%s[b];%s]", labels.cropdetect,
+                    options.read_ahead_cropdetect, cropdetect, s.f_sync))
         else
             return mp.commandv("vf", "pre", string.format("@%s:lavfi=[split[a][b];[b]%s,nullsink;[a]null]",
                 labels.cropdetect, cropdetect))
@@ -247,13 +241,21 @@ local function apply_crop(ref, pts)
     if prop_fullscreen ~= "yes" and options.fix_windowed_behavior ~= 0 then
         local prop_maximized = mp.get_property("window-maximized")
         local osd = mp.get_property_native("osd-dimensions")
-        if prop_maximized == "yes" or options.fix_windowed_behavior == 1 then
-            -- keep current window size to avoid resizing at the original size of the video
-            mp.set_property("geometry", string.format("%sx%s", osd.w, osd.h))
-        elseif options.fix_windowed_behavior == 2 then
-            mp.set_property("geometry", string.format("%s", osd.w))
-        elseif options.fix_windowed_behavior == 3 then
-            mp.set_property("geometry", string.format("x%s", osd.h))
+        local prop_auto_window_resize = mp.get_property("auto-window-resize")
+        if prop_maximized == "yes" then
+            if options.fix_windowed_behavior ~= 0 and prop_auto_window_resize == "yes" then
+                -- disable auto resize to avoid resizing at the original size of the video
+                mp.set_property("auto-window-resize", "no")
+            end
+        else
+            if options.fix_windowed_behavior ~= 0 then mp.set_property("auto-window-resize", "yes") end
+            if options.fix_windowed_behavior == 1 then
+                mp.set_property("geometry", string.format("%sx%s", osd.w, osd.h))
+            elseif options.fix_windowed_behavior == 2 then
+                mp.set_property("geometry", string.format("%s", osd.w))
+            elseif options.fix_windowed_behavior == 3 then
+                mp.set_property("geometry", string.format("x%s", osd.h))
+            end
         end
     end
 
@@ -359,7 +361,8 @@ local function process_metadata(collected, timestamp, elapsed_time)
     if s.buffer.i_ratio > 0 then s.buffer.t_ratio = s.buffer.t_ratio + elapsed_time end
 
     -- candidate offset/fallback to later extend buffer size
-    if not s.stats.trusted[collected.whxy] and collected.time.buffer > o_timer.ratio and collected.is_linked_to_source then
+    if not s.stats.trusted[collected.whxy] and collected.time.buffer > options.ratio_timer and
+        collected.is_linked_to_source then
         if not s.candidate.offset[collected.whxy] and not collected.is_trusted_offsets and collected.is_known_ratio then
             s.candidate.offset[collected.whxy] = collected
             s.candidate.i_offset = s.candidate.i_offset + 1
@@ -371,7 +374,7 @@ local function process_metadata(collected, timestamp, elapsed_time)
     end
 
     -- add new fallback ratio to the ratio list
-    if s.candidate.fallback[collected.whxy] and collected.time.buffer >= o_timer.fallback then
+    if s.candidate.fallback[collected.whxy] and collected.time.buffer >= options.fallback_timer then
         -- TODO eventually re-check the buffer list with new ratio
         generate_ratios(collected.w .. "/" .. collected.h)
         collected.is_known_ratio = true
@@ -380,7 +383,7 @@ local function process_metadata(collected, timestamp, elapsed_time)
 
     -- add new offset to the trusted_offsets list
     if s.candidate.offset[collected.whxy] and collected.is_known_ratio and collected.is_linked_to_source and
-        collected.time.buffer >= o_timer.offset then
+        collected.time.buffer >= options.offset_timer then
         for _, axis in ipairs({"x", "y"}) do
             if not is_trusted_offset(collected.offset[axis], axis) then
                 table.insert(s.stats.trusted_offset[axis], collected.offset[axis])
@@ -393,7 +396,7 @@ local function process_metadata(collected, timestamp, elapsed_time)
     -- add collected ready to the trusted list
     local new_ready =
         not s.stats.trusted[collected.whxy] and collected.is_trusted_offsets and not collected.is_invalid and
-            collected.is_linked_to_source and collected.is_known_ratio and collected.time.buffer >= o_timer.ratio
+            collected.is_linked_to_source and collected.is_known_ratio and collected.time.buffer >= options.ratio_timer
     if new_ready then
         s.stats.trusted[collected.whxy] = collected
         s.stats.trusted_unique = s.stats.trusted_unique + 1
@@ -479,11 +482,11 @@ local function process_metadata(collected, timestamp, elapsed_time)
                                    not new_ready and ref.time.accumulated + elapsed_time or ref.time.accumulated
     end
 
-    -- crop validation
+    -- crop: final validation then store or apply it
     local detect_source = current == s.last_current and (current.is_source or collected.is_source) and s.limit.target >=
                               0
     local confirmation = not current.is_source and s.stats.trusted[current.whxy] and current.time.accumulated >=
-                             o_timer.fast_change and (not corrected.ref or current == s.last_current)
+                             options.fast_change_timer and (not corrected.ref or current == s.last_current)
     local crop_filter = s.approved ~= current and (confirmation or detect_source)
     if crop_filter and (not s.timestamps.prevent or timestamp >= s.timestamps.prevent) then
         s.approved = current -- reflect s.applied for read_head
@@ -491,7 +494,7 @@ local function process_metadata(collected, timestamp, elapsed_time)
             s.limit.min = s.limit.current -- store minimum limit
         end
         if s.f_limit_runtime and options.read_ahead_mode > 0 then
-            local pts = current.time.accumulated < o_timer.ratio and timestamp - current.time.accumulated or
+            local pts = current.time.accumulated < options.ratio_timer and timestamp - current.time.accumulated or
                             current.pts[1]
             table.insert(s.indexed_read_ahead, {ref = current, pts = pts})
             s.timestamps.read_ahead = nil
@@ -503,7 +506,7 @@ local function process_metadata(collected, timestamp, elapsed_time)
             if (options.prevent_change_mode == 1 and (current.w > s.approved.w or current.h > s.approved.h) or
                 options.prevent_change_mode == 2 and (current.w < s.approved.w or current.h < s.approved.h) or
                 options.prevent_change_mode == 3) then
-                s.timestamps.prevent = timestamp + o_timer.prevent_change
+                s.timestamps.prevent = timestamp + options.prevent_change_timer
             end
         end
         if options.mode <= 2 then on_toggle(true) end
@@ -512,26 +515,27 @@ local function process_metadata(collected, timestamp, elapsed_time)
     local function is_time_to_cleanup_buffer(time, target_time)
         return time > target_time * (1 + options.segmentation)
     end
+
     -- buffer: reduce size of known ratio stats
-    while is_time_to_cleanup_buffer(s.buffer.t_ratio, o_timer.ratio) do
+    while is_time_to_cleanup_buffer(s.buffer.t_ratio, options.ratio_timer) do
         local i = (s.buffer.i_total + 1) - s.buffer.i_ratio
         s.buffer.t_ratio = s.buffer.t_ratio - s.buffer.indexed_list[i].t_elapsed
         s.buffer.i_ratio = s.buffer.i_ratio - 1
     end
 
     -- buffer: check for candidate to extend it
-    local buffer_timer =
-        s.candidate.i_offset > 0 and o_timer.offset or s.candidate.i_fallback > 0 and o_timer.fallback or o_timer.ratio
+    local buffer_timer = s.candidate.i_offset > 0 and options.offset_timer or s.candidate.i_fallback > 0 and
+                             options.fallback_timer or options.ratio_timer
 
     -- buffer: cleanup fake candidate
     local function is_proactive_cleanup_needed()
         local test
-        if is_time_to_cleanup_buffer(s.buffer.t_total, o_timer.ratio) then
+        if is_time_to_cleanup_buffer(s.buffer.t_total, options.ratio_timer) then
             for _, cat in ipairs({"offset", "fallback"}) do
                 if s.candidate["i_" .. cat] > 0 then
                     test = true
                     for whxy, ref in pairs(s.candidate[cat]) do
-                        if ref.time.buffer > s.buffer.t_total * s.reverse_segmentation then
+                        if ref.time.buffer > s.buffer.t_total * options.reverse_segmentation then
                             return false -- if at least one is a proper candidate
                         end
                     end
@@ -540,6 +544,7 @@ local function process_metadata(collected, timestamp, elapsed_time)
         end
         return test
     end
+
     -- buffer: reduce total size
     while is_time_to_cleanup_buffer(s.buffer.t_total, buffer_timer) or is_proactive_cleanup_needed() do
         s.buffer.i_to_shift = s.buffer.i_to_shift + 1
@@ -565,7 +570,7 @@ local function process_metadata(collected, timestamp, elapsed_time)
         collectgarbage("step")
     end
 
-    -- auto limit
+    -- limit: automatic adjustment
     s.last_limit = s.limit.current
     if s.f_limit_runtime or timestamp >= s.limit.timer then
         s.limit.last_target = s.limit.target
@@ -601,12 +606,13 @@ local function process_metadata(collected, timestamp, elapsed_time)
     s.last_collected = collected
     s.last_timestamp = timestamp
 
-    -- apply limit change
+    -- limit: apply change
     if s.last_limit ~= s.limit.current then
-        if not s.f_limit_runtime and options.limit_timer > 0 then s.limit.timer = timestamp + o_timer.limit end
+        if not s.f_limit_runtime and options.limit_timer > 0 then s.limit.timer = timestamp + options.limit_timer end
         s.limit.counter = s.limit.counter + 1
         insert_cropdetect_filter(s.limit.current, true)
     end
+
     s.in_progress = false
 end
 
@@ -614,8 +620,8 @@ local function time_pos(event, value, err)
     if value and s.indexed_read_ahead[1] then
         local time_pos = shifting_to(RIGHT, value)
         local deviation = math.abs(time_pos - s.pts)
-        local crop_sync = s.frametime * (options.read_ahead_sync + s.crop_method_sync)
-        local time_pos_read_ahead = time_pos - (s.read_ahead.int - deviation - crop_sync)
+        local crop_sync = s.frametime * (options.read_ahead_sync + options.crop_method_sync)
+        local time_pos_read_ahead = time_pos - (options.read_ahead_timer - deviation - crop_sync)
         if time_pos_read_ahead >= s.indexed_read_ahead[1].pts then
             apply_crop(s.indexed_read_ahead[1].ref, s.indexed_read_ahead[1].pts)
             table.remove(s.indexed_read_ahead, 1)
@@ -704,14 +710,14 @@ function on_toggle(auto)
         return
     end
     local EVENT = "toggle"
-    if s.toggled == 1 then
+    if s.toggled == ENABLE then
         s.toggled = DISABLE_WITH_CROP
         if filter_state(labels.cropdetect, "enabled", true) then
             mp.commandv("vf", EVENT, string.format("@%s", labels.cropdetect))
         end
         seek(EVENT)
         if not auto then mp.osd_message(string.format("%s: disabled, crop remains.", label_prefix), 3) end
-    elseif s.toggled == 2 then
+    elseif s.toggled == DISABLE_WITH_CROP then
         s.toggled = DISABLE
         if filter_state(labels.cropdetect, "enabled", false) then
             if s.f_video_crop then
@@ -721,7 +727,7 @@ function on_toggle(auto)
             end
         end
         if not auto then mp.osd_message(string.format("%s: crop removed.", label_prefix), 3) end
-    else -- s.toggled == 3
+    else -- s.toggled == DISABLE
         s.toggled = ENABLE
         if filter_state(labels.cropdetect, "enabled", false) then
             mp.commandv("vf", EVENT, string.format("@%s", labels.cropdetect))
@@ -757,7 +763,12 @@ function cleanup()
     if not s.started then return end
     if not s.paused then print_stats() end
     mp.msg.info("Cleanup...")
-    mp.set_property("geometry", s.user_geometry)
+    local prop_fullscreen = mp.get_property("fullscreen")
+    local prop_maximized = mp.get_property("window-maximized")
+    if prop_fullscreen == "no" and prop_maximized == "no" then
+        mp.set_property("geometry", s.user_geometry)
+        mp.set_property("auto-window-resize", s.user_auto_window_resize)
+    end
     mp.unregister_event(playback_events)
     mp.unregister_event(collect_metadata)
     mp.unobserve_property(time_pos)
@@ -778,6 +789,7 @@ local function on_start()
         return
     end
     s.user_geometry = mp.get_property("geometry")
+    s.user_auto_window_resize = mp.get_property("auto-window-resize")
     -- init/re-init stored data
     s.buffer = {i_to_shift = 0, i_total = 0, i_ratio = 0, indexed_list = {}, t_total = 0, t_ratio = 0}
     s.candidate = {i_fallback = 0, i_offset = 0, fallback = {}, offset = {}}
