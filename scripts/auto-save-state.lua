@@ -5,12 +5,15 @@ local o = { save_interval = 60 }
 options.read_options(o)
 
 local can_delete = true
+local can_save = true
 
 local function save()
-    local demuxer_secs = mp.get_property("demuxer-hysteresis-secs")
+	if not can_save then
+		return
+    local demuxer_secs = mp.get_property_native("demuxer-hysteresis-secs")
     local watch_later_list = mp.get_property("watch-later-options", {})
     if mp.get_property_bool("save-position-on-quit") then
-        if demuxer_secs and watch_later_list:find("start") == nil then
+        if demuxer_secs~=0 and watch_later_list:find("start") == nil then
             mp.commandv("change-list", "watch-later-options", "append", "start")
         end
         mp.command("write-watch-later-config")
@@ -29,7 +32,8 @@ end
 -- then they run delete-watch-later-config when appropriate.
 local function delete_watch_later(event)
     local path = mp.get_property("path")
-    local demuxer_secs = mp.get_property("demuxer-hysteresis-secs")
+    local demuxer_secs = mp.get_property_native("demuxer-hysteresis-secs")
+    can_save = true
 
     -- Temporarily disables save-position-on-quit while eof-reached is true, so
     -- state isn't saved at EOF when keep-open=yes
@@ -38,9 +42,10 @@ local function delete_watch_later(event)
             return
         elseif eof then
             print("Deleting state (eof-reached)")
-            if demuxer_secs then
+            if demuxer_secs~=0 then
                 mp.commandv("change-list", "watch-later-options", "remove", "start")
             else
+                can_save = false
                 mp.commandv("delete-watch-later-config", path)
             end
         end
@@ -54,6 +59,7 @@ local function delete_watch_later(event)
             can_delete = true
         elseif event["reason"] == "eof" then
             print("Deleting state (end-file " .. event["reason"] .. ")")
+            can_save = false
             mp.commandv("delete-watch-later-config", path)
         end
     end
