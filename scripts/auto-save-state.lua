@@ -5,7 +5,7 @@ local msg = require 'mp.msg'
 
 o = {
     save_interval = 60,
-    percent_pos = 100,
+    percent_pos = 99,
 }
 options.read_options(o)
 
