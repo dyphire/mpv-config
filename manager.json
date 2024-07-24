@@ -7,7 +7,7 @@
   {
     "git":"https://github.com/dyphire/mpv-scripts",
     "branch":"main",
-    "whitelist":"chapter%-list%.lua$|chapter%-make%-read%.lua$|fix%-avsync%.lua$|mpv%-animated%.lua$|sub%_export%.lua$|track%-list%.lua$",
+    "whitelist":"chapter%-list%.lua$|chapter%-make%-read%.lua$|mpv%-animated%.lua$|sub%_export%.lua$|track%-list%.lua$",
     "dest":"~~/scripts"
   },
   {
@@ -56,12 +56,6 @@
     "branch":"main",
     "whitelist":"readme%.md$|main%.lua$|webui%-page",
     "dest":"~~/scripts/simple-mpv-webui"
-  },
-  {
-    "git":"https://github.com/qwerty12/mpv-taskbar-buttons",
-    "whitelist":"readme%.md$|%.lua$|res|ljf%-com",
-    "blacklist":"script%-opts",
-    "dest":"~~/scripts/mpv-taskbar-buttons"
   },
   {
     "git":"https://github.com/christoph-heinrich/mpv-quality-menu",
