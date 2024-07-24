@@ -84,18 +84,13 @@
     "dest":"~~/scripts/file-browser"
   },
   {
-    "git":"https://github.com/CogentRedTester/mpv-segment-linking",
-    "whitelist":"%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
     "git":"https://github.com/CogentRedTester/mpv-sub-select",
     "whitelist":"sub%-select%.lua$",
     "dest":"~~/scripts"
   },
   {
     "git":"https://github.com/CogentRedTester/mpv-scripts",
-    "whitelist":"cycle%-commands%.lua$|ordered%-chapters%-playlist%.lua$",
+    "whitelist":"cycle%-commands%.lua$",
     "dest":"~~/scripts"
   },
   {
