@@ -5,9 +5,15 @@
     "dest":"~~/scripts"
   },
   {
+    "git":"https://github.com/stax76/mpv-scripts",
+    "branch":"main",
+    "whitelist":"command_palette%.lua$|delete_current_file%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
     "git":"https://github.com/dyphire/mpv-scripts",
     "branch":"main",
-    "whitelist":"chapter%-list%.lua$|chapter%-make%-read%.lua$|mpv%-animated%.lua$|sub%_export%.lua$|track%-list%.lua$",
+    "whitelist":"chapter%-list%.lua$|chapter%-make%-read%.lua$|mpv%-animated%.lua$|sub_export%.lua$|track%-list%.lua$",
     "dest":"~~/scripts"
   },
   {
