@@ -459,7 +459,7 @@ function stripfilename(pathfile, media_title)
         end
     end
     local tmp_clip = utf8_sub(tmp, 1, settings.slice_longfilenames_amount)
-    if tmp ~= tmp_clip then
+    if settings.slice_longfilenames and tmp ~= tmp_clip then
         tmp = tmp_clip .. "..."
     end
     return tmp
