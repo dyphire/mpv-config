@@ -482,6 +482,10 @@ local function spawn(time)
 
     if os_name == "windows" or pre_0_33_0 then
         table.insert(args, "--input-ipc-server="..options.socket)
+        local media_controls = mp.get_property_native("media-controls")
+        if media_controls ~= nil then
+            table.insert(args, "--media-controls=no")
+        end
     elseif not script_written then
         local client_script_path = options.socket..".run"
         local script = io.open(client_script_path, "w+")
