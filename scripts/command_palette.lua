@@ -9,7 +9,6 @@ local o = {
     resume_on_exit = "only-if-was-paused",
 
     -- styles
-    font_size = 50,
     line_bottom_margin = 1,
     menu_x_padding = 5,
     menu_y_padding = 2,
@@ -138,6 +137,7 @@ mp.register_event('log-message', function(e)
     end
 end)
 
+local uosc_available = false
 package.path = mp.command_native({ "expand-path", "~~/script-modules/?.lua;" }) .. package.path
 
 local em = require "extended-menu"
@@ -172,6 +172,12 @@ function em:get_bindings()
         { 'ctrl+bs',     function() self:del_word() end                                },
         { 'ctrl+del',    function() self:del_next_word() end                           },
         { 'kp_dec',      function() self:handle_char_input('.') end                    },
+        { 'mbtn_left',   function() self:handle_enter() end                            },
+        { 'mbtn_right',  function() self:set_active(false) end                         },
+        { 'wheel_up',    function() self:change_selected_index(-1) end                 },
+        { 'wheel_down',  function() self:change_selected_index(1) end                  },
+        { 'mbtn_forward',function() self:change_selected_index(-o.lines_to_show) end   },
+        { 'mbtn_back',   function() self:change_selected_index(o.lines_to_show) end    },
     }
 
     for i = 0, 9 do
@@ -184,9 +190,13 @@ end
 function em:set_active(active)
     original_set_active_func(self, active)
 
-    if not active and (osc_visibility == "auto" or osc_visibility == "always") then
-        mp.command("script-message osc-visibility " .. osc_visibility .. " no_osd")
-        osc_visibility = nil
+    if not active then
+        if osc_visibility == "auto" or osc_visibility == "always" then
+            mp.command("script-message osc-visibility " .. osc_visibility .. " no_osd")
+            osc_visibility = nil
+        elseif uosc_available then
+            mp.commandv('script-message-to', 'uosc', 'disable-elements', mp.get_script_name(), '')
+        end
     end
 end
 
@@ -425,6 +435,16 @@ mp.register_script_message("show-command-palette", function (name)
     menu.filter_by_fields = { "content" }
     em.get_line = original_get_line_func
 
+    local font_size = 40
+    local width = mp.get_property_native("osd-width")
+    local height = mp.get_property_native("osd-height")
+    if width > height then
+        font_size = math.floor(font_size * width / 1920)
+    else
+        font_size = math.floor(font_size * height / 1920)
+    end
+    o.font_size = font_size
+
     if name == "Command Palette" then
         local menu_items = {}
         local bindings = utils.parse_json(mp.get_property("input-bindings"))
@@ -432,11 +452,11 @@ mp.register_script_message("show-command-palette", function (name)
         local items = {
             {"Playlist", 'script-message-to command_palette show-command-palette "Playlist"'},
             {"Tracks", 'script-message-to command_palette show-command-palette "Tracks"'},
+            {"Video Tracks", 'script-message-to command_palette show-command-palette "Video Tracks"'},
             {"Audio Tracks", 'script-message-to command_palette show-command-palette "Audio Tracks"'},
             {"Subtitle Tracks", 'script-message-to command_palette show-command-palette "Subtitle Tracks"'},
             {"Secondary Subtitle", 'script-message-to command_palette show-command-palette "Secondary Subtitle"'},
             {"Subtitle Line", 'script-message-to command_palette show-command-palette "Subtitle Line"'},
-            {"Video Tracks", 'script-message-to command_palette show-command-palette "Video Tracks"'},
             {"Chapters", 'script-message-to command_palette show-command-palette "Chapters"'},
             {"Profiles", 'script-message-to command_palette show-command-palette "Profiles"'},
             {"Bindings", 'script-message-to command_palette show-command-palette "Bindings"'},
@@ -824,5 +844,17 @@ mp.register_script_message("show-command-palette", function (name)
         end
     end
 
+    if uosc_available then
+        local disable_elements = "window_border, top_bar, timeline, controls, volume, idle_indicator, audio_indicator, buffering_indicator, pause_indicator"
+        mp.commandv('script-message-to', 'uosc', 'disable-elements', mp.get_script_name(), disable_elements)
+    end
+
     menu:init(menu_content)
+end)
+
+mp.register_script_message('uosc-version', function(version)
+    local major, minor = version:match('^(%d+)%.(%d+)')
+    if major and minor and tonumber(major) >= 5 and tonumber(minor) >= 0 then
+        uosc_available = true
+    end
 end)
