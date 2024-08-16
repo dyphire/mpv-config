@@ -14,6 +14,8 @@ local em = {
   -- styles (earlyer it was a table, but required many more steps to pass def-s
   --            here from .conf file)
   font_size = 21,
+  --font size scales by window
+  scale_by_window = false,
   -- cursor 'width', useful to change if you have hidpi monitor
   cursor_x_border = 0.3,
   line_bottom_margin = 1, -- basically space between lines
@@ -174,7 +176,10 @@ function em:update(err_code)
   end
 
   local line_height = self.font_size + self.line_bottom_margin
-  local ww, wh = mp.get_osd_size() -- window width & height
+  local _, h, aspect = mp.get_osd_size()
+  local wh = self.scale_by_window and 720 or h
+  local ww = wh * aspect
+
   -- '+ 1' below is a search string
   local menu_y_pos =
       wh - (line_height * (self.lines_to_show + 1) + self.menu_y_padding * 2)
