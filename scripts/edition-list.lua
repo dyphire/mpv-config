@@ -41,8 +41,6 @@ local o = {
     max_title_length = 100,
     -- wrap the cursor around the top and bottom of the list
     wrap = true,
-    -- reset cursor navigation when open the list
-    reset_cursor_on_close = true,
     -- set dynamic keybinds to bind when the list is open
     key_move_begin = "HOME",
     key_move_end = "END",
@@ -116,7 +114,6 @@ function changedFile()
 end
 
 --modifying the list settings
-local original_open = list.open
 list.header = o.header
 list.cursor = o.cursor
 list.indent = o.indent
@@ -139,26 +136,34 @@ function list:format_header_string(str)
 end
 
 --update the list when the current edition changes
-function edition_list(curr_edition)
-    list.list = {}
-    local edition_list = mp.get_property_native('edition-list', {})
-    for i = 1, #edition_list do
-        local item = {}
-        local title = edition_list[i].title
-        if not title then title = "Edition " .. string.format("%02.f", i) end
-        if o.max_title_length > 0 and title:len() > o.max_title_length + 5 then
-            title = title:sub(1, o.max_title_length) .. " ..."
-        end
-        if (i - 1 == curr_edition) then
-            list.selected = curr_edition + 1
-            item.style = o.active_style
-            item.ass = "● " .. list.ass_escape(title)
-        else
-            item.ass = "○ " .. list.ass_escape(title)
-        end
-        list.list[i] = item
-    end
-    list:update()
+local function edition_list()
+    mp.observe_property('edition-list', 'native', function(_, edition_list)
+        mp.observe_property('current-edition', 'number', function(_, curr_edition)
+            list.list = {}
+            if edition_list == nil then
+                list:update()
+                return
+            end
+            for i = 1, #edition_list do
+                local item = {}
+                local title = edition_list[i].title
+                if not title then title = "Edition " .. string.format("%02.f", i) end
+                if o.max_title_length > 0 and title:len() > o.max_title_length + 5 then
+                    title = title:sub(1, o.max_title_length) .. " ..."
+                end
+                if (i - 1 == curr_edition) then
+                    list.selected = curr_edition + 1
+                    item.style = o.active_style
+                    item.ass = "● " .. list.ass_escape(title)
+                else
+                    item.ass = "○ " .. list.ass_escape(title)
+                end
+                list.list[i] = item
+            end
+            list:update()
+        end)
+    end)
+    list:toggle()
 end
 
 --jump to the selected edition
@@ -166,21 +171,6 @@ local function select_edition()
     if list.list[list.selected] then
         mp.set_property_number('edition', list.selected - 1)
     end
-end
-
---reset cursor navigation when open the list
-local function reset_cursor()
-    if o.reset_cursor_on_close then
-        if mp.get_property('editions') then
-            list.selected = mp.get_property_number('current-edition') + 1
-            list:update()
-        end
-    end
-end
-
-function list:open()
-    reset_cursor()
-    original_open(self)
 end
 
 --dynamic keybinds to bind when the list is open
@@ -203,17 +193,7 @@ add_keys(o.key_move_end, 'move_end', function() list:move_end() end, {})
 add_keys(o.key_select_edition, 'select_edition', select_edition, {})
 add_keys(o.key_close_browser, 'close_browser', function() list:close() end, {})
 
-mp.register_script_message("toggle-edition-browser", function() list:toggle() end)
-
-mp.observe_property('current-edition', 'number', function(_, curr_edition)
-    editionChanged()
-    edition_list(curr_edition)
-end)
-
-mp.observe_property('edition-list', 'native', function()
-    local curr_edition = mp.get_property_number("current-edition")
-    if curr_edition then edition_list(curr_edition) end
-end)
+mp.register_script_message("toggle-edition-browser", edition_list)
 
 mp.register_event('file-loaded', main)
 mp.register_event('end-file', function()

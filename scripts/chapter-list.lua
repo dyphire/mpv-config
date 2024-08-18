@@ -32,8 +32,6 @@ local o = {
     max_title_length = 100,
     -- wrap the cursor around the top and bottom of the list
     wrap = true,
-    -- reset cursor navigation when open the list
-    reset_cursor_on_close = true,
     -- set dynamic keybinds to bind when the list is open
     key_move_begin = "HOME",
     key_move_end = "END",
@@ -65,7 +63,6 @@ if not success then
 end
 
 --modifying the list settings
-local original_open = list.open
 list.header = o.header
 list.cursor = o.cursor
 list.indent = o.indent
@@ -110,32 +107,40 @@ local function utf8_sub(s, i, j)
 end
 
 --update the list when the current chapter changes
-function chapter_list(curr_chapter)
-    list.list = {}
-    local chapter_list = mp.get_property_native('chapter-list', {})
-    for i = 1, #chapter_list do
-        local item = {}
-        if (i - 1 == curr_chapter) then
-            if reset_curr then list.selected = curr_chapter + 1 end
-            item.style = o.active_style
-        end
-
-        local time = chapter_list[i].time
-        local title = chapter_list[i].title
-        if not title or title == '(unnamed)' or title == '' then
-            title = "Chapter " .. string.format("%02.f", i)
-        end
-        local title_clip = utf8_sub(title, 1, o.max_title_length)
-        if title ~= title_clip then
-            title = title_clip .. "..."
-        end
-        if time < 0 then time = 0
-        else time = math.floor(time) end
-        item.ass = string.format("[%02d:%02d:%02d]", math.floor(time / 60 / 60), math.floor(time / 60) % 60, time % 60)
-        item.ass = item.ass .. '\\h\\h\\h' .. list.ass_escape(title)
-        list.list[i] = item
-    end
-    list:update()
+local function chapter_list()
+    mp.observe_property('chapter-list', 'native', function(_, chapter_list)
+        mp.observe_property('chapter', 'number', function(_, curr_chapter)
+            list.list = {}
+            if chapter_list == nil then
+                list:update()
+                return
+            end
+            for i = 1, #chapter_list do
+                local item = {}
+                if (i - 1 == curr_chapter) then
+                    if reset_curr then list.selected = curr_chapter + 1 end
+                    item.style = o.active_style
+                end
+        
+                local time = chapter_list[i].time
+                local title = chapter_list[i].title
+                if not title or title == '(unnamed)' or title == '' then
+                    title = "Chapter " .. string.format("%02.f", i)
+                end
+                local title_clip = utf8_sub(title, 1, o.max_title_length)
+                if title ~= title_clip then
+                    title = title_clip .. "..."
+                end
+                if time < 0 then time = 0
+                else time = math.floor(time) end
+                item.ass = string.format("[%02d:%02d:%02d]", math.floor(time / 60 / 60), math.floor(time / 60) % 60, time % 60)
+                item.ass = item.ass .. '\\h\\h\\h' .. list.ass_escape(title)
+                list.list[i] = item
+            end
+            list:update()
+        end)
+    end)
+    list:toggle()
 end
 
 local function change_title_callback(user_input, err, chapter_index)
@@ -238,21 +243,6 @@ local function open_chapter()
     end
 end
 
---reset cursor navigation when open the list
-local function reset_cursor()
-    if o.reset_cursor_on_close then
-        if mp.get_property('chapter') then
-            list.selected = mp.get_property_number('chapter') + 1
-            list:update()
-        end
-    end
-end
-
-function list:open()
-    reset_cursor()
-    original_open(self)
-end
-
 --dynamic keybinds to bind when the list is open
 list.keybinds = {}
 
@@ -275,16 +265,7 @@ add_keys(o.key_close_browser, 'close_browser', function() list:close() end, {})
 add_keys(o.key_remove_chapter, 'remove_chapter', remove_chapter, {})
 add_keys(o.key_edit_chapter, 'edit_chapter', edit_chapter, {})
 
-mp.register_script_message("toggle-chapter-browser", function() list:toggle() end)
-
-mp.observe_property('chapter', 'number', function(_, curr_chapter)
-    chapter_list(curr_chapter)
-end)
-
-mp.observe_property('chapter-list', 'native', function()
-    local curr_chapter = mp.get_property_number("chapter")
-    if curr_chapter then chapter_list(curr_chapter) end
-end)
+mp.register_script_message("toggle-chapter-browser", chapter_list)
 
 if user_input_module then
     mp.add_hook("on_unload", 50, function() input.cancel_user_input() end)
