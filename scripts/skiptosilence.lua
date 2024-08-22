@@ -1,5 +1,5 @@
 --[[
-  * skiptosilence.lua v.2024-07-09
+  * skiptosilence.lua v.2024-08-22
   *
   * AUTHORS: detuur, microraptor, Eisa01, dyphire
   * License: MIT
@@ -115,7 +115,7 @@ local function skippedMessage()
     msg.info("Skipped to silence at " .. mp.get_property_osd("time-pos"))
 end
 
-local function foundSilence(name, value)
+function foundSilence(name, value)
     if value == "{}" or value == nil then
         return
     end

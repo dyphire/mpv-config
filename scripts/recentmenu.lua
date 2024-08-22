@@ -1,5 +1,6 @@
 local utils = require("mp.utils")
 local options = require("mp.options")
+local input_available, input = pcall(require, "mp.input")
 
 local o = {
     enabled = true,
@@ -12,6 +13,9 @@ local o = {
 options.read_options(o, _, function() end)
 
 local path = mp.command_native({ "expand-path", o.path })
+
+local uosc_available = false
+
 local is_windows = package.config:sub(1, 1) == "\\" -- detect path separator, windows uses backslashes
 
 local menu = {
@@ -22,6 +26,7 @@ local menu = {
 
 local dyn_menu = {
     ready = false,
+    script_name = 'dyn_menu',
     type = 'submenu',
     submenu = {}
 }
@@ -267,8 +272,25 @@ end
 
 function open_menu()
     read_json()
-    local json = utils.format_json(menu)
-    mp.commandv('script-message-to', 'uosc', 'open-menu', json)
+    if uosc_available then
+        local json = utils.format_json(menu)
+        mp.commandv('script-message-to', 'uosc', 'open-menu', json)
+    elseif input_available then
+        local item_titles, item_values = {}, {}
+        for i, v in ipairs(menu.items) do
+            item_titles[i] = v.title
+            item_values[i] = v.value
+        end
+        mp.commandv('script-message-to', 'console', 'disable')
+        input.select({
+            prompt = menu.title .. ':',
+            items = item_titles,
+            default_item = 1,
+            submit = function(id)
+                mp.commandv(unpack(item_values[id]))
+            end,
+        })
+    end
 end
 
 function get_dyn_menu_title(title, hint, path)
@@ -296,11 +318,11 @@ function update_dyn_menu_items()
     for _, item in ipairs(menu_items) do
         submenu[#submenu + 1] = {
             title = get_dyn_menu_title(item.title, item.hint, item.value[2]),
-            cmd = string.format("%s '%s'", item.value[1], item.value[2]),
+            cmd = string.format("%s \"%s\"", item.value[1], item.value[2]:gsub("\\", "\\\\")),
         }
     end
     dyn_menu.submenu = submenu
-    mp.commandv('script-message-to', 'dyn_menu', 'update', 'recent', utils.format_json(dyn_menu))
+    mp.commandv('script-message-to', dyn_menu.script_name, 'update', 'recent', utils.format_json(dyn_menu))
 end
 
 function play_last()
@@ -352,7 +374,12 @@ mp.add_key_binding(nil, "last", play_last)
 mp.register_event("file-loaded", on_load)
 mp.register_event("end-file", on_end)
 
-mp.register_script_message('menu-ready', function()
+mp.register_script_message('uosc-version', function()
+    uosc_available = true
+end)
+
+mp.register_script_message('menu-ready', function(script_name)
     dyn_menu.ready = true
+    dyn_menu.script_name = script_name
     update_dyn_menu_items()
 end)

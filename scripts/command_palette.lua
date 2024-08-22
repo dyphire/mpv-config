@@ -16,6 +16,8 @@ local o = {
     menu_y_padding = 2,
 
     use_mediainfo = false, -- use MediaInfo CLI tool for track info
+    stream_quality_options = "2160,1440,1080,720,480",
+    aspect_ratios = "4:3,16:9,2.35:1,1.36,1.82,0,-1",
 }
 
 local opt = require "mp.options"
@@ -298,11 +300,16 @@ end
 function command_palette_get_line(self, _, v)
     local ass = assdraw.ass_new()
 
-    ass:append(self:get_font_color('default'))
-    ass:append(self:ass_escape(v.name or '') .. '\\h')
+    if v.key == "" then
+        ass:append(self:get_font_color('default'))
+        ass:append(self:ass_escape(v.name or ''))
+    else
+        ass:append(self:get_font_color('default'))
+        ass:append(self:ass_escape(v.name or '') .. '\\h')
 
-    ass:append(self:get_font_color('accent'))
-    ass:append(self:ass_escape("(" .. v.key .. ")"))
+        ass:append(self:get_font_color('accent'))
+        ass:append(self:ass_escape("(" .. v.key .. ")"))
+    end
 
     return ass.text
 end
@@ -442,38 +449,43 @@ mp.register_script_message("show-command-palette", function (name)
         local bindings = utils.parse_json(mp.get_property("input-bindings"))
 
         local items = {
-            {"Playlist", 'script-message-to command_palette show-command-palette "Playlist"'},
-            {"Tracks", 'script-message-to command_palette show-command-palette "Tracks"'},
-            {"Video Tracks", 'script-message-to command_palette show-command-palette "Video Tracks"'},
-            {"Audio Tracks", 'script-message-to command_palette show-command-palette "Audio Tracks"'},
-            {"Subtitle Tracks", 'script-message-to command_palette show-command-palette "Subtitle Tracks"'},
-            {"Secondary Subtitle", 'script-message-to command_palette show-command-palette "Secondary Subtitle"'},
-            {"Subtitle Line", 'script-message-to command_palette show-command-palette "Subtitle Line"'},
-            {"Chapters", 'script-message-to command_palette show-command-palette "Chapters"'},
-            {"Profiles", 'script-message-to command_palette show-command-palette "Profiles"'},
-            {"Bindings", 'script-message-to command_palette show-command-palette "Bindings"'},
-            {"Commands", 'script-message-to command_palette show-command-palette "Commands"'},
-            {"Properties", 'script-message-to command_palette show-command-palette "Properties"'},
-            {"Options", 'script-message-to command_palette show-command-palette "Options"'},
-            {"Audio Devices", 'script-message-to command_palette show-command-palette "Audio Devices"'},
-            {"Blu-ray Titles", 'script-message-to command_palette show-command-palette "Blu-ray Titles"'},
+            "Playlist",
+            "Tracks",
+            "Video Tracks",
+            "Audio Tracks",
+            "Subtitle Tracks",
+            "Secondary Subtitle",
+            "Subtitle Line",
+            "Chapters",
+            "Profiles",
+            "Bindings",
+            "Commands",
+            "Properties",
+            "Options",
+            "Audio Devices",
+            "Blu-ray Titles",
+            "Stream Quality",
+            "Aspect Ratio",
+            "Command Palette",
         }
 
         for _, item in ipairs(items) do
             local found = false
 
             for _, binding in ipairs(bindings) do
-                if contains(binding.cmd, "show-command-palette") then
-                    if contains(binding.cmd, '"' .. item[1] .. '"') then
-                        table.insert(menu_items, { name = item[1], key = binding.key, cmd = binding.cmd })
-                        found = true
-                        break
-                    end
+                if contains(binding.cmd, "show-command-palette") and
+                    (contains(binding.cmd, '"' .. item .. '"') or
+                    contains(binding.cmd, "'" .. item .. "'")) then
+
+                    table.insert(menu_items, { name = item, key = binding.key, cmd = binding.cmd })
+                    found = true
+                    break
                 end
             end
 
             if not found then
-                table.insert(menu_items, { name = item[1], key = "unassigned", cmd = item[2] })
+                local cmd = "script-message-to command_palette show-command-palette '" .. item .. "'"
+                table.insert(menu_items, { name = item, key = "", cmd = cmd })
             end
         end
 
@@ -528,7 +540,7 @@ mp.register_script_message("show-command-palette", function (name)
     elseif name == "Chapters" then
         local default_index = mp.get_property_native("chapter")
 
-        if default_index == nil then
+        if not default_index then
             mp.commandv("show-text", "Chapter: (unavailable)")
             return
         end
@@ -636,9 +648,67 @@ mp.register_script_message("show-command-palette", function (name)
             end
         end
 
-        function menu:submit(val)
-            mp.commandv("set", "audio-device", val.name)
-            mp.commandv("show-text", "audio-device: " .. val.content)
+        function menu:submit(tbl)
+            mp.commandv("set", "audio-device", tbl.name)
+            mp.commandv("show-text", "audio-device: " .. tbl.content)
+        end
+    elseif name == "Aspect Ratio" then
+        local current_ar = mp.get_property_number("video-aspect-override")
+
+        for k, v in ipairs(split(o.aspect_ratios, ",")) do
+            local display_name = v
+
+            if display_name == "0"  then display_name = "0 (square pixels)" end
+            if display_name == "-1" then display_name = "-1 (original)" end
+
+            table.insert(menu_content.list, { index = k, content = display_name, value = v })
+
+            local w, h = string.match(v, "^([0-9.]+):([0-9.]+)$")
+
+            if w and h then
+                local current_ar_truncated = tonumber(string.format("%.3f", current_ar))
+                local ar_truncated = tonumber(string.format("%.3f", w / h))
+
+                if current_ar_truncated == ar_truncated then
+                    menu_content.current_i = k
+                end
+            elseif v == tostring(current_ar) then
+                menu_content.current_i = k
+            end
+        end
+
+        function menu:submit(tbl)
+            mp.command("set video-aspect-override " .. tbl.value)
+        end
+    elseif name == "Stream Quality" then
+        local ytdl_format = mp.get_property_native('ytdl-format')
+
+        for k, v in ipairs(split(o.stream_quality_options, ",")) do
+            local format = 'bestvideo[height<=?' .. v .. ']+bestaudio/best[height<=?' .. v .. ']'
+            table.insert(menu_content.list, { index = k, content = v .. 'p', value = format })
+
+            if format == ytdl_format then
+                menu_content.current_i = k
+            end
+        end
+
+        function menu:submit(tbl)
+            mp.set_property('ytdl-format', tbl.value)
+            mp.commandv("show-text", "Stream Quality: " .. tbl.content)
+
+            local duration = mp.get_property_native('duration')
+            local time_pos = mp.get_property('time-pos')
+
+            mp.command('playlist-play-index current')
+
+            if duration and duration > 0 then
+                local function seeker()
+                    mp.commandv('seek', time_pos, 'absolute')
+                    mp.unregister_event(seeker)
+                end
+
+                mp.register_event('file-loaded', seeker)
+            end
         end
     elseif name == "Tracks" then
         local tracks = {}
