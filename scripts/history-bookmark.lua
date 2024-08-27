@@ -65,6 +65,7 @@ local pl_idx = 1
 local current_idx = 1
 local bookmark_path = nil
 local history_dir = nil
+local normalize_path = nil
 
 local wait_msg
 local on_key = false
@@ -144,13 +145,36 @@ local function prompt_msg(msg, ms)
     mp.commandv("show-text", msg, ms)
 end
 
+local function normalize(path)
+    if normalize_path ~= nil then
+        if normalize_path then
+            path = mp.command_native({"normalize-path", path})
+        else
+            local directory = mp.get_property("working-directory", "")
+            path = mp.utils.join_path(directory, path:gusb('^%.[\\/]',''))
+            if is_windows then path = path:gsub("\\", "/") end
+        end
+        return path
+    end
+
+    normalize_path = false
+
+    local commands = mp.get_property_native("command-list", {})
+    for _, command in ipairs(commands) do
+        if command.name == "normalize-path" then
+            normalize_path = true
+            break
+        end
+    end
+    return normalize(path)
+end
+
 function refresh_globals()
     path = mp.get_property("path")
     fname = mp.get_property("filename")
     pl_count = mp.get_property_number('playlist-count', 0)
     if path and not is_protocol(path) then
-        path = utils.join_path(mp.get_property('working-directory'), path)
-        if is_windows then path = path:gsub("\\", "/") end
+        path = normalize(path)
         dir = utils.split_path(path)
     else
         dir = nil
@@ -526,8 +550,7 @@ end
 mp.register_event('file-loaded', function()
     local path = mp.get_property("path")
     if not is_protocol(path) then
-        path = utils.join_path(mp.get_property('working-directory'), path)
-        if is_windows then path = path:gsub("\\", "/") end
+        path = normalize(path)
         directory = utils.split_path(path)
     else
         directory = nil

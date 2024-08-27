@@ -161,6 +161,30 @@ function is_protocol(path)
     return type(path) == 'string' and (path:find('^%a[%w.+-]-://') ~= nil or path:find('^%a[%w.+-]-:%?') ~= nil)
 end
 
+function normalize(path)
+    if normalize_path ~= nil then
+        if normalize_path then
+            path = mp.command_native({"normalize-path", path})
+        else
+            local directory = mp.get_property("working-directory", "")
+            path = mp.utils.join_path(directory, path:gusb('^%.[\\/]',''))
+            if is_windows then path = path:gsub("\\", "/") end
+        end
+        return path
+    end
+
+    normalize_path = false
+
+    local commands = mp.get_property_native("command-list", {})
+    for _, command in ipairs(commands) do
+        if command.name == "normalize-path" then
+            normalize_path = true
+            break
+        end
+    end
+    return normalize(path)
+end
+
 function is_same_series(path1, path2)
     if not o.ignore_same_series then
         return false
@@ -338,7 +362,7 @@ function on_load()
     local path = mp.get_property("path")
     if not path then return end
     if path:match("bd://") or path:match("dvd://") or path:match("dvb://") or path:match("cdda://") then return end
-    if not is_protocol(path) and is_windows then path = path:gsub("/", "\\") end
+    if not is_protocol(path) then path = normalize(path) end
     local filename = mp.get_property("filename")
     local dir, filename_without_ext, ext = split_path(filename)
     local title = mp.get_property("media-title") or path

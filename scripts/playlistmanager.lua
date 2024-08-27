@@ -246,6 +246,8 @@ local requested_titles = {}
 
 local filetype_lookup = {}
 
+local normalize_path = nil
+
 function update_opts(changelog)
     msg.verbose('updating options')
 
@@ -339,6 +341,30 @@ function is_protocol(path)
     return type(path) == 'string' and path:find('^%a[%a%d-_]+://') ~= nil
 end
 
+function normalize(path)
+    if normalize_path ~= nil then
+        if normalize_path then
+            path = mp.command_native({"normalize-path", path})
+        else
+            local directory = mp.get_property("working-directory", "")
+            path = mp.utils.join_path(directory, path:gusb('^%.[\\/]',''))
+            if is_windows then path = path:gsub("\\", "/") end
+        end
+        return path
+    end
+
+    normalize_path = false
+
+    local commands = mp.get_property_native("command-list", {})
+    for _, command in ipairs(commands) do
+        if command.name == "normalize-path" then
+            normalize_path = true
+            break
+        end
+    end
+    return normalize(path)
+end
+
 function on_file_loaded()
     refresh_globals()
     filename = mp.get_property("filename")
@@ -371,7 +397,7 @@ function on_start_file()
     path = mp.get_property('path')
     --if not a url then join path with working directory
     if not is_protocol(path) then
-        path = utils.join_path(mp.get_property('working-directory'), path)
+        path = normalize(path)
         directory = utils.split_path(path)
     else
         directory = nil
