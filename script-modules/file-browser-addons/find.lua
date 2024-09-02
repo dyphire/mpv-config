@@ -12,7 +12,11 @@
 
 local msg = require "mp.msg"
 local fb = require "file-browser"
-local input = require "user-input-module"
+local success, input = pcall(require, 'mp.input')
+if not success then
+    -- Requires: https://github.com/CogentRedTester/mpv-user-input
+    user_input_module, input = pcall(require, "user-input-module")
+end
 
 local find = {
     version = "1.3.0"
@@ -35,11 +39,26 @@ local function main(key, state, co)
     if key.name == "find/find" then text = "Find: enter search string"
     else text = "Find: enter advanced search string" end
 
-    local query, error = coroutine.yield(
-        input.get_user_input( fb.coroutine.callback(), { text = text, id = "find", replace = true } )
-    )
+    local query, error = nil, nil
+    if user_input_module then
+        query, error = coroutine.yield(
+            input.get_user_input( fb.coroutine.callback(), { text = text, id = "find", replace = true } )
+        )
+    elseif input then
+        query, error = coroutine.yield(
+            input.get({
+                prompt = text .. "\n>",
+                id = "find",
+                submit = fb.coroutine.callback(),
+            })
+        )
+    end
 
-    if not query then return msg.debug(error) end
+    if not query then
+        return msg.debug(error)
+    elseif query and not user_input_module then
+        input.terminate()
+    end
 
     -- allow the directory to be changed before this point
     local list = fb.get_list()
