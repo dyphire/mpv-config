@@ -357,19 +357,6 @@ function fb_utils.copy_table(t, depth)
     return copy_table_recursive(t, {}, depth or math.huge)
 end
 
---format the item string for either single or multiple items
-local function create_item_string(base_code_fn, items, state, cmd, quoted)
-    if not items[1] then return end
-    local func = quoted and function(...) return ("%q"):format(base_code_fn(...)) end or base_code_fn
-
-    local out = {}
-    for _, item in ipairs(items) do
-        table.insert(out, func(item, state))
-    end
-
-    return table.concat(out, cmd['concat-string'] or ' ')
-end
-
 --functions to replace custom-keybind codes
 fb_utils.code_fns = {
     ["%"] = "%",

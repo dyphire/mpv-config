@@ -15,7 +15,7 @@ local o = {
     menu_x_padding = 5,
     menu_y_padding = 2,
 
-    use_mediainfo = false, -- use MediaInfo CLI tool for track info
+    use_mediainfo = false, -- # true requires the MediaInfo CLI app being installed
     stream_quality_options = "2160,1440,1080,720,480",
     aspect_ratios = "4:3,16:9,2.35:1,1.36,1.82,0,-1",
 }
@@ -118,6 +118,15 @@ function file_name(value)
 end
 
 ----- main
+
+local command_palette_version = 1
+mp.commandv('script-message', 'command-palette-version', command_palette_version)
+
+local is_older_than_v0_36 = string.find(mp.get_property("mpv-version"), 'mpv v0%.[1-3][0-5]%.') == 1
+
+if not is_older_than_v0_36 then
+    mp.set_property_native("user-data/command-palette/version", command_palette_version)
+end
 
 local BluRayTitles = {}
 
@@ -437,6 +446,21 @@ local function select_track(property, type, error)
     })
 end
 
+function hide_osc()
+    if is_empty(mp.get_property("path")) and not is_older_than_v0_36 then
+        osc_visibility = mp.get_property_native("user-data/osc/visibility")
+
+        if osc_visibility == "auto" or osc_visibility == "always" then
+            mp.command("script-message osc-visibility never no_osd")
+        end
+    end
+
+    if uosc_available then
+        local disable_elements = "window_border, top_bar, timeline, controls, volume, idle_indicator, audio_indicator, buffering_indicator, pause_indicator"
+        mp.commandv('script-message-to', 'uosc', 'disable-elements', mp.get_script_name(), disable_elements)
+    end
+end
+
 mp.register_script_message("show-command-palette", function (name)
     menu_content.list = {}
     menu_content.current_i = 1
@@ -467,6 +491,7 @@ mp.register_script_message("show-command-palette", function (name)
             "Stream Quality",
             "Aspect Ratio",
             "Command Palette",
+            "Recent Files",
         }
 
         for _, item in ipairs(items) do
@@ -531,8 +556,8 @@ mp.register_script_message("show-command-palette", function (name)
 
         menu_content.list = bindings
 
-        function menu:submit(val)
-            mp.command(val.cmd)
+        function menu:submit(tbl)
+            mp.command(tbl.cmd)
         end
 
         menu.filter_by_fields = {'cmd', 'key', 'comment'}
@@ -553,8 +578,8 @@ mp.register_script_message("show-command-palette", function (name)
 
         menu_content.current_i = default_index + 1
 
-        function menu:submit(val)
-            mp.set_property_number("chapter", val.index - 1)
+        function menu:submit(tbl)
+            mp.set_property_number("chapter", tbl.index - 1)
         end
     elseif name == "Playlist" then
         local count = mp.get_property_number("playlist-count")
@@ -572,8 +597,8 @@ mp.register_script_message("show-command-palette", function (name)
 
         menu_content.current_i = mp.get_property_number("playlist-pos") + 1
 
-        function menu:submit(val)
-            mp.set_property_number("playlist-pos", val.index - 1)
+        function menu:submit(tbl)
+            mp.set_property_number("playlist-pos", tbl.index - 1)
         end
     elseif name == "Commands" then
         local commands = utils.parse_json(mp.get_property("command-list"))
@@ -592,9 +617,9 @@ mp.register_script_message("show-command-palette", function (name)
             table.insert(menu_content.list, { index = k, content = text })
         end
 
-        function menu:submit(val)
-            print(val.content)
-            local cmd = string.match(val.content, '%S+')
+        function menu:submit(tbl)
+            print(tbl.content)
+            local cmd = string.match(tbl.content, '%S+')
             mp.commandv("script-message-to", "console", "type", cmd .. " ")
         end
     elseif name == "Properties" then
@@ -604,8 +629,8 @@ mp.register_script_message("show-command-palette", function (name)
             table.insert(menu_content.list, { index = k, content = v })
         end
 
-        function menu:submit(val)
-            mp.commandv('script-message-to', 'console', 'type', "print-text ${" .. val.content .. "}")
+        function menu:submit(tbl)
+            mp.commandv('script-message-to', 'console', 'type', "print-text ${" .. tbl.content .. "}")
         end
     elseif name == "Options" then
         local options = split(mp.get_property("options"), ",")
@@ -617,9 +642,9 @@ mp.register_script_message("show-command-palette", function (name)
             table.insert(menu_content.list, { index = k, content = v })
         end
 
-        function menu:submit(val)
-            print(val.content)
-            local prop = string.match(val.content, '%S+')
+        function menu:submit(tbl)
+            print(tbl.content)
+            local prop = string.match(tbl.content, '%S+')
             mp.commandv("script-message-to", "console", "type", "set " .. prop .. " ")
         end
     elseif name == "Profiles" then
@@ -632,9 +657,9 @@ mp.register_script_message("show-command-palette", function (name)
             end
         end
 
-        function menu:submit(val)
-            mp.command("show-text " .. val.content);
-            mp.command("apply-profile " .. val.content);
+        function menu:submit(tbl)
+            mp.command("show-text " .. tbl.content);
+            mp.command("apply-profile " .. tbl.content);
         end
     elseif name == "Audio Devices" then
         local devices = utils.parse_json(mp.get_property("audio-device-list"))
@@ -754,8 +779,8 @@ mp.register_script_message("show-command-palette", function (name)
 
             menu_content.current_i = mp.get_property_number("aid") or id
 
-            function menu:submit(val)
-                mp.command("set aid " .. ((val.index == id) and 'no' or val.index))
+            function menu:submit(tbl)
+                mp.command("set aid " .. ((tbl.index == id) and 'no' or tbl.index))
             end
         else
             select_track("aid", "audio", "No available audio tracks")
@@ -776,14 +801,17 @@ mp.register_script_message("show-command-palette", function (name)
 
             menu_content.current_i = mp.get_property_number("sid") or id
 
-            function menu:submit(val)
-                mp.command("set sid " .. ((val.index == id) and 'no' or val.index))
+            function menu:submit(tbl)
+                mp.command("set sid " .. ((tbl.index == id) and 'no' or tbl.index))
             end
         else
             select_track("sid", "sub", "No available subtitle tracks")
         end
     elseif name == "Secondary Subtitle" then
         select_track("secondary-sid", "sub", "No available subtitle tracks")
+    elseif name == "Recent Files" then
+        mp.command("script-message open-recent-menu command-palette")
+        return
     elseif name == "Video Tracks" then
         if o.use_mediainfo then
             local mi = get_media_info()
@@ -800,8 +828,8 @@ mp.register_script_message("show-command-palette", function (name)
 
             menu_content.current_i = mp.get_property_number("vid") or id
 
-            function menu:submit(val)
-                mp.command("set vid " .. ((val.index == id) and 'no' or val.index))
+            function menu:submit(tbl)
+                mp.command("set vid " .. ((tbl.index == id) and 'no' or tbl.index))
             end
         else
             select_track("vid", "video", "No available video tracks")
@@ -896,21 +924,7 @@ mp.register_script_message("show-command-palette", function (name)
         return
     end
 
-    local is_older_than_v0_36 = string.find(mp.get_property("mpv-version"), 'mpv v0%.[1-3][0-5]%.') == 1
-
-    if is_empty(mp.get_property("path")) and not is_older_than_v0_36 then
-        osc_visibility = mp.get_property_native("user-data/osc/visibility")
-
-        if osc_visibility == "auto" or osc_visibility == "always" then
-            mp.command("script-message osc-visibility never no_osd")
-        end
-    end
-
-    if uosc_available then
-        local disable_elements = "window_border, top_bar, timeline, controls, volume, idle_indicator, audio_indicator, buffering_indicator, pause_indicator"
-        mp.commandv('script-message-to', 'uosc', 'disable-elements', mp.get_script_name(), disable_elements)
-    end
-
+    hide_osc()
     menu:init(menu_content)
 end)
 
@@ -919,4 +933,40 @@ mp.register_script_message('uosc-version', function(version)
     if major and minor and tonumber(major) >= 5 and tonumber(minor) >= 0 then
         uosc_available = true
     end
+end)
+
+mp.register_script_message("show-command-palette-json", function (json)
+    local menu_data = utils.parse_json(json)
+    menu_content.list = {}
+    menu_content.current_i = 1
+    menu.search_heading = menu_data.title
+    menu.filter_by_fields = { "content", "hint", "value_hint" }
+    em.get_line = original_get_line_func
+
+    for k, v in ipairs(menu_data.items) do
+        local values = v.value
+
+        if type(values) == "string" then
+            values = { values }
+        end
+
+        table.insert(menu_content.list, {
+            index = k,
+            content = v.title,
+            hint = v.hint,
+            values = values,
+            value_hint = table.concat(values, " "),
+        })
+
+        if menu_data.selected_index then
+            menu_content.current_i = menu_data.selected_index
+        end
+    end
+
+    function menu:submit(tbl)
+        mp.command_native(tbl.values)
+    end
+
+    hide_osc()
+    menu:init(menu_content)
 end)

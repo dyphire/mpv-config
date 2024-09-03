@@ -9,12 +9,14 @@ local o = {
     length = 10,
     width = 88,
     ignore_same_series = true,
+    reduce_io = false,
 }
 options.read_options(o, _, function() end)
 
 local path = mp.command_native({ "expand-path", o.path })
 
 local uosc_available = false
+local command_palette_available = false
 
 local is_windows = package.config:sub(1, 1) == "\\" -- detect path separator, windows uses backslashes
 
@@ -244,7 +246,10 @@ function remove_deleted()
     end
 end
 
-function read_json()
+function read_json(force)
+    if o.reduce_io and not force then
+        return
+    end
     local meta, meta_error = utils.file_info(path)
     if not meta or not meta.is_file then
         menu.items = {}
@@ -264,7 +269,10 @@ function read_json()
     remove_deleted()
 end
 
-function write_json()
+function write_json(force)
+    if o.reduce_io and not force then
+        return
+    end
     local json_file = io.open(path, "w")
     if not json_file then return end
 
@@ -294,26 +302,46 @@ function append_item(path, filename, title)
     write_json()
 end
 
+function open_menu_uosc()
+    local json = utils.format_json(menu)
+    mp.commandv('script-message-to', 'uosc', 'open-menu', json)
+end
+
+function open_menu_command_palette()
+    local json = utils.format_json(menu)
+    mp.commandv('script-message-to',
+        'command_palette',
+        'show-command-palette-json', json)
+end
+
+function open_menu_select()
+    local item_titles, item_values = {}, {}
+    for i, v in ipairs(menu.items) do
+        item_titles[i] = v.title
+        item_values[i] = v.value
+    end
+    mp.commandv('script-message-to', 'console', 'disable')
+    input.select({
+        prompt = menu.title .. ':',
+        items = item_titles,
+        default_item = 1,
+        submit = function(id)
+            mp.commandv(unpack(item_values[id]))
+        end,
+    })
+end
+
 function open_menu()
     read_json()
     if uosc_available then
-        local json = utils.format_json(menu)
-        mp.commandv('script-message-to', 'uosc', 'open-menu', json)
+        open_menu_uosc()
+    elseif command_palette_available then
+        open_menu_command_palette()
     elseif input_available then
-        local item_titles, item_values = {}, {}
-        for i, v in ipairs(menu.items) do
-            item_titles[i] = v.title
-            item_values[i] = v.value
-        end
-        mp.commandv('script-message-to', 'console', 'disable')
-        input.select({
-            prompt = menu.title .. ':',
-            items = item_titles,
-            default_item = 1,
-            submit = function(id)
-                mp.commandv(unpack(item_values[id]))
-            end,
-        })
+        open_menu_select()
+        return
+    else
+        mp.msg.warn("No menu providers available")
     end
 end
 
@@ -398,8 +426,26 @@ mp.add_key_binding(nil, "last", play_last)
 mp.register_event("file-loaded", on_load)
 mp.register_event("end-file", on_end)
 
+mp.register_script_message('open-recent-menu', function(provider)
+    if provider == nil then
+        open_menu()
+    elseif provider == "uosc" then
+        open_menu_uosc()
+    elseif provider == "command-palette" then
+        open_menu_command_palette()
+    elseif provider == "select" then
+        open_menu_select()
+    else
+        mp.msg.warn(provider .. " not available")
+    end
+end)
+
 mp.register_script_message('uosc-version', function()
     uosc_available = true
+end)
+
+mp.register_script_message('command-palette-version', function()
+    command_palette_available = true
 end)
 
 mp.register_script_message('menu-ready', function(script_name)
@@ -407,3 +453,10 @@ mp.register_script_message('menu-ready', function(script_name)
     dyn_menu.script_name = script_name
     update_dyn_menu_items()
 end)
+
+if o.reduce_io then
+    read_json(true)
+    mp.register_event("shutdown", function (e)
+        write_json(true)
+    end)
+end

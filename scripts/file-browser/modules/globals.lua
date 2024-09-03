@@ -9,7 +9,7 @@ local globals = {}
 local o = require 'modules.options'
 
 --sets the version for the file-browser API
-globals.API_VERSION = "1.4.0"
+globals.API_VERSION = "1.5.0"
 
 --gets the current platform (only works in mpv v0.36+)
 globals.PLATFORM = mp.get_property_native('platform')

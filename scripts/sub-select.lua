@@ -51,7 +51,6 @@ local prefs
 
 local ENABLED = o.force_enable or true
 local latest_audio = {}
-local alang_priority = mp.get_property_native("alang", {})
 local audio_tracks = {}
 local sub_tracks = {}
 
@@ -149,36 +148,39 @@ end
 --or if `--aid` is not set to `auto`
 local function predict_audio()
     --if the option is not set to auto then it is easy
-    local opt = mp.get_property("options/aid", "auto")
-    if opt == "no" then return NO_TRACK
-    elseif opt ~= "auto" then return audio_tracks[tonumber(opt)] end
+    local aid = mp.get_property("options/aid", "auto")
+    if aid == "no" then return NO_TRACK
+    elseif aid ~= "auto" then return audio_tracks[tonumber(aid)] end
 
     local num_tracks = #audio_tracks
     if num_tracks == 1 then return audio_tracks[1]
     elseif num_tracks == 0 then return NO_TRACK end
 
-    local highest_priority = nil
+    local highest_priority = NO_TRACK
     local priority_str = ""
-    local num_prefs = #alang_priority
+    local alangs = mp.get_property_native("alang", {})
 
     --loop through the track list for any audio tracks
-    for i = 1, num_tracks do
-        local track = audio_tracks[i]
-        if track.forced then return track end
+    for _,track in ipairs(audio_tracks) do
 
         --loop through the alang list to check if it has a preference
         local pref = 0
-        for j = 1, num_prefs do
-            if track.lang == alang_priority[j] then
+        for j,alang in ipairs(alangs) do
+            if track.lang == alang then
 
                 --a lower number j has higher priority, so flip the numbers around so the lowest j has highest preference
-                pref = num_prefs - j
+                pref = 1000 - j
                 break
             end
         end
 
         --format the important preferences so that we can easily use a lexicographical comparison to find the default
-        local formatted_str = string.format("%03d-%d-%02d", pref, track.default and 1 or 0, num_tracks - track.id)
+        local formatted_str = string.format("%d-%03d-%d-%02d",
+            track.forced and 1 or 0,
+            pref,
+            track.default and 1 or 0,
+            num_tracks - track.id
+        )
         msg.trace("formatted track info: " .. formatted_str)
 
         if formatted_str > priority_str then
@@ -329,7 +331,6 @@ end
 
 --extract the language code from an audio track node and pass it to select_subtitles
 local function select_tracks(audio)
-    -- if the audio track has no fields we assume that there is no actual track selected
     local aid, sid = find_valid_tracks(audio)
     if sid then
         set_track('sid', sid == 0 and 'no' or sid)
@@ -351,7 +352,7 @@ local function preload()
     if o.select_audio then return select_tracks() end
 
     local audio = predict_audio()
-    if o.force_prediction and next(audio) then set_track("aid", audio.id) end
+    if o.force_prediction then set_track("aid", audio.id) end
     select_tracks(audio)
 end
 
@@ -361,7 +362,7 @@ mp.observe_property("track-auto-selection", "bool", function(_,b) track_auto_sel
 local function continue_script(initial_file_load)
     if #sub_tracks < 1 then return false end
     if not ENABLED then return false end
-    if initial_file_load and mp.get_property('sid') ~= 'auto' then return false end
+    if initial_file_load and mp.get_property('options/sid') ~= 'auto' then return false end
     if not track_auto_selection then return false end
     return true
 end

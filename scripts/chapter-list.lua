@@ -42,7 +42,7 @@ local o = {
     key_open_chapter = "ENTER MBTN_LEFT",
     key_close_browser = "ESC MBTN_RIGHT",
     key_remove_chapter = "DEL BS",
-    key_edit_chapter = "r R e E",
+    key_edit_chapter = "e E",
     -- pause the playback when editing for chapter title
     pause_on_input = true,
 }
