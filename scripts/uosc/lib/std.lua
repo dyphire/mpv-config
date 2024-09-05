@@ -100,6 +100,12 @@ function string_last_index_of(str, sub)
 	end
 end
 
+-- Escapes a string to be used in a matching expression.
+---@param value string
+function regexp_escape(value)
+	return string.gsub(value, '[%(%)%.%+%-%*%?%[%]%^%$%%]', '%%%1')
+end
+
 ---@param itable table
 ---@param value any
 ---@return integer|nil

@@ -6,11 +6,11 @@ function open_command_menu(data, opts)
 	local menu
 
 	local function run_command(command)
-		if type(command) == 'string' then
-			mp.command(command)
-		else
+		if type(command) == 'table' then
 			---@diagnostic disable-next-line: deprecated
 			mp.commandv(unpack(command))
+		else
+			mp.command(tostring(command))
 		end
 	end
 
@@ -19,8 +19,15 @@ function open_command_menu(data, opts)
 			---@diagnostic disable-next-line: deprecated
 			mp.commandv(unpack(itable_join({'script-message-to'}, menu.root.callback, {utils.format_json(event)})))
 		elseif event.type == 'activate' then
-			run_command(event.value)
-			menu:close()
+			-- Modifiers and actions are not available on basic non-callback mode menus
+			if not event.modifiers and not event.action then
+				run_command(event.value)
+			end
+			-- Convention: Only pure item activations should close the menu.
+			-- Using modifiers or triggering item actions should not.
+			if not event.keep_open and not event.modifiers and not event.action then
+				menu:request_close()
+			end
 		end
 	end
 
@@ -85,16 +92,16 @@ function create_self_updating_menu_opener(opts)
 
 		---@type MenuAction[]
 		local actions = opts.actions or {}
-		if opts.on_reload then
-			actions[#actions + 1] = {name = 'reload', icon = 'refresh', label = t('Reload') .. ' (f5)'}
-		end
 		if opts.on_move then
 			actions[#actions + 1] = {
-				name = 'move_up', icon = 'arrow_upward', label = t('Move up') .. ' (ctrl+up/pgup/home)'
+				name = 'move_up', icon = 'arrow_upward', label = t('Move up') .. ' (ctrl+up/pgup/home)',
 			}
 			actions[#actions + 1] = {
-				name = 'move_down', icon = 'arrow_downward', label = t('Move down') .. ' (ctrl+down/pgdwn/end)'
+				name = 'move_down', icon = 'arrow_downward', label = t('Move down') .. ' (ctrl+down/pgdwn/end)',
 			}
+		end
+		if opts.on_reload then
+			actions[#actions + 1] = {name = 'reload', icon = 'refresh', label = t('Reload') .. ' (f5)'}
 		end
 		if opts.on_remove or opts.on_delete then
 			local label = (opts.on_remove and t('Remove') or t('Delete')) .. ' (del)'
@@ -135,9 +142,7 @@ function create_self_updating_menu_opener(opts)
 			on_close = 'callback',
 		}, function(event)
 			if event.type == 'activate' then
-				if event.action == 'reload' and opts.on_reload then
-					opts.on_reload({type = 'reload', index = event.index, value = event.value})
-				elseif (event.action == 'move_up' or event.action == 'move_down') and opts.on_move then
+				if (event.action == 'move_up' or event.action == 'move_down') and opts.on_move then
 					local to_index = event.index + (event.action == 'move_up' and -1 or 1)
 					if to_index >= 1 and to_index <= #menu.current.items then
 						opts.on_move({
@@ -147,8 +152,12 @@ function create_self_updating_menu_opener(opts)
 							menu_id = menu.current.id,
 						})
 						menu:select_index(to_index)
-						menu:scroll_to_index(to_index, nil, true)
+						if not event.is_pointer then
+							menu:scroll_to_index(to_index, nil, true)
+						end
 					end
+				elseif event.action == 'reload' and opts.on_reload then
+					opts.on_reload({type = 'reload', index = event.index, value = event.value})
 				elseif event.action == 'remove' and (opts.on_remove or opts.on_delete) then
 					remove_or_delete(event.index, event.value, event.menu_id, event.modifiers)
 				else
@@ -238,6 +247,8 @@ function create_select_tracklist_type_menu_opener(opts)
 		end
 
 		local track_prop_index, snd_prop_index = get_props()
+		local filename = mp.get_property_native('filename/no-ext')
+		local escaped_filename = filename and regexp_escape(filename)
 		local first_item_index = #items + 1
 		local active_index = nil
 		local disabled_item = nil
@@ -259,7 +270,10 @@ function create_select_tracklist_type_menu_opener(opts)
 				local hint_values = {}
 				local track_selected = track.selected and track.id == track_prop_index
 				local snd_selected = snd and track.id == snd_prop_index
-				local function h(value) hint_values[#hint_values + 1] = value end
+				local function h(value)
+					value = trim(value)
+					if #value > 0 then hint_values[#hint_values + 1] = value end
+				end
 
 				if track.lang then h(track.lang) end
 				if track['demux-h'] then
@@ -276,14 +290,15 @@ function create_select_tracklist_type_menu_opener(opts)
 				if track['demux-bitrate'] then h(string.format('%.0f kbps', track['demux-bitrate'] / 1000)) end
 				if track.forced then h(t('forced')) end
 				if track.default then h(t('default')) end
-				if track.external then h(t('external')) end
-
-				local filename = mp.get_property_native('filename/no-ext'):gsub("[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0")
-				if track.external and track.title and filename then
-					track.title = track.title:gsub(filename .. '%.?', '')
-					if track.title:lower() == track.codec:lower() then
-						track.title = nil
+				if track.external then
+					local extension = track.title:match('%.([^%.]+)$')
+					if track.title and escaped_filename and extension then
+						track.title = trim(track.title:gsub(escaped_filename .. '%.?', ''):gsub('%.?([^%.]+)$', ''))
+						if track.title == '' or track.lang and track.title:lower() == track.lang:lower() then
+							track.title = nil
+						end
 					end
+					h(t('external'))
 				end
 
 				items[#items + 1] = {
@@ -547,6 +562,11 @@ function open_file_navigation_menu(directory_path, handle_activate, opts)
 			if back_path then open_directory(back_path) end
 		elseif event.type == 'paste' then
 			handle_activate({type = 'activate', value = event.value})
+		elseif event.type == 'key' then
+			if event.id == 'ctrl+c' and event.selected_item then
+				set_clipboard(event.selected_item.value)
+				mp.commandv('show-text', t('Copied to clipboard') .. ': ' .. event.selected_item.value, 3000)
+			end
 		elseif event.type == 'close' then
 			close()
 		end
@@ -906,49 +926,40 @@ function open_subtitle_downloader()
 		end
 	end
 
-	local handle_select, handle_search
+	local handle_download, handle_search
 
-	-- Ensures response is valid, and returns its payload, or handles error reporting,
-	-- and returns `nil`, indicating the consumer should abort response handling.
-	local function ensure_response_data(success, result, error, check)
-		local data
-		if success and result and result.status == 0 then
-			data = utils.parse_json(result.stdout)
-			if not data or not check(data) then
-				data = (data and data.error == true) and data or {
-					error = true,
-					message = t('invalid response json (see console for details)'),
-					message_verbose = 'invalid response json: ' .. utils.to_string(result.stdout),
-				}
-			end
-		else
-			data = {
-				error = true,
-				message = error or t('process exited with code %s (see console for details)', result.status),
-				message_verbose = result.stdout .. result.stderr,
-			}
-		end
-
-		if data.error then
-			local message, message_verbose = data.message or t('unknown error'), data.message_verbose or data.message
-			if message_verbose then msg.error(message_verbose) end
+	-- Checks if there an error, or data is invalid. If true, reports the error,
+	-- updates menu to inform about it, and returns true.
+	---@param error string|nil
+	---@param data any
+	---@param check_is_valid? fun(data: any):boolean
+	---@return boolean abort Whether the further response handling should be aborted.
+	local function should_abort(error, data, check_is_valid)
+		if error or not data or (not check_is_valid or not check_is_valid(data)) then
 			menu:update_items({
 				{
-					title = message,
-					hint = t('error'),
+					title = t('Something went wrong.'),
+					align = 'center',
+					muted = true,
+					italic = true,
+					selectable = false,
+				},
+				{
+					title = t('See console for details.'),
+					align = 'center',
 					muted = true,
 					italic = true,
 					selectable = false,
 				},
 			})
-			return
+			msg.error(error or ('Invalid response: ' .. (utils.format_json(data) or tostring(data))))
+			return true
 		end
-
-		return data
+		return false
 	end
 
 	---@param data {kind: 'file', id: number}|{kind: 'page', query: string, page: number}
-	handle_select = function(data)
+	handle_download = function(data)
 		if data.kind == 'page' then
 			handle_search(data.query, data.page)
 			return
@@ -964,25 +975,14 @@ function open_subtitle_downloader()
 			end
 		end)
 
-		local args = itable_join({config.ziggy_path, 'download-subtitles'}, credentials, {
+		local args = itable_join({'download-subtitles'}, credentials, {
 			'--file-id', tostring(data.id),
 			'--destination', destination_directory,
 		})
 
-		mp.command_native_async({
-			name = 'subprocess',
-			capture_stderr = true,
-			capture_stdout = true,
-			playback_only = false,
-			args = args,
-		}, function(success, result, error)
+		call_ziggy_async(args, function(error, data)
 			if not menu:is_alive() then return end
-
-			local data = ensure_response_data(success, result, error, function(data)
-				return type(data.file) == 'string'
-			end)
-
-			if not data then return end
+			if should_abort(error, data, function(data) return type(data.file) == 'string' end) then return end
 
 			load_track('sub', data.file)
 
@@ -1019,7 +1019,7 @@ function open_subtitle_downloader()
 
 		menu:update_items({{icon = 'spinner', align = 'center', selectable = false, muted = true}})
 
-		local args = itable_join({config.ziggy_path, 'search-subtitles'}, credentials)
+		local args = itable_join({'search-subtitles'}, credentials)
 
 		local languages = itable_filter(get_languages(), function(lang) return lang:match('.json$') == nil end)
 		args[#args + 1] = '--languages'
@@ -1038,20 +1038,14 @@ function open_subtitle_downloader()
 			args[#args + 1] = query
 		end
 
-		mp.command_native_async({
-			name = 'subprocess',
-			capture_stderr = true,
-			capture_stdout = true,
-			playback_only = false,
-			args = args,
-		}, function(success, result, error)
+		call_ziggy_async(args, function(error, data)
 			if not menu:is_alive() then return end
 
-			local data = ensure_response_data(success, result, error, function(data)
+			local function check_is_valid(data)
 				return type(data.data) == 'table' and data.page and data.total_pages
-			end)
+			end
 
-			if not data then return end
+			if should_abort(error, data, check_is_valid) then return end
 
 			local subs = itable_filter(data.data, function(sub)
 				return sub and sub.attributes and sub.attributes.release and type(sub.attributes.files) == 'table' and
@@ -1142,7 +1136,7 @@ function open_subtitle_downloader()
 						end
 					end)
 				elseif not event.action then
-					handle_select(event.value)
+					handle_download(event.value)
 				end
 			elseif event.type == 'search' then
 				handle_search(event.query)
