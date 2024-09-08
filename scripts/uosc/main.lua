@@ -455,8 +455,9 @@ function update_fullormaxed()
 end
 
 function update_duration()
-	state.duration = state._duration and ((state.rebase_start_time == false and state.start_time)
+	local duration = state._duration and ((state.rebase_start_time == false and state.start_time)
 		and (state._duration + state.start_time) or state._duration)
+	set_state('duration', duration)
 	update_human_times()
 end
 
@@ -1096,10 +1097,15 @@ bind_command('paste-to-open', function()
 	if payload then mp.commandv('loadfile', payload) end
 end)
 bind_command('paste-to-playlist', function()
-	local payload = get_clipboard()
-	if payload then
-		mp.commandv('loadfile', payload, 'append')
-		mp.commandv('show-text', t('Added to playlist') .. ': ' .. payload, 3000)
+	-- If there's no file loaded, we use `paste-to-open`, which both opens and adds to playlist
+	if state.is_idle then
+		mp.commandv('script-binding', 'uosc/paste-to-open')
+	else
+		local payload = get_clipboard()
+		if payload then
+			mp.commandv('loadfile', payload, 'append')
+			mp.commandv('show-text', t('Added to playlist') .. ': ' .. payload, 3000)
+		end
 	end
 end)
 bind_command('copy-to-clipboard', function() set_clipboard(state.path) end)

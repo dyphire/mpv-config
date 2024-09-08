@@ -3,6 +3,8 @@
 --------------------------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------------------------
 
+local utils = require 'mp.utils'
+
 local g = require 'modules.globals'
 local o = require 'modules.options'
 local fb_utils = require 'modules.utils'
@@ -40,11 +42,13 @@ end
 
 --detects whether or not to highlight the given entry as being played
 local function highlight_entry(v)
-    if g.current_file.name == nil then return false end
+    if g.current_file.path == nil then return false end
+    local full_path = fb_utils.get_full_path(v)
+
     if fb_utils.parseable_item(v) then
-        return string.find(g.current_file.directory, fb_utils.get_full_path(v), 1, true)
+        return string.find(g.current_file.directory, full_path, 1, true)
     else
-        return g.current_file.path == fb_utils.get_full_path(v)
+        return g.current_file.path == full_path
     end
 end
 

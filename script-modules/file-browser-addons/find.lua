@@ -14,12 +14,11 @@ local msg = require "mp.msg"
 local fb = require "file-browser"
 local success, input = pcall(require, 'mp.input')
 if not success then
-    -- Requires: https://github.com/CogentRedTester/mpv-user-input
-    user_input_module, input = pcall(require, "user-input-module")
+    user_input_loaded, input = pcall(require, "user-input-module")
 end
 
 local find = {
-    version = "1.3.0"
+    version = "1.4.0"
 }
 local latest_coroutine = nil
 local global_fb_state = getmetatable(fb.get_state()).__original
@@ -40,7 +39,7 @@ local function main(key, state, co)
     else text = "Find: enter advanced search string" end
 
     local query, error = nil, nil
-    if user_input_module then
+    if user_input_loaded then
         query, error = coroutine.yield(
             input.get_user_input( fb.coroutine.callback(), { text = text, id = "find", replace = true } )
         )
@@ -56,7 +55,7 @@ local function main(key, state, co)
 
     if not query then
         return msg.debug(error)
-    elseif query and not user_input_module then
+    elseif query and not user_input_loaded then
         input.terminate()
     end
 

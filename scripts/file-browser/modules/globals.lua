@@ -79,11 +79,19 @@ globals.sub_extensions = {}
 globals.audio_extensions = {}
 globals.parseable_extensions = {}
 
-globals.dvd_device = nil
+--This table contains mappings to convert external directories to cannonical
+--locations within the file-browser file tree. The keys of the table are Lua
+--patterns used to evaluate external directory paths. The value is the path
+--that should replace the part of the path than matched the pattern.
+--These mappings should only applied at the edges where external paths are
+--ingested by file-browser.
+globals.directory_mappings = {}
+
 globals.current_file = {
     directory = nil,
     name = nil,
-    path = nil
+    path = nil,
+    original_path = nil,
 }
 
 globals.root = {}

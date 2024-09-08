@@ -5,6 +5,7 @@ local o = require 'modules.options'
 local g = require 'modules.globals'
 local fb_utils = require 'modules.utils'
 local ass = require 'modules.ass'
+local directory_movement = require 'modules.navigation.directory-movement'
 local scanning = require 'modules.navigation.scanning'
 local cache = require 'modules.cache'
 local controls = require 'modules.controls'
@@ -47,6 +48,28 @@ function fb.insert_root_item(item, pos)
     item.ass = item.ass or fb.ass_escape(item.label or item.name)
     item.type = "dir"
     table.insert(g.root, pos or (#g.root + 1), item)
+end
+
+-- add a new mapping to the given directory
+function fb.register_directory_mapping(directory, mapping, pattern)
+    if not pattern then mapping = '^'..fb_utils.pattern_escape(mapping) end
+    g.directory_mappings[mapping] = directory
+    msg.verbose('registering directory alias', mapping, directory)
+
+    directory_movement.set_current_file(g.current_file.original_path)
+    return mapping
+end
+
+-- remove all directory mappings that map to the given directory
+function fb.remove_all_mappings(directory)
+    local removed = {}
+    for alias, target in pairs(g.directory_mappings) do
+        if target == directory then
+            g.directory_mappings[alias] = nil
+            table.insert(removed, alias)
+        end
+    end
+    return removed
 end
 
 --a newer API for adding items to the root
