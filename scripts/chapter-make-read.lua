@@ -1,5 +1,5 @@
 --[[
-  * chapter-make-read.lua v.2024-03-24
+  * chapter-make-read.lua v.2024-09-14
   *
   * AUTHORS: dyphire
   * License: MIT
@@ -82,12 +82,9 @@ local o = {
 
 options.read_options(o)
 
-local success, input = pcall(require, 'mp.input')
-if not success then
-    -- Requires: https://github.com/CogentRedTester/mpv-user-input
-    package.path = mp.command_native({"expand-path", "~~/script-modules/?.lua;"}) .. package.path
-    user_input_module, input = pcall(require, "user-input-module")
-end
+local input_loaded, input = pcall(require, "mp.input")
+-- Requires: https://github.com/CogentRedTester/mpv-user-input
+local user_input_loaded, user_input = pcall(require, "user-input-module")
 
 local curr = nil
 local path = nil
@@ -366,13 +363,7 @@ local function mark_chapter(force_overwrite)
     msg.info("load external chapter file successful: " .. chapter_filename)
 end
 
-local function change_title_callback(user_input, err, chapter_index)
-    if user_input == nil or err ~= nil then
-        if paused then return elseif o.pause_on_input then mp.set_property_native("pause", false) end
-        msg.warn("no chapter title provided:", err)
-        return
-    end
-
+local function change_chapter_list(chapter_tltle, chapter_index)
     local chapter_list = mp.get_property_native("chapter-list")
 
     if chapter_index > mp.get_property_number("chapter-list/count") then
@@ -380,9 +371,17 @@ local function change_title_callback(user_input, err, chapter_index)
         return
     end
 
-    chapter_list[chapter_index].title = user_input
-
+    chapter_list[chapter_index].title = chapter_tltle
     mp.set_property_native("chapter-list", chapter_list)
+end
+
+local function change_title_callback(user_input, err, chapter_index)
+    if user_input == nil or err ~= nil then
+        if paused then return elseif o.pause_on_input then mp.set_property_native("pause", false) end
+        msg.warn("no chapter title provided:", err)
+        return
+    end
+    change_chapter_list(user_input, chapter_index)
     if paused then return elseif o.pause_on_input then mp.set_property_native("pause", false) end
     chapters_modified = true
 end
@@ -393,15 +392,7 @@ local function input_title(default_input, cursor_pos, chapter_index)
         default_text = default_input,
         cursor_position = cursor_pos,
         submit = function(text)
-            local chapter_list = mp.get_property_native("chapter-list")
-
-            if chapter_index > mp.get_property_number("chapter-list/count") then
-                msg.warn("can't set chapter title")
-                return
-            end
-
-            chapter_list[chapter_index].title = text
-            mp.set_property_native("chapter-list", chapter_list)
+            change_chapter_list(text, chapter_index)
             input.terminate()
         end,
         closed = function()
@@ -411,21 +402,21 @@ local function input_title(default_input, cursor_pos, chapter_index)
 end
 
 local function input_choice(title, chapter_index)
-    if not input and not user_input_module then
+    if not input_loaded and not user_input_loaded then
         msg.error("no mpv-user-input, can't get user input, install: https://github.com/CogentRedTester/mpv-user-input")
         return
     end
 
-    if user_input_module then
+    if input_loaded then
+        input_title(title, #title + 1, chapter_index)
+    elseif user_input_loaded then
         -- ask user for chapter title
         -- (+1 because mpv indexes from 0, lua from 1)
-        input.get_user_input(change_title_callback, {
+        user_input.get_user_input(change_title_callback, {
             request_text = "Chapter title:",
             default_input = title,
             cursor_pos = #title + 1,
         }, chapter_index)
-    elseif input then
-        input_title(title, #title + 1, chapter_index)
     end
 end
 
@@ -593,8 +584,8 @@ if o.autosave then
     mp.add_hook("on_unload", 50, function() write_chapter("chp", true) end)
 end
 
-if user_input_module then
-    mp.add_hook("on_unload", 50, function() input.cancel_user_input() end)
+if user_input_loaded and not input_loaded then
+    mp.add_hook("on_unload", 50, function() user_input.cancel_user_input() end)
 end
 
 mp.register_script_message("load_chapter", function() mark_chapter(true) end)

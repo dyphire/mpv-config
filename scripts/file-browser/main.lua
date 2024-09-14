@@ -20,10 +20,9 @@ local script_messages = require 'modules.script-messages'
 
 -- setting the package paths
 package.path = mp.command_native({"expand-path", o.module_directory}).."/?.lua;"..package.path
-local success, input = pcall(require, 'mp.input')
-if not success then
-    user_input_loaded, input = pcall(require, "user-input-module")
-end
+local input_loaded, input = pcall(require, "mp.input")
+local user_input_loaded, user_input = pcall(require, "user-input-module")
+
 
 -- root and addon setup
 setup.root()
@@ -54,18 +53,18 @@ mp.register_script_message("get-directory-contents", script_messages.get_directo
 mp.add_key_binding('MENU','browse-files', controls.toggle)
 mp.add_key_binding('Ctrl+o','open-browser', controls.open)
 
-if input then
+if input_loaded then
     mp.add_key_binding("Alt+o", "browse-directory/get-user-input", function()
-        if user_input_loaded then
-            input.get_user_input(controls.browse_directory, {request_text = "open directory:"})
-        else
-            input.get({
-                prompt = "open directory:",
-                submit = function(text)
-                    controls.browse_directory(text)
-                    input.terminate()
-                end
-            })
-        end
+        input.get({
+            prompt = "open directory:",
+            submit = function(text)
+                controls.browse_directory(text)
+                input.terminate()
+            end
+        })
+    end)
+elseif user_input_loaded then
+    mp.add_key_binding("Alt+o", "browse-directory/get-user-input", function()
+        user_input.get_user_input(controls.browse_directory, {request_text = "open directory:"})
     end)
 end

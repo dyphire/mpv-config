@@ -10,10 +10,8 @@ local utils = require 'mp.utils'
 local o = require 'modules.options'
 local g = require 'modules.globals'
 
-local success, input = pcall(require, 'mp.input')
-if not success then
-    user_input_loaded, input = pcall(require, "user-input-module")
-end
+local success, input = pcall(require, "user-input-module")
+if not success then input = nil end
 
 --creates a table for the API functions
 --adds one metatable redirect to prevent addon authors from accidentally breaking file-browser

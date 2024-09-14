@@ -12,10 +12,8 @@
 
 local msg = require "mp.msg"
 local fb = require "file-browser"
-local success, input = pcall(require, 'mp.input')
-if not success then
-    user_input_loaded, input = pcall(require, "user-input-module")
-end
+local input_loaded, input = pcall(require, "mp.input")
+local user_input_loaded, user_input = pcall(require, "user-input-module")
 
 local find = {
     version = "1.4.0"
@@ -39,25 +37,22 @@ local function main(key, state, co)
     else text = "Find: enter advanced search string" end
 
     local query, error = nil, nil
-    if user_input_loaded then
-        query, error = coroutine.yield(
-            input.get_user_input( fb.coroutine.callback(), { text = text, id = "find", replace = true } )
-        )
-    elseif input then
-        query, error = coroutine.yield(
+    if input_loaded then
+        query = coroutine.yield(
             input.get({
                 prompt = text .. "\n>",
                 id = "find",
                 submit = fb.coroutine.callback(),
             })
         )
+        input.terminate()
+    elseif user_input_loaded then
+        query, error = coroutine.yield(
+            user_input.get_user_input( fb.coroutine.callback(), { text = text, id = "find", replace = true } )
+        )
     end
 
-    if not query then
-        return msg.debug(error)
-    elseif query and not user_input_loaded then
-        input.terminate()
-    end
+    if not query then return msg.debug(error) end
 
     -- allow the directory to be changed before this point
     local list = fb.get_list()
