@@ -72,7 +72,7 @@ local options = {
     read_ahead_mode = 0, -- [0-2], 0 disable, 1 fast_change_timer, 2 ratio_timer, more details above
     read_ahead_sync = 0, -- int/frame, increase for advance, more details above
     segmentation = 0.5, -- [0.0-1] %, 0 will approved only a continuous metadata (strict)
-    crop_method = 0, -- 0 lavfi-crop (ffmpeg/filter), 1 video-crop (mpv/VO)
+    crop_method = 1, -- 0 lavfi-crop (ffmpeg/filter), 1 video-crop (mpv/VO)
     -- filter, see https://ffmpeg.org/ffmpeg-filters.html#cropdetect for details
     detect_limit = 26, -- is the maximum use, increase it slowly if lighter black are present
     detect_round = 2, -- even number
@@ -242,16 +242,12 @@ local function apply_crop(ref, pts)
         local prop_maximized = mp.get_property("window-maximized")
         local osd = mp.get_property_native("osd-dimensions")
         local prop_auto_window_resize = mp.get_property("auto-window-resize")
-        if prop_maximized == "yes" then
-            if options.fix_windowed_behavior ~= 0 and prop_auto_window_resize == "yes" then
-                -- disable auto resize to avoid resizing at the original size of the video
-                mp.set_property("auto-window-resize", "no")
-            end
-        else
-            if options.fix_windowed_behavior ~= 0 then mp.set_property("auto-window-resize", "yes") end
-            if options.fix_windowed_behavior == 1 then
-                mp.set_property("geometry", string.format("%sx%s", osd.w, osd.h))
-            elseif options.fix_windowed_behavior == 2 then
+        if prop_auto_window_resize == "yes" and options.fix_windowed_behavior == 1 then
+            -- disable auto resize to avoid resizing at the original size of the video
+            mp.set_property("auto-window-resize", "no")
+        end
+        if prop_maximized ~= "yes" then
+            if options.fix_windowed_behavior == 2 then
                 mp.set_property("geometry", string.format("%s", osd.w))
             elseif options.fix_windowed_behavior == 3 then
                 mp.set_property("geometry", string.format("x%s", osd.h))
@@ -763,10 +759,8 @@ function cleanup()
     if not s.started then return end
     if not s.paused then print_stats() end
     mp.msg.info("Cleanup...")
-    local prop_fullscreen = mp.get_property("fullscreen")
     local prop_maximized = mp.get_property("window-maximized")
-    if prop_fullscreen == "no" and prop_maximized == "no" then
-        mp.set_property("geometry", s.user_geometry)
+    if options.fix_windowed_behavior == 1 and prop_maximized == "no" then
         mp.set_property("auto-window-resize", s.user_auto_window_resize)
     end
     mp.unregister_event(playback_events)
@@ -788,7 +782,6 @@ local function on_start()
         mp.msg.warn("Exit, only works for videos.")
         return
     end
-    s.user_geometry = mp.get_property("geometry")
     s.user_auto_window_resize = mp.get_property("auto-window-resize")
     -- init/re-init stored data
     s.buffer = {i_to_shift = 0, i_total = 0, i_ratio = 0, indexed_list = {}, t_total = 0, t_ratio = 0}

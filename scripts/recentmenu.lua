@@ -24,6 +24,14 @@ local menu = {
     type = 'recent_menu',
     title = o.title,
     items = {},
+    item_actions = {
+        {
+            name = 'remove',
+            icon = "delete",
+            label = "Remove (del)",
+        }
+    },
+    callback = { mp.get_script_name(), 'uosc-callback' }
 }
 
 local dyn_menu = {
@@ -302,6 +310,13 @@ function append_item(path, filename, title)
     write_json()
 end
 
+function remove_item(index)
+    table.remove(menu.items, index)
+    local json = utils.format_json(menu)
+    mp.commandv('script-message-to', 'uosc', 'update-menu', json)
+    write_json()
+end
+
 function open_menu_uosc()
     local json = utils.format_json(menu)
     mp.commandv('script-message-to', 'uosc', 'open-menu', json)
@@ -442,6 +457,25 @@ end)
 
 mp.register_script_message('uosc-version', function()
     uosc_available = true
+end)
+mp.register_script_message('uosc-callback', function(json)
+    local event = utils.parse_json(json)
+
+    if event.type == "activate" and not event.action then
+        mp.command_native(event.value)
+        mp.commandv('script-message-to', 'uosc', 'close-menu', menu.type)
+        return
+    end
+
+    if event.type == "activate" and event.action == "remove" then
+        remove_item(event.index)
+        return
+    end
+
+    if event.type == "key" and event.id == "del" then
+        remove_item(event.selected_item.index)
+        return
+    end
 end)
 
 mp.register_script_message('command-palette-version', function()

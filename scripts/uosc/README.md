@@ -110,7 +110,7 @@ Features:
 To build ziggy (our utility binary) yourself, run:
 
 ```
-tools/build
+tools/build ziggy
 ```
 
 Which will run the `tools/build(.ps1)` script that builds it for each platform. It requires [go](https://go.dev/) to be installed. Source code is in `src/ziggy`.
@@ -318,6 +318,8 @@ Switch audio output device.
 Commands to paste path or URL in clipboard to either open immediately, or append to playlist.
 
 `paste` will add to playlist if there's any (`playlist-count > 1`), or open immediately otherwise.
+
+`paste-to-playlist` will also open the pasted file if mpv is idle (no file open).
 
 Note: there are alternative ways to open stuff from clipboard without the need to bind these commands:
 
