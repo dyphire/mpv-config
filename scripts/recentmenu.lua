@@ -31,7 +31,8 @@ local menu = {
             label = "Remove (del)",
         }
     },
-    callback = { mp.get_script_name(), 'uosc-callback' }
+    item_actions_place = "outside",
+    callback = { mp.get_script_name(), "uosc-callback" }
 }
 
 local dyn_menu = {
@@ -294,8 +295,18 @@ function write_json(force)
     end
 end
 
-function append_item(path, filename, title)
-    local new_items = { { title = filename, hint = title, value = { "loadfile", path } } }
+function clip_uosc_menu_item(menu)
+    local menu_items = {}
+    for _, item in ipairs(menu.items) do
+        item.title = utf8_substring(item.title:gsub('%.([^%.]+)$', ''), 1, o.width)
+        table.insert(menu_items, item)
+    end
+    menu.items = menu_items
+    return menu
+end
+
+function append_item(path, title, hint)
+    local new_items = { { title = title, hint = hint, value = { "loadfile", path } } }
     read_json()
     for index, value in ipairs(menu.items) do
         local opath = value.value[2]
@@ -312,13 +323,13 @@ end
 
 function remove_item(index)
     table.remove(menu.items, index)
-    local json = utils.format_json(menu)
+    local json = utils.format_json(clip_uosc_menu_item(menu))
     mp.commandv('script-message-to', 'uosc', 'update-menu', json)
     write_json()
 end
 
 function open_menu_uosc()
-    local json = utils.format_json(menu)
+    local json = utils.format_json(clip_uosc_menu_item(menu))
     mp.commandv('script-message-to', 'uosc', 'open-menu', json)
 end
 
@@ -360,22 +371,6 @@ function open_menu()
     end
 end
 
-function get_dyn_menu_title(title, hint, path)
-    if is_protocol(path) then
-        local protocol = path:match("^(%a[%w.+-]-)://")
-        hint = protocol
-    else
-        local dir, filename, extension = split_path(path)
-        title = filename
-        hint = extension
-    end
-    local title_clip = utf8_substring(title, 1, o.width)
-    if title ~= title_clip then
-        title = utf8_substring(title_clip, 1, o.width - 2) .. "..."
-    end
-    return string.format('%s\t%s', title, hint:upper())
-end
-
 function update_dyn_menu_items()
     if #menu.items == 0 then
         read_json()
@@ -384,7 +379,7 @@ function update_dyn_menu_items()
     local menu_items = menu.items
     for _, item in ipairs(menu_items) do
         submenu[#submenu + 1] = {
-            title = get_dyn_menu_title(item.title, item.hint, item.value[2]),
+            title = string.format("%s\t%s", utf8_substring(item.title:gsub('%.([^%.]+)$', ''), 1, o.width), item.hint),
             cmd = string.format("%s \"%s\"", item.value[1], item.value[2]:gsub("\\", "\\\\")),
         }
     end
@@ -404,25 +399,28 @@ function on_load()
     if not o.enabled then return end
     local path = mp.get_property("path")
     if not path then return end
-    if path:match("bd://") or path:match("dvd://") or path:match("dvb://") or path:match("cdda://") then return end
     if not is_protocol(path) then path = normalize(path) end
-    local filename = mp.get_property("filename")
-    local dir, filename_without_ext, ext = split_path(filename)
-    local title = mp.get_property("media-title") or path
-    if filename == title or filename_without_ext == title then
-        title = ""
-    end
-    if is_protocol(path) and title and title ~= "" then
-        filename, title = title, filename
-    end
-    if title and title ~= "" then
-        local width
-        filename, width = utf8_substring(filename, 1, o.width * 0.618)
-        title = utf8_substring(title, 1, o.width - width)
+    local dir, filename, extension = split_path(path)
+    local title = mp.get_property("media-title")
+    local hint = os.date("%m/%d %H:%M")
+    if is_protocol(path) then
+        local scheme = path:match("^(%a[%w.+-]-)://")
+        if scheme == "bd" or
+            scheme == "dvd" or
+            scheme == "dvb" or
+            scheme == "cdda"
+        then
+            return
+        end
+        hint = scheme .. " | " .. hint
     else
-        filename = utf8_substring(filename, 1, o.width)
+        if not title or #utf8_to_table(title) < #utf8_to_table(filename) then
+            title = filename
+        end
+        hint = extension .. " | " .. hint
     end
-    current_item = { path, filename, title }
+    hint = hint:upper()
+    current_item = { path, title, hint }
     append_item(unpack(current_item))
 end
 

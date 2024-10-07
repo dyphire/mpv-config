@@ -200,8 +200,13 @@ local function build_track_title(track, prefix, filename)
 
     -- remove filename from title if it's external track
     if track.external and title ~= '' then
-        if filename ~= '' then title = title:gsub(filename .. '%.?', '') end
-        if title:lower() == codec:lower() then title = '' end
+        local extension = title:match('%.([^%.]+)$')
+        if filename ~= '' and extension then
+            title = title:gsub(filename .. '%.?', ''):gsub('%.?([^%.]+)$', '')
+        end
+        if track.lang and title:lower() == track.lang:lower() then
+            title = ''
+        end
     end
     -- set a default title if it's empty
     if title == '' then

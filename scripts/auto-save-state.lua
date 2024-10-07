@@ -47,7 +47,7 @@ local function save_or_delete()
     if not can_delete then return end
     local eof = mp.get_property_bool("eof-reached")
     local percent_pos = mp.get_property_number("percent-pos")
-    if eof or percent_pos == 0 or percent_pos >= o.percent_pos then
+    if eof or percent_pos and (percent_pos == 0 or percent_pos >= o.percent_pos) then
         can_delete = true
         if path ~= nil then
             msg.debug("deleting state: percent_pos=0 or eof")
