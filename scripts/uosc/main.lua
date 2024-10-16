@@ -105,7 +105,7 @@ defaults = {
 	ziggy_path = 'default',
 }
 options = table_copy(defaults)
-opt.read_options(options, 'uosc', function(changed_options)
+function handle_options(changed_options)
 	if changed_options.time_precision then
 		timestamp_zero_rep_clear_cache()
 	end
@@ -115,7 +115,8 @@ opt.read_options(options, 'uosc', function(changed_options)
 	Elements:trigger('options')
 	Elements:update_proximities()
 	request_render()
-end)
+end
+opt.read_options(options, 'uosc', handle_options)
 -- Normalize values
 options.proximity_out = math.max(options.proximity_out, options.proximity_in + 1)
 if options.chapter_ranges:sub(1, 4) == '^op|' then options.chapter_ranges = defaults.chapter_ranges end

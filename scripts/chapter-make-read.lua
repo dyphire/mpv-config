@@ -1,5 +1,5 @@
 --[[
-  * chapter-make-read.lua v.2024-09-14
+  * chapter-make-read.lua v.2024-10-15
   *
   * AUTHORS: dyphire
   * License: MIT
@@ -110,8 +110,8 @@ function str_decode(str)
 
     if str ~= nil then
         str = str:gsub('^%a[%a%d-_]+://', '')
-        str = str:gsub('^%a[%a%d-_]+:\\?', '')
-        str = str:gsub('%%(%x%x)', hex_to_char)
+              :gsub('^%a[%a%d-_]+:\\?', '')
+              :gsub('%%(%x%x)', hex_to_char)
         if str:find('://localhost:?') then
             str = str:gsub('^.*/', '')
         end
@@ -157,6 +157,7 @@ local function read_chapter_table()
     local line_pos = 0
     return read_chapter(function(line)
         local h, m, s, t, n, l
+        local line = line:gsub("\xE2\x80\x89", " ")
         if line:match("^%d+:%d+:%d+") ~= nil then
             h, m, s = line:match("^(%d+):(%d+):(%d+[,%.]?%d+)")
             s = s:gsub(',', '.')

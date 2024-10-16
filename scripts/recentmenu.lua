@@ -178,7 +178,7 @@ function normalize(path)
             path = mp.command_native({"normalize-path", path})
         else
             local directory = mp.get_property("working-directory", "")
-            path = mp.utils.join_path(directory, path:gusb('^%.[\\/]',''))
+            path = utils.join_path(directory, path:gsub('^%.[\\/]',''))
             if is_windows then path = path:gsub("\\", "/") end
         end
         return path
@@ -350,7 +350,6 @@ function open_menu_select()
     input.select({
         prompt = menu.title .. ':',
         items = item_titles,
-        default_item = 1,
         submit = function(id)
             mp.commandv(unpack(item_values[id]))
         end,
