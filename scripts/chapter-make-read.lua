@@ -1,5 +1,5 @@
 --[[
-  * chapter-make-read.lua v.2024-10-15
+  * chapter-make-read.lua v.2024-10-17
   *
   * AUTHORS: dyphire
   * License: MIT
@@ -393,8 +393,8 @@ local function input_title(default_input, cursor_pos, chapter_index)
         default_text = default_input,
         cursor_position = cursor_pos,
         submit = function(text)
-            change_chapter_list(text, chapter_index)
             input.terminate()
+            change_chapter_list(text, chapter_index)
         end,
         closed = function()
             if paused then return elseif o.pause_on_input then mp.set_property_native("pause", false) end
