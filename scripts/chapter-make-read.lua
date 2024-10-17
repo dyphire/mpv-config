@@ -157,7 +157,8 @@ local function read_chapter_table()
     local line_pos = 0
     return read_chapter(function(line)
         local h, m, s, t, n, l
-        local line = line:gsub("\xE2\x80\x89", " ")
+        local thin_space = string.char(0xE2, 0x80, 0x89)
+        local line = line:gsub(thin_space, " ")
         if line:match("^%d+:%d+:%d+") ~= nil then
             h, m, s = line:match("^(%d+):(%d+):(%d+[,%.]?%d+)")
             s = s:gsub(',', '.')
