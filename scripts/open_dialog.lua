@@ -11,6 +11,26 @@ key        script-message-to open_dialog import_files <type>      # vid, aid, si
 key        script-message-to open_dialog import_clipboard
 key        script-message-to open_dialog import_clipboard <type>  # vid, aid, sid (video/audio/subtitle track)
 key        script-message-to open_dialog set_clipboard <text>     # text can be mpv properties as ${path}
+
+Also supports open dialog to select folder/files for other scripts.
+Scripting Example:
+-- open a folder select dialog
+mp.commandv('script-message-to', 'open_dialog', 'select_folder', mp.get_script_name())
+-- receive the selected folder reply
+mp.register_script_message('select_folder_reply', function(folder_path)
+    if folder_path and folder_path ~= '' then
+        -- do something with folder_path
+    end
+end)
+-- open a xml file select dialog
+mp.commandv('script-message-to', 'open_dialog', 'select_files', mp.get_script_name(), 'XML File|*.xml')
+-- receive the selected files reply
+mp.register_script_message('select_files_reply', function(file_paths)
+    for i, file_path in ipairs(utils.parse_json(file_paths)) do
+        -- do something with file_path
+    end
+end)
+
 ]]--
 
 local msg = require 'mp.msg'
@@ -129,8 +149,7 @@ local function open_files(path, type, i, is_clip)
     end
 end
 
--- import folder
-local function import_folder()
+local function select_folder()
     if not powershell then pwsh_check() end
     local was_ontop = mp.get_property_native("ontop")
     if was_ontop then mp.set_property_native("ontop", false) end
@@ -144,7 +163,7 @@ local function import_folder()
         $TopForm.Visible = $false
         $IconBytes = [Convert]::FromBase64String("%s")
         $IconStream = New-Object IO.MemoryStream($IconBytes, 0, $IconBytes.Length)
-        $IconStream.Write($IconBytes, 0, $IconBytes.Length);
+        $IconStream.Write($IconBytes, 0, $IconBytes.Length)
         $TopForm.Icon = [System.Drawing.Icon]::FromHandle((New-Object System.Drawing.Bitmap -Argument $IconStream).GetHIcon())
         $folderBrowser = New-Object -TypeName System.Windows.Forms.FolderBrowserDialog
         $folderBrowser.RootFolder = "Desktop"
@@ -157,30 +176,79 @@ local function import_folder()
         }
         $TopForm.Dispose()
     ]], mpv_icon_base64)
-
     local res = mp.command_native({
         name = 'subprocess',
         playback_only = false,
         capture_stdout = true,
         args = { powershell, '-NoProfile', '-Command', powershell_script },
     })
-
     if was_ontop then mp.set_property_native("ontop", true) end
-    if (res.status ~= 0) then
+    if res.status ~= 0 then
         mp.osd_message("Failed to open folder dialog.")
-    elseif res.stdout and res.stdout ~= "" then
-        local folder_path = res.stdout:match("(.-)[\r\n]?$") -- Trim any trailing newline
-        open_folder(folder_path, 1)
+        return nil
     end
+    local folder_path = res.stdout:match("(.-)[\r\n]?$") -- Trim any trailing newline
+    return folder_path
+end
+
+local function select_files(filter)
+    if not powershell then pwsh_check() end
+    local was_ontop = mp.get_property_native("ontop")
+    if was_ontop then mp.set_property_native("ontop", false) end
+    local powershell_script = string.format([[& {
+        Trap {
+            Write-Error -ErrorRecord $_
+            Exit 1
+        }
+        Add-Type -AssemblyName System.Windows.Forms
+        $u8 = [System.Text.Encoding]::UTF8
+        $out = [Console]::OpenStandardOutput()
+        $TopForm = New-Object System.Windows.Forms.Form
+        $TopForm.TopMost = $true
+        $TopForm.ShowInTaskbar = $false
+        $TopForm.Visible = $false
+        $IconBytes = [Convert]::FromBase64String("%s")
+        $IconStream = New-Object IO.MemoryStream($IconBytes, 0, $IconBytes.Length)
+        $IconStream.Write($IconBytes, 0, $IconBytes.Length)
+        $TopForm.Icon = [System.Drawing.Icon]::FromHandle((New-Object System.Drawing.Bitmap -Argument $IconStream).GetHIcon())
+        $ofd = New-Object System.Windows.Forms.OpenFileDialog
+        $ofd.Multiselect = $true
+        $ofd.Filter = "%s"
+        If ($ofd.ShowDialog($TopForm) -eq $true) {
+            ForEach ($filename in $ofd.FileNames) {
+                $u8filename = $u8.GetBytes("$filename`n")
+                $out.Write($u8filename, 0, $u8filename.Length)
+            }
+        }
+        $TopForm.Dispose()
+    }]], mpv_icon_base64, filter)
+    local res = mp.command_native({
+        name = 'subprocess',
+        playback_only = false,
+        capture_stdout = true,
+        args = { powershell, '-NoProfile', '-Command', powershell_script },
+    })
+    if was_ontop then mp.set_property_native("ontop", true) end
+    local file_paths = {}
+    if res.status ~= 0 then
+        mp.osd_message("Failed to open files dialog.")
+        return file_paths
+    end
+    for file_path in string.gmatch(res.stdout, '[^\r\n]+') do
+        table.insert(file_paths, file_path)
+    end
+    return file_paths
+end
+
+-- import folder
+local function import_folder()
+    local folder_path = select_folder()
+    if folder_path and folder_path ~= '' then open_folder(folder_path, 1) end
 end
 
 -- import files
 local function import_files(type)
-    if not powershell then pwsh_check() end
     local filter = ''
-    local was_ontop = mp.get_property_native("ontop")
-    if was_ontop then mp.set_property_native("ontop", false) end
-
     if type == 'vid' then
         filter = string.format("Video Files|%s|Image Files|%s", file_types['video'], file_types['image'])
     elseif type == 'aid' then
@@ -191,45 +259,8 @@ local function import_files(type)
         filter = string.format("All Files (*.*)|*.*|Video Files|%s|Audio Files|%s|Image Files|%s|ISO Files|%s|Subtitle Files|%s|Playlist Files|%s",
             file_types['video'], file_types['audio'], file_types['image'], file_types['iso'], file_types['subtitle'], file_types['playlist'])
     end
-
-    local res = mp.command_native({
-        name = 'subprocess',
-        playback_only = false,
-        capture_stdout = true,
-        args = { powershell, '-NoProfile', '-Command', string.format([[& {
-            Trap {
-                Write-Error -ErrorRecord $_
-                Exit 1
-            }
-            Add-Type -AssemblyName System.Windows.Forms
-            $u8 = [System.Text.Encoding]::UTF8
-            $out = [Console]::OpenStandardOutput()
-            $TopForm = New-Object System.Windows.Forms.Form
-            $TopForm.TopMost = $true
-            $TopForm.ShowInTaskbar = $false
-            $TopForm.Visible = $false
-            $IconBytes = [Convert]::FromBase64String("%s")
-            $IconStream = New-Object IO.MemoryStream($IconBytes, 0, $IconBytes.Length)
-            $IconStream.Write($IconBytes, 0, $IconBytes.Length);
-            $TopForm.Icon = [System.Drawing.Icon]::FromHandle((New-Object System.Drawing.Bitmap -Argument $IconStream).GetHIcon())
-            $ofd = New-Object System.Windows.Forms.OpenFileDialog
-            $ofd.Multiselect = $true
-            $ofd.Filter = "%s"
-            If ($ofd.ShowDialog($TopForm) -eq $true) {
-                ForEach ($filename in $ofd.FileNames) {
-                    $u8filename = $u8.GetBytes("$filename`n")
-                    $out.Write($u8filename, 0, $u8filename.Length)
-                }
-            }
-            $TopForm.Dispose()
-        }]], mpv_icon_base64, filter) }
-    })
-    if was_ontop then mp.set_property_native("ontop", true) end
-    if (res.status ~= 0) then return end
-    local i = 0
-    for path in string.gmatch(res.stdout, '[^\r\n]+') do
-        i = i + 1
-        open_files(path, type, i, false)
+    for i, file_path in ipairs(select_files(filter)) do
+        open_files(file_path, type, i, false)
     end
 end
 
@@ -309,3 +340,11 @@ mp.register_script_message('import_folder', import_folder)
 mp.register_script_message('import_files', import_files)
 mp.register_script_message('import_clipboard', import_clipboard)
 mp.register_script_message('set_clipboard', set_clipboard)
+mp.register_script_message('select_folder', function(script_name)
+    local folder_path = select_folder()
+    mp.commandv('script-message-to', script_name, 'select_folder_reply', folder_path)
+end)
+mp.register_script_message('select_files', function(script_name, filter)
+    local file_paths = select_files(filter)
+    mp.commandv('script-message-to', script_name, 'select_files_reply', utils.format_json(file_paths))
+end)
