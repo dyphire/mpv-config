@@ -218,8 +218,8 @@ local function hash(path)
         capture_stdout = true,
         playback_only = false,
     }
-    local args = nil
 
+    local args = nil
     local is_unix = package.config:sub(1,1) == "/"
     if is_unix then
         local md5 = command_exists("md5sum") or command_exists("md5") or command_exists("openssl", "md5 | cut -d ' ' -f 2")
@@ -232,7 +232,15 @@ local function hash(path)
         args = {"sh", "-c", md5 .. " | cut -d ' ' -f 1 | tr '[:lower:]' '[:upper:]'" }
     else --windows
         -- https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/get-filehash?view=powershell-7.3
-        local hash_command ="$s = [System.IO.MemoryStream]::new(); $w = [System.IO.StreamWriter]::new($s); $w.write(\"" .. path .. "\"); $w.Flush(); $s.Position = 0; Get-FileHash -Algorithm MD5 -InputStream $s | Select-Object -ExpandProperty Hash"
+        local hash_command = [[
+            $s = [System.IO.MemoryStream]::new();
+            $w = [System.IO.StreamWriter]::new($s);
+            $w.write(']] .. path .. [[');
+            $w.Flush();
+            $s.Position = 0;
+            Get-FileHash -Algorithm MD5 -InputStream $s | Select-Object -ExpandProperty Hash
+        ]]
+
         args = {"powershell", "-NoProfile", "-Command", hash_command}
     end
     cmd["args"] = args
