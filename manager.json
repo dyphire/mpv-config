@@ -13,7 +13,7 @@
   {
     "git":"https://github.com/dyphire/mpv-scripts",
     "branch":"main",
-    "whitelist":"chapter%-list%.lua$|chapter%-make%-read%.lua$|mpv%-animated%.lua$|sub_export%.lua$|track%-list%.lua$",
+    "blacklist":"LICENSE|README.*%.md$|drcbox%.lua$",
     "dest":"~~/scripts"
   },
   {
@@ -32,17 +32,6 @@
     "git":"https://github.com/dyphire/chapterskip",
     "branch":"dev",
     "whitelist":"%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
-    "git":"https://github.com/dyphire/detuur-mpv-scripts",
-    "branch":"dev",
-    "whitelist":"skiptosilence%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
-    "git":"https://github.com/dyphire/yuukidach-mpv-scripts",
-    "whitelist":"history%-bookmark%.lua$",
     "dest":"~~/scripts"
   },
   {
