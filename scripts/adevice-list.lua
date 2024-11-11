@@ -1,5 +1,5 @@
 --[[
-    * adevice-list.lua v.2024-08-18
+    * adevice-list.lua v.2024-11-11
     *
     * AUTHORS: dyphire
     * License: MIT
@@ -31,7 +31,7 @@ local o = {
     selected_style = [[{\c&Hfce788&}]],
     active_style = [[{\c&H33ff66&}]],
     cursor = [[➤\h]],
-    indent = [[\h\h\h\h]],
+    indent = [[\h\h\h]],
     --amount of entries to show before slicing. Optimal value depends on font/video size etc.
     num_entries = 16,
     -- wrap the cursor around the top and bottom of the list
