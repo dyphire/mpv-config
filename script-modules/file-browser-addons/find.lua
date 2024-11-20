@@ -16,7 +16,7 @@ local input_loaded, input = pcall(require, "mp.input")
 local user_input_loaded, user_input = pcall(require, "user-input-module")
 
 local find = {
-    version = "1.4.0"
+    version = "1.3.0"
 }
 local latest_coroutine = nil
 local global_fb_state = getmetatable(fb.get_state()).__original
@@ -36,22 +36,18 @@ local function main(key, state, co)
     if key.name == "find/find" then text = "Find: enter search string"
     else text = "Find: enter advanced search string" end
 
-    local query, error = nil, nil
     if input_loaded then
-        query = coroutine.yield(
-            input.get({
-                prompt = text .. "\n>",
-                id = "find",
-                submit = fb.coroutine.callback(),
-            })
-        )
-        input.terminate()
+        input.get({
+            prompt = text .. "\n>",
+            id = "file-browser/find",
+            submit = fb.coroutine.callback(),
+        })
     elseif user_input_loaded then
-        query, error = coroutine.yield(
-            user_input.get_user_input( fb.coroutine.callback(), { text = text, id = "find", replace = true } )
-        )
+        user_input.get_user_input( fb.coroutine.callback(), { text = text, id = "find", replace = true } )
     end
 
+    local query, error = coroutine.yield()
+    if input_loaded then input.terminate() end
     if not query then return msg.debug(error) end
 
     -- allow the directory to be changed before this point

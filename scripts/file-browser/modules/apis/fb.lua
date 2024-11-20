@@ -63,10 +63,10 @@ end
 -- remove all directory mappings that map to the given directory
 function fb.remove_all_mappings(directory)
     local removed = {}
-    for alias, target in pairs(g.directory_mappings) do
+    for mapping, target in pairs(g.directory_mappings) do
         if target == directory then
-            g.directory_mappings[alias] = nil
-            table.insert(removed, alias)
+            g.directory_mappings[mapping] = nil
+            table.insert(removed, mapping)
         end
     end
     return removed

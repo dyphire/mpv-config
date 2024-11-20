@@ -57,6 +57,7 @@ if input_loaded then
     mp.add_key_binding("Alt+o", "browse-directory/get-user-input", function()
         input.get({
             prompt = "open directory:",
+            id = "file-browser/browse-directory",
             submit = function(text)
                 controls.browse_directory(text)
                 input.terminate()

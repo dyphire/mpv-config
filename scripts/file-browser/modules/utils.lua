@@ -93,10 +93,22 @@ function fb_utils.coroutine.assert(err)
     return co
 end
 
---creates a callback fuction to resume the current coroutine
-function fb_utils.coroutine.callback()
+-- Creates a callback function to resume the current coroutine with the given time limit.
+-- If the time limit expires the coroutine will be resumed. The first return value will be true
+-- if the callback was resumed within the time limit and false otherwise.
+-- If time_limit is falsy then there will be no time limit and there will be no additional return value.
+function fb_utils.coroutine.callback(time_limit)
     local co = fb_utils.coroutine.assert("cannot create a coroutine callback for the main thread")
+    local timer = time_limit and mp.add_timeout(time_limit, function ()
+            msg.debug("time limit on callback expired")
+            fb_utils.coroutine.resume_err(co, false)
+        end)
     return function(...)
+        if timer then
+            if not timer:is_enabled() then return
+            else timer:kill() end
+            return fb_utils.coroutine.resume_err(co, true, ...)
+        end
         return fb_utils.coroutine.resume_err(co, ...)
     end
 end
@@ -231,22 +243,22 @@ function fb_utils.parseable_item(item)
     return item.type == "dir" or g.parseable_extensions[fb_utils.get_extension(item.name, "")]
 end
 
--- Takes a directory string and resolves any directory aliases,
+-- Takes a directory string and resolves any directory mappings,
 -- returning the resolved directory.
 function fb_utils.resolve_directory_mapping(directory)
     if not directory then return directory end
 
-    for alias, target in pairs(g.directory_mappings) do
-        local start, finish  = string.find(directory, alias)
+    for mapping, target in pairs(g.directory_mappings) do
+        local start, finish  = string.find(directory, mapping)
         if start then
-            msg.debug('alias', alias, 'found for directory', directory, 'changing to', target)
+            msg.debug('mapping', mapping, 'found for directory', directory, 'changing to', target)
 
-            -- if the alias is an exact match then return the target as is
+            -- if the mapping is an exact match then return the target as is
             if finish == #directory then return target end
 
             -- else make sure the path is correctly formatted
             target = fb_utils.fix_path(target, true)
-            return string.gsub(directory, alias, target)
+            return string.gsub(directory, mapping, target)
         end
     end
 

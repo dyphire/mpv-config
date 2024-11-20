@@ -1,4 +1,4 @@
-# How to Write an Addon - API v1.5.0
+# How to Write an Addon - API v1.6.0
 
 Addons provide ways for file-browser to parse non-native directory structures. This document describes how one can create their own custom addon.
 
@@ -456,6 +456,43 @@ This is the equivalent of calling the `browse-directory` script-message.
 Add an item_table to the root list at the specified position. If `pos` is nil then append to the end of the root.
 `item` must be a valid item_table of `type='dir'`.
 
+#### `fb.register_directory_mapping(directory: string | nil, mapping: string, pattern?: bool): void`
+
+Creates a directory mapping for the given directory. A directory mapping is a
+one-way mapping from an external directory string, to an internal directory
+within file-browser's directory tree. It allows external paths that may not
+exist within file-browser's tree to be mapped to a location that is.
+Internally, this is used by file-browser to map the `bd://`, `dvd://`, and `cdda://`
+protocol paths to their respective device locations in the filesystem.
+
+Note that as this is still an experimental feature, the exact situations when mappings
+are resolved is subject to change. Currently, mapping occurs only when
+receiving a directory from an external source, such as the mpv `path` property,
+or the `browse-directory` script message.
+
+`directory` is a string that represents a location within file-browser's file-system.
+`mapping` is a string that will be replaced by the `directory` string if found in a path:
+
+```lua
+fb.register_directory_mapping('/dev/dvd', 'dvd://')
+fb.resolve_directory_mapping('dvd://1') -- /dev/dvd/1
+```
+
+There can only be one `directory` string associated with each unique `mapping` string,
+but multiple mappings can point to the same directory.
+If `directory` is set to `nil` then the existing mapping for `mapping` will be removed.
+If `pattern` is set to true, then `mapping` will be treated as a Lua
+pattern. Any part of an input path that matches the pattern will be substituted for
+the `directory` string.
+
+```lua
+fb.register_directory_mapping('/dev/dvd', '^dvd://.*')
+fb.resolve_directory_mapping('dvd://1') -- /dev/dvd
+```
+
+When `pattern` is falsy, `mapping` is equivalent to `'^'..fb.pattern_escape(mapping)`.
+Captures in the pattern may be given extra behaviour in the future.
+
 #### `fb.register_parseable_extension(ext: string): void`
 
 Register a file extension that the browser will attempt to open, like a directory - for addons which can parse files such
@@ -502,6 +539,12 @@ which hands execution back to the original coroutine upon completion.
 A wrapper around [`fb.register_root_item`](#fbregister_root_itemitem-string--item_table-priority-number-boolean)
 which uses the parser's priority value if `priority` is undefined.
 
+#### `fb.remove_all_mappings(directory: string): string[]`
+
+Removes all [directory mappings](#fbregister_directory_mappingdirectory-string--nil-mapping-string-pattern-bool-void)
+that resolve to the given `directory`. Returns a list of the `mapping` strings
+that were removed.
+
 ### Advanced Functions
 
 #### `fb.clear_cache(): void`
@@ -514,7 +557,7 @@ than the current one to ensure that their contents will be rescanned when next o
 Throws an error if it is not called from within a coroutine. Returns the currently running coroutine on success.
 The string argument can be used to throw a custom error string.
 
-#### `fb.coroutine.callback(): function`
+#### `fb.coroutine.callback(time_limit?: number): function`
 
 Creates and returns a callback function that resumes the current coroutine.
 This function is designed to help streamline asynchronous operations. The best way to explain is with an example:
@@ -544,7 +587,32 @@ to execute the operation asynchronously and takes a callback function as its sec
 Any arguments passed into the callback function (by the async function, not by you) will be passed on to the resume;
 in this case `command_native_async` passes three values into the callback, of which only the second is of interest to me.
 
-The unsaid expectation is that the programmer will yield execution before that callback returns. In this example I
+If `time_limit` is set to a number, then a boolean is passed as the first resume argument to the coroutine.
+If the callback is not run within `time_limit` seconds then the coroutine will be resumed, and the first
+argument will be `false`. If the callback is run within the time limit then the first argument will be `true`.
+
+```lua
+local function execute(args)
+    local t = mp.command_native_async({
+            name = "subprocess",
+            playback_only = false,
+            capture_stdout = true,
+            capture_stderr = true,
+            args = args
+        }, fb.coroutine.callback(10))
+
+    local success, _, cmd = coroutine.yield()
+    if not success then
+        mp.abort_async_command(t)
+        msg.error("command timed out")
+        return nil
+    end
+
+    return cmd.status == 0 and cmd.stdout or nil
+end
+```
+
+The expectation is that the programmer will yield execution before that callback returns. In this example I
 yield immediately after running the async command.
 
 If you are doing this during a parse operation you could also substitute `coroutine.yield()` with `parse_state:yield()` to abort the parse if the user changed
@@ -691,6 +759,16 @@ which treats paths with network protocols as absolute paths.
 #### `fb.pattern_escape(str: string): string`
 
 Returns `str` with Lua special pattern characters escaped.
+
+#### `fb_utils.resolve_directory_mapping(directory: string): string`
+
+Takes a `directory` string and resolves any
+[directory mappings](#fbregister_directory_mappingdirectory-string--nil-mapping-string-pattern-bool-void),
+replacing any substrings that match a mapping with the associated directory.
+
+Only the first valid mapping is applied, but this behaviour will likely change in
+the future. Changes to this behaviour will not consitute a major version bump so should not
+be relied upon.
 
 #### `fb.sort(list: list_table): list_table`
 

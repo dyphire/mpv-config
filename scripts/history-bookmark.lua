@@ -40,12 +40,14 @@ o.included_dir = utils.parse_json(o.included_dir)
 
 local locals = {
     ['eng'] = {
-        msg1 = 'resume successfully',
-        msg2 = 'resume the last played file in current directory',
+        msg1 = 'Resume successfully',
+        msg2 = 'Resume the last played file in current directory',
+        msg3 = 'Press 1 to confirm, 0 to cancel',
     },
     ['chs'] = {
         msg1 = '成功恢复上次播放',
         msg2 = '是否恢复当前目录的上次播放文件',
+        msg3 = '按1确认，按0取消',
     }
 }
 
@@ -410,7 +412,7 @@ end
 -- get the index of the wanted file playlist
 -- if there is no playlist, return nil
 local function get_playlist_idx(dst_file)
-    if (dst_file == nil) then
+    if dst_file == nil or dst_file == " " then
         return nil
     end
 
@@ -453,8 +455,8 @@ local function key_cancel()
 end
 
 local function bind_key()
-    mp.add_forced_key_binding('ENTER', 'key_jump', key_jump)
-    mp.add_forced_key_binding('ESC', 'key_cancel', key_cancel)
+    mp.add_forced_key_binding('1', 'key_jump', key_jump)
+    mp.add_forced_key_binding('0', 'key_cancel', key_cancel)
 end
 
 -- creat a .history file
@@ -463,9 +465,17 @@ local function record_history()
     refresh_globals()
     if not path or is_protocol(path) then return end
     get_bookmark_path(dir)
-    if not (fname == nil) then
+    local eof = mp.get_property_bool("eof-reached")
+    local percent_pos = mp.get_property_number("percent-pos", 0)
+    if not eof and percent_pos < 90 then
+        if fname ~= nil then
+            local file = io.open(bookmark_path, "w")
+            file:write(fname .. "\n")
+            file:close()
+        end
+    else
         local file = io.open(bookmark_path, "w")
-        file:write(fname .. "\n")
+        file:write(" " .. "\n")
         file:close()
     end
 end
@@ -475,7 +485,7 @@ local function wait4jumping()
     timeout = timeout - 1
     if timeout > 0 then
         if not on_key then
-            local msg = string.format("%s -- %s? %02d [ENTER/ESC]", wait_msg, texts.msg2, timeout)
+            local msg = string.format("%s -- %s? (%s) %02d", wait_msg, texts.msg2, texts.msg3, timeout)
             prompt_msg(msg, 1000)
             bind_key()
         else
