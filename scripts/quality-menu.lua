@@ -241,7 +241,7 @@ local function reload_resume()
     -- we should provide offset from the start. Stream doesn't have fixed start.
     -- Decent choice would be to reload stream from it's current 'live' position.
     -- That's the reason we don't pass the offset when reloading streams.
-    if reload_duration and reload_duration > 0 then
+    if reload_duration and reload_duration > 0 and time_pos then
         local function seeker()
             mp.commandv('seek', time_pos, 'absolute+exact')
             mp.unregister_event(seeker)

@@ -1,3 +1,4 @@
+
 --[[
 
     https://github.com/stax76/mpv-scripts
@@ -7,6 +8,7 @@
     removed from the playlist.
 
     On Linux the app trash-cli must be installed first.
+    On Ubuntu: sudo apt install trash-cli
 
     Usage:
     Add bindings to input.conf:

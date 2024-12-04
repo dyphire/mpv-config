@@ -7,7 +7,7 @@
   {
     "git":"https://github.com/stax76/mpv-scripts",
     "branch":"main",
-    "whitelist":"command_palette%.lua$|delete_current_file%.lua$",
+    "whitelist":"delete_current_file%.lua$",
     "dest":"~~/scripts"
   },
   {

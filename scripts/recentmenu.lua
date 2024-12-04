@@ -298,7 +298,7 @@ end
 function clip_uosc_menu_item(menu)
     local menu_items = {}
     for _, item in ipairs(menu.items) do
-        item.title = utf8_substring(item.title:gsub('%.([^%.]+)$', ''), 1, o.width)
+        item.title = utf8_substring(item.title, 1, o.width)
         table.insert(menu_items, item)
     end
     menu.items = menu_items
@@ -378,7 +378,7 @@ function update_dyn_menu_items()
     local menu_items = menu.items
     for _, item in ipairs(menu_items) do
         submenu[#submenu + 1] = {
-            title = string.format("%s\t%s", utf8_substring(item.title:gsub('%.([^%.]+)$', ''), 1, o.width), item.hint),
+            title = string.format("%s\t%s", utf8_substring(item.title, 1, o.width), item.hint),
             cmd = string.format("%s \"%s\"", item.value[1], item.value[2]:gsub("\\", "\\\\")),
         }
     end
@@ -400,7 +400,7 @@ function on_load()
     if not path then return end
     if not is_protocol(path) then path = normalize(path) end
     local dir, filename, extension = split_path(path)
-    local title = mp.get_property("media-title")
+    local title = mp.get_property("media-title"):gsub('%.([^%./]+)$', '')
     local hint = os.date("%m/%d %H:%M")
     if is_protocol(path) then
         local scheme = path:match("^(%a[%w.+-]-)://")

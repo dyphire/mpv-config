@@ -400,7 +400,7 @@ local function reset_track_ids()
     if o.select_audio then mp.set_property('aid', 'auto') end
 end
 
-mp.add_hook('on_unload', 1000, reset_track_ids)
+mp.register_event("end-file", reset_track_ids)
 
 --setup the audio and subtitle track lists when a new file is loaded
 mp.add_hook('on_preloaded', 25, read_track_list)
