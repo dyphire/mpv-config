@@ -1,6 +1,6 @@
 local Element = require('elements/Element')
 
----@alias MenuAction {name: string; icon: string; label?: string;}
+---@alias MenuAction {name: string; icon: string; label?: string; filter_hidden?: boolean;}
 
 -- Menu data structure accepted by `Menu:open(menu)`.
 ---@alias MenuData {id?: string; type?: string; title?: string; hint?: string; footnote: string; search_style?: 'on_demand' | 'palette' | 'disabled';  item_actions?: MenuAction[]; item_actions_place?: 'inside' | 'outside'; callback?: string[]; keep_open?: boolean; bold?: boolean; italic?: boolean; muted?: boolean; separator?: boolean; align?: 'left'|'center'|'right'; items?: MenuDataChild[]; selected_index?: integer; on_search?: string|string[]; on_paste?: string|string[]; on_move?: string|string[]; on_close?: string|string[]; search_debounce?: number|string; search_submenus?: boolean; search_suggestion?: string}
@@ -125,11 +125,9 @@ function Menu:init(data, callback, opts)
 	self.all = nil
 	---@type table<string, MenuStack> Map of submenus by their ids, such as `'Tools > Aspect ratio'`.
 	self.by_id = {}
-	self.key_bindings = {}
-	self.key_bindings_search = {} -- temporary key bindings for search
 	self.type_to_search = options.menu_type_to_search
 	self.is_being_replaced = false
-	self.is_closing, self.is_closed = false, false
+	self.is_closing = false
 	self.drag_last_y = nil
 	self.is_dragging = false
 
@@ -149,8 +147,7 @@ end
 
 function Menu:destroy()
 	Element.destroy(self)
-	self:disable_key_bindings()
-	self.is_closed, self.is_closing = true, false
+	self.is_closing = false
 	if not self.is_being_replaced then Elements:maybe('curtain', 'unregister', self.id) end
 	if utils.shared_script_property_set then
 		utils.shared_script_property_set('uosc-menu-type', nil)
@@ -607,7 +604,7 @@ function Menu:slide_in_menu(id, x)
 end
 
 function Menu:back()
-	if self.is_closed then return end
+	if not self:is_alive() then return end
 
 	local current = self.current
 	local parent = current.parent_menu
@@ -655,6 +652,7 @@ end
 
 ---@param index integer
 function Menu:move_selected_item_to(index)
+	if self.current.search then return end -- Moving filtered items is an undefined behavior
 	local callback = self.current.on_move
 	local from, items_count = self.current.selected_index, self.current.items and #self.current.items or 0
 	if callback and from and from ~= index and index >= 1 and index <= items_count then
@@ -995,14 +993,14 @@ function Menu:search_clear_query(menu_id)
 end
 
 function Menu:search_enable_key_bindings()
-	if #self.key_bindings_search ~= 0 then return end
+	if self:has_keybindings('search') then return end
 	local flags = {repeatable = true, complex = true}
-	self:search_add_key_binding('any_unicode', 'menu-search', self:create_key_handler('search_text_input'), flags)
+	self:add_key_binding('any_unicode', {self:create_key_handler('search_text_input'), flags}, 'search')
 	-- KP0 to KP9 and KP_DEC are not included in any_unicode
 	-- despite typically producing characters, they don't have a info.key_text
-	self:search_add_key_binding('kp_dec', 'menu-search-kp-dec', self:create_key_handler('search_text_input'), flags)
+	self:add_key_binding('kp_dec', {self:create_key_handler('search_text_input'), flags}, 'search')
 	for i = 0, 9 do
-		self:search_add_key_binding('kp' .. i, 'menu-search-kp' .. i, self:create_key_handler('search_text_input'), flags)
+		self:add_key_binding('kp' .. i, {self:create_key_handler('search_text_input'), flags}, 'search')
 	end
 end
 
@@ -1010,23 +1008,8 @@ function Menu:search_ensure_key_bindings()
 	if self.current.search or (self.type_to_search and self.current.search_style ~= 'disabled') then
 		self:search_enable_key_bindings()
 	else
-		self:search_disable_key_bindings()
+		self:remove_key_bindings('search')
 	end
-end
-
-function Menu:search_disable_key_bindings()
-	for _, name in ipairs(self.key_bindings_search) do mp.remove_key_binding(name) end
-	self.key_bindings_search = {}
-end
-
-function Menu:search_add_key_binding(key, name, fn, flags)
-	self.key_bindings_search[#self.key_bindings_search + 1] = name
-	mp.add_forced_key_binding(key, name, fn, flags)
-end
-
-function Menu:add_key_binding(key, name, fn, flags)
-	self.key_bindings[#self.key_bindings + 1] = name
-	mp.add_forced_key_binding(key, name, fn, flags)
 end
 
 function Menu:enable_key_bindings()
@@ -1044,7 +1027,7 @@ function Menu:enable_key_bindings()
 		local binding = modifier and modifier .. '+' .. key or key
 		local shortcut = create_shortcut(normalized[key] or key, modifier)
 		local handler = self:create_action(function(info) self:handle_shortcut(shortcut, info) end)
-		self:add_key_binding(binding, 'menu-binding-' .. binding, handler, flags)
+		self:add_key_binding(binding, {handler, flags})
 	end
 
 	for i, key_mods in ipairs(standalone_keys) do
@@ -1147,22 +1130,8 @@ function Menu:handle_shortcut(shortcut, info)
 	end
 end
 
-function Menu:disable_key_bindings()
-	self:search_disable_key_bindings()
-	for _, name in ipairs(self.key_bindings) do mp.remove_key_binding(name) end
-	self.key_bindings = {}
-end
-
 -- Check if menu is not closed or closing.
-function Menu:is_alive() return not self.is_closing and not self.is_closed end
-
--- Wraps a function so that it won't run if menu is closing or closed.
----@param fn function()
-function Menu:create_action(fn)
-	return function(...)
-		if self:is_alive() then fn(...) end
-	end
-end
+function Menu:is_alive() return not self.is_closing and not self.destroyed end
 
 ---@param name string
 function Menu:create_key_handler(name)
@@ -1343,41 +1312,45 @@ function Menu:render()
 				for i = 1, #actions, 1 do
 					local action_index = #actions - (i - 1)
 					local action = actions[action_index]
-					local is_active = action_index == menu.action_index
-					local bx = actions_rect.ax - (i == 1 and 0 or margin)
-					local rect = {
-						ay = actions_rect.ay,
-						by = actions_rect.by,
-						ax = bx - size,
-						bx = bx,
-					}
-					actions_rect.ax = rect.ax
 
-					ass:rect(rect.ax, rect.ay, rect.bx, rect.by, {
-						radius = state.radius > 2 and state.radius - 1 or state.radius,
-						color = is_active and fg or bg,
-						border = is_active and self.gap or nil,
-						border_color = bg,
-						opacity = menu_opacity,
-						clip = item_clip,
-					})
-					ass:icon(rect.ax + size / 2, rect.ay + size / 2, size * 0.66, action.icon, {
-						color = is_active and bg or fg, opacity = menu_opacity, clip = item_clip,
-					})
+					-- Hide when the action shouldn't be displayed when the item is a result of a search/filter
+					if not (action.filter_hidden and menu.search) then
+						local is_active = action_index == menu.action_index
+						local bx = actions_rect.ax - (i == 1 and 0 or margin)
+						local rect = {
+							ay = actions_rect.ay,
+							by = actions_rect.by,
+							ax = bx - size,
+							bx = bx,
+						}
+						actions_rect.ax = rect.ax
 
-					-- Re-use rect as a hitbox by growing it so it bridges gaps to prevent flickering
-					rect.ay, rect.by, rect.bx = item_ay, item_ay + self.scroll_step, rect.bx + margin
+						ass:rect(rect.ax, rect.ay, rect.bx, rect.by, {
+							radius = state.radius > 2 and state.radius - 1 or state.radius,
+							color = is_active and fg or bg,
+							border = is_active and self.gap or nil,
+							border_color = bg,
+							opacity = menu_opacity,
+							clip = item_clip,
+						})
+						ass:icon(rect.ax + size / 2, rect.ay + size / 2, size * 0.66, action.icon, {
+							color = is_active and bg or fg, opacity = menu_opacity, clip = item_clip,
+						})
 
-					-- Select action on cursor hover
-					if self.mouse_nav and get_point_to_rectangle_proximity(cursor, rect) == 0 then
-						cursor:zone('primary_click', rect, self:create_action(function(shortcut)
-							self:activate_selected_item(shortcut, true)
-						end))
-						blur_action_index = false
-						if not is_active then
-							menu.action_index = action_index
-							selected_action = actions[action_index]
-							request_render()
+						-- Re-use rect as a hitbox by growing it so it bridges gaps to prevent flickering
+						rect.ay, rect.by, rect.bx = item_ay, item_ay + self.scroll_step, rect.bx + margin
+
+						-- Select action on cursor hover
+						if self.mouse_nav and get_point_to_rectangle_proximity(cursor, rect) == 0 then
+							cursor:zone('primary_click', rect, self:create_action(function(shortcut)
+								self:activate_selected_item(shortcut, true)
+							end))
+							blur_action_index = false
+							if not is_active then
+								menu.action_index = action_index
+								selected_action = actions[action_index]
+								request_render()
+							end
 						end
 					end
 				end

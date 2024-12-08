@@ -266,6 +266,9 @@ end
 
 -- Returns a string of UTF-8 text from the clipboard
 local function get_clipboard()
+    if mp.get_property_bool('clipboard-enable', false) then
+        return mp.get_property('clipboard/text', '')
+    end
     local res = mp.command_native({
         name = 'subprocess',
         playback_only = false,
@@ -327,13 +330,19 @@ end
 
 -- escapes a string so that it can be inserted into powershell as a string literal
 local function escape_powershell(str)
-    return '"'..string.gsub(str, '[$"`]', '`%1')..'"'
+    if not str then return '""' end
+    str = str:gsub('[$"`]', '`%1'):gsub('“', '`%1'):gsub('”', '`%1')
+    return '"'..str..'"'
 end
 
 -- sets the contents of the clipboard to the given string
 local function set_clipboard(text)
     msg.verbose('setting clipboard text:', text)
-    mp.commandv('run', 'powershell', '-NoProfile', '-command', 'set-clipboard', escape_powershell(text))
+    if mp.get_property_bool('clipboard-enable', false) then
+        mp.commandv('set', 'clipboard/text', text)
+    else
+        mp.commandv('run', 'powershell', '-NoProfile', '-command', 'set-clipboard', escape_powershell(text))
+    end
 end
 
 mp.register_script_message('import_folder', import_folder)
