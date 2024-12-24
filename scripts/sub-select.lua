@@ -198,7 +198,7 @@ end
 local function set_track(type, id)
     msg.verbose("setting", type, "to", id)
     if mp.get_property_number(type) == id then return end
-    mp.set_property(type, id)
+    mp.set_property('file-local-options/'..type, id)
 end
 
 --checks if the given audio matches the given track preference
@@ -393,14 +393,6 @@ local function read_track_list()
         end
     end
 end
-
-local function reset_track_ids()
-    if not continue_script() then return end
-    mp.set_property('sid', 'auto')
-    if o.select_audio then mp.set_property('aid', 'auto') end
-end
-
-mp.register_event("end-file", reset_track_ids)
 
 --setup the audio and subtitle track lists when a new file is loaded
 mp.add_hook('on_preloaded', 25, read_track_list)

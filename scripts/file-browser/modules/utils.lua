@@ -245,24 +245,24 @@ end
 
 -- Takes a directory string and resolves any directory mappings,
 -- returning the resolved directory.
-function fb_utils.resolve_directory_mapping(directory)
-    if not directory then return directory end
+function fb_utils.resolve_directory_mapping(path)
+    if not path then return path end
 
     for mapping, target in pairs(g.directory_mappings) do
-        local start, finish  = string.find(directory, mapping)
+        local start, finish = string.find(path, mapping)
         if start then
-            msg.debug('mapping', mapping, 'found for directory', directory, 'changing to', target)
+            msg.debug('mapping', mapping, 'found for', path, 'changing to', target)
 
             -- if the mapping is an exact match then return the target as is
-            if finish == #directory then return target end
+            if finish == #path then return target end
 
             -- else make sure the path is correctly formatted
             target = fb_utils.fix_path(target, true)
-            return string.gsub(directory, mapping, target)
+            return string.gsub(path, mapping, target)
         end
     end
 
-    return directory
+    return path
 end
 
 --removes items and folders from the list

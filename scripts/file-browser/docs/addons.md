@@ -486,7 +486,7 @@ pattern. Any part of an input path that matches the pattern will be substituted 
 the `directory` string.
 
 ```lua
-fb.register_directory_mapping('/dev/dvd', '^dvd://.*')
+fb.register_directory_mapping('/dev/dvd', '^dvd://.*', true)
 fb.resolve_directory_mapping('dvd://1') -- /dev/dvd
 ```
 
@@ -760,9 +760,9 @@ which treats paths with network protocols as absolute paths.
 
 Returns `str` with Lua special pattern characters escaped.
 
-#### `fb_utils.resolve_directory_mapping(directory: string): string`
+#### `fb_utils.resolve_directory_mapping(path: string): string`
 
-Takes a `directory` string and resolves any
+Takes a `path` string and resolves any
 [directory mappings](#fbregister_directory_mappingdirectory-string--nil-mapping-string-pattern-bool-void),
 replacing any substrings that match a mapping with the associated directory.
 
