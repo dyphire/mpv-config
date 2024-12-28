@@ -1,6 +1,7 @@
 [
   {
     "git":"https://github.com/po5/evafast",
+    "branch":"rewrite",
     "whitelist":"%.lua$",
     "dest":"~~/scripts"
   },
