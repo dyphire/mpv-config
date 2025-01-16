@@ -93,10 +93,22 @@ function fb_utils.coroutine.assert(err)
     return co
 end
 
---creates a callback fuction to resume the current coroutine
-function fb_utils.coroutine.callback()
+-- Creates a callback function to resume the current coroutine with the given time limit.
+-- If the time limit expires the coroutine will be resumed. The first return value will be true
+-- if the callback was resumed within the time limit and false otherwise.
+-- If time_limit is falsy then there will be no time limit and there will be no additional return value.
+function fb_utils.coroutine.callback(time_limit)
     local co = fb_utils.coroutine.assert("cannot create a coroutine callback for the main thread")
+    local timer = time_limit and mp.add_timeout(time_limit, function ()
+            msg.debug("time limit on callback expired")
+            fb_utils.coroutine.resume_err(co, false)
+        end)
     return function(...)
+        if timer then
+            if not timer:is_enabled() then return
+            else timer:kill() end
+            return fb_utils.coroutine.resume_err(co, true, ...)
+        end
         return fb_utils.coroutine.resume_err(co, ...)
     end
 end
@@ -188,6 +200,12 @@ function fb_utils.join_path(working, relative)
     return fb_utils.get_protocol(relative) and relative or utils.join_path(working, relative)
 end
 
+--converts the given path into an absolute path and normalises it using fb_utils.fix_path
+function fb_utils.absolute_path(path)
+    local absolute_path = fb_utils.join_path(mp.get_property('working-directory', ''), path)
+    return fb_utils.fix_path(absolute_path)
+end
+
 --sorts the table lexicographically ignoring case and accounting for leading/non-leading zeroes
 --the number format functionality was proposed by github user twophyro, and was presumably taken
 --from here: http://notebook.kulchenko.com/algorithms/alphanumeric-natural-sorting-for-humans-in-lua
@@ -223,6 +241,28 @@ end
 --returns whether or not the item can be parsed
 function fb_utils.parseable_item(item)
     return item.type == "dir" or g.parseable_extensions[fb_utils.get_extension(item.name, "")]
+end
+
+-- Takes a directory string and resolves any directory mappings,
+-- returning the resolved directory.
+function fb_utils.resolve_directory_mapping(path)
+    if not path then return path end
+
+    for mapping, target in pairs(g.directory_mappings) do
+        local start, finish = string.find(path, mapping)
+        if start then
+            msg.debug('mapping', mapping, 'found for', path, 'changing to', target)
+
+            -- if the mapping is an exact match then return the target as is
+            if finish == #path then return target end
+
+            -- else make sure the path is correctly formatted
+            target = fb_utils.fix_path(target, true)
+            return string.gsub(path, mapping, target)
+        end
+    end
+
+    return path
 end
 
 --removes items and folders from the list
@@ -357,28 +397,19 @@ function fb_utils.copy_table(t, depth)
     return copy_table_recursive(t, {}, depth or math.huge)
 end
 
---format the item string for either single or multiple items
-local function create_item_string(base_code_fn, items, state, cmd, quoted)
-    if not items[1] then return end
-    local func = quoted and function(...) return ("%q"):format(base_code_fn(...)) end or base_code_fn
-
-    local out = {}
-    for _, item in ipairs(items) do
-        table.insert(out, func(item, state))
-    end
-
-    return table.concat(out, cmd['concat-string'] or ' ')
-end
-
 --functions to replace custom-keybind codes
 fb_utils.code_fns = {
     ["%"] = "%",
 
     f = function(item, s) return item and fb_utils.get_full_path(item, s.directory) or "" end,
     n = function(item, s) return item and (item.label or item.name) or "" end,
-    i = function(item, s) local i = fb_utils.list.indexOf(s.list, item) ; return i ~= -1 and i or 0 end,
-    j = function (item, s) return fb_utils.list.indexOf(s.list, item) ~= -1 and math.abs(fb_utils.list.indexOf( fb_utils.sort_keys(s.selection) , item)) or 0 end,
-
+    i = function(item, s)
+            local i = fb_utils.list.indexOf(s.list, item)
+            return i ~= -1 and ('%0'..math.ceil(math.log10(#s.list))..'d'):format(i) or 0
+        end,
+    j = function (item, s)
+            return fb_utils.list.indexOf(s.list, item) ~= -1 and math.abs(fb_utils.list.indexOf( fb_utils.sort_keys(s.selection) , item)) or 0
+        end,
     x = function(_, s) return #s.list or 0 end,
     p = function(_, s) return s.directory or "" end,
     q = function(_, s) return s.directory == '' and 'ROOT' or s.directory_label or s.directory or "" end,

@@ -40,12 +40,14 @@ o.included_dir = utils.parse_json(o.included_dir)
 
 local locals = {
     ['eng'] = {
-        msg1 = 'resume successfully',
-        msg2 = 'resume the last played file in current directory',
+        msg1 = 'Resume successfully',
+        msg2 = 'Resume the last played file in current directory',
+        msg3 = 'Press 1 to confirm, 0 to cancel',
     },
     ['chs'] = {
         msg1 = '成功恢复上次播放',
         msg2 = '是否恢复当前目录的上次播放文件',
+        msg3 = '按1确认，按0取消',
     }
 }
 
@@ -65,6 +67,7 @@ local pl_idx = 1
 local current_idx = 1
 local bookmark_path = nil
 local history_dir = nil
+local normalize_path = nil
 
 local wait_msg
 local on_key = false
@@ -140,8 +143,41 @@ local function tablelength(tab, val)
     return count
 end
 
-local function prompt_msg(msg, ms)
-    mp.commandv("show-text", msg, ms)
+local message_overlay = mp.create_osd_overlay('ass-events')
+local message_timer = mp.add_timeout(1, function ()
+    message_overlay:remove()
+end, true)
+
+function show_message(text, time)
+    message_timer:kill()
+    message_timer.timeout = time or 1
+    message_overlay.data = text
+    message_overlay:update()
+    message_timer:resume()
+end
+
+local function normalize(path)
+    if normalize_path ~= nil then
+        if normalize_path then
+            path = mp.command_native({"normalize-path", path})
+        else
+            local directory = mp.get_property("working-directory", "")
+            path = utils.join_path(directory, path:gsub('^%.[\\/]',''))
+            if is_windows then path = path:gsub("\\", "/") end
+        end
+        return path
+    end
+
+    normalize_path = false
+
+    local commands = mp.get_property_native("command-list", {})
+    for _, command in ipairs(commands) do
+        if command.name == "normalize-path" then
+            normalize_path = true
+            break
+        end
+    end
+    return normalize(path)
 end
 
 function refresh_globals()
@@ -149,8 +185,7 @@ function refresh_globals()
     fname = mp.get_property("filename")
     pl_count = mp.get_property_number('playlist-count', 0)
     if path and not is_protocol(path) then
-        path = utils.join_path(mp.get_property('working-directory'), path)
-        if is_windows then path = path:gsub("\\", "/") end
+        path = normalize(path)
         dir = utils.split_path(path)
     else
         dir = nil
@@ -194,8 +229,8 @@ local function hash(path)
         capture_stdout = true,
         playback_only = false,
     }
-    local args = nil
 
+    local args = nil
     local is_unix = package.config:sub(1,1) == "/"
     if is_unix then
         local md5 = command_exists("md5sum") or command_exists("md5") or command_exists("openssl", "md5 | cut -d ' ' -f 2")
@@ -208,7 +243,15 @@ local function hash(path)
         args = {"sh", "-c", md5 .. " | cut -d ' ' -f 1 | tr '[:lower:]' '[:upper:]'" }
     else --windows
         -- https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/get-filehash?view=powershell-7.3
-        local hash_command ="$s = [System.IO.MemoryStream]::new(); $w = [System.IO.StreamWriter]::new($s); $w.write(\"" .. path .. "\"); $w.Flush(); $s.Position = 0; Get-FileHash -Algorithm MD5 -InputStream $s | Select-Object -ExpandProperty Hash"
+        local hash_command = [[
+            $s = [System.IO.MemoryStream]::new();
+            $w = [System.IO.StreamWriter]::new($s);
+            $w.write(']] .. path .. [[');
+            $w.Flush();
+            $s.Position = 0;
+            Get-FileHash -Algorithm MD5 -InputStream $s | Select-Object -ExpandProperty Hash
+        ]]
+
         args = {"powershell", "-NoProfile", "-Command", hash_command}
     end
     cmd["args"] = args
@@ -378,7 +421,7 @@ end
 -- get the index of the wanted file playlist
 -- if there is no playlist, return nil
 local function get_playlist_idx(dst_file)
-    if (dst_file == nil) then
+    if dst_file == nil or dst_file == " " then
         return nil
     end
 
@@ -394,7 +437,7 @@ end
 
 local function jump_resume()
     mp.unregister_event(jump_resume)
-    prompt_msg(texts.msg1, 1500)
+    show_message(texts.msg1, 2)
 end
 
 local function unbind_key()
@@ -421,8 +464,8 @@ local function key_cancel()
 end
 
 local function bind_key()
-    mp.add_forced_key_binding('ENTER', 'key_jump', key_jump)
-    mp.add_forced_key_binding('ESC', 'key_cancel', key_cancel)
+    mp.add_forced_key_binding('1', 'key_jump', key_jump)
+    mp.add_forced_key_binding('0', 'key_cancel', key_cancel)
 end
 
 -- creat a .history file
@@ -431,20 +474,28 @@ local function record_history()
     refresh_globals()
     if not path or is_protocol(path) then return end
     get_bookmark_path(dir)
-    if not (fname == nil) then
+    local eof = mp.get_property_bool("eof-reached")
+    local percent_pos = mp.get_property_number("percent-pos", 0)
+    if not eof and percent_pos < 90 then
+        if fname ~= nil then
+            local file = io.open(bookmark_path, "w")
+            file:write(fname .. "\n")
+            file:close()
+        end
+    else
         local file = io.open(bookmark_path, "w")
-        file:write(fname .. "\n")
+        file:write(" " .. "\n")
         file:close()
     end
 end
 
-local timeout = 15
-local function wait4jumping()
+local timeout = 20
+local function wait_jumping()
     timeout = timeout - 1
     if timeout > 0 then
         if not on_key then
-            local msg = string.format("%s -- %s? %02d [ENTER/ESC]", wait_msg, texts.msg2, timeout)
-            prompt_msg(msg, 1000)
+            local msg = string.format("%s -- %s? (%s) %02d", wait_msg, texts.msg2, texts.msg3, timeout)
+            show_message(msg, 1)
             bind_key()
         else
             timeout = 0
@@ -517,7 +568,7 @@ local function record()
     elseif current_idx and (pl_idx ~= current_idx) then
         wait_msg = pl_idx
         msg.verbose('Last watched episode -- ' .. wait_msg)
-        wait_jump_timer = mp.add_periodic_timer(1, wait4jumping)
+        wait_jump_timer = mp.add_periodic_timer(1, wait_jumping)
     end
     timer4saving_history = mp.add_periodic_timer(o.save_period, record_history)
     mp.observe_property("pause", "bool", pause)
@@ -526,8 +577,7 @@ end
 mp.register_event('file-loaded', function()
     local path = mp.get_property("path")
     if not is_protocol(path) then
-        path = utils.join_path(mp.get_property('working-directory'), path)
-        if is_windows then path = path:gsub("\\", "/") end
+        path = normalize(path)
         directory = utils.split_path(path)
     else
         directory = nil
