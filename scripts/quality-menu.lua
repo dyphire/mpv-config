@@ -1,4 +1,4 @@
--- quality-menu 4.1.0 - 2023-Feb-17
+-- quality-menu 4.2.0 - 2024-Oct-04
 -- https://github.com/christoph-heinrich/mpv-quality-menu
 --
 -- Change the stream video and audio quality on the fly.
@@ -13,6 +13,7 @@ local utils = require 'mp.utils'
 local msg = require 'mp.msg'
 local assdraw = require 'mp.assdraw'
 local opt = require('mp.options')
+local script_name = mp.get_script_name()
 
 local opts = {
     --key bindings
@@ -20,9 +21,6 @@ local opts = {
     down_binding = 'DOWN WHEEL_DOWN',
     select_binding = 'ENTER MBTN_LEFT',
     close_menu_binding = 'ESC MBTN_RIGHT',
-
-    --youtube-dl version(could be youtube-dl or yt-dlp, or something else)
-    ytdl_ver = 'yt-dlp',
 
     --formatting / cursors
     selected_and_active     = '▶  - ',
@@ -79,9 +77,6 @@ local opts = {
     {"default" : "bestaudio/best"}
     ]
     ]],
-
-    --automatically fetch available formats when opening an url
-    fetch_on_start = true,
 
     --show the video format menu after opening an url
     start_with_menu = false,
@@ -246,7 +241,7 @@ local function reload_resume()
     -- we should provide offset from the start. Stream doesn't have fixed start.
     -- Decent choice would be to reload stream from it's current 'live' position.
     -- That's the reason we don't pass the offset when reloading streams.
-    if reload_duration and reload_duration > 0 then
+    if reload_duration and reload_duration > 0 and time_pos then
         local function seeker()
             mp.commandv('seek', time_pos, 'absolute+exact')
             mp.unregister_event(seeker)
@@ -280,15 +275,8 @@ states.audio_fetching.to_other_type = states.video_fetching
 local open_menu_state = nil
 ---@type string | nil
 local current_url = nil
----@type {[string]: table}
-local currently_fetching = {}
+---@type function | nil
 local destructor = nil
-
-local ytdl = {
-    path = opts.ytdl_ver,
-    searched = false,
-    blacklisted = {}
-}
 
 local menu_open
 local menu_close
@@ -550,109 +538,6 @@ local function process_json_string(json)
     return process_json(json_table)
 end
 
----@param url string
-local function download_formats(url)
-    if currently_fetching[url] then return end
-
-    msg.info('fetching available formats...')
-
-    if not (ytdl.searched) then
-        local ytdl_mcd = mp.find_config_file(opts.ytdl_ver)
-        if not (ytdl_mcd == nil) then
-            msg.verbose('found ytdl at: ' .. ytdl_mcd)
-            ytdl.path = ytdl_mcd
-        end
-        ytdl.searched = true
-    end
-
-    local ytdl_format = mp.get_property('ytdl-format')
-    local raw_options = mp.get_property_native('ytdl-raw-options')
-    local command = { ytdl.path, '--no-warnings', '--no-playlist', '-J' }
-    if ytdl_format and #ytdl_format > 0 then
-        command[#command + 1] = '-f'
-        command[#command + 1] = ytdl_format
-    end
-    for param, arg in pairs(raw_options) do
-        command[#command + 1] = '--' .. param
-        if #arg > 0 then
-            command[#command + 1] = arg
-        end
-    end
-    if opts.ytdl_ver == 'yt-dlp' then command[#command + 1] = '--no-match-filter' end
-    command[#command + 1] = '--'
-    command[#command + 1] = url
-
-    msg.verbose('calling ytdl with command: ' .. table.concat(command, ' '))
-
-    --- result.status is exit status
-    --- result.error_string can be empty string, 'killed' or 'init'
-    ---@param success boolean
-    ---@param result { status: integer, stdout: string, stderr: string, error_string: string , killed_by_us: boolean }
-    ---@param error string | nil
-    local function callback(success, result, error)
-        currently_fetching[url] = nil
-        if result.killed_by_us then return end
-        if result.status < 0 or result.stdout == '' or result.error_string ~= '' then
-            osd_message('fetching formats failed...', 2)
-            msg.verbose('status:', result.status)
-            msg.verbose('reason:', result.error_string)
-            msg.verbose('stdout:', result.stdout)
-            msg.verbose('stderr:', result.stderr)
-
-            -- trim our stderr to avoid spurious newlines
-            local ytdl_err = result.stderr:gsub('^%s*(.-)%s*$', '%1')
-            msg.error(ytdl_err)
-            local err = 'ytdl failed: '
-            if result.error_string and result.error_string == 'init' then
-                err = err .. 'not found or not enough permissions'
-            elseif not result.killed_by_us then
-                err = err .. 'unexpected error occurred'
-            else
-                err = string.format('%s returned "%d"', err, result.status)
-            end
-            msg.error(err)
-            if string.find(ytdl_err, 'yt%-dl%.org/bug') then
-                -- check version
-                local version_command = {
-                    name = 'subprocess',
-                    capture_stdout = true,
-                    args = { ytdl.path, '--version' }
-                }
-                local version_string = mp.command_native(version_command).stdout
-                local year, month, day = string.match(version_string, '(%d+).(%d+).(%d+)')
-
-                -- sanity check
-                if (tonumber(year) < 2000) or (tonumber(month) > 12) or
-                    (tonumber(day) > 31) then
-                    return
-                end
-                local version_ts = os.time { year = year, month = month, day = day }
-                if (os.difftime(os.time(), version_ts) > 60 * 60 * 24 * 90) then
-                    msg.warn('It appears that your ytdl version is severely out of date.')
-                end
-            end
-            return
-        end
-
-        msg.verbose('ytdl succeeded!')
-        local data = process_json_string(result.stdout)
-        url_data[url] = data
-        uosc_set_format_counts()
-
-        if not data then return end
-        if open_menu_state and open_menu_state == open_menu_state.to_fetching and url == current_url then
-            menu_open(open_menu_state)
-        end
-    end
-
-    currently_fetching[url] = mp.command_native_async({
-        name = 'subprocess',
-        args = command,
-        capture_stdout = true,
-        capture_stderr = true
-    }, callback)
-end
-
 ---Unknown format falls back on highest ranked format if possible
 ---@param id string | nil
 ---@param formats Format[]
@@ -747,7 +632,7 @@ local function text_menu_open(formats, active_format, menu_type)
         local clip_top = math.floor(margin_top * height + 0.5)
         local clip_bottom = math.floor((1 - margin_bottom) * height + 0.5)
         local clipping_coordinates = '0,' .. clip_top .. ',' .. width .. ',' .. clip_bottom
-        ass:append('{\\rDefault\\q2\\clip(' .. clipping_coordinates .. ')}' .. opts.style_ass_tags)
+        ass:append('{\\rDefault\\an7\\q2\\clip(' .. clipping_coordinates .. ')}' .. opts.style_ass_tags)
 
         if #formats > 0 then
             for i, format in ipairs(formats) do
@@ -774,43 +659,20 @@ local function text_menu_open(formats, active_format, menu_type)
         draw_menu()
     end
 
-    local update_margins;
-    if utils.shared_script_property_set then
-        update_margins = function()
-            local shared_props = mp.get_property_native('shared-script-properties')
-            local val = shared_props['osc-margins']
-            if val then
-                -- formatted as '%f,%f,%f,%f' with left, right, top, bottom, each
-                -- value being the border size as ratio of the window size (0.0-1.0)
-                local vals = {}
-                for v in string.gmatch(val, '[^,]+') do
-                    vals[#vals + 1] = tonumber(v)
-                end
-                margin_top = vals[3] -- top
-                margin_bottom = vals[4] -- bottom
-            else
-                margin_top = 0
-                margin_bottom = 0
-            end
-            draw_menu()
+    local update_margins = function(_, val)
+        if not val then
+            val = mp.get_property_native('user-data/osc/margins')
         end
-        mp.observe_property('shared-script-properties', 'native', update_margins)
-    else
-        update_margins = function(_, val)
-            if not val then
-                val = mp.get_property_native('user-data/osc/margins')
-            end
-            if val then
-                margin_top = val.t
-                margin_bottom = val.b
-            else
-                margin_top = 0
-                margin_bottom = 0
-            end
-            draw_menu()
+        if val then
+            margin_top = val.t
+            margin_bottom = val.b
+        else
+            margin_top = 0
+            margin_bottom = 0
         end
-        mp.observe_property('user-data/osc/margins', 'native', update_margins)
+        draw_menu()
     end
+    mp.observe_property('user-data/osc/margins', 'native', update_margins)
 
     update_dimensions()
     update_margins()
@@ -931,7 +793,7 @@ local function uosc_menu_open(formats, active_format, menu_type)
         keep_open = true,
         on_close = {
             'script-message-to',
-            'quality_menu',
+            script_name,
             'uosc-menu-closed',
             menu_type.name,
         }
@@ -944,7 +806,7 @@ local function uosc_menu_open(formats, active_format, menu_type)
         hint = 'open menu',
         value = {
             'script-message-to',
-            'quality_menu',
+            script_name,
             menu_type.to_other_type.type .. '_formats_toggle',
         },
     }
@@ -956,7 +818,7 @@ local function uosc_menu_open(formats, active_format, menu_type)
         active = active_format == '',
         value = {
             'script-message-to',
-            'quality_menu',
+            script_name,
             menu_type.type .. '-format-set',
             current_url,
             '',
@@ -970,7 +832,7 @@ local function uosc_menu_open(formats, active_format, menu_type)
             active = format.id == active_format,
             value = {
                 'script-message-to',
-                'quality_menu',
+                script_name,
                 menu_type.type .. '-format-set',
                 current_url,
                 format.id,
@@ -1105,12 +967,12 @@ local function loading_message(menu_type)
         if open_menu_state and open_menu_state == menu_type then return end
         local menu = {
             title = menu_type.type_capitalized .. ' Formats',
-            items = { { icon = 'spinner', value = 'ignore' } },
+            items = { { icon = 'spinner', selectable = false, value = 'ignore' } },
             type = 'quality-menu-' .. menu_type.name,
             keep_open = true,
             on_close = {
                 'script-message-to',
-                'quality_menu',
+                script_name,
                 'uosc-menu-closed',
                 menu_type.name
             }
@@ -1134,7 +996,6 @@ function menu_open(menu_type)
     if not data then
         if opts.fetch_formats then
             loading_message(menu_type)
-            download_formats(current_url)
             return
         end
 
@@ -1211,12 +1072,6 @@ mp.register_event('start-file', function()
     end
 end)
 
-mp.register_event('file-loaded', function()
-    if not (opts.fetch_formats and opts.fetch_on_start) then return end
-    if not current_url or url_data[current_url] then return end
-    download_formats(current_url)
-end)
-
 -- run before ytdl_hook, which uses a priority of 10
 mp.add_hook('on_load', 9, function()
     local path = mp.get_property('path')
@@ -1274,7 +1129,7 @@ mp.register_script_message('uosc-version', function(version)
         'uosc',
         'overwrite-binding',
         'stream-quality',
-        'script-binding quality_menu/video_formats_toggle'
+        'script-binding ' .. script_name .. '/video_formats_toggle'
     )
     ---@param name string
     mp.register_script_message('uosc-menu-closed', function(name)
@@ -1286,3 +1141,36 @@ mp.register_script_message('uosc-version', function(version)
     end)
 end)
 mp.commandv('script-message-to', 'uosc', 'get-version', mp.get_script_name())
+
+mp.observe_property('user-data/mpv/ytdl/json-subprocess-result', 'native', function(_, ytdl_result)
+    if not ytdl_result then
+        -- property gets deleted in on_after_end_file hook
+        return
+    end
+
+    if not current_url then
+        osd_message('current_url is nil', 2)
+        msg.error('current_url is nil')
+        return
+    end
+
+    local json = ytdl_result.stdout
+
+    if ytdl_result.status ~= 0 or json == '' then
+        json = nil
+        osd_message('fetching formats failed...', 2)
+    elseif json then
+        ---@type Data | nil
+        local data = url_data[current_url]
+        if data == nil then
+            data = process_json_string(json)
+            url_data[current_url] = data
+            uosc_set_format_counts()
+        end
+        if not data then return end
+        if open_menu_state and open_menu_state == open_menu_state.to_fetching then
+            menu_open(open_menu_state)
+        end
+    end
+
+end)

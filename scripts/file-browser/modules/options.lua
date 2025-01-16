@@ -76,6 +76,12 @@ local o = {
     --e.g. moving up from `ftp://localhost/` will move straight to the root instead of `ftp://`
     skip_protocol_schemes = true,
 
+    --map optical device paths to their respective file paths,
+    --e.g. mapping bd:// to the value of the bluray-device property
+    map_bd_device = true,
+    map_dvd_device = true,
+    map_cdda_device = true,
+
     --allows custom icons be set for the folder and cursor
     --the `\h` character is a hard space to add padding between the symbol and the text
     folder_icon = [[{\p1}m 6.52 0 l 1.63 0 b 0.73 0 0.01 0.73 0.01 1.63 l 0 11.41 b 0 12.32 0.73 13.05 1.63 13.05 l 14.68 13.05 b 15.58 13.05 16.31 12.32 16.31 11.41 l 16.31 3.26 b 16.31 2.36 15.58 1.63 14.68 1.63 l 8.15 1.63{\p0}\h]],
@@ -97,7 +103,7 @@ local o = {
 
     --Set the current open status of the browser in the `file_browser-open` field of the `shared-script-properties` property.
     --This property is deprecated. When it is removed in mpv v0.37 file-browser will automatically ignore this option.
-    set_shared_script_properties = true,
+    set_shared_script_properties = false,
 
     --force file-browser to use a specific text alignment (default: top-left)
     --uses ass tag alignment numbers: https://aegi.vmoe.info/docs/3.0/ASS_Tags/#index23h3

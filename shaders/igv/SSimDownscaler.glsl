@@ -151,7 +151,7 @@ vec4 hook() {
 
     float Sl = Luma(max(avg[1] - avg[0] * avg[0], 0.));
     float Sh = Luma(max(avg[2] - avg[0] * avg[0], 0.));
-    return vec4(avg[0], mix(sqrt((Sh + sigma_nsq) / (Sl + sigma_nsq)) * (1. + oversharp), clamp(Sh / Sl, 0., 1.), int(Sl > Sh)));
+    return vec4(avg[0], mix(sqrt((Sh + sigma_nsq) / (Sl + sigma_nsq)) * (1. + oversharp), clamp(Sh / Sl, 0., 1.), float(Sl > Sh)));
 }
 
 //!HOOK POSTKERNEL

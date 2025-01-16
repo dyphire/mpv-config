@@ -18,7 +18,6 @@ function root_parser:parse()
     return g.root, {
         sorted = true,
         filtered = true,
-        escaped = true,
     }
 end
 

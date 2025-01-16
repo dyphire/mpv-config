@@ -1,5 +1,5 @@
 --[[
-    * track-list.lua v.2024-04-18
+    * track-list.lua v.2024-11-11
     *
     * AUTHORS: dyphire
     * License: MIT
@@ -35,7 +35,7 @@ local o = {
     selected_style = [[{\c&Hfce788&}]],
     active_style = [[{\c&H33ff66&}]],
     cursor = [[➤\h]],
-    indent = [[\h\h\h\h]],
+    indent = [[\h\h\h]],
     --amount of entries to show before slicing. Optimal value depends on font/video size etc.
     num_entries = 16,
     --slice long filenames, and how many chars to show
@@ -50,7 +50,7 @@ local o = {
     key_scroll_down = "DOWN WHEEL_DOWN",
     key_scroll_up = "UP WHEEL_UP",
     key_select_track = "ENTER MBTN_LEFT",
-    key_reload_track = "R r MBTN_MID",
+    key_reload_track = "F5 MBTN_MID",
     key_remove_track = "DEL BS",
     key_close_browser = "ESC MBTN_RIGHT",
 }
@@ -91,29 +91,45 @@ local UTF8_PATTERN = '[%z\1-\127\194-\244][\128-\191]*'
 -- return a substring based on utf8 characters
 -- like string.sub, but negative index is not supported
 local function utf8_sub(s, i, j)
+    if i > j then
+        return s
+    end
+
     local t = {}
     local idx = 1
-    for match in s:gmatch(UTF8_PATTERN) do
-        if j and idx > j then break end
-        if idx >= i then t[#t + 1] = match end
-        idx = idx + 1
+    for char in s:gmatch(UTF8_PATTERN) do
+        if i <= idx and idx <= j then
+            local width = #char > 2 and 2 or 1
+            idx = idx + width
+            t[#t + 1] = char
+        end
     end
     return table.concat(t)
 end
 
 local function escape_codec(str)
     if not str or str == '' then return '' end
-    if str:find("mpeg2") then return "mpeg2"
-    elseif str:find("dvvideo") then return "dv"
-    elseif str:find("pcm") then return "pcm"
-    elseif str:find("pgs") then return "pgs"
-    elseif str:find("subrip") then return "srt"
-    elseif str:find("vtt") then return "vtt"
-    elseif str:find("dvd_sub") then return "vob"
-    elseif str:find("dvb_sub") then return "dvb"
-    elseif str:find("dvb_tele") then return "teletext"
-    elseif str:find("arib") then return "arib"
-    else return str end
+
+    local codec_map = {
+        mpeg2 = "mpeg2",
+        dvvideo = "dv",
+        pcm = "pcm",
+        pgs = "pgs",
+        subrip = "srt",
+        vtt = "vtt",
+        dvd_sub = "vob",
+        dvb_sub = "dvb",
+        dvb_tele = "teletext",
+        arib = "arib"
+    }
+
+    for key, value in pairs(codec_map) do
+        if str:find(key) then
+            return value
+        end
+    end
+
+    return str
 end
 
 local function isTrackSelected(index, type)
@@ -131,11 +147,17 @@ local function get_track_title(track, type, filename)
     local codec = escape_codec(track.codec)
 
     if track.external and title ~= '' then
-        if filename ~= '' then title = title:gsub(filename .. '%.?', '') end
-        if title:lower() == codec:lower() then title = '' end
+        local extension = title:match('%.([^%.]+)$')
+        if filename ~= '' and extension then
+            title = title:gsub(filename .. '%.?', ''):gsub('%.?([^%.]+)$', '')
+        end
+        if track.lang and title:lower() == track.lang:lower() then
+            title = ''
+        end
     end
-    if o.max_title_length > 0 and title:len() > o.max_title_length + 5 then
-        title = utf8_sub(title, 1, o.max_title_length) .. "..."
+    local title_clip = utf8_sub(title, 1, o.max_title_length)
+    if title ~= title_clip then
+        title = title_clip .. "..."
     end
     if title == '' then
         local name = type:sub(1, 1):upper() .. type:sub(2, #type)
@@ -166,7 +188,7 @@ local function updateTrackList(title, type, prop)
 
     local filename = propNative('filename/no-ext', ''):gsub("[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0")
     local track_type = type == 'sub2' and 'sub' or type
-    mp.observe_property("track-list/count", "number", function()
+    mp.observe_property("track-list", "native", function(_, track_list)
         mp.observe_property(prop, "native", function()
             list.list = {}
             list.list = {
@@ -177,20 +199,19 @@ local function updateTrackList(title, type, prop)
                     ass = "○ None"
                 }
             }
-        
+
             if isTrackSelected(nil, type) then
                 list.selected = 1
                 list[1].ass = "● None"
                 list[1].style = o.active_style
             end
-    
-            local track_list = propNative("track-list", {})
+
             if not track_list then return end
             for _, track in ipairs(track_list) do
                 if track.type == track_type then
                     local title = get_track_title(track, type, filename)
                     local isDisabled = isTrackDisabled(track.id, type)
-        
+
                     local listItem = {
                         id = track.id,
                         disabled = isDisabled
@@ -218,55 +239,26 @@ local function selectTrack()
     local selected = list.list[list.selected]
     if selected then
         if selected.disabled then return end
-
-        local index = selected.id
-        if index == nil then index = "no" end
-
-        if list_type == "video" then
-            mp.set_property_native("vid", index)
-        elseif list_type == "audio" then
-            mp.set_property_native("aid", index)
-        elseif list_type == "sub" then
-            mp.set_property_native("sid", index)
-        elseif list_type == "sub2" then
-            mp.set_property_native("secondary-sid", index)
-        end
+        if selected.id == nil then selected.id = "no" end
+        mp.commandv('set', list_prop, selected.id)
     end
 end
 
 local function reloadTrack()
     local selected = list.list[list.selected]
+    local track_type = list_type == 'sub2' and 'sub' or list_type
     if selected then
-        if selected.disabled then return end
-
-        local index = selected.id
-        if index == nil then return end
-
-        if list_type == "video" then
-            mp.commandv("video-reload", index)
-        elseif list_type == "audio" then
-            mp.commandv("audio-reload", index)
-        elseif list_type == "sub" then
-            mp.commandv("sub-reload", index)
-        end
+        if selected.id == nil then return end
+        mp.commandv(track_type .. "-reload", selected.id)
     end
 end
 
 local function removeTrack()
     local selected = list.list[list.selected]
+    local track_type = list_type == 'sub2' and 'sub' or list_type
     if selected then
-        if selected.disabled then return end
-
-        local index = selected.id
-        if index == nil then return end
-
-        if list_type == "video" then
-            mp.commandv("video-remove", index)
-        elseif list_type == "audio" then
-            mp.commandv("audio-remove", index)
-        elseif list_type == "sub" then
-            mp.commandv("sub-remove", index)
-        end
+        if selected.id == nil then return end
+        mp.commandv(track_type .. "-remove", selected.id)
     end
 end
 
@@ -293,27 +285,11 @@ add_keys(o.key_remove_track, 'remove_track', removeTrack, {})
 add_keys(o.key_close_browser, 'close_browser', function() list:close() end, {})
 
 function list:open()
-    if list_type == "video" then
-        video_menu = true
-        audio_menu = false
-        sub_menu = false
-        sub2_menu = false
-    elseif list_type == "audio" then
-        video_menu = false
-        audio_menu = true
-        sub_menu = false
-        sub2_menu = false
-    elseif list_type == "sub" then
-        video_menu = false
-        audio_menu = false
-        sub_menu = true
-        sub2_menu = false
-    elseif list_type == "sub2" then
-        video_menu = false
-        audio_menu = false
-        sub_menu = false
-        sub2_menu = true
-    end
+    video_menu = (list_type == "video")
+    audio_menu = (list_type == "audio")
+    sub_menu = (list_type == "sub")
+    sub2_menu = (list_type == "sub2")
+
     original_open(self)
 end
 
@@ -323,27 +299,33 @@ local function toggleListDelayed()
     end)
 end
 
-local function toggleList(type)
+local function toggleList(type, prop)
     list_type = type
+    list_prop = prop
+
+    local function toggleMenu(menu)
+        if _G[menu] then
+            _G[menu] = false
+        else
+            toggleListDelayed()
+        end
+    end
+
     if type == "video" then
-        if video_menu then video_menu = false
-        else toggleListDelayed() end
+        toggleMenu("video_menu")
     elseif type == "audio" then
-        if audio_menu then audio_menu = false
-        else toggleListDelayed() end
+        toggleMenu("audio_menu")
     elseif type == "sub" then
-        if sub_menu then sub_menu = false
-        else toggleListDelayed() end
+        toggleMenu("sub_menu")
     elseif type == "sub2" then
-        if sub2_menu then sub2_menu = false
-        else toggleListDelayed() end
+        toggleMenu("sub2_menu")
     end
 end
 
 local function openTrackList(title, type, prop)
     list:close()
     updateTrackList(title, type, prop)
-    toggleList(type)
+    toggleList(type, prop)
 end
 
 mp.register_script_message("toggle-vidtrack-browser", function()

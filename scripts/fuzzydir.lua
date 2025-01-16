@@ -257,6 +257,9 @@ function explode(raw_paths, search_path, cache)
 
     local normalized = {}
     for index, path in pairs(result) do
+        if is_windows then
+            path = path:lower()
+        end
         local normalized_path = normalize(path)
         if not contains(normalized, normalized_path) and normalized_path ~= "" then
             table.insert(normalized, normalized_path)

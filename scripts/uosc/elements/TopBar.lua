@@ -59,7 +59,7 @@ function TopBar:decide_titles()
 			longer_title, shorter_title = self.main_title, self.alt_title
 		end
 
-		local escaped_shorter_title = string.gsub(shorter_title --[[@as string]], '[%(%)%.%+%-%*%?%[%]%^%$%%]', '%%%1')
+		local escaped_shorter_title = regexp_escape(shorter_title --[[@as string]])
 		if string.match(longer_title --[[@as string]], escaped_shorter_title) then
 			self.main_title, self.alt_title = longer_title, nil
 		end
@@ -144,7 +144,7 @@ function TopBar:render()
 
 			local rect = {ax = button_ax, ay = self.ay, bx = button_ax + self.size, by = self.by}
 			local is_hover = get_point_to_rectangle_proximity(cursor, rect) == 0
-			local opacity = is_hover and 1 or 0.5
+			local opacity = is_hover and 1 or config.opacity.controls
 			local button_fg = is_hover and (button.hover_fg or bg) or fg
 			local button_bg = is_hover and (button.hover_bg or fg) or bg
 
@@ -307,17 +307,18 @@ function TopBar:render()
 				local x = align == 6 and rect.bx - padding or rect.ax + padding
 				ass:txt(x, rect.ay + height / 2, align, text, opts)
 
-				-- Click action
-				cursor:zone('primary_click', rect, function() mp.command('script-binding uosc/chapters') end)
-
 				-- Time
-				rect.ax = left_aligned and rect.ax - spacing - remaining_box_width or rect.bx + spacing
-				rect.bx = rect.ax + remaining_box_width
+				local time_ax = left_aligned and rect.ax - spacing - remaining_box_width or rect.bx + spacing
+				local time_bx = time_ax + remaining_box_width
 				opts.clip = nil
-				ass:rect(rect.ax, rect.ay, rect.bx, rect.by, {
+				ass:rect(time_ax, rect.ay, time_bx, rect.by, {
 					color = bg, opacity = visibility * config.opacity.title, radius = state.radius,
 				})
-				ass:txt(rect.ax + padding_half, rect.ay + height / 2, 4, remaining_human, opts)
+				ass:txt(time_ax + padding_half, rect.ay + height / 2, 4, remaining_human, opts)
+
+				-- Click action
+				rect.bx = time_bx
+				cursor:zone('primary_click', rect, function() mp.command('script-binding uosc/chapters') end)
 
 				title_ay = rect.by + spacing
 			end

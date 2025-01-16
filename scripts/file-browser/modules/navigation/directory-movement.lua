@@ -1,13 +1,36 @@
 
+local mp = require 'mp'
 local msg = require 'mp.msg'
+local utils = require 'mp.utils'
 
 local o = require 'modules.options'
 local g = require 'modules.globals'
+local ass = require 'modules.ass'
 local cache = require 'modules.cache'
 local scanning = require 'modules.navigation.scanning'
 local fb_utils = require 'modules.utils'
 
 local directory_movement = {}
+
+function directory_movement.set_current_file(filepath)
+    --if we're in idle mode then we want to open the working directory
+    if filepath == nil then
+        g.current_file.directory = fb_utils.fix_path( mp.get_property("working-directory", ""), true)
+        g.current_file.name = nil
+        g.current_file.path = nil
+        return
+    end
+
+    local absolute_path = fb_utils.absolute_path(filepath)
+    local resolved_path = fb_utils.resolve_directory_mapping(absolute_path)
+
+    g.current_file.directory, g.current_file.name = utils.split_path(resolved_path)
+    g.current_file.original_path = absolute_path
+    g.current_file.path = resolved_path
+
+    if not g.state.hidden then ass.update_ass()
+    else g.state.flag_update = true end
+end
 
 --the base function for moving to a directory
 function directory_movement.goto_directory(directory)

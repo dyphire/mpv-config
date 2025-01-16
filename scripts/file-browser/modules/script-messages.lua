@@ -19,6 +19,8 @@ function script_messages.get_directory_contents(directory, response_str)
         if directory ~= "" then directory = fb_utils.fix_path(directory, true) end
         msg.verbose(("recieved %q from 'get-directory-contents' script message - returning result to %q"):format(directory, response_str))
 
+        directory = fb_utils.resolve_directory_mapping(directory)
+
         local list, opts = scanning.scan_directory(directory, { source = "script-message" } )
         if opts then opts.API_VERSION = g.API_VERSION end
 
