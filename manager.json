@@ -30,6 +30,16 @@
     "dest":"~~/scripts"
   },
   {
+    "git":"https://github.com/dyphire/mpv-sub-assrt",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/dyphire/mpv-sub-fastwhisper",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
     "git":"https://github.com/dyphire/chapterskip",
     "branch":"dev",
     "whitelist":"%.lua$",
