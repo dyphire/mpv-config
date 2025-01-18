@@ -6,8 +6,7 @@
 -- audio and subtitle tracks.
 -- Idea from https://github.com/siikamiika/scripts/blob/master/mpv%20scripts/dualaudiofix.lua
 
-local msg = require 'mp.msg'
-local options = require 'mp.options'
+local opt = require 'mp.options'
 local utils = require 'mp.utils'
 
 local defaults = {
@@ -74,8 +73,7 @@ local tracks = {}
 local last = {}
 local fingerprint = ""
 
-mp.options = require "mp.options"
-mp.options.read_options(options, "trackselect")
+opt.read_options(options, _, function() end)
 
 options.special_protocols = utils.parse_json(options.special_protocols)
 

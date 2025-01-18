@@ -1,10 +1,14 @@
 
 --[[
 
+    https://github.com/stax76/mpv-scripts
+
     This script instantly deletes the file that is currently playing
-    via keyboard shortcut, the file is moved to the recycle bin.
+    via keyboard shortcut, the file is moved to the recycle bin and
+    removed from the playlist.
 
     On Linux the app trash-cli must be installed first.
+    On Ubuntu: sudo apt install trash-cli
 
     Usage:
     Add bindings to input.conf:
@@ -27,15 +31,29 @@
 
 key_bindings = {}
 
+function file_exists(name)
+    if not name or name == '' then
+        return false
+    end
+
+    local f = io.open(name, "r")
+
+    if f ~= nil then
+        io.close(f)
+        return true
+    else
+        return false
+    end
+end
+
 function is_protocol(path)
-    return type(path) == 'string' and (path:find('^%a[%w.+-]-://') ~= nil or path:find('^%a[%w.+-]-:%?') ~= nil)
+    return type(path) == 'string' and (path:match('^%a[%a%d_-]+://'))
 end
 
 function delete_file(path)
     local is_windows = package.config:sub(1,1) == "\\"
 
-    if not path or is_protocol(path) then
-        mp.commandv("show-text", "no file to delete")
+    if is_protocol(path) or not file_exists(path) then
         return
     end
 
@@ -60,7 +78,6 @@ function delete_file(path)
         mp.command_native({
             name = "subprocess",
             playback_only = false,
-            detach = true,
             args = { 'trash', path },
         })
     end
@@ -72,13 +89,16 @@ function remove_current_file()
     local new_pos = 0
 
     if pos == count - 1 then
-        new_pos = -1
+        new_pos = pos - 1
     else
         new_pos = pos + 1
     end
 
     mp.set_property_number("playlist-pos", new_pos)
-    if pos >= 0 then mp.command("playlist-remove " .. pos) end
+
+    if pos > -1 then
+        mp.command("playlist-remove " .. pos)
+    end
 end
 
 function handle_confirm_key()
@@ -86,8 +106,8 @@ function handle_confirm_key()
 
     if file_to_delete == path then
         mp.commandv("show-text", "")
-        remove_current_file()
         delete_file(file_to_delete)
+        remove_current_file()
         remove_bindings()
         file_to_delete = ""
     end
@@ -133,9 +153,10 @@ end
 
 function client_message(event)
     local path = mp.get_property("path")
+
     if event.args[1] == "delete-file" and #event.args == 1 then
-        remove_current_file()
         delete_file(path)
+        remove_current_file()
     elseif event.args[1] == "delete-file" and #event.args == 3 and #key_bindings == 0 then
         confirm_key = event.args[2]
         mp.add_timeout(10, cleanup)

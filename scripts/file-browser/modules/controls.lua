@@ -79,7 +79,7 @@ function controls.browse_directory(directory)
     if directory ~= "" then directory = fb_utils.fix_path(directory, true) end
     msg.verbose('recieved directory from script message: '..directory)
 
-    if directory == "dvd://" then directory = g.dvd_device end
+    directory = fb_utils.resolve_directory_mapping(directory)
     movement.goto_directory(directory)
     controls.open()
 end

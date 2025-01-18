@@ -124,13 +124,6 @@ local function update_list(moving_adjacent)
     g.state.list = list
     g.state.parser = opts.parser
 
-    --this only matters when displaying the list on the screen, so it doesn't need to be in the scan function
-    if not opts.escaped then
-        for i = 1, #list do
-            list[i].ass = list[i].ass or fb_utils.ass_escape(list[i].label or list[i].name, true)
-        end
-    end
-
     --setting custom options from parsers
     g.state.directory_label = opts.directory_label
     g.state.empty_text = opts.empty_text or g.state.empty_text
