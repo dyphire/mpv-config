@@ -1,5 +1,6 @@
 local utils = require("mp.utils")
 local options = require("mp.options")
+local input_available, input = pcall(require, "mp.input")
 
 local o = {
     enabled = true,
@@ -8,20 +9,35 @@ local o = {
     length = 10,
     width = 88,
     ignore_same_series = true,
+    reduce_io = false,
 }
 options.read_options(o, _, function() end)
 
 local path = mp.command_native({ "expand-path", o.path })
+
+local uosc_available = false
+local command_palette_available = false
+
 local is_windows = package.config:sub(1, 1) == "\\" -- detect path separator, windows uses backslashes
 
 local menu = {
     type = 'recent_menu',
     title = o.title,
     items = {},
+    item_actions = {
+        {
+            name = 'remove',
+            icon = "delete",
+            label = "Remove (del)",
+        }
+    },
+    item_actions_place = "outside",
+    callback = { mp.get_script_name(), "uosc-callback" }
 }
 
 local dyn_menu = {
     ready = false,
+    script_name = 'dyn_menu',
     type = 'submenu',
     submenu = {}
 }
@@ -156,6 +172,30 @@ function is_protocol(path)
     return type(path) == 'string' and (path:find('^%a[%w.+-]-://') ~= nil or path:find('^%a[%w.+-]-:%?') ~= nil)
 end
 
+function normalize(path)
+    if normalize_path ~= nil then
+        if normalize_path then
+            path = mp.command_native({"normalize-path", path})
+        else
+            local directory = mp.get_property("working-directory", "")
+            path = utils.join_path(directory, path:gsub('^%.[\\/]',''))
+            if is_windows then path = path:gsub("\\", "/") end
+        end
+        return path
+    end
+
+    normalize_path = false
+
+    local commands = mp.get_property_native("command-list", {})
+    for _, command in ipairs(commands) do
+        if command.name == "normalize-path" then
+            normalize_path = true
+            break
+        end
+    end
+    return normalize(path)
+end
+
 function is_same_series(path1, path2)
     if not o.ignore_same_series then
         return false
@@ -215,7 +255,10 @@ function remove_deleted()
     end
 end
 
-function read_json()
+function read_json(force)
+    if o.reduce_io and not force then
+        return
+    end
     local meta, meta_error = utils.file_info(path)
     if not meta or not meta.is_file then
         menu.items = {}
@@ -235,7 +278,10 @@ function read_json()
     remove_deleted()
 end
 
-function write_json()
+function write_json(force)
+    if o.reduce_io and not force then
+        return
+    end
     local json_file = io.open(path, "w")
     if not json_file then return end
 
@@ -249,8 +295,18 @@ function write_json()
     end
 end
 
-function append_item(path, filename, title)
-    local new_items = { { title = filename, hint = title, value = { "loadfile", path } } }
+function clip_uosc_menu_item(menu)
+    local menu_items = {}
+    for _, item in ipairs(menu.items) do
+        item.title = utf8_substring(item.title, 1, o.width)
+        table.insert(menu_items, item)
+    end
+    menu.items = menu_items
+    return menu
+end
+
+function append_item(path, title, hint)
+    local new_items = { { title = title, hint = hint, value = { "loadfile", path } } }
     read_json()
     for index, value in ipairs(menu.items) do
         local opath = value.value[2]
@@ -265,26 +321,53 @@ function append_item(path, filename, title)
     write_json()
 end
 
-function open_menu()
-    read_json()
-    local json = utils.format_json(menu)
+function remove_item(index)
+    table.remove(menu.items, index)
+    local json = utils.format_json(clip_uosc_menu_item(menu))
+    mp.commandv('script-message-to', 'uosc', 'update-menu', json)
+    write_json()
+end
+
+function open_menu_uosc()
+    local json = utils.format_json(clip_uosc_menu_item(menu))
     mp.commandv('script-message-to', 'uosc', 'open-menu', json)
 end
 
-function get_dyn_menu_title(title, hint, path)
-    if is_protocol(path) then
-        local protocol = path:match("^(%a[%w.+-]-)://")
-        hint = protocol
+function open_menu_command_palette()
+    local json = utils.format_json(menu)
+    mp.commandv('script-message-to',
+        'command_palette',
+        'show-command-palette-json', json)
+end
+
+function open_menu_select()
+    local item_titles, item_values = {}, {}
+    for i, v in ipairs(menu.items) do
+        item_titles[i] = v.title
+        item_values[i] = v.value
+    end
+    mp.commandv('script-message-to', 'console', 'disable')
+    input.select({
+        prompt = menu.title .. ':',
+        items = item_titles,
+        submit = function(id)
+            mp.commandv(unpack(item_values[id]))
+        end,
+    })
+end
+
+function open_menu()
+    read_json()
+    if uosc_available then
+        open_menu_uosc()
+    elseif command_palette_available then
+        open_menu_command_palette()
+    elseif input_available then
+        open_menu_select()
+        return
     else
-        local dir, filename, extension = split_path(path)
-        title = filename
-        hint = extension
+        mp.msg.warn("No menu providers available")
     end
-    local title_clip = utf8_substring(title, 1, o.width)
-    if title ~= title_clip then
-        title = utf8_substring(title_clip, 1, o.width - 2) .. "..."
-    end
-    return string.format('%s\t%s', title, hint:upper())
 end
 
 function update_dyn_menu_items()
@@ -295,12 +378,12 @@ function update_dyn_menu_items()
     local menu_items = menu.items
     for _, item in ipairs(menu_items) do
         submenu[#submenu + 1] = {
-            title = get_dyn_menu_title(item.title, item.hint, item.value[2]),
-            cmd = string.format("%s '%s'", item.value[1], item.value[2]),
+            title = string.format("%s\t%s", utf8_substring(item.title, 1, o.width), item.hint),
+            cmd = string.format("%s \"%s\"", item.value[1], item.value[2]:gsub("\\", "\\\\")),
         }
     end
     dyn_menu.submenu = submenu
-    mp.commandv('script-message-to', 'dyn_menu', 'update', 'recent', utils.format_json(dyn_menu))
+    mp.commandv('script-message-to', dyn_menu.script_name, 'update', 'recent', utils.format_json(dyn_menu))
 end
 
 function play_last()
@@ -315,25 +398,28 @@ function on_load()
     if not o.enabled then return end
     local path = mp.get_property("path")
     if not path then return end
-    if path:match("bd://") or path:match("dvd://") or path:match("dvb://") or path:match("cdda://") then return end
-    if not is_protocol(path) and is_windows then path = path:gsub("/", "\\") end
-    local filename = mp.get_property("filename")
-    local dir, filename_without_ext, ext = split_path(filename)
-    local title = mp.get_property("media-title") or path
-    if filename == title or filename_without_ext == title then
-        title = ""
-    end
-    if is_protocol(path) and title and title ~= "" then
-        filename, title = title, filename
-    end
-    if title and title ~= "" then
-        local width
-        filename, width = utf8_substring(filename, 1, o.width * 0.618)
-        title = utf8_substring(title, 1, o.width - width)
+    if not is_protocol(path) then path = normalize(path) end
+    local dir, filename, extension = split_path(path)
+    local title = mp.get_property("media-title"):gsub('%.([^%./]+)$', '')
+    local hint = os.date("%m/%d %H:%M")
+    if is_protocol(path) then
+        local scheme = path:match("^(%a[%w.+-]-)://")
+        if scheme == "bd" or
+            scheme == "dvd" or
+            scheme == "dvb" or
+            scheme == "cdda"
+        then
+            return
+        end
+        hint = scheme .. " | " .. hint
     else
-        filename = utf8_substring(filename, 1, o.width)
+        if not title or #utf8_to_table(title) < #utf8_to_table(filename) then
+            title = filename
+        end
+        hint = extension .. " | " .. hint
     end
-    current_item = { path, filename, title }
+    hint = hint:upper()
+    current_item = { path, title, hint }
     append_item(unpack(current_item))
 end
 
@@ -352,7 +438,56 @@ mp.add_key_binding(nil, "last", play_last)
 mp.register_event("file-loaded", on_load)
 mp.register_event("end-file", on_end)
 
-mp.register_script_message('menu-ready', function()
+mp.register_script_message('open-recent-menu', function(provider)
+    if provider == nil then
+        open_menu()
+    elseif provider == "uosc" then
+        open_menu_uosc()
+    elseif provider == "command-palette" then
+        open_menu_command_palette()
+    elseif provider == "select" then
+        open_menu_select()
+    else
+        mp.msg.warn(provider .. " not available")
+    end
+end)
+
+mp.register_script_message('uosc-version', function()
+    uosc_available = true
+end)
+mp.register_script_message('uosc-callback', function(json)
+    local event = utils.parse_json(json)
+
+    if event.type == "activate" and not event.action then
+        mp.command_native(event.value)
+        mp.commandv('script-message-to', 'uosc', 'close-menu', menu.type)
+        return
+    end
+
+    if event.type == "activate" and event.action == "remove" then
+        remove_item(event.index)
+        return
+    end
+
+    if event.type == "key" and event.id == "del" then
+        remove_item(event.selected_item.index)
+        return
+    end
+end)
+
+mp.register_script_message('command-palette-version', function()
+    command_palette_available = true
+end)
+
+mp.register_script_message('menu-ready', function(script_name)
     dyn_menu.ready = true
+    dyn_menu.script_name = script_name
     update_dyn_menu_items()
 end)
+
+if o.reduce_io then
+    read_json(true)
+    mp.register_event("shutdown", function (e)
+        write_json(true)
+    end)
+end

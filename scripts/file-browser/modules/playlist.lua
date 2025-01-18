@@ -5,6 +5,7 @@
 
 local mp = require 'mp'
 local msg = require 'mp.msg'
+local utils = require 'mp.utils'
 
 local o = require 'modules.options'
 local g = require 'modules.globals'
@@ -17,9 +18,39 @@ local movement = require 'modules.navigation.directory-movement'
 
 local state = g.state
 
+-- In mpv v0.38 a new index argument was added to the loadfile command.
+-- For some crazy reason this new argument is placed before the existing options
+-- argument, breaking any scripts that used it. This function finds the correct index
+-- for the options argument using the `command-list` property.
+local function get_loadfile_options_arg_index()
+    local command_list = mp.get_property_native('command-list', {})
+    for _, command in ipairs(command_list) do
+        if command.name == 'loadfile' then
+            for i, arg in ipairs(command.args or {}) do
+                if arg.name == 'options' then
+                    return i
+                end
+            end
+        end
+    end
+
+    return 3
+end
+
+local LEGACY_LOADFILE_SYNTAX = get_loadfile_options_arg_index() == 3
+
+-- A wrapper around loadfile to handle the syntax changes introduced in mpv v0.38.
+local function legacy_loadfile_wrapper(file, flag, options)
+    if LEGACY_LOADFILE_SYNTAX then
+        return mp.command_native({"loadfile", file, flag, options})
+    else
+        return mp.command_native({"loadfile", file, flag, -1, options})
+    end
+end
+
 --adds a file to the playlist and changes the flag to `append-play` in preparation
 --for future items
-local function loadfile(file, opts)
+local function loadfile(file, opts, mpv_opts)
     if o.substitute_backslash and not fb_utils.get_protocol(file) then
         file = file:gsub("/", "\\")
     end
@@ -27,7 +58,11 @@ local function loadfile(file, opts)
     if opts.flag == "replace" then msg.verbose("Playling file", file)
     else msg.verbose("Appending", file, "to the playlist") end
 
-    if not mp.commandv("loadfile", file, opts.flag) then msg.warn(file) end
+    if mpv_opts then
+        msg.debug('Settings opts on', file, ':', utils.to_string(mpv_opts))
+    end
+
+    if not legacy_loadfile_wrapper(file, opts.flag, mpv_opts) then msg.warn(file) end
     opts.flag = "append-play"
     opts.items_appended = opts.items_appended + 1
 end
@@ -99,7 +134,7 @@ local function concurrent_loadlist_append(list, load_opts)
             if fb_utils.parseable_item(item) then
                 concurrent_loadlist_append(item._sublist, load_opts)
             else
-                loadfile(fb_utils.get_full_path(item, directory), load_opts)
+                loadfile(fb_utils.get_full_path(item, directory), load_opts, item.mpv_options)
             end
         end
     end
@@ -133,7 +168,7 @@ local function custom_loadlist_recursive(directory, load_opts, prev_dirs)
                 custom_loadlist_recursive( fb_utils.get_new_directory(item, directory) , load_opts, prev_dirs)
             else
                 local path = fb_utils.get_full_path(item, directory)
-                loadfile(path, load_opts)
+                loadfile(path, load_opts, item.mpv_options)
             end
         end
     end
@@ -181,7 +216,7 @@ local function autoload_dir(path, opts)
             local p = fb_utils.get_full_path(item)
 
             if p == path then pos = file_count
-            else loadfile( p, opts) end
+            else loadfile( p, opts, item.mpv_options) end
 
             file_count = file_count + 1
         end
@@ -202,7 +237,7 @@ local function open_item(item, opts)
         mp.commandv("audio-add", path, opts.flag == "replace" and "select" or "auto")
     else
         if opts.autoload then autoload_dir(path, opts)
-        else loadfile(path, opts) end
+        else loadfile(path, opts, item.mpv_options) end
     end
 end
 

@@ -339,6 +339,7 @@ local filePath, fileTitle, fileLength
 local seekTime = 0
 local filterName = 'all'
 local sortName
+local normalize_path = nil
 
 function starts_protocol(tab, val)
 	for index, element in ipairs(tab) do
@@ -426,6 +427,30 @@ function format_time(seconds, sep, decimals, style)
 	end
 end
 
+function normalize(path)
+    if normalize_path ~= nil then
+        if normalize_path then
+            path = mp.command_native({"normalize-path", path})
+        else
+            local directory = mp.get_property("working-directory", "")
+            path = utils.join_path(directory, path:gsub('^%.[\\/]',''))
+            if is_windows then path = path:gsub("\\", "/") end
+        end
+        return path
+    end
+
+    normalize_path = false
+
+    local commands = mp.get_property_native("command-list", {})
+    for _, command in ipairs(commands) do
+        if command.name == "normalize-path" then
+            normalize_path = true
+            break
+        end
+    end
+    return normalize(path)
+end
+
 function get_file()
 	function hex_to_char(x)
 		return string.char(tonumber(x, 16))
@@ -433,10 +458,7 @@ function get_file()
 
 	local path = mp.get_property('path')
 	if not path then return end
-	if not path:match('^%a[%a%d-_]+://') then
-		path = utils.join_path(mp.get_property('working-directory'), path)
-		if is_windows then path = path:gsub("/", "\\") end
-	end
+	if not path:match('^%a[%a%d-_]+://') then path = normalize(path) end
 	
 	local length = (mp.get_property_number('duration') or 0)
 	

@@ -1,4 +1,4 @@
-# How to Write an Addon - API v1.4.0
+# How to Write an Addon - API v1.6.0
 
 Addons provide ways for file-browser to parse non-native directory structures. This document describes how one can create their own custom addon.
 
@@ -33,21 +33,21 @@ For this reason addon authors are allowed to leave the patch number out of their
 File-browser automatically loads any lua files from the `~~/script-modules/file-browser-addons` directory as modules.
 Each addon must return either a single parser table, or an array of parser tables. Each parser object must contain the following three members:
 
-| key       | type   | arguments | returns                    | description                                                                                                |
-|-----------|--------|-----------|----------------------------|------------------------------------------------------------------------------------------------------------|
-| priority  | number | -         | -                        | a number to determine what order parsers are tested - see [here](#priority-suggestions) for suggested values |
-| version   | string | -         | -                        | the API version the parser is using - see [API Version](#api-version)                                        |
-| can_parse | method | string, parse_state_table | boolean                    | returns whether or not the given path is compatible with the parser                                        |
-| parse     | method | string, parse_state_table | list_table, opts_table | returns an array of item_tables, and a table of options to control how file_browser handles the list |
+| key       | type   | arguments                 | returns                | description                                                                                                  |
+|-----------|--------|---------------------------|------------------------|--------------------------------------------------------------------------------------------------------------|
+| priority  | number | -                         | -                      | a number to determine what order parsers are tested - see [here](#priority-suggestions) for suggested values |
+| version   | string | -                         | -                      | the API version the parser is using - see [API Version](#api-version)                                        |
+| can_parse | method | string, parse_state_table | boolean                | returns whether or not the given path is compatible with the parser                                          |
+| parse     | method | string, parse_state_table | list_table, opts_table | returns an array of item_tables, and a table of options to control how file_browser handles the list         |
 
 Additionally, each parser can optionally contain:
 
-| key           | type   | arguments | returns | description                                                                                                                                                     |
-|---------------|--------|-----------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| name          | string | -         | -       | the name of the parser used for debug messages and to create a unique id - by default uses the filename with `.lua` or `-browser.lua` removed                   |
-| keybind_name  | string | -         | -       | the name to use when setting custom keybind filters - uses the value of name by default but can be set manually so that the same keys work with multiple addons |
-| setup         | method | -         | -       | if it exists this method is automatically run after all parsers are imported and API functions are made available                                               |
-| keybinds      | table  | -         | -       | an array of keybind objects for the browser to set when loading - see [#keybinds]                                                                               |
+| key          | type   | arguments | returns | description                                                                                                                                                     |
+|--------------|--------|-----------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name         | string | -         | -       | the name of the parser used for debug messages and to create a unique id - by default uses the filename with `.lua` or `-browser.lua` removed                   |
+| keybind_name | string | -         | -       | the name to use when setting custom keybind filters - uses the value of name by default but can be set manually so that the same keys work with multiple addons |
+| setup        | method | -         | -       | if it exists this method is automatically run after all parsers are imported and API functions are made available                                               |
+| keybinds     | table  | -         | -       | an array of keybind objects for the browser to set when loading - see [#keybinds]                                                                               |
 
 All parsers are given a unique string ID based on their name. If there are collisions then numbers are appended to the end of the name until a free name is found.
 These IDs are primarily used for debug messages, though they may gain additional functionality in the future.
@@ -84,7 +84,7 @@ The first parser for which `can_parse` returns true will be selected as the pars
 
 The `parse` method will then be called on the selected parser, which is expected to return either a table of list items, or nil.
 If an empty table is returned then file-browser will treat the directory as empty, otherwise if the list_table is nil then file-browser will attempt to run `parse` on the next parser for which `can_parse` returns true.
-This continues until a parser returns a list_table, or until there are no more parsers, after which the root is loaded instead.
+This continues until a parser returns a list_table, or until there are no more parsers.
 
 The entire parse operation is run inside of a coroutine, this allows parsers to pause execution to handle asynchronous operations.
 Please read [coroutines](#coroutines) for all the details.
@@ -93,13 +93,13 @@ Please read [coroutines](#coroutines) for all the details.
 
 The `parse` and `can_parse` functions are passed a state table as its second argument, this contains the following fields.
 
-| key    | type   | description                                   |
-|--------|--------|-----------------------------------------------|
-| source | string | the source of the parse request               |
-| directory | string | the directory of the parse request - for debugging purposes |
-| already_deferred| boolean | whether or not [defer](#advanced-functions) was called during this parse, if so then file-browser will not try to query any more parsers after receiving the result - set automatically, but can be manually disabled |
-| yield  | method | a wrapper around `coroutine.yield()` - see [coroutines](#coroutines) |
-| is_coroutine_current | method | returns if the browser is waiting on the current coroutine to populate the list |
+| key                  | type    | description                                                                                                                                                                                                           |
+|----------------------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| source               | string  | the source of the parse request                                                                                                                                                                                       |
+| directory            | string  | the directory of the parse request - for debugging purposes                                                                                                                                                           |
+| already_deferred     | boolean | whether or not [defer](#advanced-functions) was called during this parse, if so then file-browser will not try to query any more parsers after receiving the result - set automatically, but can be manually disabled |
+| yield                | method  | a wrapper around `coroutine.yield()` - see [coroutines](#coroutines)                                                                                                                                                  |
+| is_coroutine_current | method  | returns if the browser is waiting on the current coroutine to populate the list                                                                                                                                       |
 
 `already_deferred` is an optimisation. If a script uses defer and still returns nil, then that means that none of the remaining parsers will be able to parse the path.
 Therefore, it is more efficient to just immediately jump to the root.
@@ -107,11 +107,11 @@ It is up to the addon author to manually disable this if their use of `defer` co
 
 Source can have the following values:
 
-| source         | description                                                     |
-|----------------|-----------------------------------------------------------------|
-| browser        | triggered by the main browser window                            |
-| loadlist       | the browser is scanning the directory to append to the playlist |
-| script-message | triggered by the `get-directory-contents` script-message        |
+| source         | description                                                                                             |
+|----------------|---------------------------------------------------------------------------------------------------------|
+| browser        | triggered by the main browser window                                                                    |
+| loadlist       | the browser is scanning the directory to append to the playlist                                         |
+| script-message | triggered by the `get-directory-contents` script-message                                                |
 | addon          | caused by an addon calling the `parse_directory` API function - note that addons can set a custom state |
 
 Note that all calls to any `parse` function during a specific parse request will be given the same parse_state table.
@@ -149,14 +149,15 @@ if the request came from a script-message, or from a loadlist command there are 
 The list array must be made up of item_tables, which contain details about each item in the directory.
 Each item has the following members:
 
-| key   | type   | required | description                                                                               |
-|-------|--------|----------|-------------------------------------------------------------------------------------------|
-| name  | string | yes      | name of the item, and the string to append after the directory when opening a file/folder |
-| type  | string | yes      | determines whether the item is a file ("file") or directory ("dir")                       |
-| label | string | no       | an alternative string to print to the screen instead of name                              |
-| ass   | string | no       | a string to print to the screen without escaping ass styling - overrides label and name   |
-| path  | string | no       | opening the item uses this full path instead of appending directory and name              |
-| redirect| bool | no       | whether path should redirect the browser when opening a directory - default yes (nil counts as true)|
+| key         | type            | required | description                                                                                                                                       |
+|-------------|-----------------|----------|---------------------------------------------------------------------------------------------------------------------------------------------------|
+| name        | string          | yes      | name of the item, and the string to append after the directory when opening a file/folder                                                         |
+| type        | string          | yes      | determines whether the item is a file ("file") or directory ("dir")                                                                               |
+| label       | string          | no       | an alternative string to print to the screen instead of name                                                                                      |
+| ass         | string          | no       | a string to print to the screen without escaping ass styling - overrides label and name                                                           |
+| path        | string          | no       | opening the item uses this full path instead of appending directory and name                                                                      |
+| redirect    | bool            | no       | whether `path` should redirect the browser when opening a directory - default yes (nil counts as true)                                            |
+| mpv_options | string or table | no       | a list of options to be sent to mpv when loading the file - can be in the form `opt1=value1,opt2=value2,...` or a table of string keys and values |
 
 File-browser expects that `type` and `name` will be set for each item, so leaving these out will probably crash the script.
 File-browser also assumes that all directories end in a `/` when appending name, and that there will be no backslashes.
@@ -184,15 +185,15 @@ end
 The options table allows scripts to better control how they are handled by file-browser.
 None of these values are required, and the opts table can even left as nil when returning.
 
-| key             | type    | description                                                                                                                               |
-|-----------------|---------|-------------------------------------------------------------------------------------------------------------------------------------------|
-| filtered        | boolean | if true file-browser will not run the standard filter() function on the list                                                              |
-| sorted          | boolean | if true file-browser will not sort the list                                                                                               |
-| directory       | string  | changes the browser directory to this - used for redirecting to other locations                                            |
-| directory_label | string  | display this label in the header instead of the actual directory - useful to display encoded paths                                        |
-| empty_text      | string  | display this text when the list is empty - can be used for error messages                                                                 |
-| selected_index  | number  | the index of the item on the list to select by default - a.k.a. the cursor position                                                       |
-| id              | number  | id of the parser that successfully returns a list - set automatically, but can be set manually to take ownership (see defer)              |
+| key             | type    | description                                                                                                                  |
+|-----------------|---------|------------------------------------------------------------------------------------------------------------------------------|
+| filtered        | boolean | if true file-browser will not run the standard filter() function on the list                                                 |
+| sorted          | boolean | if true file-browser will not sort the list                                                                                  |
+| directory       | string  | changes the browser directory to this - used for redirecting to other locations                                              |
+| directory_label | string  | display this label in the header instead of the actual directory - useful to display encoded paths                           |
+| empty_text      | string  | display this text when the list is empty - can be used for error messages                                                    |
+| selected_index  | number  | the index of the item on the list to select by default - a.k.a. the cursor position                                          |
+| id              | number  | id of the parser that successfully returns a list - set automatically, but can be set manually to take ownership (see defer) |
 
 The previous static example, but modified so that file browser does not try to filter or re-order the list:
 
@@ -218,17 +219,17 @@ This is the only situation when a parser may want to set id manually.
 
 Below is a table of suggested priority ranges:
 
-| Range  | Suggested Use                                                                                                              | Example parsers                                |
-|--------|----------------------------------------------------------------------------------------------------------------------------|------------------------------------------------|
-| 0-20   | parsers that purely modify the results of other parsers                                                                    | [m3u-fixer](m3u-browser.lua)                   |
-| 21-40  | virtual filesystems which need to link to the results of other parsers                                                     | [favourites](favourites.lua)                   |
-| 41-50  | to support specific sites or systems which can be inferred from the path                                                   |                                                |
-| 51-80  | limitted support for specific protocols which requires complex parsing to verify compatability                             | [apache](apache-browser.lua)                       |
-| 81-90  | parsers that only need to modify the results of full parsers                                                               | [home-label](home-label.lua)                   |
-| 91-100 | use for parsers which fully support a non-native protocol with absolutely no overlap                                       | [ftp](ftp-browser.lua), [m3u](m3u-browser.lua) |
-| 101-109| replacements for the native file parser or fallbacks for the full parsers                                                  | [powershell](powershell.lua)                   |
-| 110    | priority of the native file parser - don't use                                                                             |                                                |
-| 111+   | fallbacks for native parser - potentially alternatives to the default root                                                 |                                                |
+| Range   | Suggested Use                                                                                  | Example parsers                                |
+|---------|------------------------------------------------------------------------------------------------|------------------------------------------------|
+| 0-20    | parsers that purely modify the results of other parsers                                        | [m3u-fixer](m3u-browser.lua)                   |
+| 21-40   | virtual filesystems which need to link to the results of other parsers                         | [favourites](favourites.lua)                   |
+| 41-50   | to support specific sites or systems which can be inferred from the path                       |                                                |
+| 51-80   | limitted support for specific protocols which requires complex parsing to verify compatability | [apache](apache-browser.lua)                   |
+| 81-90   | parsers that only need to modify the results of full parsers                                   | [home-label](home-label.lua)                   |
+| 91-100  | use for parsers which fully support a non-native protocol with absolutely no overlap           | [ftp](ftp-browser.lua), [m3u](m3u-browser.lua) |
+| 101-109 | replacements for the native file parser or fallbacks for the full parsers                      | [powershell](powershell.lua)                   |
+| 110     | priority of the native file parser - don't use                                                 |                                                |
+| 111+    | fallbacks for native parser - potentially alternatives to the default root                     |                                                |
 
 ## Keybinds
 
@@ -329,14 +330,14 @@ allow addons to keep a record of important state values that may be changed duri
 
 The state table contains copies of the following values at the time of the key press.
 
-| key             | description                                                                              |
-|-----------------|------------------------------------------------------------------------------------------|
-| directory       | the current directory                                                                    |
-| directory_label | the current directory_label - can (and often will) be `nil`                              |
-| list            | the current list_table                                                                   |
-| selected        | index of the currently selected list item                                                |
+| key             | description                                                                                                                                           |
+|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
+| directory       | the current directory                                                                                                                                 |
+| directory_label | the current directory_label - can (and often will) be `nil`                                                                                           |
+| list            | the current list_table                                                                                                                                |
+| selected        | index of the currently selected list item                                                                                                             |
 | selection       | table of currently selected items (for multi-select) - in the form { index = true, ... } - always available even if the `multiselect` flag is not set |
-| parser          | a copy of the parser object that provided the current directory                          |
+| parser          | a copy of the parser object that provided the current directory                                                                                       |
 
 The following example shows the implementation of the `delete_files` keybind using the state values:
 
@@ -455,6 +456,43 @@ This is the equivalent of calling the `browse-directory` script-message.
 Add an item_table to the root list at the specified position. If `pos` is nil then append to the end of the root.
 `item` must be a valid item_table of `type='dir'`.
 
+#### `fb.register_directory_mapping(directory: string | nil, mapping: string, pattern?: bool): void`
+
+Creates a directory mapping for the given directory. A directory mapping is a
+one-way mapping from an external directory string, to an internal directory
+within file-browser's directory tree. It allows external paths that may not
+exist within file-browser's tree to be mapped to a location that is.
+Internally, this is used by file-browser to map the `bd://`, `dvd://`, and `cdda://`
+protocol paths to their respective device locations in the filesystem.
+
+Note that as this is still an experimental feature, the exact situations when mappings
+are resolved is subject to change. Currently, mapping occurs only when
+receiving a directory from an external source, such as the mpv `path` property,
+or the `browse-directory` script message.
+
+`directory` is a string that represents a location within file-browser's file-system.
+`mapping` is a string that will be replaced by the `directory` string if found in a path:
+
+```lua
+fb.register_directory_mapping('/dev/dvd', 'dvd://')
+fb.resolve_directory_mapping('dvd://1') -- /dev/dvd/1
+```
+
+There can only be one `directory` string associated with each unique `mapping` string,
+but multiple mappings can point to the same directory.
+If `directory` is set to `nil` then the existing mapping for `mapping` will be removed.
+If `pattern` is set to true, then `mapping` will be treated as a Lua
+pattern. Any part of an input path that matches the pattern will be substituted for
+the `directory` string.
+
+```lua
+fb.register_directory_mapping('/dev/dvd', '^dvd://.*', true)
+fb.resolve_directory_mapping('dvd://1') -- /dev/dvd
+```
+
+When `pattern` is falsy, `mapping` is equivalent to `'^'..fb.pattern_escape(mapping)`.
+Captures in the pattern may be given extra behaviour in the future.
+
 #### `fb.register_parseable_extension(ext: string): void`
 
 Register a file extension that the browser will attempt to open, like a directory - for addons which can parse files such
@@ -501,6 +539,12 @@ which hands execution back to the original coroutine upon completion.
 A wrapper around [`fb.register_root_item`](#fbregister_root_itemitem-string--item_table-priority-number-boolean)
 which uses the parser's priority value if `priority` is undefined.
 
+#### `fb.remove_all_mappings(directory: string): string[]`
+
+Removes all [directory mappings](#fbregister_directory_mappingdirectory-string--nil-mapping-string-pattern-bool-void)
+that resolve to the given `directory`. Returns a list of the `mapping` strings
+that were removed.
+
 ### Advanced Functions
 
 #### `fb.clear_cache(): void`
@@ -513,7 +557,7 @@ than the current one to ensure that their contents will be rescanned when next o
 Throws an error if it is not called from within a coroutine. Returns the currently running coroutine on success.
 The string argument can be used to throw a custom error string.
 
-#### `fb.coroutine.callback(): function`
+#### `fb.coroutine.callback(time_limit?: number): function`
 
 Creates and returns a callback function that resumes the current coroutine.
 This function is designed to help streamline asynchronous operations. The best way to explain is with an example:
@@ -543,7 +587,32 @@ to execute the operation asynchronously and takes a callback function as its sec
 Any arguments passed into the callback function (by the async function, not by you) will be passed on to the resume;
 in this case `command_native_async` passes three values into the callback, of which only the second is of interest to me.
 
-The unsaid expectation is that the programmer will yield execution before that callback returns. In this example I
+If `time_limit` is set to a number, then a boolean is passed as the first resume argument to the coroutine.
+If the callback is not run within `time_limit` seconds then the coroutine will be resumed, and the first
+argument will be `false`. If the callback is run within the time limit then the first argument will be `true`.
+
+```lua
+local function execute(args)
+    local t = mp.command_native_async({
+            name = "subprocess",
+            playback_only = false,
+            capture_stdout = true,
+            capture_stderr = true,
+            args = args
+        }, fb.coroutine.callback(10))
+
+    local success, _, cmd = coroutine.yield()
+    if not success then
+        mp.abort_async_command(t)
+        msg.error("command timed out")
+        return nil
+    end
+
+    return cmd.status == 0 and cmd.stdout or nil
+end
+```
+
+The expectation is that the programmer will yield execution before that callback returns. In this example I
 yield immediately after running the async command.
 
 If you are doing this during a parse operation you could also substitute `coroutine.yield()` with `parse_state:yield()` to abort the parse if the user changed
@@ -690,6 +759,16 @@ which treats paths with network protocols as absolute paths.
 #### `fb.pattern_escape(str: string): string`
 
 Returns `str` with Lua special pattern characters escaped.
+
+#### `fb_utils.resolve_directory_mapping(path: string): string`
+
+Takes a `path` string and resolves any
+[directory mappings](#fbregister_directory_mappingdirectory-string--nil-mapping-string-pattern-bool-void),
+replacing any substrings that match a mapping with the associated directory.
+
+Only the first valid mapping is applied, but this behaviour will likely change in
+the future. Changes to this behaviour will not consitute a major version bump so should not
+be relied upon.
 
 #### `fb.sort(list: list_table): list_table`
 

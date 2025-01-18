@@ -1,6 +1,7 @@
 local Element = require('elements/Element')
 local Button = require('elements/Button')
 local CycleButton = require('elements/CycleButton')
+local ManagedButton = require('elements/ManagedButton')
 local Speed = require('elements/Speed')
 
 -- sizing:
@@ -54,6 +55,7 @@ function Controls:init_options()
 		['loop-playlist'] = 'cycle:repeat:loop-playlist:no/inf!?' .. t('Loop playlist'),
 		['loop-file'] = 'cycle:repeat_one:loop-file:no/inf!?' .. t('Loop file'),
 		shuffle = 'toggle:shuffle:shuffle?' .. t('Shuffle'),
+		autoload = 'toggle:hdr_auto:autoload@uosc?' .. t('Autoload'),
 		fullscreen = 'cycle:crop_free:fullscreen:no/yes=fullscreen_exit!?' .. t('Fullscreen'),
 	}
 
@@ -162,6 +164,19 @@ function Controls:init_options()
 				})
 				table_assign(control, {element = element, sizing = 'static', scale = 1, ratio = 1})
 				if badge then self:register_badge_updater(badge, element) end
+			end
+		elseif kind == 'button' then
+			if #params ~= 1 then
+				mp.error(string.format(
+					'managed button needs 1 parameter, %d received: %s', #params, table.concat(params, '/')
+				))
+			else
+				local element = ManagedButton:new('control_' .. i, {
+					name = params[1],
+					render_order = self.render_order,
+					anchor_id = 'controls',
+				})
+				table_assign(control, {element = element, sizing = 'static', scale = 1, ratio = 1})
 			end
 		elseif kind == 'speed' then
 			if not Elements.speed then

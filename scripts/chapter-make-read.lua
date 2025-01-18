@@ -1,5 +1,5 @@
 --[[
-  * chapter-make-read.lua v.2024-03-24
+  * chapter-make-read.lua v.2024-10-31
   *
   * AUTHORS: dyphire
   * License: MIT
@@ -82,12 +82,9 @@ local o = {
 
 options.read_options(o)
 
-local success, input = pcall(require, 'mp.input')
-if not success then
-    -- Requires: https://github.com/CogentRedTester/mpv-user-input
-    package.path = mp.command_native({"expand-path", "~~/script-modules/?.lua;"}) .. package.path
-    user_input_module, input = pcall(require, "user-input-module")
-end
+local input_loaded, input = pcall(require, "mp.input")
+-- Requires: https://github.com/CogentRedTester/mpv-user-input
+local user_input_loaded, user_input = pcall(require, "user-input-module")
 
 local curr = nil
 local path = nil
@@ -106,22 +103,20 @@ local function is_protocol(path)
     return type(path) == 'string' and (path:find('^%a[%w.+-]-://') ~= nil or path:find('^%a[%w.+-]-:%?') ~= nil)
 end
 
-function str_decode(str)
+function url_decode(str)
     local function hex_to_char(x)
         return string.char(tonumber(x, 16))
     end
 
     if str ~= nil then
         str = str:gsub('^%a[%a%d-_]+://', '')
-        str = str:gsub('^%a[%a%d-_]+:\\?', '')
-        str = str:gsub('%%(%x%x)', hex_to_char)
+              :gsub('^%a[%a%d-_]+:\\?', '')
+              :gsub('%%(%x%x)', hex_to_char)
         if str:find('://localhost:?') then
             str = str:gsub('^.*/', '')
         end
         str = str:gsub('[\\/:%?]*', '')
         return str
-    else
-        return
     end
 end
 
@@ -160,6 +155,8 @@ local function read_chapter_table()
     local line_pos = 0
     return read_chapter(function(line)
         local h, m, s, t, n, l
+        local thin_space = string.char(0xE2, 0x80, 0x89)
+        local line = line:gsub(thin_space, " ")
         if line:match("^%d+:%d+:%d+") ~= nil then
             h, m, s = line:match("^(%d+):(%d+):(%d+[,%.]?%d+)")
             s = s:gsub(',', '.')
@@ -190,14 +187,18 @@ end
 local function refresh_globals()
     path = mp.get_property("path")
     if path then
-        dir, name_ext = utils.split_path(path)
         protocol = is_protocol(path)
+        dir = utils.split_path(path)
     end
-    if o.basename_with_ext then
-        fname = str_decode(mp.get_property("filename"))
+
+    if protocol then
+        fname = url_decode(mp.get_property("media-title"))
+    elseif o.basename_with_ext then
+        fname = mp.get_property("filename")
     else
-        fname = str_decode(mp.get_property("filename/no-ext"))
+        fname = mp.get_property("filename/no-ext")
     end
+
     all_chapters = mp.get_property_native("chapter-list")
     chapter_count = mp.get_property_number("chapter-list/count")
 end
@@ -253,8 +254,8 @@ local function hash(path)
         capture_stdout = true,
         playback_only = false,
     }
-    local args = nil
 
+    local args = nil
     local is_unix = package.config:sub(1,1) == "/"
     if is_unix then
         local md5 = command_exists("md5sum") or command_exists("md5") or command_exists("openssl", "md5 | cut -d ' ' -f 2")
@@ -267,7 +268,15 @@ local function hash(path)
         args = {"sh", "-c", md5 .. " | cut -d ' ' -f 1 | tr '[:lower:]' '[:upper:]'" }
     else --windows
         -- https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/get-filehash?view=powershell-7.3
-        local hash_command ="$s = [System.IO.MemoryStream]::new(); $w = [System.IO.StreamWriter]::new($s); $w.write(\"" .. path .. "\"); $w.Flush(); $s.Position = 0; Get-FileHash -Algorithm MD5 -InputStream $s | Select-Object -ExpandProperty Hash"
+        local hash_command = [[
+            $s = [System.IO.MemoryStream]::new();
+            $w = [System.IO.StreamWriter]::new($s);
+            $w.write(']] .. path .. [[');
+            $w.Flush();
+            $s.Position = 0;
+            Get-FileHash -Algorithm MD5 -InputStream $s | Select-Object -ExpandProperty Hash
+        ]]
+
         args = {"powershell", "-NoProfile", "-Command", hash_command}
     end
     cmd["args"] = args
@@ -303,7 +312,6 @@ local function mark_chapter(force_overwrite)
     local fpath = dir
     if protocol then
         fpath = global_chapters_dir
-        fname = str_decode(mp.get_property("media-title"))
         if o.hash then fname = get_chapter_filename(path) end
     elseif o.external_chapter_subpath ~= '' then
         fpath = utils.join_path(dir, o.external_chapter_subpath)
@@ -328,9 +336,9 @@ local function mark_chapter(force_overwrite)
     local fmeta, fmeta_error = utils.file_info(chapter_fullpath)
     if (not fmeta or not fmeta.is_file) and fpath ~= dir and not protocol then
         if o.basename_with_ext then
-            fname = str_decode(mp.get_property("filename"))
+            fname = mp.get_property("filename")
         else
-            fname = str_decode(mp.get_property("filename/no-ext"))
+            fname = mp.get_property("filename/no-ext")
         end
         chapter_filename = fname .. o.chapter_file_ext
         chapter_fullpath = utils.join_path(dir, chapter_filename)
@@ -366,13 +374,7 @@ local function mark_chapter(force_overwrite)
     msg.info("load external chapter file successful: " .. chapter_filename)
 end
 
-local function change_title_callback(user_input, err, chapter_index)
-    if user_input == nil or err ~= nil then
-        if paused then return elseif o.pause_on_input then mp.set_property_native("pause", false) end
-        msg.warn("no chapter title provided:", err)
-        return
-    end
-
+local function change_chapter_list(chapter_tltle, chapter_index)
     local chapter_list = mp.get_property_native("chapter-list")
 
     if chapter_index > mp.get_property_number("chapter-list/count") then
@@ -380,9 +382,17 @@ local function change_title_callback(user_input, err, chapter_index)
         return
     end
 
-    chapter_list[chapter_index].title = user_input
-
+    chapter_list[chapter_index].title = chapter_tltle
     mp.set_property_native("chapter-list", chapter_list)
+end
+
+local function change_title_callback(user_input, err, chapter_index)
+    if user_input == nil or err ~= nil then
+        if paused then return elseif o.pause_on_input then mp.set_property_native("pause", false) end
+        msg.warn("no chapter title provided:", err)
+        return
+    end
+    change_chapter_list(user_input, chapter_index)
     if paused then return elseif o.pause_on_input then mp.set_property_native("pause", false) end
     chapters_modified = true
 end
@@ -393,16 +403,8 @@ local function input_title(default_input, cursor_pos, chapter_index)
         default_text = default_input,
         cursor_position = cursor_pos,
         submit = function(text)
-            local chapter_list = mp.get_property_native("chapter-list")
-
-            if chapter_index > mp.get_property_number("chapter-list/count") then
-                msg.warn("can't set chapter title")
-                return
-            end
-
-            chapter_list[chapter_index].title = text
-            mp.set_property_native("chapter-list", chapter_list)
             input.terminate()
+            change_chapter_list(text, chapter_index)
         end,
         closed = function()
             if paused then return elseif o.pause_on_input then mp.set_property_native("pause", false) end
@@ -411,21 +413,21 @@ local function input_title(default_input, cursor_pos, chapter_index)
 end
 
 local function input_choice(title, chapter_index)
-    if not input and not user_input_module then
+    if not input_loaded and not user_input_loaded then
         msg.error("no mpv-user-input, can't get user input, install: https://github.com/CogentRedTester/mpv-user-input")
         return
     end
 
-    if user_input_module then
+    if input_loaded then
+        input_title(title, #title + 1, chapter_index)
+    elseif user_input_loaded then
         -- ask user for chapter title
         -- (+1 because mpv indexes from 0, lua from 1)
-        input.get_user_input(change_title_callback, {
+        user_input.get_user_input(change_title_callback, {
             request_text = "Chapter title:",
             default_input = title,
             cursor_pos = #title + 1,
         }, chapter_index)
-    elseif input then
-        input_title(title, #title + 1, chapter_index)
     end
 end
 
@@ -558,7 +560,7 @@ local function write_chapter(format, force_write)
     local file = io.open(out_path, "w")
     if file == nil then
         dir = global_chapters_dir
-        fname = str_decode(mp.get_property("media-title"))
+        fname = url_decode(mp.get_property("media-title"))
         if o.hash then fname = get_chapter_filename(path) end
         out_path = utils.join_path(dir, fname .. o.chapter_file_ext)
         file = io.open(out_path, "w")
@@ -593,8 +595,8 @@ if o.autosave then
     mp.add_hook("on_unload", 50, function() write_chapter("chp", true) end)
 end
 
-if user_input_module then
-    mp.add_hook("on_unload", 50, function() input.cancel_user_input() end)
+if user_input_loaded and not input_loaded then
+    mp.add_hook("on_unload", 50, function() user_input.cancel_user_input() end)
 end
 
 mp.register_script_message("load_chapter", function() mark_chapter(true) end)

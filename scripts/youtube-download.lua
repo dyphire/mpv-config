@@ -1254,7 +1254,7 @@ local function create_menu_data()
     return {
       type = 'yt_download_menu',
       title = locale('Download'),
-      keep_open = true,
+      keep_open = false,
       items = items
     }
 end
