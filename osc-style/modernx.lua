@@ -110,10 +110,10 @@ local language = {
 		subtitle = '字幕',
 		available = '可选',
 		track = '：',
-		playlist = '播放列表',
+		playlist = 'Playlist',
 		nolist = '无列表信息',
-		chapter = '章节',
-		nochapter = '无章节信息',
+		chapter = 'chapter',
+		nochapter = '无chapter信息',
 	},
 	['pl'] = {
 	    welcome = '{\\fs24\\1c&H0&\\1c&HFFFFFF&}Upuść plik lub łącze URL do odtworzenia.',  -- this text appears when mpv starts
@@ -872,7 +872,7 @@ function render_elements(master_ass)
 			buttontext = buttontext:gsub(':%((.?.?.?)%) unknown ', ':%(%1%)')  --gsub('%) unknown %(\'', '')
 
             local maxchars = element.layout.button.maxchars
-            -- 认为1个中文字符约等于1.5个英文字符
+            -- It is believed that 1 Chinese character is approximately equal to 1.5 English characters
             -- local charcount = buttontext:len()-  (buttontext:len()-select(2, buttontext:gsub('[^\128-\193]', '')))/1.5
             local charcount = (buttontext:len() + select(2, buttontext:gsub('[^\128-\193]', ''))*2) / 3
             if not (maxchars == nil) and (charcount > maxchars) then

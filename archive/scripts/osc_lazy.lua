@@ -73,7 +73,7 @@ local user_opts = {
     livemarkers = true,                 -- update seekbar chapter markers on duration change
     chapters_osd = true,                -- whether to show chapters OSD on next/prev
     playlist_osd = true,                -- whether to show playlist OSD on next/prev
-    chapter_fmt = "Chapter: %s",           -- chapter print format for seekbar-hover. "no" to disable
+    chapter_fmt = "Chapter: %s",        -- chapter print format for seekbar-hover. "no" to disable
 
     -- the following are the exclusive options of osc_lazy
 
