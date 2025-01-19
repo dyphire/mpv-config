@@ -112,8 +112,8 @@ local language = {
 		track = '：',
 		playlist = 'Playlist',
 		nolist = '无列表信息',
-		chapter = 'chapter',
-		nochapter = '无chapter信息',
+		chapter = '章节',
+		nochapter = '无章节信息',
 	},
 	['pl'] = {
 	    welcome = '{\\fs24\\1c&H0&\\1c&HFFFFFF&}Upuść plik lub łącze URL do odtworzenia.',  -- this text appears when mpv starts
