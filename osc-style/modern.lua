@@ -73,8 +73,8 @@ local language = {
         track = '：',
         playlist = 'Playlist',
         nolist = '无列表信息',
-        chapter = 'chapter',
-        nochapter = '无chapter信息',
+	chapter = '章节',
+	nochapter = '无章节信息',
     }
 }
 -- read options from config and command-line
