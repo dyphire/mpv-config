@@ -73,8 +73,8 @@ local language = {
         track = '：',
         playlist = '播放列表',
         nolist = '无列表信息',
-        chapter = '章节',
-        nochapter = '无章节信息',
+	chapter = '章节',
+	nochapter = '无章节信息',
     }
 }
 -- read options from config and command-line
@@ -714,7 +714,7 @@ function render_elements(master_ass)
             buttontext = buttontext:gsub(':%((.?.?.?)%) unknown ', ':%(%1%)')  --gsub('%) unknown %(\'', '')
 
             local maxchars = element.layout.button.maxchars
-            -- 认为1个中文字符约等于1.5个英文字符
+            -- It is believed that 1 Chinese character is approximately equal to 1.5 English characters
             local charcount = (buttontext:len() + select(2, buttontext:gsub('[^\128-\193]', ''))*2) / 3
             if not (maxchars == nil) and (charcount > maxchars) then
                 local limit = math.max(0, maxchars - 3)

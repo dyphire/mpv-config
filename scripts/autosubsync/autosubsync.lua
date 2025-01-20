@@ -228,7 +228,7 @@ local function extract_to_file(subtitle_track)
     }
     mp.set_osd_ass(screenx, screeny, "")
     if ret == nil or ret.status ~= 0 then
-        return notify("Unable to Extract embedded subtitles.\nPlease make sure you specify the correct path for ffmpeg in the script configuration file\nand make sure the video has embedded subtitles.", "error", 7)
+        return notify("Unable to extract embedded subtitles.\nPlease make sure you specified the correct path for ffmpeg in the script configuration file\nand make sure the video has embedded subtitles.", "error", 7)
     end
     return temp_sub_fp
 end
@@ -246,7 +246,7 @@ local function sync_subtitles(ref_sub_path)
     if not file_exists(subtitle_path) then
         return notify(
                 table.concat {
-                    "Subtitle sync failed:\nUnable to find ",
+                    "Subtitle synchronization failed:\nCannot be found ",
                     subtitle_path or "External subtitle file."
                 },
                 "error",
@@ -276,7 +276,7 @@ local function sync_subtitles(ref_sub_path)
     end
 
     if ret == nil then
-        return notify("Parsing failed or no parameters passed.", "fatal", 3)
+        return notify("Parsing failed or no arguments were passed.", "fatal", 3)
     end
 
     if ret.status == 0 then
@@ -291,7 +291,7 @@ local function sync_subtitles(ref_sub_path)
             notify("Error: Unable to add synchronized subtitles.", "error", 3)
         end
     else
-        notify(string.format("Subtitle synchronization failed.\nPlease ensure that the correct path is specified for %s in the script configuration file.\nOr the audio track extraction failed", engine_name), "error", 3)
+        notify(string.format("Subtitle synchronization failed.\nPlease ensure that the correct path is specified for %s in the script configuration file.\nOr audio track extraction failed", engine_name), "error", 3)
     end
 end
 
@@ -313,7 +313,7 @@ local function sync_to_manual_offset()
     local _, track = get_active_track('sub')
     local sub_delay = tonumber(mp.get_property("sub-delay"))
     if tonumber(sub_delay) == 0 then
-        return notify("You can't do anything without manually adjusting the axis!", "error", 7)
+        return notify("Nothing can be done without manually adjusting the time axis!", "error", 7)
     end
     local file_path = track.external and track['external-filename'] or extract_to_file(track)
     if file_path == nil then
@@ -340,14 +340,14 @@ local function sync_to_manual_offset()
         mp.commandv("sub_remove", track.id)
     end
     mp.set_property("sub-delay", 0)
-    return notify(string.format("Manual synchronization save, loading '%s'", s.filename), "info", 7)
+    return notify(string.format("Manual synchronization save and load '%s'", s.filename), "info", 7)
 end
 
 ------------------------------------------------------------
 -- Menu actions & bindings
 
 ref_selector = menu:new {
-    items = { 'Synchronize with audio', 'Synchronization with other Subtitle', 'Save current timeline', 'exit' },
+    items = { 'Sync with audio', 'Sync with other subtitles', 'Save current timeline', 'Exit' },
     last_choice = 'audio',
     pos_x = 50,
     pos_y = 50,
@@ -517,7 +517,7 @@ function track_selector:init()
     end
 
     if #self.items == 0 then
-        notify("No supported subtitle track found.", "warn", 5)
+        notify("No supported subtitle tracks found.", "warn", 5)
         return
     end
 

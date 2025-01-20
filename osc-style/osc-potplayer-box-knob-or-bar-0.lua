@@ -43,7 +43,7 @@ local user_opts = {
     seekbarkeyframes = true,    -- use keyframes when dragging the seekbar
     title = "${media-title}",   -- string compatible with property-expansion
                                 -- to be shown as OSC title
-    rjno1title = "MPV-EASY Player - ${filename}", --Used to modify the title when displaying -port x
+    rjno1title = "MPV-EASY Player - ${filename}", --used to modify the title when displaying -x"MPV-EASY Player - ${filename}", --used to modify the title when displaying -x
     tooltipborder = 1,          -- border of tooltip in bottom/topbar
     timetotal = false,          -- display total time instead of remaining time?
     timems = false,             -- display timecodes with milliseconds?
@@ -865,7 +865,7 @@ function render_elements(master_ass)
                 buttontext = element.content -- text objects
             end
 			
-	    --Match: (XXX) unknowns and replace with: (XXX). Note that XXX can only be 0-3 characters.
+	    --Match: (XXX) unknowns replaced with: (XXX), note that XXX can only be 0-3 characters
 	    buttontext = buttontext:gsub(":%((.?.?.?)%) unknown ", ":%(%1%)")  --gsub("%) unknown %(\"", "")
 
             local maxchars = element.layout.button.maxchars
@@ -1076,7 +1076,7 @@ end
 function window_controls(topbar)
     local wc_geo = {
         x = 0,
-	-- -2 Remove the 4px gap between top and border by default
+	-- -2 removes the 4px spacing between the top and border by default
         y = 30 + user_opts.barmargin -2,
         an = 1,
         w = osc_param.playresx,
@@ -1183,7 +1183,7 @@ function window_controls(topbar)
     ne = new_element("wctitle", "button")
     ne.content = function ()
         --local title = mp.command_native({"expand-text", user_opts.title})
-	--Use the rjno1title parameter in the top settings of this lua script instead of the title parameter to display the title
+	-- Use the rjno1title parameter in the top settings of this lua script to display the title instead of the title parameter
 	local title = mp.command_native({"expand-text", user_opts.rjno1title})
         -- escape ASS, and strip newlines and trailing slashes
         title = title:gsub("\\n", " "):gsub("\\$", ""):gsub("{","\\{")
@@ -1192,7 +1192,7 @@ function window_controls(topbar)
     local left_pad = 5
     local right_pad = 10
     lo = add_layout("wctitle")
-    -- -3 is used to solve the problem that the font is too low after the font is changed from 24 to 18.
+    -- -3 is used to solve the problem that the font is too low after the font is changed from 24 to 18
     lo.geometry =
         { x = titlebox_left + left_pad, y = wc_geo.y - 3 -3, an = 1,
           w = titlebox_w, h = wc_geo.h }
@@ -1281,9 +1281,9 @@ layouts["box"] = function ()
     --
     -- Title row
     --
---an=1 the center of the element is all on the center point, and the an=9 element is all on the right and below the center point
+--an is the element floats up and down according to its own centerline, when an=1, the center of the element is all on the center point, and an=9 is all on the right and below the center point
 --box upper left x coordinate posX - pos_offsetX But an=5 The coordinates of the center point of the element are the same as this coordinate, so it is also based on an=? Add or subtract the width of the element
---the y coordinate of the upper left corner of the box is posY - pos_offsetY, but the coordinate of the center point of the element with an=5 is consistent with this coordinate, so it must be based on an=? Add or subtract the height of an element
+--box y coordinates posY - pos_offsetY in the upper left corner but an=5 The coordinates of the center point of the element are the same as this coordinate, so it is also based on an=? Add or subtract the height of the element
 	local rjno1X = posX - pos_offsetX
 	local rjno1Y = posY - pos_offsetY
 
@@ -1295,7 +1295,7 @@ layouts["box"] = function ()
 --    lo = add_layout("seekbar")
 	
 --if user_opts["seekbarstyle"] ~= "knob" then   
-
+   
    new_element("bgbar1", "box")
     lo = add_layout("bgbar1")
 
@@ -1382,7 +1382,7 @@ layouts["box"] = function ()
 
 
 
---an = 1 so that the left side will be longer and then to the right, but the y-axis will be adjusted
+--an = 1 so that the left side will be longer before it will go to the right, but the y-axis will be adjusted
     lo = add_layout("tc_left")
     lo.geometry = {x = rjno1X + 10 * 2.4 * 5 + 10 * 2.4 + 110/2 - 17, y = rjno1Y + 10 * 3 + 30 / 2 + 2 +0, an = 5, w = 110, h = 20}
     lo.style = osc_styles.rjno140Buttons	
@@ -1402,13 +1402,13 @@ layouts["box"] = function ()
 	
 	
 	
---an = 9 so that the right side will only go to the left if the time becomes longer, but the y-axis will be adjusted
+--an = 9 so that the right side will be longer before it will go to the left, but the y-axis will be adjusted
     lo = add_layout("tc_right")
     lo.geometry = {x = rjno1X + 10 * 2.4 * 11 + 10 * 2.4 + 10 + 6 - 110/2 +17 , y = rjno1Y + 10 * 3 + 30 / 2 + 2 +0, an = 5, w = 110, h = 20}
     lo.style = osc_styles.rjno140Buttons	
 
 	
---an = 5 when the text is centered and displayed to the 2 side, so be sure to use 1, so that the extra text will only grow to the right
+--an = 5 when the text is centered and increases to the 2 side, so be sure to use 1, so that the extra text will only grow to the right
 	lo = add_layout("title")
     lo.geometry = {x = rjno1X + 10 * 2.4 * 12 +25  , y = rjno1Y + 10 * 3 + 30 / 2 + 2 +8 , an = 1, w = 450, h = 20}
     lo.style = osc_styles.rjno116Buttons	
@@ -1442,11 +1442,11 @@ layouts["box"] = function ()
     lo.geometry = {x = rjno1X + 10 * 110 -30*2 -5 -35, y = rjno1Y + 10 * 5.1-4, an = 5, w = 64, h = 30}
     lo.style = osc_styles.rjno120Buttons	
 
---an = 1 can only be clicked on the leftmost side of the icon
+--an = 1 The icon can only be clicked on the leftmost side
     lo = add_layout("volume")
     lo.geometry = {x = rjno1X + 10 * 110 -30*2 -2, y = rjno1Y + 10 * 5 + 11, an = 1, w = 26, h = 30}
     lo.style = osc_styles.rjno125Buttons	
---an = 1 can only be clicked on the leftmost side of the icon
+--an = 1 The icon can only be clicked on the leftmost side
     lo = add_layout("tog_fs")
     lo.geometry = {x = rjno1X + 10 * 110 -30, y = rjno1Y + 10 * 5 + 13 -1 , an = 1, w = 26, h =30 }
     lo.style = osc_styles.rjno125Buttons

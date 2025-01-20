@@ -1,5 +1,6 @@
 --[[
     Fixed video freezing caused when switching audio tracks.
+    ! Already fixed in upstream commit: https://github.com/mpv-player/mpv/commit/940854c
     available at: https://github.com/dyphire/mpv-scripts
 ]]--
 
