@@ -1,559 +1,221 @@
---Usage:
--- default keybinding: n
--- add the following to your input.conf to change the default keybinding:
--- keyname script_binding autosubsync-menu 
+--[[
+mpv dynaudnorm filter with visual feedback.
 
-local mp = require('mp')
-local utils = require('mp.utils')
-local mpopt = require('mp.options')
-local menu = require('menu')
-local sub = require('subtitle')
-local ref_selector
-local engine_selector
-local track_selector 
+Copyright 2016 Avi Halachmi ( https://github.com/avih )
+Copyright 2020 Paul B Mahol ( https://github.com/richardpl )
+Copyright 2022 dyphire      ( https://github.com/dyphire )
+License: dyphire
 
- --Config
--- Options can be changed here or in a separate config file.
--- Config path: ~/.config/mpv/script-opts/autosubsync.conf
-local config = {
--- Change the following lines if the locations of executables differ from the defaults
--- If set to empty, the path will be guessed.
-ffmpeg_path = "",
-ffsubsync_path = "",
-alass_path = "", 
+-- Source https://gist.github.com/richardpl/0c8011dc23d7ac7b7831b2e6d680114f
 
- -- Choose what tool to use. Allowed options: ffsubsync, alass, ask.
--- If set to ask, the add-on will ask to choose the tool every time.
-audio_subsync_tool = "ask",
-altsub_subsync_tool = "ask", 
+Needs mpv with very recent FFmpeg build.
 
- -- After retiming, tell mpv to forget the original subtitle track.
-unload_old_sub = true,
+Default config:
+- Enter/exit drcbox keys mode: alt+n
+- Toggle dynaudnorm without changing its values: alt+N
+- Reset dynaudnorm values: alt+ctrl+n
+ 
+--]]
+-- ------ config -------
+
+local options = {
+    language = 'eng', -- eng=English, chs=Chinese
+    start_keys_enabled = false, -- if true then choose the up/down keys wisely
+    key_toggle_bindings = "ALT+n", -- enter/exit drcbox keys mode
+    key_toggle_drcbox = "ALT+N", -- toggle dynaudnorm without changing its values
+    key_reset_drcbox = "ALT+CTRL+n", -- reset dynaudnorm values
+
+    {keys = {'2', 'w'}, option = {'framelen',     1, 10, 8000,  500,  500 } },
+    {keys = {'3', 'e'}, option = {'gausssize',    1,  3,  301,   31,   31 } },
+    {keys = {'4', 'r'}, option = {'peak',      0.01,  0,    1, 0.95, 0.95 } },
+    {keys = {'5', 't'}, option = {'maxgain',      1,  1,  100,   10,   10 } },
+    {keys = {'6', 'y'}, option = {'targetrms', 0.01,  0,    1,    0,    0 } },
+    {keys = {'7', 'u'}, option = {'coupling',     1,  0,    1,    1,    1 } },
+    {keys = {'8', 'i'}, option = {'correctdc',    1,  0,    1,    0,    0 } },
+    {keys = {'9', 'o'}, option = {'compress',   0.1,  0,   30,    0,    0 } },
 }
-mpopt.read_options(config, 'autosubsync') 
 
- local function is_empty(var)
-return var == nil or var == '' or (type(var) == 'table' and next(var) == nil)
-end 
+(require 'mp.options').read_options(options)
 
- -----string
-local function replace(str, what, with)
-if is_empty(str) then return "" end
-if is_empty(what) then return str end
-if with == nil then with = "" end
-what = string.gsub(what, "[%(%)%.%+%-%*%?%[%]%^%$%%]", "%%%1")
-with = string.gsub(with, "[%%]", "%%%%")
-return string.gsub(str, what, with)
-end 
-
- local function esc_for_title(string)
-string = string:gsub('^[%._%-%s]*', '')
-:gsub('%.%w+$', '')
-return string
-end 
-
- local function esc_for_code(trackCode)
-if trackCode:find("PGS") then trackCode = "PGS"
-elseif trackCode:find("SUBRIP") then trackCode = "SRT"
-elseif trackCode:find("VTT") then trackCode = "VTT"
-elseif trackCode:find("DVD_SUB") then trackCode = "VOB_SUB"
-elseif trackCode:find("DVB_SUB") then trackCode = "DVB_SUB"
-elseif trackCode:find("DVB_TELE") then trackCode = "TELETEXT"
-elseif trackCode:find("ARIB") then trackCode = "ARIB"
-end
-return trackCode
-end 
-
- -- Snippet borrowed from stackoverflow to get the operating system
--- originally found at: https://stackoverflow.com/a/30960054
-local os_name = (function()
-if os.getenv("HOME") == nil then
-return function()
-return "Windows"
-end
-else
-return function()
-return "*nix"
-end
-end
-end)() 
-
- local os_temp = (function()
-if os_name() == "Windows" then
-return function()
-return os.getenv('TEMP')
-end
-else
-return function()
-return '/tmp/'
-end
-end
-end)() 
-
- -- Courtesy of https://stackoverflow.com/questions/4990990/check-if-a-file-exists-with-lua
-local function file_exists(filepath)
-if not filepath then
-return false
-end
-local f = io.open(filepath, "r")
-if f ~= nil then
-io.close(f)
-return true
-else
-return false
-end
-end 
-
- local function find_executable(name)
-local os_path = os.getenv("PATH") or ""
-local fallback_path = utils.join_path("/usr/bin", name)
-local exec_path
-for path in os_path:gmatch("[^:]+") do
-exec_path = utils.join_path(path, name)
-if file_exists(exec_path) then
-return exec_path
-end
-end
-return fallback_path
-end 
-
- local function notify(message, level, duration)
-level = level or 'info'
-duration = duration or 1
-mp.msg[level](message)
-mp.osd_message(message, duration)
-end 
-
- local function subprocess(args)
-return mp.command_native {
-name = "subprocess",
-playback_only = false,
-capture_stdout = true,
-args = args
+-- Localization
+local language = {
+    ['eng'] = {
+        msg1 = 'DynAudNorm: ',
+        msg2 = 'Key-bindings: ',
+        msg3 = 'Reset: ',
+    },
+    ['chs'] = {
+        msg1 = '开/关 dynaudnorm音频处理: ',
+        msg2 = '开/关 内置键位绑定: ',
+        msg3 = '重置  dynaudnorm音频处理: ',
     }
-end 
+}
 
- local url_decode = function(url)
-local function hex_to_char(x)
-return string.char(tonumber(x, 16))
+-- apply lang opts
+local texts = language[options.language]
+
+local function get_cmd_full()
+    f = options[1].option[5]
+    g = options[2].option[5]
+    p = options[3].option[5]
+    m = options[4].option[5]
+    r = options[5].option[5]
+    n = options[6].option[5]
+    c = options[7].option[5]
+    s = options[8].option[5]
+    return 'no-osd af toggle @dynaudnorm:lavfi=[dynaudnorm=f=' ..
+        f .. ':g=' .. g .. ':p=' .. p .. ':m=' .. m .. ':r=' .. r .. ':n=' .. n .. ':c=' .. c .. ':s=' .. s .. ']'
 end
-if url ~= nil then
-url = url:gsub("^file://", "")
-url = url:gsub("+", " ")
-url = url:gsub("%%(%x%x)", hex_to_char)
-return url
-else
-return
+
+local function get_cmd(option)
+    return 'no-osd af-command dynaudnorm ' .. option[1] .. ' ' .. option[5]
 end
-end 
 
- local function get_loaded_tracks(track_type)
-local result = {}
-local track_list = mp.get_property_native('track-list')
-for _, track in pairs(track_list) do
-if track.type == track_type then
-track['external-filename'] = track.external and url_decode(track['external-filename'])
-table.insert(result, track)
+-- these two vars are used globally
+local bindings_enabled = start_keys_enabled
+local drcbox_enabled = false -- but af is not touched before the dynaudnorm is modified
+
+-- ------ OSD handling -------
+local function ass(x)
+    return x
 end
+
+local function fsize(s) -- 100 is the normal font size
+    return ass('{\\fscx' .. s .. '\\fscy' .. s .. '}')
 end
-return result
-end 
 
- local function get_active_track(track_type)
-local track_list = mp.get_property_native('track-list')
-for num, track in ipairs(track_list) do
-if track.type == track_type and track.selected == true then
-if track.external then
-track['external-filename'] = url_decode(track['external-filename'])
+local function color(c) -- c is RRGGBB
+    return ass('{\\1c&H' .. ss(c, 5, 7) .. ss(c, 3, 5) .. ss(c, 1, 3) .. '&}')
 end
-if not (track_type == 'sub' and track.id == mp.get_property_native('secondary-sid')) then
-return num, track
+
+function iff(cc, a, b) if cc then return a else return b end end
+
+function ss(s, from, to) return s:sub(from, to - 1) end
+
+local function cnorm() return color('ffffff') end -- white
+
+local function cdis() return color('909090') end -- grey
+
+local function ceq() return iff(drcbox_enabled, color('ffff90'), cdis()) end -- yellow-ish
+
+local function ckeys() return iff(bindings_enabled, color('90FF90'), cdis()) end -- green-ish
+
+local DUR_DEFAULT = 1.5 -- seconds
+local osd_timer = nil
+-- duration: seconds, or default if missing/nil, or infinite if 0 (or negative)
+local function ass_osd(msg, duration) -- empty or missing msg -> just clears the OSD
+    duration = duration or DUR_DEFAULT
+    if not msg or msg == '' then
+        msg = '{}' -- the API ignores empty string, but '{}' works to clean it up
+        duration = 0
+    end
+    mp.set_osd_ass(0, 0, msg)
+    if osd_timer then
+        osd_timer:kill()
+        osd_timer = nil
+    end
+    if duration > 0 then
+        osd_timer = mp.add_timeout(duration, ass_osd) -- ass_osd() clears without a timer
+    end
 end
+
+function round(num, numDecimalPlaces)
+    return tonumber(string.format("%." .. (numDecimalPlaces or 0) .. "f", num))
 end
+
+-- some visual messing about
+local function updateOSD()
+    local msg1 = fsize(70) .. texts.msg1 .. ceq() .. iff(drcbox_enabled, 'On', 'Off')
+        .. ' [' .. options.key_toggle_drcbox .. ']' .. cnorm()
+    local msg2 = fsize(70)
+        .. texts.msg2 .. ckeys() .. iff(bindings_enabled, 'On', 'Off')
+        .. ' [' .. options.key_toggle_bindings .. ']' .. cnorm()
+    local msg3 = fsize(70)
+        .. texts.msg3
+        .. ' [' .. options.key_reset_drcbox .. ']'
+    local msg4 = ' '
+
+    for i = 1, #options do
+        local option = options[i].option[1]
+        local value = round(options[i].option[5], 2)
+        local default = options[i].option[6]
+        local info =
+        ceq() .. fsize(50) .. option .. ' ' .. fsize(100)
+            .. iff(value ~= default and drcbox_enabled, '', cdis()) .. value .. ceq()
+            .. fsize(50) .. ckeys() .. ' [' .. options[i].keys[1] .. '/' .. options[i].keys[2] .. ']'
+            .. ceq() .. fsize(100) .. cnorm()
+
+        msg4 = msg4 .. '   ' .. info
+    end
+
+    local nlb = '\n' .. ass('{\\an1}') -- new line and "align bottom for next"
+    local msg = ass('{\\an1}') .. msg4 .. nlb .. msg3 .. nlb .. msg2 .. nlb .. msg1
+    local duration = iff(start_keys_enabled, iff(bindings_enabled and drcbox_enabled, 5, nil)
+        , iff(bindings_enabled, 0, nil))
+    ass_osd(msg, duration)
 end
-return notify(string.format("Error: No track of type '%s' was selected", track_type), "error", 3)
-end 
 
- local function remove_extension(filename)
-return filename:gsub('%.%w+$', '')
-end 
-
- local function get_extension(filename)
-return filename:match("^.+(%.%w+)$")
-end 
-
- local function startswith(str, prefix)
-return string.sub(str, 1, string.len(prefix)) == prefix
-end 
-
- local function mkfp_retimed(sub_path)
-if not startswith(sub_path, os_temp()) then
-return table.concat { remove_extension(sub_path), '_retimed', get_extension(sub_path) }
-else
-return table.concat { remove_extension(mp.get_property("path")), '_retimed', get_extension(sub_path) }
+local function update_key_binding(enable, key, name, fn)
+    if enable then
+        mp.add_forced_key_binding(key, name, fn, 'repeatable')
+    else
+        mp.remove_key_binding(name)
+    end
 end
-end 
 
- local function engine_is_set()
-local subsync_tool = ref_selector:get_subsync_tool()
-if is_empty(subsync_tool) or subsync_tool == "ask" then
-return false
-else
-return true
+local function updateAF()
+    mp.command(get_cmd_full())
 end
-end 
 
- local function extract_to_file(subtitle_track)
-local codec_ext_map = { subrip = "srt", ass = "ass" }
-local ext = codec_ext_map[subtitle_track['codec']]
-if ext == nil then
-return notify(string.format("Error: Unsupported format: %s", subtitle_track['codec']), "error", 3)
+local function updateAF_options()
+    if not drcbox_enabled then return end
+    for i = 1, #options do
+        local o = options[i].option
+        mp.command(get_cmd(o))
+    end
 end
-local temp_sub_fp = utils.join_path(os_temp(), 'autosubsync_extracted.' .. ext)
-notify("Extract embedded subtitless...", nil, 3)
-local screenx, screeny, aspect = mp.get_osd_size()
-mp.set_osd_ass(screenx, screeny, "{\\an9}● ")
-local ret = subprocess {
-config.ffmpeg_path,
-"-hide_banner",
-"-nostdin",
-"-y",
-"-loglevel", "quiet",
-"-an",
-"-vn",
-"-i", mp.get_property("path"),
-"-map", "0:" .. (subtitle_track and subtitle_track['ff-index'] or 's'),
-"-f", ext,
-temp_sub_fp
-    }
-mp.set_osd_ass(screenx, screeny, "")
-if ret == nil or ret.status ~= 0 then
-return notify("Unable to extract embedded subtitless.\nPlease make sure you specify the correct path for ffmpeg in the script configuration file\nand make sure the video has embedded subtitless.", "error", 7)
+
+local function getBind(option, delta)
+    return function() -- onKey
+        option[5] = option[5] + delta
+        if option[5] > option[4] then
+            option[5] = option[4]
+        end
+        if option[5] < option[3] then
+            option[5] = option[3]
+        end
+        updateAF_options()
+        updateOSD()
+    end
 end
-return temp_sub_fp
-end 
 
- local function sync_subtitles(ref_sub_path)
-local reference_file_path = ref_sub_path or mp.get_property("path")
-local _, sub_track = get_active_track('sub')
-if sub_track == nil then
-return
+function toggle_drcbox()
+    drcbox_enabled = not drcbox_enabled
+    updateAF()
+    updateOSD()
 end
-local subtitle_path = sub_track.external and sub_track['external-filename'] or extract_to_file(sub_track)
-local engine_name = engine_selector:get_engine_name()
-local engine_path = config[engine_name .. '_path'] 
 
- if not file_exists(subtitle_path) then
-return notify(
-table.concat {
-"Subtitle synchronization failed:\nCannot be found",
-subtitle_path or "External subtitle file."
-                },
-"error",
-                3
-        )
-end 
-
- local retimed_subtitle_path = mkfp_retimed(subtitle_path) 
-
- notify(string.format("Start %s...", engine_name), nil, 2) 
-
- local ret
-local screenx, screeny, aspect = mp.get_osd_size()
-if engine_name == "ffsubsync" then
-local args = { config.ffsubsync_path, reference_file_path, "-i", subtitle_path, "-o", retimed_subtitle_path }
-if not ref_sub_path then
-table.insert(args, '--reference-stream')
-table.insert(args, '0:' .. get_active_track('audio'))
+function reset_drcbox()
+    for i = 1, #options do
+        options[i].option[5] = options[i].option[6]
+    end
+    updateAF_options()
+    updateOSD()
 end
-mp.set_osd_ass(screenx, screeny, "{\\an9}● ")
-ret = subprocess(args)
-mp.set_osd_ass(screenx, screeny, "")
-else
-mp.set_osd_ass(screenx, screeny, "{\\an9}● ")
-ret = subprocess { config.alass_path, reference_file_path, subtitle_path, retimed_subtitle_path }
-mp.set_osd_ass(screenx, screeny, "")
-end 
 
- if ret == nil then
-return notify("Parse failed or no parameters were passed.", "fatal", 3)
-end 
-
- if ret.status == 0 then
-local old_sid = mp.get_property("sid")
-if mp.commandv("sub_add", retimed_subtitle_path) then
-notify("Subtitle synchronization.", nil, 2)
-mp.set_property("sub-delay", 0)
-if config.unload_old_sub then
-mp.commandv("sub_remove", old_sid)
+local function toggle_bindings(explicit, no_osd)
+    bindings_enabled = iff(explicit ~= nil, explicit, not bindings_enabled)
+    for i = 1, #options do
+        local keys = options[i].keys
+        local option = options[i].option[1]
+        local delta = options[i].option[2]
+        update_key_binding(bindings_enabled, options.key_toggle_drcbox, options.key_toggle_drcbox, toggle_drcbox)
+        update_key_binding(bindings_enabled, options.key_reset_drcbox, options.key_reset_drcbox, reset_drcbox)
+        update_key_binding(bindings_enabled, keys[1], 'eq' .. keys[1], getBind(options[i].option, delta)) -- up
+        update_key_binding(bindings_enabled, keys[2], 'eq' .. keys[2], getBind(options[i].option, -delta)) -- down
+    end
+    if not no_osd then updateOSD() end
 end
-else
-notify("Error: Unable to add synchronized subtitles.", "error", 3)
-end
-else
-notify(string.format("Subtitle synchronization failed.\nPlease ensure that the correct path is specified for %s in the script configuration file.\nOr the audio track extraction failed", engine_name), "error", 3)
-end
-end 
 
- local function sync_to_subtitle()
-local selected_track = track_selector:get_selected_track() 
-
- if selected_track and selected_track.external then
-sync_subtitles(selected_track['external-filename'])
-else
-local temp_sub_fp = extract_to_file(selected_track)
-if temp_sub_fp then
-sync_subtitles(temp_sub_fp)
-os.remove(temp_sub_fp)
-end
-end
-end 
-
- local function sync_to_manual_offset()
-local _, track = get_active_track('sub')
-local sub_delay = tonumber(mp.get_property("sub-delay"))
-if tonumber(sub_delay) == 0 then
-return notify("Without manual adjustment of the time axis, nothing can be done!", "error", 7)
-end
-local file_path = track.external and track['external-filename'] or extract_to_file(track)
-if file_path == nil then
-return
-end 
-
- local ext = get_extension(file_path)
-local codec_parser_map = { ass = sub.ASS, subrip = sub.SRT }
-local parser = codec_parser_map[track['codec']]
-if parser == nil then
-return notify(string.format("Error: Unsupported format: %s", track['codec']), "error", 3)
-end
-local s = parser:populate(file_path)
-s:shift_timing(sub_delay)
-if track.external == false then
-os.remove(file_path)
-s.filename = mp.get_property("filename/no-ext") .. "_manual_timing" .. ext
-else
-s.filename = remove_extension(s.filename) .. '_manual_timing' .. ext
-end
-s:save()
-mp.commandv("sub_add", s.filename)
-if config.unload_old_sub then
-mp.commandv("sub_remove", track.id)
-end
-mp.set_property("sub-delay", 0)
-return notify(string.format("Manual synchronous save, load '%s'", s.filename), "info", 7)
-end 
-
- -------------------------------------------------- ----------
--- Menu actions & bindings 
-
- ref_selector = menu:new {
-items = { 'Synchronize with audio', 'Synchronize with other subtitles', 'Save current timeline', 'Exit' },
-last_choice = 'audio',
-pos_x = 50,
-pos_y = 50,
-rect_width = 400,
-text_color = 'fff5da',
-border_color = '2f1728',
-active_color = 'ff6b71',
-inactive_color = 'fff5da',
-} 
-
- function ref_selector:get_keybindings()
-return {
-{ key = 'h', fn = function() self:close() end },
-{ key = 'j', fn = function() self:down() end },
-{ key = 'k', fn = function() self:up() end },
-{ key = 'l', fn = function() self:act() end },
-{ key = 'down', fn = function() self:down() end },
-{ key = 'up', fn = function() self:up() end },
-{ key = 'Enter', fn = function() self:act() end },
-{ key = 'ESC', fn = function() self:close() end },
-{ key = 'n', fn = function() self:close() end },
-{ key = 'WHEEL_DOWN', fn = function() self:down() end },
-{ key = 'WHEEL_UP', fn = function() self:up() end },
-{ key = 'MBTN_LEFT', fn = function() self:act() end },
-{ key = 'MBTN_RIGHT', fn = function() self:close() end },
-    }
-end 
-
- function ref_selector:new(o)
-self.__index = self
-o = o or {}
-return setmetatable(o, self)
-end 
-
- function ref_selector:get_ref()
-if self.selected == 1 then
-return 'audio'
-elseif self.selected == 2 then
-return 'sub'
-else
-return nil
-end
-end 
-
- function ref_selector:get_subsync_tool()
-if self.selected == 1 then
-return config.audio_subsync_tool
-elseif self.selected == 2 then
-return config.altsub_subsync_tool
-end
-end 
-
- function ref_selector:act()
-self:close() 
-
- if self.selected == 3 then
-return sync_to_manual_offset()
-end
-if self.selected == 4 then
-return
-end 
-
- engine_selector:init()
-end 
-
- function ref_selector:call_subsync()
-if self.selected == 1 then
-sync_subtitles()
-elseif self.selected == 2 then
-sync_to_subtitle()
-elseif self.selected == 3 then
-sync_to_manual_offset()
-end
-end 
-
- function ref_selector:open()
-self.selected = 1
-for _, val in pairs(self:get_keybindings()) do
-mp.add_forced_key_binding(val.key, val.key, val.fn)
-end
-self:draw()
-end 
-
- function ref_selector:close()
-for _, val in pairs(self:get_keybindings()) do
-mp.remove_key_binding(val.key)
-end
-self:erase()
-end 
-
-
-------------------------------------------------------------
--- Engine selector 
-
- engine_selector = ref_selector:new {
-items = { 'ffsubsync', 'alass', 'exit' },
-last_choice = 'ffsubsync',
-} 
-
- function engine_selector:init()
-if not engine_is_set() then
-engine_selector:open()
-else
-track_selector:init()
-end
-end 
-
- function engine_selector:get_engine_name()
-return engine_is_set() and ref_selector:get_subsync_tool() or self.last_choice
-end 
-
- function engine_selector:act()
-self:close() 
-
- if self.selected == 1 then
-self.last_choice = 'ffsubsync'
-elseif self.selected == 2 then
-self.last_choice = 'alass'
-elseif self.selected == 3 then
-return
-end 
-
- track_selector:init()
-end 
-
- -------------------------------------------------- ----------
--- Track selector 
-
- track_selector = ref_selector:new { } 
-
- function track_selector:init()
-self.selected = 0 
-
- if ref_selector:get_ref() == 'audio' then
-return ref_selector:call_subsync()
-end 
-
- self.all_sub_tracks = get_loaded_tracks(ref_selector:get_ref())
-self.tracks = {}
-self.items = {} 
-
- local filename = mp.get_property_native('filename/no-ext')
-for _, track in ipairs(self.all_sub_tracks) do
-local supported_format = true
-if track.external then
-local ext = get_extension(track['external-filename'])
-if ext ~= '.srt' and ext ~= '.ass' then
-supported_format = false
-end
-end 
-
- if not track.selected and supported_format then
-table.insert(self.tracks, track)
-table.insert(
-self.items,
-string.format(
-"%s #%s - %s%s%s",
-(track.external and 'External' or 'Internal'),
-track['id'],
-(track.lang or (track.title and
-esc_for_title(replace(track.title, filename, '')) or 'unknown')),
-(track.codec and '[' .. esc_for_code(track.codec:upper()) .. ']' or ''),
-(track.selected and ' (active)' or '')
-                    )
-            )
-end
-end 
-
- if #self.items == 0 then
-notify("No supported subtitle track found.", "warn", 5)
-return
-end 
-
- table.insert(self.items, "Exit")
-self:open()
-end 
-
- function track_selector:get_selected_track()
-if self.selected < 1 then
-return nil
-end
-return self.tracks[self.selected]
-end 
-
- function track_selector:act()
-self:close() 
-
- if self.selected == #self.items then
-return
-end 
-
- ref_selector:call_subsync()
-end 
-
- -------------------------------------------------- ----------
---Initialize the addon 
-
- local function init()
-for _, executable in pairs { 'ffmpeg', 'ffsubsync', 'alass' } do
-local config_key = executable .. '_path'
-config[config_key] = is_empty(config[config_key]) and find_executable(executable) or config[config_key]
-end
-end 
-
- -------------------------------------------------- ----------
--- Entry point 
-
- init()
-mp.add_key_binding("n", "autosubsync-menu", function() ref_selector:open() end)
+mp.add_key_binding(options.key_toggle_bindings, "key_toggle_bindings", toggle_bindings)
+if bindings_enabled then toggle_bindings(true, true) end

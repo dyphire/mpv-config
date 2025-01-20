@@ -143,17 +143,8 @@ local function tablelength(tab, val)
     return count
 end
 
-local message_overlay = mp.create_osd_overlay('ass-events')
-local message_timer = mp.add_timeout(1, function ()
-    message_overlay:remove()
-end, true)
-
-function show_message(text, time)
-    message_timer:kill()
-    message_timer.timeout = time or 1
-    message_overlay.data = text
-    message_overlay:update()
-    message_timer:resume()
+local function prompt_msg(msg, ms)
+    mp.commandv("show-text", msg, ms)
 end
 
 local function normalize(path)
@@ -437,7 +428,7 @@ end
 
 local function jump_resume()
     mp.unregister_event(jump_resume)
-    show_message(texts.msg1, 2)
+    prompt_msg(texts.msg1, 1500)
 end
 
 local function unbind_key()
@@ -489,13 +480,13 @@ local function record_history()
     end
 end
 
-local timeout = 20
-local function wait_jumping()
+local timeout = 15
+local function wait4jumping()
     timeout = timeout - 1
     if timeout > 0 then
         if not on_key then
             local msg = string.format("%s -- %s? (%s) %02d", wait_msg, texts.msg2, texts.msg3, timeout)
-            show_message(msg, 1)
+            prompt_msg(msg, 1000)
             bind_key()
         else
             timeout = 0
@@ -568,7 +559,7 @@ local function record()
     elseif current_idx and (pl_idx ~= current_idx) then
         wait_msg = pl_idx
         msg.verbose('Last watched episode -- ' .. wait_msg)
-        wait_jump_timer = mp.add_periodic_timer(1, wait_jumping)
+        wait_jump_timer = mp.add_periodic_timer(1, wait4jumping)
     end
     timer4saving_history = mp.add_periodic_timer(o.save_period, record_history)
     mp.observe_property("pause", "bool", pause)

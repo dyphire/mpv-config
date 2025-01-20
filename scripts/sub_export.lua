@@ -52,8 +52,8 @@ local function export_selected_subtitles()
         if track_type == "sub" and track_selected == "yes" then
             if track_external == "yes" then
                 if o.language == 'chs' then
-                    msg.info("Error: External subtitles selected")
-                    mp.osd_message("Error: External subtitles selected", 2)
+                    msg.info("错误:已选择外部字幕")
+                    mp.osd_message("错误:已选择外部字幕", 2)
                 else
                     msg.info("Error: external subtitles have been selected")
                     mp.osd_message("Error: external subtitles have been selected", 2)
@@ -81,8 +81,8 @@ local function export_selected_subtitles()
             subtitles_file = utils.join_path(dir, fname .. subtitles_ext)
 
             if o.language == 'chs' then
-                msg.info("Exporting current subtitles")
-                mp.osd_message("Exporting current subtitles")
+                msg.info("正在导出当前字幕")
+                mp.osd_message("正在导出当前字幕")
             else
                 msg.info("Exporting selected subtitles")
                 mp.osd_message("Exporting selected subtitles")
