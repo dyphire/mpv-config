@@ -58,6 +58,12 @@
     "dest":"~~/scripts/autosubsync"
   },
   {
+    "git":"https://github.com/dyphire/trakt-scrobble",
+    "branch":"main",
+    "blacklist":"config%-example%.json$",
+    "dest":"~~/scripts/trakt-scrobble"
+  },
+  {
     "git":"https://github.com/open-dynaMIX/simple-mpv-webui",
     "branch":"main",
     "whitelist":"readme%.md$|main%.lua$|webui%-page",
