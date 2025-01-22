@@ -61,14 +61,6 @@ local function url_decode(str)
     end
 end
 
-local function split(str, delim)
-    local result = {}
-    for match in (str .. delim):gmatch("(.-)" .. delim) do
-        table.insert(result, match)
-    end
-    return result
-end
-
 local function is_compressed_file(filename)
     local ext_map = {
         zip = true,
@@ -158,15 +150,6 @@ local function normalize(path)
     return normalize(path)
 end
 
-local function get_parent_directory(path)
-    local dir = nil
-    if path and not is_protocol(path) then
-        path = normalize(path)
-        dir = utils.split_path(path)
-    end
-    return dir
-end
-
 local function check_sub(sub_file)
     local tracks = mp.get_property_native("track-list")
     local _, sub_title = utils.split_path(sub_file)
@@ -187,92 +170,125 @@ local function append_sub(sub_file)
     end
 end
 
-local function get_episode_number(filename)
-    local thin_space = string.char(0xE2, 0x80, 0x89)
-    filename = filename:gsub(thin_space, " ")
-
-    local patterns = {
-        -- 匹配 [数字] 格式
-        "%[(%d+)v?%d?%]",
-        -- 匹配 S01E02 格式
-        "[S%d+]?E(%d+)",
-        -- 匹配 第04话 格式
-        "第(%d+)话",
-        -- 匹配 -/# 第数字 格式
-        "[%-#]%s*(%d+)%s*",
-        -- 匹配 01x02 格式
-        "%d%d?[xX](%d%d%d?)[^%d%-pPkKxXbBfF][^%d]",
-        -- 匹配 直接跟随的数字 格式
-        "[^%dhHxXvV](%d%d%d?)[^%d%-pPkKxXbBfF][^%d]*$",
-    }
-
-    -- 尝试匹配文件名中的集数
-    for _, pattern in ipairs(patterns) do
-        local match = {string.match(filename, pattern)}
-        if #match > 0 then
-            -- 返回集数，通常是匹配的第一个捕获
-            local episode_number = tonumber(match[1])
-            if episode_number and episode_number < 1000 then
-                return episode_number
-            end
-        end
-    end
-    -- 未找到集数
-    return nil
+local function clean_name(name)
+    return name:gsub("^%[.-%]", " ")
+           :gsub("^%(.-%)", " ")
+           :gsub("[_%.%[%]]", " ")
+           :gsub("^%s*(.-)%s*$", "%1")
+           :gsub("[!@#%.%?%+%-%%&*_=,/~`]+$", "")
 end
 
-function get_title(path)
-    local thin_space = string.char(0xE2, 0x80, 0x89)
-
-    if path and not is_protocol(path) then
-        local directory = get_parent_directory(path)
-        local dir, title = utils.split_path(directory:sub(1, -2))
-        if title:lower():match("^%s*seasons?%s*%d+%s*$") or title:lower():match("^%s*specials?%s*$")
-        or title:match("^%s*SPs?%s*$") or title:match("^%s*O[VAD]+s?%s*$") or title:match("^%s*第.-[季部]+%s*$") then
-            _, title = utils.split_path(dir:sub(1, -2))
-        end
-        title = title
-                :gsub(thin_space, " ")
-                :gsub("%[.-%]", "")
-                :gsub("^%s*%(%d+.?%d*.?%d*%)", "")
-                :gsub("%(%d+.?%d*.?%d*%)%s*$", "")
-                :gsub("[%._]", " ")
-                :gsub("^%s*(.-)%s*$", "%1")
-                :gsub("[!@#$%%%^&*()_+={}%[%]|\\:;\"'<>,.?/~`%-]+$", "")
-        return title
-    end
-
-    local title = mp.get_property("media-title")
-    local season_num, episod_num = nil, nil
-    if title then
-        title = title:gsub(thin_space, " ")
-        if title:match(".*S%d+:E%d+") ~= nil then
-            title, season_num, episod_num = title:match("(.-)%s*S(%d+):E(%d+)")
-            title = title and url_decode(title):gsub("[%._]", " "):gsub("%s*%[.-%]s*", "")
-        elseif title:match(".*%-%s*S%d+E%d+") ~= nil then
-            title, season_num, episod_num = title:match("(.-)%s*%-%s*S(%d+)E(%d+)")
-            title = title and url_decode(title):gsub("[%._]", " "):gsub("%s*%[.-%]s*", "")
-        elseif title:match(".*S%d+E%d+") ~= nil then
-            title, season_num, episod_num = title:match("(.-)%s*S(%d+)E(%d+)")
-            title = title and url_decode(title):gsub("[%._]", " "):gsub("%s*%[.-%]s*", "")
-        elseif title:match(".*%d%d?[xX]%d%d%d?[^%d%-pPkKxXbBfF][^%d]") ~= nil then
-            title, season_num, episod_num = title:match("(.-)%s*(%d%d?)[xX](%d%d%d?)")
-            title = title and url_decode(title):gsub("[%._]", " "):gsub("%s*%[.-%]s*", "")
-        else
-            title = url_decode(title)
-            episod_num = get_episode_number(title)
-            if episod_num then
-                local parts = split(title, episod_num)
-                title = parts[1]:gsub("[%[%(].-[%)%]]", "")
-                        :gsub("%[.*", "")
-                        :gsub("[%-#].*", "")
-                        :gsub("第.*", "")
-                        :gsub("[%._]", " ")
-                        :gsub("^%s*(.-)%s*$", "%1")
+local formatters = {
+    {
+        regex = "^(.-)%s*[_%.%s]%s*(%d%d%d%d[_%.%s]%d%d[_%.%s]%d%d)%s*[_%.%s]?(.-)%s*[_%.%s]%d+[pPkKxXbBfF]",
+        format = function(name, date, subtitle)
+            local title = clean_name(name)
+            if subtitle then
+                title = title .. ": " .. subtitle:gsub("%.", " "):gsub("^%s*(.-)%s*$", "%1")
             end
+            return title .. " (" .. date .. ")"
+        end
+    },
+    {
+        regex = "^(.-)%s*[_%.%s]%s*(%d%d%d%d)%s*[_%.%s]%s*[sS](%d+)[%.%-%s:]?[eE](%d+)",
+        format = function(name, year, season, episode)
+            return clean_name(name) .. " (" .. year .. ") S" .. season .. "E" .. episode
+        end
+    },
+    {
+        regex = "^(.-)%s*[_%.%s]%s*(%d%d%d%d)%s*[_%.%s]%s*[eEpP]+(%d+)",
+        format = function(name, year, episode)
+            return clean_name(name) .. " (" .. year .. ") [" .. episode .. "]"
+        end
+    },
+    {
+        regex = "^(.-)%s*[_%-%.%s]%s*[sS](%d+)[%.%-%s:]?[eE](%d+)",
+        format = function(name, season, episode)
+            return clean_name(name) .. " S" .. season .. "E" .. episode
+        end
+    },
+    {
+        regex = "^(.-)%s*[_%.%s]%s*(%d+)[nrdsth]+[_%.%s]%s*[sS]eason[_%.%s]%s*%[(%d+[%.v]?%d*)%]",
+        format = function(name, season, episode)
+            return clean_name(name) .. " S" .. season .. "E" .. episode
+        end
+    },
+    {
+        regex = "^(.-)%s*[eEpP]+(%d+)[_%.%s]%s*(%d%d%d%d)[^%dhHxXvVpPkKxXbBfF]",
+        format = function(name, episode, year)
+            return clean_name(name) .. " (" .. year .. ") [" .. episode .. "]"
+        end
+    },
+    {
+        regex = "^(.-)%s*[eEpP]+(%d+)",
+        format = function(name, episode)
+            return clean_name(name) .. " [" .. episode .. "]"
+        end
+    },
+    {
+        regex = "^(.-)%s*%[(%d+[%.v]?%d*)%]",
+        format = function(name, episode)
+            return clean_name(name) .. " [" .. episode .. "]"
+        end
+    },
+    {
+        regex = "^(.-)%s*%[(%d+[%.v]?%d*%(%a+%))%]",
+        format = function(name, episode)
+            return clean_name(name) .. " [" .. episode .. "]"
+        end
+    },
+    {
+        regex = "^(.-)%s*[%-#]%s*(%d+)%s*",
+        format = function(name, episode)
+            return clean_name(name) .. " [" .. episode .. "]"
+        end
+    },
+    {
+        regex = "^(.-)%s*%[(%d+)%]%D+",
+        format = function(name, episode)
+            return clean_name(name) .. " [" .. episode .. "]"
+        end
+    },
+    {
+        regex = "^(.-)%s*[%[%(]([OVADSPs]+)[%]%)]",
+        format = function(name, SP)
+            return clean_name(name) .. " [" .. SP .. "]"
+        end
+    },
+    {
+        regex = "^%((%d%d%d%d%.?%d?%d?%.?%d?%d?)%)%s*(.-)%s*[%(%[]",
+        format = function(date, name)
+            return clean_name(name) .. " (" .. date .. ")"
+        end
+    },
+    {
+        regex = "^(.-)%s*[_%.%s]%s*(%d%d%d%d)[^%dhHxXvVpPkKxXbBfF]",
+        format = function(name, year)
+            return clean_name(name) .. " (" .. year .. ")"
+        end
+    },
+    {
+        regex = "^%[.-%]%s*%[?(.-)%]?%s*[%(%[]",
+        format = function(name)
+            return clean_name(name)
+        end
+    },
+}
+
+local function format_filename(title)
+    for _, formatter in ipairs(formatters) do
+        local matches = {title:match(formatter.regex)}
+        if #matches > 0 then
+            title = formatter.format(table.unpack(matches))
+            return title
         end
     end
-    return title:gsub("[!@#$%%%^&*()_+={}%[%]|\\:;\"'<>,.?/~`%-]+$", "")
+    title = title:gsub("^%[.-%]", " ")
+        :gsub("^%(.-%)", " ")
+        :gsub("[_%.]", " ")
+        :gsub("^%s*(.-)%s*$", "%1")
+        :gsub("[!@#%.%?%+%-%%&*_=,/~`]+$", "")
+    return title
 end
 
 local function download_file(url, fname)
@@ -283,7 +299,7 @@ local function download_file(url, fname)
     if is_protocol(path) then
         sub_path = utils.join_path(TEMP_DIR, fname)
     else
-        local dir = utils.split_path(path)
+        local dir = utils.split_path(normalize(path))
         sub_path = utils.join_path(dir, filename .. ".assrt." .. ext)
     end
 
@@ -346,7 +362,7 @@ local function fetch_subtitle_details(sub_id)
     local url = ASSRT_DETAIL_API .."?token=" .. o.api_token .. "&id=" .. sub_id
     local res = http_request(url)
     if not res or res.status ~= 0 then
-        local message = "获取字幕详细信息失败，请检查网络是否正常"
+        local message = "获取字幕详细信息失败，查看控制台获取更多信息"
         if uosc_available then
             local type = "subtitle_details"
             local title = "字幕下载菜单"
@@ -355,7 +371,7 @@ local function fetch_subtitle_details(sub_id)
         else
             mp.osd_message(message, 3)
         end
-        msg.error("Failed to fetch subtitle details: " .. (res and res.status or "Unknown error"))
+        msg.error("Failed to fetch subtitle details: " .. (res and res.errmsg or "Unknown error"))
         return nil
     end
 
@@ -429,7 +445,7 @@ local function search_subtitles(pos, query)
     local url = ASSRT_SEARCH_API .. "?token=" .. o.api_token .. "&q=" .. url_encode(query) .. "&no_muxer=1&pos=" .. pos
     local res = http_request(url)
     if not res or res.status ~= 0 then
-        local message = "搜索字幕失败，请检查网络是否正常"
+        local message = "搜索字幕失败，查看控制台获取更多信息"
         if uosc_available then
             local type = "menu_subtitle"
             local title = "输入搜索内容"
@@ -439,7 +455,7 @@ local function search_subtitles(pos, query)
         else
             mp.osd_message(message, 3)
         end
-        msg.error("Failed to search subtitles: " .. (res and res.status or "Unknown error"))
+        msg.error("Failed to search subtitles: " .. (res and res.errmsg or "Unknown error"))
         return nil
     end
 
@@ -585,13 +601,23 @@ end
 
 local function sub_assrt()
     local path = mp.get_property("path")
+    local filename = mp.get_property("filename/no-ext")
+    local title = mp.get_property("media-title")
+    local thin_space = string.char(0xE2, 0x80, 0x89)
     if not path then
         msg.error("No file loaded.")
         return
     end
 
+    if is_protocol(path) then
+        title = url_decode(title:gsub('%.[^%.]+$', ''))
+    elseif #title < #filename then
+        title = filename
+    end
+
     local pos = 0
-    local query = get_title(path)
+    local title = title:gsub(thin_space, " ")
+    local query = format_filename(title)
     if uosc_available then
         open_input_menu_uosc(pos, query)
     elseif input_loaded then
@@ -601,6 +627,8 @@ end
 
 mp.register_script_message('uosc-version', function()
     uosc_available = true
+    mp.commandv('script-message-to', 'uosc', 'overwrite-binding', 'download-subtitles',
+    'script-message-to  sub_assrt sub-assrt')
 end)
 
 mp.register_script_message("search-subtitles-event", function(pos, query)
