@@ -18,16 +18,19 @@ The install is pretty simple and can be done with the following steps:
    - To do it in one command:
      ```
 	   git clone 'https://github.com/dyphire/trakt-scrobble' ~/.config/mpv/scripts/trakt-scrobble
-	
-2. Create a trakt.tv api. You can do this using: [https://trakt.tv/oauth/applications](https://trakt.tv/oauth/applications)
-3. Copy your **client_id** and **client_secret** to **trakt-scrobble/config_example.json**
-4. Rename **trakt-scrobble/config_example.json** to **trakt-scrobble/config.json**
 
 Ok the hard part is done, now you'll do the rest in mpv. If you did everything correctly when you open a file the following message will appear: 
 
 ![Press X to authenticate with Trakt.tv](imgs/msg_trakt.png)
 
 Press X and follow the instructions on the screen. After that you are all set 😀.
+
+### Custom API (optional)
+
+The config.json file comes with a set of predefined trakt.tv api's that you can replace with your own (not necessary).
+
+1. Create a trakt.tv api. You can do this using: [https://trakt.tv/oauth/applications](https://trakt.tv/oauth/applications)
+2. Base64 your **client_id** and **client_secret**, then copy them to **trakt-scrobble/config.json**
 
 ## Behaviors
 
@@ -42,8 +45,8 @@ The current behaviors adopted by the plugin are:
 Some improvements that can be done are:
 
 - [ ] Start scrobbing only after x seconds of playback. This would avoid acidental scrobbles.
-- [ ] Allow the user to cancel a scrobble.
-- [ ] Allow a backup plan for when the show/movie isn't recognized.
+- [x] Allow the user to cancel a scrobble.
+- [x] Allow a backup plan for when the show/movie isn't recognized.
 
 ## Contributing
 
