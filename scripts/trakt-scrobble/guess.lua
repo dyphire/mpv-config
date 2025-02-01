@@ -20,25 +20,25 @@ local formatters = {
         end
     },
     {
-        regex = "^(.-)%s*[_%.%s]%s*(%d%d%d%d)%s*[_%.%s]%s*[sS](%d+)[%.%-%s:]?[eE](%d+)",
+        regex = "^(.-)%s*[_%.%s]%s*(%d%d%d%d)%s*[_%.%s]%s*[sS](%d+)[%.%-%s:]?[eE](%d+%.?%d*)",
         format = function(name, year, season, episode)
             return clean_name(name) .. " (" .. year .. ") S" .. season .. "E" .. episode
         end
     },
     {
-        regex = "^(.-)%s*[_%.%s]%s*(%d%d%d%d)%s*[_%.%s]%s*[eEpP]+(%d+)",
+        regex = "^(.-)%s*[_%.%s]%s*(%d%d%d%d)%s*[_%.%s]%s*[eEpP]+(%d+%.?%d*)",
         format = function(name, year, episode)
             return clean_name(name) .. " (" .. year .. ") E" .. episode
         end
     },
     {
-        regex = "^(.-)%s*[_%-%.%s]%s*[sS](%d+)[%.%-%s:]?[eE](%d+)%s*[_%.%s]%s*(%d%d%d%d)[^%dhHxXvVpPkKxXbBfF]",
+        regex = "^(.-)%s*[_%-%.%s]%s*[sS](%d+)[%.%-%s:]?[eE](%d+[%.v]?%d*)%s*[_%.%s]%s*(%d%d%d%d)[^%dhHxXvVpPkKxXbBfF]",
         format = function(name, season, episode, year)
-            return clean_name(name) .. " (" .. year .. ") S" .. season .. "E" .. episode
+            return clean_name(name) .. " (" .. year .. ") S" .. season .. "E" .. episode:gsub("v%d+$","")
         end
     },
     {
-        regex = "^(.-)%s*[_%-%.%s]%s*[sS](%d+)[%.%-%s:]?[eE](%d+)",
+        regex = "^(.-)%s*[_%-%.%s]%s*[sS](%d+)[%.%-%s:]?[eE](%d+%.?%d*)",
         format = function(name, season, episode)
             return clean_name(name) .. " S" .. season .. "E" .. episode
         end
@@ -46,17 +46,17 @@ local formatters = {
     {
         regex = "^(.-)%s*[_%.%s]%s*(%d+)[nrdsth]+[_%.%s]%s*[sS]eason[_%.%s]%s*%[(%d+[%.v]?%d*)%]",
         format = function(name, season, episode)
-            return clean_name(name) .. " S" .. season .. "E" .. episode
+            return clean_name(name) .. " S" .. season .. "E" .. episode:gsub("v%d+$","")
         end
     },
     {
-        regex = "^(.-)%s*[eEpP]+(%d+)[_%.%s]%s*(%d%d%d%d)[^%dhHxXvVpPkKxXbBfF]",
+        regex = "^(.-)%s*[^dD][eEpP]+(%d+[%.v]?%d*)[_%.%s]%s*(%d%d%d%d)[^%dhHxXvVpPkKxXbBfF]",
         format = function(name, episode, year)
-            return clean_name(name) .. " (" .. year .. ") E" .. episode
+            return clean_name(name) .. " (" .. year .. ") E" .. episode:gsub("v%d+$","")
         end
     },
     {
-        regex = "^(.-)%s*[eEpP]+(%d+)",
+        regex = "^(.-)%s*[^dD][eEpP]+(%d+%.?%d*)",
         format = function(name, episode)
             return clean_name(name) .. " E" .. episode
         end
@@ -64,31 +64,25 @@ local formatters = {
     {
         regex = "^(.-)%s*%[(%d+[%.v]?%d*)%]",
         format = function(name, episode)
-            return clean_name(name) .. " E" .. episode
+            return clean_name(name) .. " E" .. episode:gsub("v%d+$","")
         end
     },
     {
-        regex = "^(.-)%s*%[(%d+[%.v]?%d*%(%a+%))%]",
+        regex = "^(.-)%s*%[(%d+[%.v]?%d*)%(%a+%)%]",
         format = function(name, episode)
-            return clean_name(name) .. " E" .. episode
+            return clean_name(name) .. " E" .. episode:gsub("v%d+$","")
         end
     },
     {
-        regex = "^(.-)%s*[%-#]%s*(%d+)%s*",
-        format = function(name, episode)
-            return clean_name(name) .. " E" .. episode
-        end
-    },
-    {
-        regex = "^(.-)%s*%[(%d+)%]%D+",
+        regex = "^(.-)%s*[%-#]%s*(%d+%.?%d*)%s*",
         format = function(name, episode)
             return clean_name(name) .. " E" .. episode
         end
     },
     {
         regex = "^(.-)%s*[%[%(]([OVADSPs]+)[%]%)]",
-        format = function(name, SP)
-            return clean_name(name) .. " [" .. SP .. "]"
+        format = function(name, sp)
+            return clean_name(name) .. " [" .. sp .. "]"
         end
     },
     {
