@@ -179,6 +179,7 @@ local function clean_name(name)
            :gsub("[!@#%.%?%+%-%%&*_=,/~`]+$", "")
 end
 
+-- Formatters for media titles
 local formatters = {
     {
         regex = "^(.-)%s*[_%.%s]%s*(%d%d%d%d)[_%.%s]%d%d[_%.%s]%d%d%s*[_%.%s]?(.-)%s*[_%.%s]%d+[pPkKxXbBfF]",
@@ -221,13 +222,13 @@ local formatters = {
         end
     },
     {
-        regex = "^(.-)%s*[eEpP]+(%d+[%.v]?%d*)[_%.%s]%s*(%d%d%d%d)[^%dhHxXvVpPkKxXbBfF]",
+        regex = "^(.-)%s*[^dD][eEpP]+(%d+[%.v]?%d*)[_%.%s]%s*(%d%d%d%d)[^%dhHxXvVpPkKxXbBfF]",
         format = function(name, episode, year)
             return clean_name(name) .. " (" .. year .. ") E" .. episode:gsub("v%d+$","")
         end
     },
     {
-        regex = "^(.-)%s*[eEpP]+(%d+%.?%d*)",
+        regex = "^(.-)%s*[^dD][eEpP]+(%d+%.?%d*)",
         format = function(name, episode)
             return clean_name(name) .. " E" .. episode
         end
@@ -254,12 +255,6 @@ local formatters = {
         regex = "^(.-)%s*[%-#]%s*(%d+%.?%d*)%s*",
         format = function(name, episode)
             return clean_name(name) .. " E" .. episode
-        end
-    },
-    {
-        regex = "^(.-)%s*%[(%d+[%.v]?%d*)%]%D+",
-        format = function(name, episode)
-            return clean_name(name) .. " E" .. episode:gsub("v%d+$","")
         end
     },
     {
@@ -292,7 +287,7 @@ local function format_filename(title)
     for _, formatter in ipairs(formatters) do
         local matches = {title:match(formatter.regex)}
         if #matches > 0 then
-            title = formatter.format(table.unpack(matches))
+            title = formatter.format(unpack(matches))
             return title
         end
     end
@@ -341,8 +336,10 @@ local function download_file(url, fname)
                 local title = "字幕下载菜单"
                 local footnote = "使用 / 打开筛选"
                 update_menu_uosc(type, title, message, footnote)
-                -- 创建一个定时器，在1秒后触发回调函数，删除搜索栏错误信息
-                mp.add_timeout(1.5, function() mp.commandv("script-message-to", "uosc", "close-menu", "download_subtitle") end)
+                -- 下载完弹幕1.5秒后关闭面板
+                mp.add_timeout(1.5, function()
+                    mp.commandv("script-message-to", "uosc", "close-menu", "download_subtitle")
+                end)
             else
                 mp.osd_message(message, 3)
             end
@@ -457,7 +454,6 @@ end
 local function search_subtitles(pos, query)
     local items = {}
     if pos ~= "has_details" then
-        if pos == "0" then return end
         local pos = tonumber(pos)
         local message = "正在搜索字幕..."
         if uosc_available then
@@ -621,7 +617,7 @@ function update_menu_uosc(type, title, text, footnote, cmd, query)
         type = type,
         title = title,
         search_style = cmd and "palette" or "on_demand",
-        search_debounce = "submit",
+        search_debounce = cmd and "submit" or 0,
         on_search = cmd,
         footnote = footnote,
         search_suggestion = query,
