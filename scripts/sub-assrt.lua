@@ -27,6 +27,7 @@ local ASSRT_SEARCH_API = (o.use_https and "https" or "http") .. "://api.assrt.ne
 local ASSRT_DETAIL_API = (o.use_https and "https" or "http") .. "://api.assrt.net/v1/sub/detail"
 
 local TEMP_DIR = os.getenv("TEMP") or "/tmp"
+local cache = {}
 
 local function is_protocol(path)
     return type(path) == 'string' and (path:find('^%a[%w.+-]-://') ~= nil or path:find('^%a[%w.+-]-:%?') ~= nil)
@@ -335,6 +336,10 @@ local function download_file(url, fname)
                 local title = "字幕下载菜单"
                 local footnote = "使用 / 打开筛选"
                 update_menu_uosc(type, title, message, footnote)
+                -- 下载完字幕1.5秒后关闭面板
+                mp.add_timeout(1.5, function()
+                    mp.commandv("script-message-to", "uosc", "close-menu", "download_subtitle")
+                end)
             else
                 mp.osd_message(message, 3)
             end
@@ -383,6 +388,16 @@ local function fetch_subtitle_details(sub_id)
     end
 
     local items = {}
+    items[#items + 1] = {
+        title = "..",
+        hint = "返回搜索结果",
+        value = {
+            "script-message-to",
+            mp.get_script_name(),
+            "search-subtitles-event",
+            "has_details", nil,
+        },
+    }
     local subs = res.sub.subs[1]
     for _, sub in ipairs(subs.filelist) do
         table.insert(items, {
@@ -397,7 +412,7 @@ local function fetch_subtitle_details(sub_id)
         })
     end
 
-    if #items > 1 then
+    if #items > 2 then
         table.sort(items, function(a, b)
             return alphanumsort(a.title, b.title)
         end)
@@ -421,7 +436,7 @@ local function fetch_subtitle_details(sub_id)
     local menu_props = {
         type = "download_subtitle",
         title = "字幕下载菜单",
-        footnote = "使用/打开筛选",
+        footnote = "使用 / 打开筛选",
         items = items,
     }
 
@@ -437,81 +452,98 @@ local function fetch_subtitle_details(sub_id)
 end
 
 local function search_subtitles(pos, query)
-    local pos = tonumber(pos)
-    local message = "正在搜索字幕..."
-    if uosc_available then
-        local type = "menu_subtitle"
-        local title = "输入搜索内容"
-        local footnote = "使用enter或ctrl+enter进行搜索"
-        local cmd = { "script-message-to", mp.get_script_name(), "search-subtitles-event", tostring(pos) }
-        update_menu_uosc(type, title, message, footnote, cmd, query)
-    else
-        mp.osd_message(message)
-    end
-
-    local url = ASSRT_SEARCH_API .. "?token=" .. o.api_token .. "&q=" .. url_encode(query) .. "&no_muxer=1&pos=" .. pos
-    local res = http_request(url)
-    if not res or res.status ~= 0 then
-        local message = "搜索字幕失败，查看控制台获取更多信息"
-        if uosc_available then
-            local type = "menu_subtitle"
-            local title = "输入搜索内容"
-            local footnote = "使用enter或ctrl+enter进行搜索"
-            local cmd = { "script-message-to", mp.get_script_name(), "search-subtitles-event", tostring(pos) }
-            update_menu_uosc(type, title, message, footnote, cmd, query)
-        else
-            mp.osd_message(message, 3)
-        end
-        msg.error("Failed to search subtitles: " .. (res and res.errmsg or "Unknown error"))
-        return nil
-    end
-
-    local sub = res.sub
-    local subs = {}
-    if sub then subs = res.sub.subs end
-    if #subs == 0 then
-        local message = "未找到字幕，建议更改关键字尝试重新搜索"
-        if uosc_available then
-            local type = "menu_subtitle"
-            local title = "输入搜索内容"
-            local footnote = "使用enter或ctrl+enter进行搜索"
-            local cmd = { "script-message-to", mp.get_script_name(), "search-subtitles-event", tostring(pos) }
-            update_menu_uosc(type, title, message, footnote, cmd, query)
-        else
-            mp.osd_message(message, 3)
-        end
-        msg.info("No subtitles found.")
-        return nil
-    end
-
     local items = {}
-    for _, sub in ipairs(subs) do
-        table.insert(items, {
-            title = sub.native_name ~= '' and sub.native_name or sub.videoname,
-            hint = sub.lang and sub.lang.desc ~= '' and sub.lang.desc,
-            value = {
-                "script-message-to",
-                mp.get_script_name(),
-                "fetch-details-event",
-                sub.id,
-            },
-        })
-    end
+    if pos ~= "has_details" and (query ~= cache.query or tonumber(pos) > 0) then
+        local pos = tonumber(pos)
+        local message = "正在搜索字幕..."
+        if uosc_available then
+            local type = "menu_subtitle"
+            local title = "输入搜索内容"
+            local footnote = "使用enter或ctrl+enter进行搜索"
+            local cmd = { "script-message-to", mp.get_script_name(), "search-subtitles-event", tostring(pos) }
+            update_menu_uosc(type, title, message, footnote, cmd, query)
+        else
+            mp.osd_message(message)
+        end
 
-    if #items == 15 then
-        pos = pos + 15
+        local url = ASSRT_SEARCH_API .. "?token=" .. o.api_token .. "&q=" .. url_encode(query) .. "&no_muxer=1&pos=" .. pos
+        local res = http_request(url)
+        if not res or res.status ~= 0 then
+            local message = "搜索字幕失败，查看控制台获取更多信息"
+            if uosc_available then
+                local type = "menu_subtitle"
+                local title = "输入搜索内容"
+                local footnote = "使用enter或ctrl+enter进行搜索"
+                local cmd = { "script-message-to", mp.get_script_name(), "search-subtitles-event", tostring(pos) }
+                update_menu_uosc(type, title, message, footnote, cmd, query)
+            else
+                mp.osd_message(message, 3)
+            end
+            msg.error("Failed to search subtitles: " .. (res and res.errmsg or "Unknown error"))
+            return nil
+        end
+
+        local sub = res.sub
+        local subs = {}
+        if sub then subs = res.sub.subs end
+        if #subs == 0 then
+            local message = "未找到字幕，建议更改关键字尝试重新搜索"
+            if uosc_available then
+                local type = "menu_subtitle"
+                local title = "输入搜索内容"
+                local footnote = "使用enter或ctrl+enter进行搜索"
+                local cmd = { "script-message-to", mp.get_script_name(), "search-subtitles-event", tostring(pos) }
+                update_menu_uosc(type, title, message, footnote, cmd, query)
+            else
+                mp.osd_message(message, 3)
+            end
+            msg.info("No subtitles found.")
+            return nil
+        end
+
         table.insert(items, {
-            title = "加载下一页",
+            title = "..",
+            hint = "返回搜索菜单",
             value = {
                 "script-message-to",
                 mp.get_script_name(),
-                "search-subtitles-event",
-                tostring(pos), query,
+                "open-search-menu",
+                0, query,
             },
-            italic = true,
-            bold = true,
-            align = "center",
         })
+
+        for _, sub in ipairs(subs) do
+            table.insert(items, {
+                title = sub.native_name ~= '' and sub.native_name or sub.videoname,
+                hint = sub.lang and sub.lang.desc ~= '' and sub.lang.desc,
+                value = {
+                    "script-message-to",
+                    mp.get_script_name(),
+                    "fetch-details-event",
+                    sub.id,
+                },
+            })
+        end
+
+        if #items == 16 then
+            pos = pos + 15
+            table.insert(items, {
+                title = "加载下一页",
+                value = {
+                    "script-message-to",
+                    mp.get_script_name(),
+                    "search-subtitles-event",
+                    tostring(pos), query,
+                },
+                italic = true,
+                bold = true,
+                align = "center",
+            })
+        end
+        cache.query = query
+        cache.items = items
+    else
+        items = cache.items
     end
 
     local menu_props = {
@@ -624,7 +656,16 @@ local function sub_assrt()
 
     local pos = 0
     local title = title:gsub(thin_space, " ")
-    local query = format_filename(title)
+    local query = format_filename(title):gsub("%s*E%d+$", "")
+
+    if cache.title and cache.title == query
+    and cache.items and #cache.items > 0 then
+        search_subtitles("has_details")
+        return
+    end
+
+    cache.title = query
+
     if uosc_available then
         open_input_menu_uosc(pos, query)
     elseif input_loaded then
@@ -636,6 +677,17 @@ mp.register_script_message('uosc-version', function()
     uosc_available = true
     mp.commandv('script-message-to', 'uosc', 'overwrite-binding', 'download-subtitles',
     'script-message-to  sub_assrt sub-assrt')
+end)
+
+mp.register_script_message("open-search-menu", function(pos, query)
+    if uosc_available then
+        mp.commandv("script-message-to", "uosc", "open-menu", "menu_subtitle")
+    end
+    if uosc_available then
+        open_input_menu_uosc(pos, query)
+    elseif input_loaded then
+        open_input_menu_get(pos, query)
+    end
 end)
 
 mp.register_script_message("search-subtitles-event", function(pos, query)

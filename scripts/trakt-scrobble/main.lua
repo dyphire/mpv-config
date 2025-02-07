@@ -315,6 +315,52 @@ local function activation()
     end
 end
 
+-- Refresh access_token with refresh_token
+local function refresh_token(config)
+    local res = http_request("POST", "https://api.trakt.tv/oauth/token", {
+        ["Content-Type"] = "application/json"
+    }, {
+        client_id = base64.decode(config.client_id),
+        client_secret = base64.decode(config.client_secret),
+        refresh_token = base64.decode(config.refresh_token),
+        grant_type = "refresh_token"
+    })
+
+    if not res or not res.access_token then
+        msg.error("Failed to refresh access token.")
+        return -1
+    end
+
+    config.access_token = base64.encode(res.access_token)
+    config.refresh_token = base64.encode(res.refresh_token)
+    config.today = os.date("%Y-%m-%d")
+
+    write_config(config_file, config)
+
+    msg.info("Successfully refreshed access token.")
+    return 0
+end
+
+-- Check if access_token is expired
+local function check_access_token(config)
+    if not config or not config.access_token or not config.refresh_token then
+        return -1
+    end
+
+    local res = http_request("GET", "https://api.trakt.tv/users/settings", {
+        ["trakt-api-key"] = base64.decode(config.client_id),
+        ["Authorization"] = "Bearer " .. base64.decode(config.access_token),
+        ["trakt-api-version"] = "2"
+    })
+
+    if not res then
+        msg.warn("Access token might be expired, attempting to refresh.")
+        return refresh_token(config)
+    end
+
+    return 0
+end
+
 function get_progress()
     if not state then return end
     local time_pos = state.pos or 0
@@ -654,6 +700,7 @@ local function trackt_scrobble(force)
 
     state = {}
     local status = init()
+    local config = read_config(config_file)
 
     if status == 10 then
         send_message("[trakt] Please add your client_id and client_secret to config.json!", "0000FF", 4)
@@ -662,15 +709,22 @@ local function trackt_scrobble(force)
         send_message("[trakt] Press X to authenticate with Trakt.tv", "FF8800", 4)
         mp.add_forced_key_binding("x", "auth-trakt", activation)
     elseif status == 0 then
+        msg.info("Checking Trakt.tv authentication status.")
+        if check_access_token(config) ~= 0 then
+            send_message("Authentication failed. Please re-login.", "FF0000", 5)
+            return
+        end
+        mp.observe_property("pause", "bool", on_pause_callback)
+        mp.observe_property("time-pos", "number", on_time_pos)
         checkin_file()
     end
 end
 
-local function on_time_pos(_, value)
+function on_time_pos(_, value)
     state.pos = value
 end
 
-local function on_pause_change(paused)
+function on_pause_change(paused)
     local config = read_config(config_file)
     if not config then return end
     local progress = get_progress()
@@ -686,14 +740,12 @@ local function on_pause_change(paused)
     end
 end
 
-local function on_pause_callback(_, paused)
+function on_pause_callback(_, paused)
     on_pause_change(paused)
 end
 
 -- Register event
 mp.register_event("file-loaded", trackt_scrobble)
-mp.observe_property("pause", "bool", on_pause_callback)
-mp.observe_property("time-pos", "number", on_time_pos)
 mp.register_event("end-file", function()
     mp.unobserve_property(on_time_pos)
     mp.unobserve_property(on_pause_callback)
