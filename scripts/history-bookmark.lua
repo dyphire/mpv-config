@@ -10,6 +10,7 @@ local o = {
     enabled = true,
     -- eng=English, chs=Chinese Simplified
     language = 'eng',
+    timeout = 15,
     save_period = 30,
     -- Set '/:dir%mpvconf%/historybookmarks' to use mpv config directory
     -- OR change to '/:dir%script%/historybookmarks' for placing it in the same directory of script
@@ -489,7 +490,7 @@ local function record_history()
     end
 end
 
-local timeout = 20
+local timeout = o.timeout
 local function wait_jumping()
     timeout = timeout - 1
     if timeout > 0 then

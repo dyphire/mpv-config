@@ -3,6 +3,8 @@ local uosc_version = '5.7.0'
 
 mp.commandv('script-message', 'uosc-version', uosc_version)
 
+mp.set_property('osc', 'no')
+
 assdraw = require('mp.assdraw')
 opt = require('mp.options')
 utils = require('mp.utils')
@@ -383,6 +385,7 @@ state = {
 	time_human = nil, -- current playback time in human format
 	destination_time_human = nil, -- depends on options.destination_time
 	pause = mp.get_property_native('pause'),
+	ime_active = mp.get_property_native("input-ime"),
 	chapters = {},
 	---@type {index: number; title: string}|nil
 	current_chapter = nil,
@@ -671,7 +674,6 @@ if options.click_threshold > 0 then
 	end
 end
 
-mp.observe_property('osc', 'bool', function(name, value) if value == true then mp.set_property('osc', 'no') end end)
 mp.register_event('file-loaded', function()
 	local path = normalize_path(mp.get_property_native('path'))
 	itable_delete_value(state.history, path)
@@ -966,9 +968,9 @@ bind_command('playlist', create_self_updating_menu_opener({
 		local playlist_titles = mp.get_property_native('user-data/playlistmanager/titles') or {}
 		for index, item in ipairs(playlist) do
 			local is_url = is_protocol(item.filename)
-			local item_title = type(item.title) == 'string' and #item.title > 0 and item.title or false
+			local title = type(item.title) == 'string' and #item.title > 0 and item.title or false
 			items[index] = {
-				title = is_url and (item_title or playlist_titles[item.filename] or url_decode(item.filename)) or
+				title = is_url and (title or playlist_titles[item.filename] or url_decode(item.filename)) or
 				serialize_path(item.filename).basename,
 				hint = tostring(index),
 				active = item.current,

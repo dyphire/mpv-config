@@ -7,6 +7,7 @@ local em = {
 
   -- customisable values ------------------------------------------------------
 
+  loop_when_navigating = false,          -- Loop when navigating through list
   lines_to_show = 17,                    -- NOT including search line
   pause_on_open = true,
   resume_on_exit = "only-if-was-paused", -- another possible value is true
@@ -69,6 +70,8 @@ local em = {
 }
 
 -- PRIVATE METHODS ------------------------------------------------------------
+
+local ime_active = mp.get_property_native("input-ime")
 
 -- declare constructor function
 function em:new(o)
@@ -156,10 +159,18 @@ end
 
 function em:change_selected_index(num)
   self.list.pointer_i = self.list.pointer_i + num
-  if self.list.pointer_i < 1 then
-    self.list.pointer_i = #self:current()
-  elseif self.list.pointer_i > #self:current() then
-    self.list.pointer_i = 1
+  if self.loop_when_navigating then
+    if self.list.pointer_i < 1 then
+      self.list.pointer_i = #self:current()
+    elseif self.list.pointer_i > #self:current() then
+      self.list.pointer_i = 1
+    end
+  else
+    if self.list.pointer_i < 1 then
+      self.list.pointer_i = 1
+    elseif self.list.pointer_i > #self:current() then
+      self.list.pointer_i = #self:current()
+    end
   end
   self:set_from_to()
   self:update()
@@ -492,6 +503,9 @@ end
 function em:set_active(active)
   if active == self.is_active then return end
   if active then
+    if ime_active == false then
+      mp.set_property_bool("input-ime", true)
+    end
     self.is_active = true
     self.insert_mode = false
     mp.enable_messages('terminal-default')
@@ -507,6 +521,9 @@ function em:set_active(active)
     self:update()
   else
     -- no need to call 'update' in this block cuz 'clear' method is calling it
+    if ime_active == false then
+      mp.set_property_bool("input-ime", false)
+    end
     self.is_active = false
     self:undefine_key_bindings()
 
@@ -659,12 +676,20 @@ end
 
 -- Go to the first command in the command history (PgUp)
 function em:handle_pgup()
-  self:go_history(1)
+  -- Determine the number of items to move up (half a page)
+  local half_page = math.ceil(self.lines_to_show / 2)
+
+  -- Move the history position up by half a page
+  self:change_selected_index(-half_page)
 end
 
 -- Stop browsing history and start editing a blank line (PgDown)
 function em:handle_pgdown()
-  self:go_history(#self.history + 1)
+  -- Determine the number of items to move down (half a page)
+  local half_page = math.ceil(self.lines_to_show / 2)
+
+  -- Move the history position down by half a page
+  self:change_selected_index(half_page)
 end
 
 -- Move to the start of the current word, or if already at the start, the start
@@ -843,8 +868,10 @@ function em:get_bindings()
     { 'home',        function() self:go_home() end },
     { 'ctrl+e',      function() self:go_end() end },
     { 'end',         function() self:go_end() end },
-    { 'pgup',        function() self:handle_pgup() end },
+    { 'ctrl+shift+f',function() self:handle_pgdown() end },
+    { 'ctrl+shift+b',function() self:handle_pgup() end },
     { 'pgdwn',       function() self:handle_pgdown() end },
+    { 'pgup',        function() self:handle_pgup() end },
     { 'ctrl+c',      function() self:clear() end },
     { 'ctrl+d',      function() self:handle_del() end },
     { 'ctrl+u',      function() self:del_to_start() end },
