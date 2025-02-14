@@ -168,6 +168,17 @@ local function read_chapter_table()
             end
             l = line
             line_pos = line_pos + 1
+        elseif line:match("^%d+:%d+[,%.]?%d+[,%s].*") ~= nil then
+            m, s = line:match("^(%d+):(%d+[,%.]?%d+)")
+            s = s:gsub(',', '.')
+            t = m * 60 + s
+            if line:match("^%d+:%d+[,%.]?%d+[,%s].*") ~= nil then
+                n = line:match("^%d+:%d+[,%.]?%d+[,%s](.*)")
+                n = n:gsub(":%s%a?%a?:", "")
+                    :gsub("^%s*(.-)%s*$", "%1")
+            end
+            l = line
+            line_pos = line_pos + 1
         elseif line:match("^CHAPTER%d+=%d+:%d+:%d+") ~= nil then
             h, m, s = line:match("^CHAPTER%d+=(%d+):(%d+):(%d+[,%.]?%d+)")
             s = s:gsub(',', '.')

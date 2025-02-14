@@ -1,6 +1,7 @@
 *.log
 *.xml
 *.txt
+config.json
 
 cache/
 files/
