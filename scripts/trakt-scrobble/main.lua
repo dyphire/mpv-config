@@ -423,15 +423,14 @@ function start_scrobble(config, data, no_osd)
             message = "Scrobbling on trakt.tv: " .. state.title
         end
         if input_loaded and not no_osd then
-            local message1 = format_message(message, "00FF00")
-            local message2 = format_message("Incorrect scrobble? Press x to open the search menu", "FF8800")
-            message3 = message1 .. "\n" .. message2
             mp.add_forced_key_binding("x", "search-trakt", function()
                 mp.osd_message("")
                 open_input_menu_get(state.filename, config)
                 stop_scrobble(config, data)
             end)
-            mp.osd_message(message3, 9)
+            local message1 = format_message(message, "00FF00")
+            local message2 = format_message("Incorrect scrobble? Press x to open the search menu", "FF8800")
+            mp.osd_message(message1 .. "\n" .. message2, 9)
             msg.info(message)
         elseif not no_osd then
             send_message(message, "00FF00", 3)

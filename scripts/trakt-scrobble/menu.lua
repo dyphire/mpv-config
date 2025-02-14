@@ -62,11 +62,11 @@ local function search_season(slug, type, id, title, config)
     end
 end
 
-local function search_show(name, config, page)
+local function search_trakt(name, class, config, page)
     local limit = 20
     local page = page or 1
-    local url = string.format("https://api.trakt.tv/search/show?query=%s&page=%d&limit=%s",
-        url_encode(name), page, limit)
+    local url = string.format("https://api.trakt.tv/search/%s?query=%s&page=%d&limit=%s",
+        class, url_encode(name), page, limit)
     local res = http_request("GET", url, {
         ["trakt-api-key"] = base64.decode(config.client_id),
         ["trakt-api-version"] = "2"
@@ -78,54 +78,21 @@ local function search_show(name, config, page)
     local items = {}
     for _, item in ipairs(res) do
         table.insert(items, {
-            title = item.show.title,
-            hint = item.show.year and item.type .." ".. item.show.year or item.type,
+            title = item[class].title,
+            hint = item[class].year and item.type .." ".. item[class].year or item.type,
             value = function()
-                search_season(item.show.ids.slug, item.type, item.show.ids.trakt, item.show.title, config)
-            end
-        })
-    end
-    if #items == limit then
-        page = page + 1
-        table.insert(items, {
-            title = "Load next page",
-            value = function()
-                search_show(name, config, page)
-            end
-        })
-    else
-        msg.info("No more pages available.")
-    end
-    mp.add_timeout(0.1, function()
-        open_menu_select(items)
-    end)
-end
-
-local function search_movie(name, config, page)
-    local limit = 20
-    local page = page or 1
-    local url = string.format("https://api.trakt.tv/search/movie?query=%s&page=%d&limit=%s",
-        url_encode(name), page, limit)
-    local res = http_request("GET", url, {
-        ["trakt-api-key"] = base64.decode(config.client_id),
-        ["trakt-api-version"] = "2"
-    })
-    if not res or #res == 0 then
-        msg.info("No results found")
-        return
-    end
-    local items = {}
-    for _, item in ipairs(res) do
-        table.insert(items, {
-            title = item.movie.title,
-            hint = item.movie.year and item.type .." ".. item.movie.year or item.type,
-            value = function()
-                state.title = item.movie.title
-                state.id = item.movie.ids.trakt
-                local progress = get_progress()
-                local data = get_data(progress)
-                if data then
-                    start_scrobble(config, data)
+                if class == "movie" then
+                    state.type = item.type
+                    state.title = item[class].title
+                    state.id = item[class].ids.trakt
+                    local progress = get_progress()
+                    local data = get_data(progress)
+                    if data then
+                        start_scrobble(config, data)
+                    end
+                    write_history(state.dir, state.fname)
+                else
+                    search_season(item[class].ids.slug, item.type, item[class].ids.trakt, item[class].title, config)
                 end
             end
         })
@@ -135,7 +102,7 @@ local function search_movie(name, config, page)
         table.insert(items, {
             title = "Load next page",
             value = function()
-                search_movie(name, config, page)
+                search_trakt(name, class, config, page)
             end
         })
     else
@@ -154,9 +121,9 @@ local function search(name, config)
           :gsub("[eE]%d+$", "")
           :gsub("^%s*(.-)%s*$", "%1")
     if type == "movie" then
-        search_movie(name, config)
+        search_trakt(name, "movie", config)
     else
-        search_show(name, config)
+        search_trakt(name, "show", config)
     end
 end
 
