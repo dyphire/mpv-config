@@ -30,6 +30,16 @@
     "dest":"~~/scripts"
   },
   {
+    "git":"https://github.com/dyphire/mpv-sub-assrt",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
+    "git":"https://github.com/dyphire/mpv-sub-fastwhisper",
+    "whitelist":"%.lua$",
+    "dest":"~~/scripts"
+  },
+  {
     "git":"https://github.com/dyphire/chapterskip",
     "branch":"dev",
     "whitelist":"%.lua$",
@@ -46,6 +56,12 @@
     "branch":"v0.33_CM",
     "whitelist":"readme%.md$|%.lua$",
     "dest":"~~/scripts/autosubsync"
+  },
+  {
+    "git":"https://github.com/dyphire/trakt-scrobble",
+    "branch":"main",
+    "blacklist":"config%-example%.json$",
+    "dest":"~~/scripts/trakt-scrobble"
   },
   {
     "git":"https://github.com/open-dynaMIX/simple-mpv-webui",
