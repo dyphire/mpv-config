@@ -19,8 +19,9 @@ function open_command_menu(data, opts)
 			---@diagnostic disable-next-line: deprecated
 			mp.commandv(unpack(itable_join({'script-message-to'}, menu.root.callback, {utils.format_json(event)})))
 		elseif event.type == 'activate' then
-			-- Modifiers and actions are not available on basic non-callback mode menus
-			if not event.modifiers and not event.action then
+			-- Modifiers and actions are not available on basic non-callback mode menus.
+			-- `alt` modifier should activate without closing the menu.
+			if (event.modifiers == 'alt' or not event.modifiers) and not event.action then
 				run_command(event.value)
 			end
 			-- Convention: Only pure item activations should close the menu.
@@ -918,8 +919,7 @@ function open_subtitle_downloader()
 		return
 	end
 
-	local search_suggestion, file_path = '', nil
-	local destination_directory = mp.command_native({'expand-path', '~~/subtitles'})
+	local search_suggestion, file_path, destination_directory = '', nil, nil
 	local credentials = {'--api-key', config.open_subtitles_api_key, '--agent', config.open_subtitles_agent}
 
 	if state.path then
@@ -933,6 +933,12 @@ function open_subtitle_downloader()
 				destination_directory = serialized_path.dirname
 			end
 		end
+	end
+
+	local force_destination = options.subtitles_directory:sub(1, 1) == '!'
+	if force_destination or not destination_directory then
+		local subtitles_directory = options.subtitles_directory:sub(force_destination and 2 or 1)
+		destination_directory = mp.command_native({'expand-path', subtitles_directory})
 	end
 
 	local handle_download, handle_search

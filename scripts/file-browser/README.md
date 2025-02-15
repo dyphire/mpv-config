@@ -9,8 +9,11 @@ By default only file types compatible with mpv will be shown, but this can be ch
 This script requires at least **mpv v0.33**.
 
 Originally, file-browser worked with versions of mpv going back to
-v0.31, you can find those (now unsupported) older versions of file-browser
-[here](https://github.com/CogentRedTester/mpv-file-browser/tree/mpv-v0.31)
+v0.31, you can find those older versions of file-browser in the
+[mpv-v0.31 branch](https://github.com/CogentRedTester/mpv-file-browser/tree/mpv-v0.31).
+That branch will no longer be receiving any feature updates,
+but I will try to fix any bugs that are reported on the issue
+tracker.
 
 ## Installation
 

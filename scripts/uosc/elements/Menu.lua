@@ -938,6 +938,9 @@ end
 function Menu:search_cancel(menu_id)
 	local menu = self:get_menu(menu_id)
 	if not menu or not menu.search or menu.search_style == 'palette' then return end
+	if state.ime_active == false then
+		mp.set_property_bool("input-ime", false)
+    end
 	self:search_query_update('', menu_id, true)
 	menu.search = nil
 	self:search_ensure_key_bindings()
@@ -976,6 +979,9 @@ end
 function Menu:search_start(menu_id)
 	local menu = self:get_menu(menu_id)
 	if not menu or menu.search_style == 'disabled' then return end
+	if state.ime_active == false then
+		mp.set_property_bool("input-ime", true)
+    end
 	self:search_init(menu_id)
 	self:search_ensure_key_bindings()
 	self:update_dimensions()
@@ -1015,7 +1021,7 @@ end
 function Menu:enable_key_bindings()
 	-- `+` at the end enables `repeatable` flag
 	local standalone_keys = {
-		'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12', '/', 'mbtn_back',
+		'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12', '/', 'kp_divide', 'mbtn_back',
 		{'f', 'ctrl'}, {'v', 'ctrl'}, {'c', 'ctrl'},
 	}
 	local modifiable_keys = {'up+', 'down+', 'left', 'right', 'enter', 'kp_enter', 'bs', 'tab', 'esc', 'pgup+',
@@ -1095,7 +1101,7 @@ function Menu:handle_shortcut(shortcut, info)
 		self:move_selected_item_by(-math.huge)
 	elseif id == 'ctrl+end' then
 		self:move_selected_item_by(math.huge)
-	elseif id == '/' or id == 'ctrl+f' then
+	elseif id == '/' or id == 'kp_divide' or id == 'ctrl+f' then
 		self:search_start()
 	elseif key == 'esc' then
 		if menu.search and menu.search_style ~= 'palette' then
