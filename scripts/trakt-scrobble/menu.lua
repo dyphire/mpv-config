@@ -13,7 +13,7 @@ local function search_episodes(slug, season, type, id, title, config)
     local items = {}
     for _, item in ipairs(res) do
         table.insert(items, {
-            title = string.format("Episode %d: %s", item.number, item.title or "No title"),
+            title = string.format("Episode %d: %s", item.number, clip_title(item.title) or "No title"),
             value = function()
                 state.type = type
                 state.title = title
@@ -78,7 +78,7 @@ local function search_trakt(name, class, config, page)
     local items = {}
     for _, item in ipairs(res) do
         table.insert(items, {
-            title = item[class].title,
+            title = clip_title(item[class].title),
             hint = item[class].year and item.type .." ".. item[class].year or item.type,
             value = function()
                 if class == "movie" then

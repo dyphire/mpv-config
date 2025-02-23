@@ -16,6 +16,8 @@ input_loaded, input = pcall(require, "mp.input")
 local o = {
     enabled = true,
     history_path = "~~/trakt_history.json",
+    --slice long filenames, and how many chars to show
+    max_title_length = 100,
 }
 
 options.read_options(o, _, function() end)
@@ -63,6 +65,39 @@ function url_decode(str)
     else
         return
     end
+end
+
+-- from http://lua-users.org/wiki/LuaUnicode
+local UTF8_PATTERN = '[%z\1-\127\194-\244][\128-\191]*'
+
+-- return a substring based on utf8 characters
+-- like string.sub, but negative index is not supported
+local function utf8_sub(s, i, j)
+    if i > j then
+        return s
+    end
+
+    local t = {}
+    local idx = 1
+    for char in s:gmatch(UTF8_PATTERN) do
+        if i <= idx and idx <= j then
+            local width = #char > 2 and 2 or 1
+            idx = idx + width
+            t[#t + 1] = char
+        end
+    end
+    return table.concat(t)
+end
+
+function clip_title(title)
+    if not title then
+        return title
+    end
+    local title_clip = utf8_sub(title, 1, o.max_title_length)
+    if title ~= title_clip then
+        title = title_clip .. "..."
+    end
+    return title
 end
 
 local function normalize(path)
@@ -226,11 +261,11 @@ local function init()
     if not config then
         return 10
     end
-    if not base64.decode(config.client_id) or not base64.decode(config.client_secret)
+    if not config.client_id or not config.client_secret
     or #base64.decode(config.client_id) ~= 64 or #base64.decode(config.client_secret) ~= 64 then
         return 10
     end
-    if not base64.decode(config.access_token) or #base64.decode(config.access_token) ~= 64 then
+    if not config.access_token or #base64.decode(config.access_token) ~= 64 then
         return 11
     end
     return 0
@@ -587,19 +622,13 @@ local function query_media(config, media)
 end
 
 -- Checkin function
-local function checkin_file()
-    local path = mp.get_property_native("path")
+local function checkin_file(path)
     local filename = mp.get_property_native("filename/no-ext")
     local title = mp.get_property_native("media-title"):gsub("%.[^%.]+$", "")
     local thin_space = string.char(0xE2, 0x80, 0x89)
     local fname = filename
 
     history = read_config(history_path) or {}
-
-    if not path then
-        msg.info("No file loaded.")
-        return
-    end
 
     if is_protocol(path) then
         title = url_decode(title)
@@ -610,9 +639,6 @@ local function checkin_file()
 
     local dir = get_parent_dir(path)
 
-    local video = mp.get_property_native("vid") and not mp.get_property_native("current-tracks/video/image") and
-        not mp.get_property_native("current-tracks/video/albumart")
-    if not video then return end
     state.duration = mp.get_property_number("duration", 0)
     local progress = get_progress()
     if not progress then return end
@@ -697,6 +723,18 @@ local function trackt_scrobble(force)
         return
     end
 
+    local path = mp.get_property_native("path")
+    if not path then
+        return
+    end
+
+    local video = mp.get_property_native("current-tracks/video")
+    local fps = mp.get_property_number("container-fps", 0)
+    local duration = mp.get_property_number("duration", 0)
+    if not video or video["image"] or video["albumart"] or fps < 23 or duration < 60 then
+        return
+    end
+
     state = {}
     local status = init()
     local config = read_config(config_file)
@@ -715,7 +753,7 @@ local function trackt_scrobble(force)
         end
         mp.observe_property("pause", "bool", on_pause_callback)
         mp.observe_property("time-pos", "number", on_time_pos)
-        checkin_file()
+        checkin_file(path)
     end
 end
 
@@ -744,7 +782,9 @@ function on_pause_callback(_, paused)
 end
 
 -- Register event
-mp.register_event("file-loaded", trackt_scrobble)
+mp.register_event("file-loaded", function()
+    trackt_scrobble(false)
+end)
 mp.register_event("end-file", function()
     mp.unobserve_property(on_time_pos)
     mp.unobserve_property(on_pause_callback)
