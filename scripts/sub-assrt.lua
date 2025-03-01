@@ -312,10 +312,10 @@ local function download_file(url, fname)
     end
 
     local message = "正在下载字幕..."
+    local type = "download_subtitle"
+    local title = "字幕下载菜单"
+    local footnote = "使用 / 打开筛选"
     if uosc_available then
-        local type = "download_subtitle"
-        local title = "字幕下载菜单"
-        local footnote = "使用 / 打开筛选"
         update_menu_uosc(type, title, message, footnote)
     else
         mp.osd_message(message)
@@ -332,9 +332,6 @@ local function download_file(url, fname)
             append_sub(sub_path)
             local message = "字幕下载完成, 已载入"
             if uosc_available then
-                local type = "download_subtitle"
-                local title = "字幕下载菜单"
-                local footnote = "使用 / 打开筛选"
                 update_menu_uosc(type, title, message, footnote)
                 -- 下载完字幕1.5秒后关闭面板
                 mp.add_timeout(1.5, function()
@@ -348,9 +345,6 @@ local function download_file(url, fname)
     else
         local message = "字幕下载失败，查看控制台获取更多信息"
         if uosc_available then
-            local type = "download_subtitle"
-            local title = "字幕下载菜单"
-            local footnote = "使用 / 打开筛选"
             update_menu_uosc(type, title, message, footnote)
         else
             mp.osd_message(message, 3)
@@ -362,23 +356,20 @@ end
 
 local function fetch_subtitle_details(sub_id)
     local message = "正在加载字幕详细信息..."
+    local type = "subtitle_details"
+    local title = "字幕下载菜单"
+    local footnote = "使用 / 打开筛选"
     if uosc_available then
-        local type = "subtitle_details"
-        local title = "字幕下载菜单"
-        local footnote = "使用 / 打开筛选"
         update_menu_uosc(type, title, message, footnote)
     else
         mp.osd_message(message)
     end
 
-    local url = ASSRT_DETAIL_API .."?token=" .. o.api_token .. "&id=" .. sub_id
+    local url = ASSRT_DETAIL_API .."?token=" .. o.api_token .. "&id=" .. (sub_id or 0)
     local res = http_request(url)
     if not res or res.status ~= 0 then
         local message = "获取字幕详细信息失败，查看控制台获取更多信息"
         if uosc_available then
-            local type = "subtitle_details"
-            local title = "字幕下载菜单"
-            local footnote = "使用 / 打开筛选"
             update_menu_uosc(type, title, message, footnote)
         else
             mp.osd_message(message, 3)
@@ -433,16 +424,8 @@ local function fetch_subtitle_details(sub_id)
         })
     end
 
-    local menu_props = {
-        type = "download_subtitle",
-        title = "字幕下载菜单",
-        footnote = "使用 / 打开筛选",
-        items = items,
-    }
-
-    local json_props = utils.format_json(menu_props)
     if uosc_available then
-        mp.commandv("script-message-to", "uosc", "open-menu", json_props)
+        update_menu_uosc(type, title, items, footnote)
     elseif input_loaded then
         mp.osd_message("")
         mp.add_timeout(0.1, function()
@@ -453,14 +436,14 @@ end
 
 local function search_subtitles(pos, query)
     local items = {}
+    local type = "menu_subtitle"
+    local title = "输入搜索内容"
+    local footnote = "使用enter或ctrl+enter进行搜索"
     if pos ~= "has_details" and (query ~= cache.query or tonumber(pos) > 0) then
         local pos = tonumber(pos)
         local message = "正在搜索字幕..."
+        local cmd = { "script-message-to", mp.get_script_name(), "search-subtitles-event", tostring(pos) }
         if uosc_available then
-            local type = "menu_subtitle"
-            local title = "输入搜索内容"
-            local footnote = "使用enter或ctrl+enter进行搜索"
-            local cmd = { "script-message-to", mp.get_script_name(), "search-subtitles-event", tostring(pos) }
             update_menu_uosc(type, title, message, footnote, cmd, query)
         else
             mp.osd_message(message)
@@ -471,10 +454,6 @@ local function search_subtitles(pos, query)
         if not res or res.status ~= 0 then
             local message = "搜索字幕失败，查看控制台获取更多信息"
             if uosc_available then
-                local type = "menu_subtitle"
-                local title = "输入搜索内容"
-                local footnote = "使用enter或ctrl+enter进行搜索"
-                local cmd = { "script-message-to", mp.get_script_name(), "search-subtitles-event", tostring(pos) }
                 update_menu_uosc(type, title, message, footnote, cmd, query)
             else
                 mp.osd_message(message, 3)
@@ -489,10 +468,6 @@ local function search_subtitles(pos, query)
         if #subs == 0 then
             local message = "未找到字幕，建议更改关键字尝试重新搜索"
             if uosc_available then
-                local type = "menu_subtitle"
-                local title = "输入搜索内容"
-                local footnote = "使用enter或ctrl+enter进行搜索"
-                local cmd = { "script-message-to", mp.get_script_name(), "search-subtitles-event", tostring(pos) }
                 update_menu_uosc(type, title, message, footnote, cmd, query)
             else
                 mp.osd_message(message, 3)
@@ -514,13 +489,15 @@ local function search_subtitles(pos, query)
 
         for _, sub in ipairs(subs) do
             table.insert(items, {
-                title = sub.native_name ~= '' and sub.native_name or sub.videoname,
-                hint = sub.lang and sub.lang.desc ~= '' and sub.lang.desc,
+                title = sub.video_chinese_name ~= '' and sub.video_chinese_name
+                    or sub.native_name ~= '' and sub.native_name or sub.videoname,
+                hint = sub.lang and sub.lang.desc ~= '' and sub.lang.desc
+                    or sub.m_lang ~= '' and sub.m_lang:gsub("&nbsp;", " "),
                 value = {
                     "script-message-to",
                     mp.get_script_name(),
                     "fetch-details-event",
-                    sub.id,
+                    sub.id or sub.fileid,
                 },
             })
         end
@@ -546,16 +523,8 @@ local function search_subtitles(pos, query)
         items = cache.items
     end
 
-    local menu_props = {
-        type = "subtitle_details",
-        title = "字幕搜索结果",
-        footnote = "使用 / 打开筛选",
-        items = items,
-    }
-
-    local json_props = utils.format_json(menu_props)
     if uosc_available then
-        mp.commandv("script-message-to", "uosc", "open-menu", json_props)
+        update_menu_uosc(type, title, items, footnote)
     elseif input_loaded then
         mp.osd_message("")
         mp.add_timeout(0.1, function()
@@ -613,24 +582,28 @@ function open_input_menu_uosc(pos, query)
     mp.commandv("script-message-to", "uosc", "open-menu", json_props)
 end
 
-function update_menu_uosc(type, title, text, footnote, cmd, query)
+function update_menu_uosc(menu_type, menu_title, menu_item, menu_footnote, menu_cmd, query)
     local items = {}
-    table.insert(items, {
-        title = text,
-        value = "",
-        italic = true,
-        keep_open = true,
-        selectable = false,
-        align = "center",
-    })
+    if type(menu_item) == "string" then
+        table.insert(items, {
+            title = menu_item,
+            value = "",
+            italic = true,
+            keep_open = true,
+            selectable = false,
+            align = "center",
+        })
+    else
+        items = menu_item
+    end
 
     local menu_props = {
-        type = type,
-        title = title,
-        search_style = cmd and "palette" or "on_demand",
-        search_debounce = cmd and "submit" or 0,
-        on_search = cmd,
-        footnote = footnote,
+        type = menu_type,
+        title = menu_title,
+        search_style = menu_cmd and "palette" or "on_demand",
+        search_debounce = menu_cmd and "submit" or 0,
+        on_search = menu_cmd,
+        footnote = menu_footnote,
         search_suggestion = query,
         items = items,
     }

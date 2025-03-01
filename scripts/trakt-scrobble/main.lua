@@ -11,7 +11,8 @@
 local msg = require "mp.msg"
 local utils = require "mp.utils"
 local options = require "mp.options"
-input_loaded, input = pcall(require, "mp.input")
+input_available, input = pcall(require, "mp.input")
+uosc_available = false
 
 local o = {
     enabled = true,
@@ -23,7 +24,7 @@ local o = {
 options.read_options(o, _, function() end)
 
 state = {}
-history = {}
+enabled = o.enabled
 local scrobble = false
 local config_file = utils.join_path(mp.get_script_directory(), "config.json")
 local history_path = mp.command_native({"expand-path", o.history_path})
@@ -177,6 +178,47 @@ local function get_episode_number(fname, filename)
     end
 end
 
+local function parse_title(path)
+    local dir = get_parent_dir(path)
+    local filename = mp.get_property_native("filename/no-ext")
+    local title = mp.get_property_native("media-title"):gsub("%.[^%.]+$", "")
+    local thin_space = string.char(0xE2, 0x80, 0x89)
+    local fname = filename
+
+    if is_protocol(path) then
+        title = url_decode(title)
+        fname = title
+    elseif #title < #filename then
+        title = filename
+    end
+
+    title = title:gsub(thin_space, " ")
+    title = format_filename(title)
+    local media_title, season, episode = title:match("^(.-)%s*[sS](%d+)[eE](%d+)")
+    if not season then
+        local media_title, episode = title:match("^(.-)%s*[eE](%d+)")
+        if episode and dir then
+            local season = dir:match("[sS](%d+)") or dir:match("[sS]eason%s*(%d+)")
+                or dir:match("(%d+)[nrdsth]+[_%.%s]%s*[sS]eason")
+            if season then
+                title = media_title .. " S" .. season .. "E" .. episode
+            else
+                title = media_title .. " S01" .. "E" .. episode
+            end
+        end
+    end
+
+    if not dir then
+        if season then
+            dir = title .. " S" .. season
+        else
+            dir = title
+        end
+    end
+
+    return dir, fname, title
+end
+
 local function format_message(msg, color)
     local ass_start = mp.get_property_osd("osd-ass-cc/0")
     local ass_stop = mp.get_property_osd("osd-ass-cc/1")
@@ -200,6 +242,8 @@ local function read_config(file_path)
     return utils.parse_json(content)
 end
 
+config = read_config(config_file)
+
 -- Write config file
 local function write_config(file_path, data)
     local file = io.open(file_path, "w")
@@ -212,6 +256,7 @@ end
 
 -- Write history file
 function write_history(dir, fname)
+    local history = read_config(history_path) or {}
     if not state.id then return end
     history[dir] = {}
     history[dir].fname = fname
@@ -257,7 +302,7 @@ end
 
 -- Initialize and check config
 local function init()
-    local config = read_config(config_file)
+    config = read_config(config_file)
     if not config then
         return 10
     end
@@ -273,7 +318,7 @@ end
 
 -- Generate device code
 local function device_code()
-    local config = read_config(config_file)
+    config = read_config(config_file)
     if not config then
         return -1
     end
@@ -292,7 +337,7 @@ end
 
 -- Authenticate with device code
 local function auth()
-    local config = read_config(config_file)
+    config = read_config(config_file)
     if not config then
         return -1
     end
@@ -442,7 +487,7 @@ function start_scrobble(config, data, no_osd)
     local res = http_request("POST", "https://api.trakt.tv/scrobble/start", {
         ["Content-Type"] = "application/json",
         ["trakt-api-key"] = base64.decode(config.client_id),
-        ["Authorization"] = "Bearer " .. base64.decode(config.access_token),
+        ["Authorization"] = "Bearer " .. config.access_token and base64.decode(config.access_token),
         ["trakt-api-version"] = "2"
     }, data)
     if not res then
@@ -457,10 +502,10 @@ function start_scrobble(config, data, no_osd)
         else
             message = "Scrobbling on trakt.tv: " .. state.title
         end
-        if input_loaded and not no_osd then
+        if (input_available or uosc_available) and not no_osd then
             mp.add_forced_key_binding("x", "search-trakt", function()
                 mp.osd_message("")
-                open_input_menu_get(state.filename, config)
+                open_input_menu(state.filename)
                 stop_scrobble(config, data)
             end)
             local message1 = format_message(message, "00FF00")
@@ -482,7 +527,7 @@ function stop_scrobble(config, data)
     local res = http_request("POST", "https://api.trakt.tv/scrobble/stop", {
         ["Content-Type"] = "application/json",
         ["trakt-api-key"] = base64.decode(config.client_id),
-        ["Authorization"] = "Bearer " .. base64.decode(config.access_token),
+        ["Authorization"] = "Bearer " .. config.access_token and base64.decode(config.access_token),
         ["trakt-api-version"] = "2"
     }, data)
     if not res then
@@ -498,7 +543,7 @@ function stop_scrobble(config, data)
 end
 
 -- Query show
-local function query_search_show(name, season, episode, config)
+local function query_search_show(name, season, episode)
     local title, year = name:match("^(.-)%s*%(?(%d%d%d%d)%)?$")
     if year then name = title end
     local url = string.format("https://api.trakt.tv/search/show?query=%s", url_encode(name))
@@ -564,7 +609,7 @@ local function query_search_show(name, season, episode, config)
 end
 
 -- Query movie
-local function query_movie(movie, year, config)
+local function query_movie(movie, year)
     local url = string.format("https://api.trakt.tv/search/movie?query=%s", url_encode(movie))
     local res = http_request("GET", url, {
         ["trakt-api-key"] = base64.decode(config.client_id),
@@ -588,7 +633,7 @@ local function query_movie(movie, year, config)
 end
 
 -- Query whatever
-local function query_whatever(name, config)
+local function query_whatever(name)
     local url = string.format("https://api.trakt.tv/search/movie?query=%s", url_encode(name))
     local res = http_request("GET", url, {
         ["trakt-api-key"] = base64.decode(config.client_id),
@@ -610,69 +655,32 @@ local function query_media(config, media)
     local infos = { string.match(media, "^(.-)%s*[sS](%d+).*[eE](%d+).*") }
     if #infos == 3 then
         local name, season, episode = infos[1], infos[2], infos[3]
-        query_search_show(name, season, episode, config)
+        query_search_show(name, season, episode)
     else
         infos = { string.match(media, "^(.-)%s*%(?(%d%d%d%d)%)?[^%dhHxXvVpPkKxXbBfF]") }
         if #infos == 2 then
-            query_movie(infos[1], infos[2], config)
+            query_movie(infos[1], infos[2])
         else
-            query_whatever(media, config)
+            query_whatever(media)
         end
     end
 end
 
 -- Checkin function
 local function checkin_file(path)
-    local filename = mp.get_property_native("filename/no-ext")
-    local title = mp.get_property_native("media-title"):gsub("%.[^%.]+$", "")
-    local thin_space = string.char(0xE2, 0x80, 0x89)
-    local fname = filename
-
-    history = read_config(history_path) or {}
-
-    if is_protocol(path) then
-        title = url_decode(title)
-        fname = title
-    elseif #title < #filename then
-        title = filename
-    end
-
-    local dir = get_parent_dir(path)
+    config = read_config(config_file)
+    if not config then return end
 
     state.duration = mp.get_property_number("duration", 0)
     local progress = get_progress()
     if not progress then return end
-    local config = read_config(config_file)
-    if not config then return end
 
-    title = title:gsub(thin_space, " ")
-    title = format_filename(title)
-    local media_title, season, episode = title:match("^(.-)%s*[sS](%d+)[eE](%d+)")
-    if not season then
-        local media_title, episode = title:match("^(.-)%s*[eE](%d+)")
-        if episode and dir then
-            local season = dir:match("[sS](%d+)") or dir:match("[sS]eason%s*(%d+)")
-                or dir:match("(%d+)[nrdsth]+[_%.%s]%s*[sS]eason")
-            if season then
-                title = media_title .. " S" .. season .. "E" .. episode
-            else
-                title = media_title .. " S01" .. "E" .. episode
-            end
-        end
-    end
-
-    if not dir then
-        if season then
-            dir = title .. " S" .. season
-        else
-            dir = title
-        end
-    end
-
+    local dir, fname, title  = parse_title(path)
     state.dir = dir
     state.fname = fname
     state.filename = title
 
+    local history = read_config(history_path) or {}
     if history[dir] then
         local old_fname = history[dir].fname
         local old_type = history[dir].type
@@ -705,12 +713,12 @@ local function checkin_file(path)
         mp.add_timeout(1, function()
             start_scrobble(config, data)
         end)
-    elseif input_loaded then
+    elseif (input_available or uosc_available) then
         local message = format_message("Automatic parsing of media titles failed.\n Press x to open the search menu", "FF8800")
         mp.osd_message(message, 5)
         mp.add_forced_key_binding("x", "search-trakt", function()
             mp.osd_message("")
-            open_input_menu_get(state.filename, config)
+            open_input_menu(state.filename)
             stop_scrobble(config, data)
         end)
     end
@@ -735,9 +743,8 @@ local function trackt_scrobble(force)
         return
     end
 
-    state = {}
     local status = init()
-    local config = read_config(config_file)
+    config = read_config(config_file)
 
     if status == 10 then
         send_message("[trakt] Please add your client_id and client_secret to config.json!", "0000FF", 4)
@@ -751,8 +758,6 @@ local function trackt_scrobble(force)
             send_message("Authentication failed. Please re-login.", "FF0000", 5)
             return
         end
-        mp.observe_property("pause", "bool", on_pause_callback)
-        mp.observe_property("time-pos", "number", on_time_pos)
         checkin_file(path)
     end
 end
@@ -762,7 +767,7 @@ function on_time_pos(_, value)
 end
 
 function on_pause_change(paused)
-    local config = read_config(config_file)
+    if not enabled then return end
     if not config then return end
     local progress = get_progress()
     local data = get_data(progress)
@@ -782,9 +787,17 @@ function on_pause_callback(_, paused)
 end
 
 -- Register event
-mp.register_event("file-loaded", function()
-    trackt_scrobble(false)
+mp.register_script_message('uosc-version', function()
+    uosc_available = true
 end)
+
+mp.register_event("file-loaded", function()
+    state = {}
+    mp.observe_property("pause", "bool", on_pause_callback)
+    mp.observe_property("time-pos", "number", on_time_pos)
+    trackt_scrobble(enabled)
+end)
+
 mp.register_event("end-file", function()
     mp.unobserve_property(on_time_pos)
     mp.unobserve_property(on_pause_callback)
@@ -792,11 +805,33 @@ mp.register_event("end-file", function()
     state = nil
 end)
 
-mp.register_script_message("trackt_scrobble", function()
+mp.register_script_message("search-menu", function()
+    config = read_config(config_file)
+    if not config then
+        mp.osd_message("Failed to read config file", 3)
+        msg.error("Failed to read config file")
+        return
+    end
+
+    local path = mp.get_property_native("path")
+    if not state.dir or not state.fname or not state.filename then
+        local dir, fname, title  = parse_title(path)
+        state.dir = dir
+        state.fname = fname
+        state.filename = title
+    end
+    local title = state.filename or ""
+    open_input_menu(title)
+end)
+
+mp.register_script_message("toggle-scrobble", function()
     if scrobble then
+        mp.osd_message("Trakt scrobbling disabled", 3)
+        msg.info("Trakt scrobbling disabled")
         on_pause_change(true)
-        state = nil
+        enabled = false
     else
-        trackt_scrobble(true)
+        enabled = true
+        trackt_scrobble(enabled)
     end
 end)
