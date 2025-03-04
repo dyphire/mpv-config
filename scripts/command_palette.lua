@@ -323,11 +323,38 @@ function command_palette_get_line(self, _, v)
     return ass.text
 end
 
+local function escape_codec(str)
+    if not str or str == '' then return '' end
+
+    local codec_map = {
+        mpeg2 = "mpeg2",
+        dvvideo = "dv",
+        pcm = "pcm",
+        pgs = "pgs",
+        subrip = "srt",
+        vtt = "vtt",
+        dvd_sub = "vob",
+        dvb_sub = "dvb",
+        dvb_tele = "teletext",
+        arib = "arib"
+    }
+
+    for key, value in pairs(codec_map) do
+        if str:find(key) then
+            return value
+        end
+    end
+
+    return str
+end
+
 local function format_flags(track)
     local flags = ""
 
-    for _, flag in ipairs({"default", "forced", "dependent", "visual-impaired",
-                           "hearing-impaired", "image", "external"}) do
+    for _, flag in ipairs({
+        "default", "forced", "dependent", "visual-impaired", "hearing-impaired",
+        "image", "external"
+    }) do
         if track[flag] then
             flags = flags .. flag .. " "
         end
@@ -340,64 +367,45 @@ local function format_flags(track)
     return " [" .. flags:sub(1, -2) .. "]"
 end
 
-local function fix_codec(value)
-    if contains(value, "hdmv_pgs_subtitle") then
-        value = replace(value, "hdmv_pgs_subtitle", "pgs")
+local function format_track(track, type)
+    local title = track.title or ''
+    local filename = mp.get_property('filename/no-ext', ''):gsub("[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0")
+    local codec = escape_codec(track.codec)
+
+    if track.external and title ~= "" then
+        local extension = title:match("%.([^%.]+)$")
+        if filename ~= "" and extension then
+            title = title:gsub(filename .. "%.?", "")
+        end
+        if track.lang and extension
+        and title:lower() == track.lang:lower() .. "." .. extension:lower() then
+            title = extension
+        end
+    end
+    if title == '' then
+        local name = type:sub(1, 1):upper() .. type:sub(2, #type)
+        title = string.format('%s %02.f', name, track.id)
     end
 
-    return value:upper()
-end
-
-local function get_language(lng)
-    if lng == nil or lng == "" then
-        return lng
+    local hints = {}
+    local function h(value) hints[#hints + 1] = value end
+    if codec ~= '' then h(codec) end
+    if track['demux-h'] then
+        h(track['demux-w'] and (track['demux-w'] .. 'x' .. track['demux-h'] or track['demux-h'] .. 'p'))
     end
-
-    if lng == "ara" then lng = "Arabic" end
-    if lng == "ben" then lng = "Bangla" end
-    if lng == "bng" then lng = "Bangla" end
-    if lng == "chi" then lng = "Chinese" end
-    if lng == "zho" then lng = "Chinese" end
-    if lng == "eng" then lng = "English" end
-    if lng == "fre" then lng = "French" end
-    if lng == "fra" then lng = "French" end
-    if lng == "ger" then lng = "German" end
-    if lng == "deu" then lng = "German" end
-    if lng == "hin" then lng = "Hindi" end
-    if lng == "ita" then lng = "Italian" end
-    if lng == "jpn" then lng = "Japanese" end
-    if lng == "kor" then lng = "Korean" end
-    if lng == "msa" then lng = "Malay" end
-    if lng == "por" then lng = "Portuguese" end
-    if lng == "pan" then lng = "Punjabi" end
-    if lng == "rus" then lng = "Russian" end
-    if lng == "spa" then lng = "Spanish" end
-    if lng == "und" then lng = "Undetermined" end
-
-    return lng
-end
-
-local function format_track(track)
-    local lng = get_language(track.lang)
-    return (track.selected and "●" or "○") .. (
-            (lng and lng .. " " or "") ..
-            fix_codec(track.codec and track.codec .. " " or "") ..
-            (track["demux-w"] and track["demux-w"] .. "x" .. track["demux-h"]
-             .. " " or "") ..
-            (track["demux-fps"] and not track.image
-             and string.format("%.4f", track["demux-fps"]):gsub("%.?0*$", "") ..
-             " fps " or "") ..
-            (track["demux-channel-count"] and track["demux-channel-count"] ..
-             "ch " or "") ..
-            (track["codec-profile"] and track.type == "audio"
-             and track["codec-profile"] .. " " or "") ..
-            (track["demux-samplerate"] and track["demux-samplerate"] / 1000 ..
-             " kHz " or "") ..
-            (track["demux-bitrate"] and string.format("%.0f", track["demux-bitrate"] / 1000)
-             .. " kbps " or "") ..
-            (track["hls-bitrate"] and string.format("%.0f", track["hls-bitrate"] / 1000)
-             .. " HLS kbps " or "")
-        ):sub(1, -2) .. format_flags(track) .. (track.title and " " .. track.title or "")
+    if track['demux-fps'] then h(string.format('%.5gfps', track['demux-fps'])) end
+    if track['audio-channels'] then h(track['audio-channels'] .. 'ch') end
+    if track['demux-samplerate'] then h(string.format('%.3gkHz', track['demux-samplerate'] / 1000)) end
+    if track['demux-bitrate'] then h(string.format('%.0fkbps', track['demux-bitrate'] / 1000)) end
+    if track.selected then
+        title = "● " .. title
+    else
+        title = "○ " .. title
+    end
+    if track.lang then title = string.format('%s\t(%s)', title, track.lang) end
+    if #hints > 0 then title = string.format('%s\t[%s]', title, table.concat(hints, ' ')) end
+    title = title .. format_flags(track)
+    return title
 end
 
 local function select(conf)
@@ -423,7 +431,7 @@ local function select_track(property, type, error)
     for _, track in ipairs(mp.get_property_native("track-list")) do
         if track.type == type then
             tracks[#tracks + 1] = track
-            items[#items + 1] = format_track(track)
+            items[#items + 1] = format_track(track, type)
 
             if track.id == track_id then
                 default_item = #items
@@ -444,6 +452,99 @@ local function select_track(property, type, error)
                 (tracks[tbl.index].selected and "no" or tracks[tbl.index].id))
         end,
     })
+end
+
+local function subtitle_line(data, codec)
+    local sub_lines = {}
+    local sub_times = {}
+    local default_item
+    local delay = mp.get_property_native("sub-delay")
+    local time_pos = mp.get_property_native("time-pos") - delay
+    local duration = mp.get_property_native("duration", math.huge)
+    local sub_content = {}
+
+    -- Strip HTML and ASS tags and process subtitles
+    for line in data:gmatch("[^\n]+") do
+        -- Clean up tags
+        local sub_line = line:gsub("<.->", "")                -- Strip HTML tags
+                             :gsub("\\h+", " ")               -- Replace '\h' tag
+                             :gsub("{[\\=].-}", "")           -- Remove ASS formatting
+                             :gsub(".-]", "", 1)              -- Remove time info prefix
+                             :gsub("^%s*(.-)%s*$", "%1")      -- Strip whitespace
+                             :gsub("^m%s[mbl%s%-%d%.]+$", "") -- Remove graphics code
+
+        if codec == "subrip" or (sub_line ~= "" and sub_line:match("^%s+$") == nil) then
+            local sub_time = line:match("%d+") * 60 + line:match(":([%d%.]*)")
+            local time_seconds = math.floor(sub_time)
+
+            -- Use a dictionary to store the timestamp and content
+            if not sub_content[time_seconds] then
+                -- Initialize content list for that timestamp
+                sub_content[time_seconds] = {}
+            end
+
+            -- If the subtitle content is not already in the list for that timestamp, add it
+            local content_exists = false
+            for _, content in ipairs(sub_content[time_seconds]) do
+                if content == sub_line then
+                    content_exists = true
+                    break
+                end
+            end
+
+            if not content_exists then
+                sub_content[time_seconds][#sub_content[time_seconds] + 1] = sub_line
+            end
+        end
+    end
+
+    -- Process all timestamps and content into selectable subtitle list
+    for time_seconds, contents in pairs(sub_content) do
+        for _, sub_line in ipairs(contents) do
+            sub_times[#sub_times + 1] = time_seconds
+            sub_lines[#sub_lines + 1] = format_time(time_seconds, duration) .. " " .. sub_line
+        end
+    end
+
+    -- Sort by timestamp
+    local function compare_times(a, b)
+        return a < b
+    end
+    local sorted_sub_times = {}
+    for i = 1, #sub_times do
+        sorted_sub_times[i] = sub_times[i]
+    end
+    table.sort(sorted_sub_times, compare_times)
+
+    -- Use a helper table to avoid duplicates
+    local added_times = {}
+
+    -- Rebuild sub_lines and sub_times based on the sorted timestamps
+    local sorted_sub_lines = {}
+    for _, sub_time in ipairs(sorted_sub_times) do
+        -- Iterate over all subtitle content for this timestamp
+        if not added_times[sub_time] then
+            added_times[sub_time] = true
+            for i, time in ipairs(sub_times) do
+                if time == sub_time then
+                    sorted_sub_lines[#sorted_sub_lines + 1] = sub_lines[i]
+                end
+            end
+        end
+    end
+
+    -- Use the sorted subtitle list
+    sub_lines = sorted_sub_lines
+    sub_times = sorted_sub_times
+
+    -- Get the default item (last subtitle before current time position)
+    for i, sub_time in ipairs(sub_times) do
+        if sub_time <= time_pos then
+            default_item = i
+        end
+    end
+
+    return sub_lines, sub_times, default_item
 end
 
 function hide_osc()
@@ -468,6 +569,11 @@ mp.register_script_message("show-command-palette", function (name)
     menu.filter_by_fields = { "content" }
     em.get_line = original_get_line_func
 
+    if menu.is_active then
+        menu:set_active(false)
+        return
+    end
+
     if name == "Command Palette" then
         local menu_items = {}
         local bindings = utils.parse_json(mp.get_property("input-bindings"))
@@ -481,6 +587,7 @@ mp.register_script_message("show-command-palette", function (name)
             "Secondary Subtitle",
             "Subtitle Line",
             "Chapters",
+            "Editions",
             "Profiles",
             "Bindings",
             "Commands",
@@ -573,7 +680,8 @@ mp.register_script_message("show-command-palette", function (name)
         local duration = mp.get_property_native("duration", math.huge)
 
         for i, chapter in ipairs(mp.get_property_native("chapter-list")) do
-            table.insert(menu_content.list, { index = i, content = format_time(chapter.time, duration) .. " " .. chapter.title })
+            table.insert(menu_content.list, { index = i, content = format_time(chapter.time, duration) .. " "
+            .. chapter.title or ("Chapter " .. string.format("%02.f", i))})
         end
 
         menu_content.current_i = default_index + 1
@@ -581,14 +689,33 @@ mp.register_script_message("show-command-palette", function (name)
         function menu:submit(tbl)
             mp.set_property_number("chapter", tbl.index - 1)
         end
+    elseif name == "Editions" then
+        local default_index = mp.get_property_native("current-edition")
+
+        if not default_index then
+            mp.commandv("show-text", "Edition: (unavailable)")
+            return
+        end
+
+        for i, edition in ipairs(mp.get_property_native("edition-list")) do
+            table.insert(menu_content.list, { index = i, content = edition.title or
+                ("Edition " .. string.format("%02.f", i))})
+        end
+
+        menu_content.current_i = default_index + 1
+
+        function menu:submit(tbl)
+            mp.set_property_number("edition", tbl.index - 1)
+        end
     elseif name == "Playlist" then
         local count = mp.get_property_number("playlist-count")
+        local show = mp.get_property_native("osd-playlist-entry")
         if count == 0 then return end
 
         for i = 0, (count - 1) do
             local text = mp.get_property("playlist/" .. i .. "/title")
 
-            if text == nil then
+            if not text or show ~= "title" then
                 text = file_name(mp.get_property("playlist/" .. i .. "/filename"))
             end
 
@@ -741,11 +868,11 @@ mp.register_script_message("show-command-palette", function (name)
         for i, track in ipairs(mp.get_property_native("track-list")) do
             local type = track.image and "I" or track.type
 
-            if type == "video" then type = "V" end
-            if type == "audio" then type = "A" end
-            if type == "sub" then type = "S" end
+            if type == "video" then track_type = "V" end
+            if type == "audio" then track_type = "A" end
+            if type == "sub" then track_type = "S" end
 
-            tracks[i] = type .. ": " .. format_track(track)
+            tracks[i] = track_type .. ": " .. format_track(track, type)
         end
 
         if #tracks == 0 then
@@ -882,25 +1009,10 @@ mp.register_script_message("show-command-palette", function (name)
             mp.commandv("show-text", "Failed to extract subtitles")
             return
         end
-
-        local sub_lines = {}
-        local sub_times = {}
-        local default_item
+        
         local delay = mp.get_property_native("sub-delay")
-        local time_pos = mp.get_property_native("time-pos") - delay
-        local duration = mp.get_property_native("duration", math.huge)
 
-        -- Strip HTML and ASS tags.
-        for line in r.stdout:gsub("<.->", ""):gsub("{\\.-}", ""):gmatch("[^\n]+") do
-            -- ffmpeg outputs LRCs with minutes > 60 instead of adding hours.
-            sub_times[#sub_times + 1] = line:match("%d+") * 60 + line:match(":([%d%.]*)")
-            sub_lines[#sub_lines + 1] = format_time(sub_times[#sub_times], duration) ..
-                                        " " .. line:gsub(".*]", "", 1)
-
-            if sub_times[#sub_times] <= time_pos then
-                default_item = #sub_times
-            end
-        end
+        local sub_lines, sub_times, default_item = subtitle_line(r.stdout, sub.codec)
 
         select({
             items = sub_lines,

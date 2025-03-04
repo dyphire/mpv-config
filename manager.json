@@ -14,19 +14,13 @@
   {
     "git":"https://github.com/dyphire/mpv-scripts",
     "branch":"main",
-    "blacklist":"LICENSE|README.*%.md$|drcbox%.lua$",
+    "blacklist":"LICENSE|README.*%.md$|drcbox%.lua$|.-%-list%.lua$",
     "dest":"~~/scripts"
   },
   {
     "git":"https://github.com/dyphire/mpv-playlistmanager",
     "branch":"dev",
     "whitelist":"playlistmanager%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
-    "git":"https://github.com/dyphire/mpv-clipboard",
-    "branch":"dev",
-    "whitelist":"%.lua$",
     "dest":"~~/scripts"
   },
   {
@@ -70,22 +64,6 @@
     "dest":"~~/scripts"
   },
   {
-    "git":"https://github.com/christoph-heinrich/mpv-subtitle-lines",
-    "whitelist":"subtitle%-lines%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
-    "git":"https://github.com/cvzi/mpv-youtube-download",
-    "branch":"main",
-    "whitelist":"%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
-    "git":"https://codeberg.org/jouni/mpv_sponsorblock_minimal",
-    "whitelist":"sponsorblock_minimal%.lua$",
-    "dest":"~~/scripts"
-  },
-  {
     "git":"https://github.com/CogentRedTester/mpv-file-browser",
     "whitelist":"main%.lua$|readme%.md$|doc|modules",
     "dest":"~~/scripts/file-browser"
@@ -99,11 +77,6 @@
     "git":"https://github.com/CogentRedTester/mpv-scripts",
     "whitelist":"cycle%-commands%.lua$",
     "dest":"~~/scripts"
-  },
-  {
-    "git":"https://github.com/CogentRedTester/mpv-scroll-list",
-    "whitelist":"scroll%-list%.lua$",
-    "dest":"~~/script-modules"
   },
   {
     "git":"https://github.com/CogentRedTester/mpv-file-browser",
