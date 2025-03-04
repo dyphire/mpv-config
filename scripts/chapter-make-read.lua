@@ -1,5 +1,5 @@
 --[[
-  * chapter-make-read.lua v.2024-10-31
+  * chapter-make-read.lua v.2025-03-01
   *
   * AUTHORS: dyphire
   * License: MIT
@@ -86,15 +86,12 @@ local input_loaded, input = pcall(require, "mp.input")
 -- Requires: https://github.com/CogentRedTester/mpv-user-input
 local user_input_loaded, user_input = pcall(require, "user-input-module")
 
-local curr = nil
 local path = nil
 local dir = nil
-local fpath = nil
 local fname = nil
-local subpath = nil
+local chapter_fullpath = nil
 local all_chapters = {}
 local chapter_count = 0
-local insert_chapters = ""
 local chapters_modified = false
 local paused = false
 local protocol = false
@@ -121,9 +118,9 @@ function url_decode(str)
 end
 
 --create global_chapters_dir if it doesn't exist
-global_chapters_dir = mp.command_native({ "expand-path", o.global_chapters_dir })
+local global_chapters_dir = mp.command_native({ "expand-path", o.global_chapters_dir })
 if global_chapters_dir and global_chapters_dir ~= '' then
-    local meta, meta_error = utils.file_info(global_chapters_dir)
+    local meta = utils.file_info(global_chapters_dir)
     if not meta or not meta.is_dir then
         local is_windows = package.config:sub(1, 1) == "\\"
         local windows_args = { 'powershell', '-NoProfile', '-Command', 'mkdir', string.format("\"%s\"", global_chapters_dir) }
@@ -139,7 +136,7 @@ if global_chapters_dir and global_chapters_dir ~= '' then
 end
 
 local function read_chapter(func)
-    local meta, meta_error = utils.file_info(chapter_fullpath)
+    local meta = utils.file_info(chapter_fullpath)
     if not meta or not meta.is_file then return end
     local f = io.open(chapter_fullpath, "r")
     if not f then return end
@@ -190,7 +187,9 @@ local function read_chapter_table()
             n = n:gsub("^%s*(.-)%s*$", "%1")
             l = line
             line_pos = line_pos + 1
-        else return end
+        else
+            return
+        end
         return { found_title = n, found_time = t, found_line = l }
     end)
 end
@@ -216,6 +215,7 @@ end
 
 local function format_time(seconds)
     local result = ""
+    local hours, mins, secs, msecs
     if seconds <= 0 then
         return "00:00:00.000";
     else
@@ -326,7 +326,7 @@ local function mark_chapter(force_overwrite)
         if o.hash then fname = get_chapter_filename(path) end
     elseif o.external_chapter_subpath ~= '' then
         fpath = utils.join_path(dir, o.external_chapter_subpath)
-        local meta, meta_error = utils.file_info(fpath)
+        local meta = utils.file_info(fpath)
         if not meta or not meta.is_dir then
             fpath = dir
         end
@@ -334,7 +334,7 @@ local function mark_chapter(force_overwrite)
 
     if o.global_chapters and global_chapters_dir and global_chapters_dir ~= '' and not protocol then
         fpath = global_chapters_dir
-        local meta, meta_error = utils.file_info(fpath)
+        local meta = utils.file_info(fpath)
         if meta and meta.is_dir then
             if o.hash then
                 fname = get_chapter_filename(path)
@@ -344,7 +344,7 @@ local function mark_chapter(force_overwrite)
 
     local chapter_filename = fname .. o.chapter_file_ext
     chapter_fullpath = utils.join_path(fpath, chapter_filename)
-    local fmeta, fmeta_error = utils.file_info(chapter_fullpath)
+    local fmeta = utils.file_info(chapter_fullpath)
     if (not fmeta or not fmeta.is_file) and fpath ~= dir and not protocol then
         if o.basename_with_ext then
             fname = mp.get_property("filename")
@@ -354,7 +354,7 @@ local function mark_chapter(force_overwrite)
         chapter_filename = fname .. o.chapter_file_ext
         chapter_fullpath = utils.join_path(dir, chapter_filename)
     end
-    list_contents = read_chapter_table()
+    local list_contents = read_chapter_table()
 
     if not list_contents then return end
     for i = 1, #list_contents do
@@ -448,7 +448,7 @@ local function create_chapter()
 
     local time_pos = mp.get_property_number("time-pos")
     local time_pos_osd = mp.get_property_osd("time-pos/full")
-    local curr_chapter = mp.get_property_number("chapter")
+    local current_chapter = mp.get_property_number("chapter")
     mp.osd_message(time_pos_osd, 1)
 
     if chapter_count == 0 then
@@ -458,7 +458,7 @@ local function create_chapter()
         }
         -- We just set it to zero here so when we add 1 later it ends up as 1
         -- otherwise it's probably "nil"
-        curr_chapter = 0
+        current_chapter = 0
         -- note that mpv will treat the beginning of the file as all_chapters[0] when using pageup/pagedown
         -- so we don't actually have to worry if the file doesn't start with a chapter
     else
@@ -467,16 +467,16 @@ local function create_chapter()
         -- +2 looks weird, but remember mpv indexes at 0 and lua indexes at 1
         -- adding two will turn "current chapter" from mpv notation into "next chapter" from lua's notation
         -- count down because these areas of memory overlap
-        for i = chapter_count, curr_chapter + 2, -1 do
+        for i = chapter_count, current_chapter + 2, -1 do
             all_chapters[i + 1] = all_chapters[i]
         end
-        all_chapters[curr_chapter + 2] = {
-            title = o.placeholder_title .. string.format("%02.f", curr_chapter + 2),
+        all_chapters[current_chapter + 2] = {
+            title = o.placeholder_title .. string.format("%02.f", current_chapter + 2),
             time = time_pos
         }
     end
     mp.set_property_native("chapter-list", all_chapters)
-    mp.set_property_number("chapter", curr_chapter + 1)
+    mp.set_property_number("chapter", current_chapter + 1)
     chapters_modified = true
     
     if o.ask_for_title then
@@ -538,7 +538,7 @@ end
 
 local function write_chapter(format, force_write)
     refresh_globals()
-    if not force_write and (chapter_count == 0 or not chapters_modified) or not path then
+    if not path or chapter_count == 0 or (not chapters_modified and not force_write) then
         msg.debug("nothing to write")
         return
     end
@@ -546,27 +546,26 @@ local function write_chapter(format, force_write)
     if o.global_chapters then dir = global_chapters_dir end
     if o.hash and o.global_chapters then fname = get_chapter_filename(path) end
     local out_path = utils.join_path(dir, fname .. o.chapter_file_ext)
+    local chapters = ""
     local next_chapter = nil
     for i = 1, chapter_count, 1 do
-        curr = all_chapters[i]
-        local time_pos = format_time(curr.time)
+        local current_chapter = all_chapters[i]
+        local time_pos = format_time(current_chapter.time)
         if format == "ogm" then
             next_chapter = "CHAPTER" .. string.format("%02.f", i) .. "=" .. time_pos .. "\n" .. 
-                           "CHAPTER" .. string.format("%02.f", i) .. "NAME=" .. curr.title .. "\n"
+                           "CHAPTER" .. string.format("%02.f", i) .. "NAME=" .. current_chapter.title .. "\n"
         elseif format == "chp" then
-            next_chapter = time_pos .. " " .. curr.title .. "\n"
+            next_chapter = time_pos .. " " .. current_chapter.title .. "\n"
         else
             msg.warn("please specify the correct chapter format: chp/ogm.")
             return
         end
         if i == 1 and (o.global_chapters or protocol) then
-            insert_chapters = "# " .. path .. "\n\n" .. next_chapter
+            chapters = "# " .. path .. "\n\n" .. next_chapter
         else
-            insert_chapters = insert_chapters .. next_chapter
+            chapters = chapters .. next_chapter
         end
     end
-
-    local chapters = insert_chapters
 
     local file = io.open(out_path, "w")
     if file == nil then
@@ -582,12 +581,10 @@ local function write_chapter(format, force_write)
     end
     file:write(chapters)
     file:close()
-    if not force_write then
+    if not o.autosave then
         mp.osd_message("Export chapter file to: " .. out_path, 3)
-        msg.info("Export chapter file to: " .. out_path)
-    else
-        msg.info("Auto save chapter file to: " .. out_path)
     end
+    msg.info("Export chapter file to: " .. out_path)
 end
 
 -- HOOKS -----------------------------------------------------------------------
@@ -603,7 +600,9 @@ if o.autoload then
 end
 
 if o.autosave then
-    mp.add_hook("on_unload", 50, function() write_chapter("chp", true) end)
+    mp.add_hook("on_unload", 50, function()
+        write_chapter("chp", false)
+    end)
 end
 
 if user_input_loaded and not input_loaded then
@@ -614,6 +613,6 @@ mp.register_script_message("load_chapter", function() mark_chapter(true) end)
 mp.register_script_message("create_chapter", create_chapter, { repeatable = true })
 mp.register_script_message("remove_chapter", remove_chapter)
 mp.register_script_message("edit_chapter", edit_chapter)
-mp.register_script_message("write_chapter", function(value, value2)
-    write_chapter(value, value2)
+mp.register_script_message("write_chapter", function(format)
+    write_chapter(format, true)
 end)
