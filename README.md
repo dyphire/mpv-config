@@ -24,7 +24,7 @@ PS：自行编辑配置文件时，注意编码格式应为 UTF-8，换行符为
 -   浏览器调用 mpv 播放的方法推荐
 	- [mpv-handler](https://github.com/akiirui/mpv-handler) 配合脚本 [play-with-mpv](https://greasyfork.org/zh-CN/scripts/416271-play-with-mpv)
 	- [Play-With-MPV](https://github.com/LuckyPuppy514/Play-With-MPV)
--   单实例模式：[umpvw](https://github.com/SilverEzhik/umpvw)
+-   单实例模式：[umpv](https://github.com/zhongfly/umpv-go)
 
 ###  脚本着色器说明
 本项目使用的 mpv 脚本及功能介绍详见 wiki 内容： [脚本说明-wiki](https://github.com/dyphire/mpv-config/wiki/脚本说明)
