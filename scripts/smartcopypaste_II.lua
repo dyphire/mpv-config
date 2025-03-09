@@ -390,6 +390,7 @@ function file_exists(name)
 end
 
 function format_time(seconds, sep, decimals, style)
+	if not seconds then return end
 	local function divmod (a, b)
 		return math.floor(a / b), a % b
 	end

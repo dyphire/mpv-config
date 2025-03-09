@@ -18,7 +18,11 @@ local o = {
 
 options.read_options(o)
 
-Command = { }
+Command = {}
+
+local function is_protocol(path)
+    return type(path) == 'string' and (path:find('^%a[%w.+-]-://') ~= nil or path:find('^%a[%w.+-]-:%?') ~= nil)
+end
 
 function Command:new(name)
     local o = {}
@@ -56,14 +60,17 @@ local function file_format()
     if not fmt:find(',') then
         return fmt
     end
+    local path = mp.get_property('path')
+    if is_protocol(path) then
+        return nil
+    end
     local filename = mp.get_property('filename')
-    local name = mp.get_property('filename/no-ext')
-    return filename:sub(name:len() + 2)
+    return filename:match('%.([^.]+)$')
 end
 
 local function get_ext()
     local fmt = file_format()
-    if ext_map[fmt] ~= nil then
+    if fmt and ext_map[fmt] ~= nil then
         return ext_map[fmt]
     else
         return fmt
@@ -86,39 +93,45 @@ local function info(s)
     osd(s)
 end
 
-local function is_remote()
-    return string.match(mp.get_property("path"),"://") ~= nil
-end
-
-local function get_outname(shift, endpos)
+local function get_outname(path, shift, endpos)
     local name = mp.get_property("filename/no-ext")
-    local ext = get_ext()
+    if is_protocol(path) then
+        name = mp.get_property("media-title")
+    end
+    local ext = get_ext() or "mkv"
     name = string.format("%s_%s-%s.%s", name, timestamp(shift), timestamp(endpos), ext)
     return name:gsub(":", "-")
 end
 
 local function cut(shift, endpos)
+    local duration = endpos - shift
+    local path = mp.get_property("path")
     local inpath = mp.get_property("stream-open-filename")
     local outpath = utils.join_path(
         o.target_dir,
-        get_outname(shift, endpos)
+        get_outname(path, shift, endpos)
     )
-    local ua = mp.get_property('user-agent')
-    local referer = mp.get_property('referrer')
+
+    local cache = mp.get_property_native("cache")
+    local cache_state = mp.get_property_native("demuxer-cache-state")
+    local cache_ranges = cache_state and cache_state["seekable-ranges"] or {}
+    if path and is_protocol(path) or cache == "auto" and #cache_ranges > 0 then
+        local pid = mp.get_property_native('pid')
+        local temp_path = os.getenv("TEMP") or "/tmp/"
+        local temp_video_file = utils.join_path(temp_path, "mpv_dump_" .. pid .. ".mkv")
+        mp.commandv("dump-cache", shift, endpos, temp_video_file)
+        shift = 0
+        inpath = temp_video_file
+    end
+
     local cmds = Command:new(o.ffmpeg_path)
         :arg("-v", "warning")
         :arg(o.overwrite and "-y" or "-n")
         :arg("-stats")
-    if is_remote() and ua and ua ~= '' and ua ~= 'libmpv' then
-        cmds:arg('-user_agent', ua)
-    end
-    if referer and referer ~= '' then
-        cmds:arg('-referer', referer)
-    end
     cmds:arg("-ss", tostring(shift))
     cmds:arg("-accurate_seek")
     cmds:arg("-i", inpath)
-    cmds:arg("-t", tostring(endpos - shift))
+    cmds:arg("-t", tostring(duration))
     cmds:arg("-c:v", o.vcodec)
     cmds:arg("-c:a", o.acodec)
     cmds:arg("-c:s", "copy")

@@ -76,6 +76,11 @@ end
 start_time = -1
 end_time = -1
 
+local function is_protocol(path)
+    return type(path) == 'string' and (path:find('^%a[%w.+-]-://') ~= nil or path:find('^%a[%w.+-]-:%?') ~= nil)
+end
+
+
 function make_animated_with_subtitles()
     make_animated_internal(true)
 end
@@ -99,6 +104,11 @@ function make_animated_internal(burn_subtitles)
         return
     end
 
+    local trim_filters = filters
+    local position = start_time_l
+    local duration = end_time_l - start_time_l
+    local filename = mp.get_property("filename/no-ext")
+
     msg.info("Creating " .. text)
     mp.osd_message("Creating " .. text)
 
@@ -114,10 +124,19 @@ function make_animated_internal(burn_subtitles)
     end
 
     local pathname = mp.get_property("path", "")
-    local trim_filters = filters
-
-    local position = start_time_l
-    local duration = end_time_l - start_time_l
+    local path =  mp.get_property_native("path")
+    local cache = mp.get_property_native("cache")
+    local cache_state = mp.get_property_native("demuxer-cache-state")
+    local cache_ranges = cache_state and cache_state["seekable-ranges"] or {}
+    if path and is_protocol(path) or cache == "auto" and #cache_ranges > 0 then
+        local pid = mp.get_property_native('pid')
+        local temp_path = os.getenv("TEMP") or "/tmp/"
+        local temp_video_file = utils.join_path(temp_path, "mpv_dump_" .. pid .. ".mkv")
+        mp.commandv("dump-cache", start_time_l, end_time_l, temp_video_file)
+        position = 0
+        filename = mp.get_property("media-title")
+        pathname = temp_video_file
+    end
 
     if burn_subtitles then
         -- Determine currently active sub track
@@ -167,7 +186,6 @@ function make_animated_internal(burn_subtitles)
     end
 
     -- make the animated
-    local filename = mp.get_property("filename/no-ext")
     local file_path = utils.join_path(output_directory, filename)
 
     -- increment filename

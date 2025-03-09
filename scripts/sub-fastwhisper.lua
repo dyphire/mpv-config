@@ -63,11 +63,15 @@ options.read_options(o, _, function() end)
 
 local fast_whisper_path = mp.command_native({ "expand-path", o.fast_whisper_path })
 local output_path = mp.command_native({ "expand-path", o.output_path })
+local pid = mp.get_property_native('pid')
+local temp_path = os.getenv("TEMP") or "/tmp/"
 
 local subtitle_count = 1
 local append_subtitle_count = 1
 local subtitles_written = false
 local whisper_running = false
+local gpt_api_enabled = false
+local translated_cache = {}
 
 local is_windows = package.config:sub(1, 1) == "\\"
 
@@ -192,17 +196,27 @@ local function check_sub(sub_file)
     local tracks = mp.get_property_native("track-list")
     local _, sub_title = utils.split_path(sub_file)
     for _, track in ipairs(tracks) do
-        if track["type"] == "sub" and track["title"] == sub_title then
+        local external_filename = track["external-filename"]
+        local track_title = track["title"]
+        if external_filename then
+            _, track_title = utils.split_path(external_filename)
+        end
+
+        if track["type"] == "sub" and track_title == sub_title then
             return true, track["id"]
         end
     end
     return false, nil
 end
 
-local function append_sub(sub_file)
+local function append_sub(sub_file, cached)
     local sub, id = check_sub(sub_file)
     if not sub then
-        mp.commandv('sub-add', sub_file)
+        if cached then
+            mp.commandv('sub-add', sub_file, 'auto')
+        else
+            mp.commandv('sub-add', sub_file)
+        end
     else
         mp.commandv('sub-reload', id)
     end
@@ -233,6 +247,43 @@ local function parse_sub(filename)
     end
     file:close()
     return subtitles
+end
+
+local function fix_subtitle_timestamps(temp_srt, srt_file, subtitle_count, start_time)
+    local temp_file = io.open(temp_srt, "r")
+    local main_file = io.open(srt_file, "a")
+
+    if not temp_file or not main_file then
+        msg.error("Failed to open temporary or main SRT file.")
+        return subtitle_count
+    end
+
+    local subtitle_number = subtitle_count
+    if subtitle_number == 1 then
+        mp.osd_message("AI subtitles are loaded and updated in real time", 5)
+        msg.info("AI subtitles are loaded and updated in real time")
+    end
+    for line in temp_file:lines() do
+        if line:match("%d+:%d+:%d+,%d+%D+%d+:%d+:%d+,%d+") then
+            local start_ts, end_ts = line:match("(%d+:%d+:%d+,%d+)%D+(%d+:%d+:%d+,%d+)")
+            if start_ts and end_ts then
+                local start_seconds = timestamp_to_seconds(start_ts) + start_time
+                local end_seconds = timestamp_to_seconds(end_ts) + start_time
+                main_file:write(subtitle_number .. "\n")
+                main_file:write(seconds_to_timestamp(start_seconds) .. " --> " .. seconds_to_timestamp(end_seconds) .. "\n")
+                subtitle_number = subtitle_number + 1
+            end
+        elseif line ~= "" and not tonumber(line) then
+            main_file:write(line .. "\n")
+        end
+    end
+
+    temp_file:close()
+    main_file:close()
+
+    os.remove(temp_srt)
+
+    return subtitle_number
 end
 
 -- Merge two subtitles
@@ -420,10 +471,11 @@ local function parse_srt(file_path)
 end
 
 -- Translate subtitles and write to file
-local function translate_and_write(subtitles, subtitles_file, translated_file, start_index)
+local function translate_and_write(subtitles, subtitles_file, start_index)
     local batch_size = 20
     local max_calls_per_minute = o.api_rate
     local delay_between_calls = 60 / max_calls_per_minute
+    local translated_file = subtitles_file:gsub("%.srt$", ".translate.srt")
 
     -- Determine the end index of the current batch
     local end_index = math.min(start_index + batch_size - 1, #subtitles)
@@ -432,101 +484,104 @@ local function translate_and_write(subtitles, subtitles_file, translated_file, s
     -- Combine timestamp and text for each subtitle
     for i = start_index, end_index do
         local subtitle = subtitles[i]
-        table.insert(batch, subtitle.timestamp .. " | " .. subtitle.text)
+        -- Check if the subtitle has already been translated
+        if not translated_cache[subtitle.timestamp] then
+            table.insert(batch, subtitle.timestamp .. " | " .. subtitle.text)
+        end
     end
 
-    -- Combine the batch into a single string for translation
-    local batch_text = table.concat(batch, "\n")
-    local translated_text = call_gpt_api(batch_text)
+    -- If there are subtitles to translate
+    if #batch > 0 then
+        -- Combine the batch into a single string for translation
+        local batch_text = table.concat(batch, "\n")
+        local translated_text = call_gpt_api(batch_text)
 
-    -- Fallback to original text if translation fails
-    if not translated_text then
-        msg.warn("Translation failed, skipping current batch")
-        translated_text = batch_text
-    end
+        -- Fallback to original text if translation fails
+        if not translated_text then
+            msg.warn("Translation failed, skipping current batch")
+            translated_text = batch_text
+        end
 
-    -- Split the translated text into lines
-    local translated_lines = {}
-    for line in translated_text:gmatch("[^\r\n]+") do
-        table.insert(translated_lines, line)
-    end
+        -- Split the translated text into lines
+        local translated_lines = {}
+        for line in translated_text:gmatch("[^\r\n]+") do
+            table.insert(translated_lines, line)
+        end
 
-    -- Ensure the number of translated lines matches the original batch size
-    if #translated_lines ~= batch_size then
-        msg.warn("Translated lines do not match original subtitle lines: Original=" ..
-        batch_size .. ", Translated=" .. #translated_lines)
-    end
+        -- Ensure the number of translated lines matches the original batch size
+        if #translated_lines ~= #batch then
+            msg.warn("Translated lines do not match original subtitle lines: Original=" ..
+            #batch .. ", Translated=" .. #translated_lines)
+        end
 
-    -- Open the file for appending
-    local file = io.open(translated_file, "a")
-    if not file then
-        msg.error("Unable to open file for appending: " .. translated_file)
-        return
-    end
+        -- Open the file for appending
+        local file = io.open(translated_file, "a")
+        if not file then
+            msg.error("Unable to open file for appending: " .. translated_file)
+            return
+        end
 
-    -- Write translated subtitles to the file
-    local latest_content = {}
-    for i = 1, #translated_lines do
-        local translated_line = translated_lines[i]
-        local timestamp, text = translated_line:match("^(.*) | (.*)$")
+        -- Write translated subtitles to the file
+        local latest_content = {}
+        local current_index = start_index
+        for i = 1, #translated_lines do
+            local translated_line = translated_lines[i]
+            local timestamp, text = translated_line:match("^(.*) | (.*)$")
 
-        -- If parsing fails, fallback to original timestamp and text
-        if not timestamp or not text then
-            if i <= batch_size then
-                -- Use original timestamp and text for the first batch_size lines
+            -- If parsing fails, fallback to original timestamp and text
+            if not timestamp or not text then
                 local subtitle = subtitles[start_index + i - 1]
                 timestamp = subtitle.timestamp
-                text = subtitle.text
-            else
-                -- For extra lines, copy the last timestamp and add a small delay
-                local last_subtitle = subtitles[end_index]
-                timestamp = last_subtitle.timestamp
                 text = translated_line
+            end
+
+            -- Cache the translated content
+            translated_cache[timestamp] = text
+
+            -- Update the latest content for the timestamp
+            if timestamp and text then
+                timestamp = timestamp:gsub("%s*$", "")
+                text = text:gsub("%s*$", "")
+                latest_content[timestamp] = text
             end
         end
 
-        -- Update the latest content for the timestamp
-        if timestamp and text then
-            timestamp = timestamp:gsub("%s*$", "")
-            text = text:gsub("%s*$", "")
-            latest_content[timestamp] = text
+        -- Extract all timestamps (keys) into an array
+        local sorted_timestamps = {}
+        for timestamp in pairs(latest_content) do
+            table.insert(sorted_timestamps, timestamp)
         end
+
+        -- Sort the timestamps based on the start time
+        table.sort(sorted_timestamps, function(a, b)
+            local start_time_a = a:match("^(.*) %-%-%>")
+            local start_time_b = b:match("^(.*) %-%-%>")
+            return start_time_a < start_time_b
+        end)
+
+        -- Write sorted content to the file
+        for _, timestamp in ipairs(sorted_timestamps) do
+            local text = latest_content[timestamp]
+            file:write(current_index .. "\n")
+            file:write(timestamp .. "\n")
+            file:write(text .. "\n\n")
+            current_index = current_index + 1
+        end
+        file:close()
+
+        -- Append subtitles to the media player
+        append_sub(translated_file)
+
+        -- Log progress
+        msg.info("Translated and written batch: " .. start_index .. " to " .. end_index)
+    else
+        msg.debug("No new subtitles to translate for batch: " .. start_index .. " to " .. end_index)
     end
-
-    -- Extract all timestamps (keys) into an array
-    local sorted_timestamps = {}
-    for timestamp in pairs(latest_content) do
-        table.insert(sorted_timestamps, timestamp)
-    end
-
-    -- Sort the timestamps based on the start time
-    table.sort(sorted_timestamps, function(a, b)
-        local start_time_a = a:match("^(.*) %-%-%>")
-        local start_time_b = b:match("^(.*) %-%-%>")
-        return start_time_a < start_time_b
-    end)
-
-    -- Write sorted content to the file
-    local current_index = start_index
-    for _, timestamp in ipairs(sorted_timestamps) do
-        local text = latest_content[timestamp]
-        file:write(current_index .. "\n")
-        file:write(timestamp .. "\n")
-        file:write(text .. "\n\n")
-        current_index = current_index + 1
-    end
-    file:close()
-
-    -- Append subtitles to the media player
-    append_sub(translated_file)
-
-    -- Log progress
-    msg.info("Translated and written batch: " .. start_index .. " to " .. end_index)
 
     -- Process the next batch if there are more subtitles
     if end_index < #subtitles then
         mp.add_timeout(delay_between_calls, function()
-            translate_and_write(subtitles, subtitles_file, translated_file, end_index + 1)
+            translate_and_write(subtitles, subtitles_file, end_index + 1)
         end)
     else
         msg.info("Subtitle translation completed!")
@@ -552,19 +607,7 @@ local function translate_srt_file(subtitles_file)
         return
     end
 
-    -- Set the output file path
-    local translated_file = subtitles_file:gsub("%.srt$", ".translate.srt")
-
-    -- Clear or create the output file
-    local file = io.open(translated_file, "w")
-    if not file then
-        msg.error("Unable to create file: " .. translated_file)
-        return
-    end
-    file:close()
-
-    -- Start translation
-    translate_and_write(subtitles, subtitles_file, translated_file, 1)
+    translate_and_write(subtitles, subtitles_file, 1)
 end
 --------------------------------------------------
 
@@ -632,8 +675,12 @@ local function fastwhisper()
                     else
                         mp.osd_message("AI subtitles successfully generated", 5)
                         msg.info("AI subtitles successfully generated")
-                        append_sub(subtitles_file)
-                        translate_srt_file(subtitles_file)
+                        if gpt_api_enabled then
+                            append_sub(subtitles_file, true)
+                            translate_srt_file(subtitles_file)
+                        else
+                            append_sub(subtitles_file)
+                        end
                     end
                 end
             end
@@ -670,14 +717,18 @@ mp.register_event('log-message', function(e)
                 mp.osd_message("AI subtitles are loaded and updated in real time", 5)
                 msg.info("AI subtitles are loaded and updated in real time")
             end
-            append_sub(subtitles_file)
+            if gpt_api_enabled then
+                translate_srt_file(subtitles_file)
+            else
+                append_sub(subtitles_file)
+            end
             subtitles_written = false
             append_subtitle_count = append_subtitle_count + 1
         end
     end
 end)
-
 ------------------------
+
 local function extract_audio_segment(video_path, segment_audio_file, start_time, duration)
     local args = {
         "ffmpeg",
@@ -705,65 +756,25 @@ local function extract_audio_segment(video_path, segment_audio_file, start_time,
     return true
 end
 
-
-local function process_audio_segment(segment_audio_file, srt_file, subtitle_count, start_time)
+local function process_audio_segment(segment_audio_file, subtitle_count)
     local temp_srt_path = utils.split_path(segment_audio_file)
-    local temp_srt = segment_audio_file:gsub("%.wav$", ".srt")
+    local temp_srt = segment_audio_file:gsub("%.[^%.]+$", ".srt")
 
     local args = fastwhisper_cmd(segment_audio_file, temp_srt_path)
     local res = mp.command_native({ name = "subprocess", capture_stdout = true, capture_stderr = true, args = args })
 
     if res and res.status ~= 0 then
         msg.error("faster-whisper failed for: " .. segment_audio_file .. "\n" .. res.stderr)
-        return subtitle_count
     end
 
-    if not file_exists(temp_srt) then
-        msg.error("Temporary SRT file not found: " .. temp_srt)
-        return subtitle_count
-    end
-
-    local temp_file = io.open(temp_srt, "r")
-    local main_file = io.open(srt_file, "a")
-
-    if not temp_file or not main_file then
-        msg.error("Failed to open temporary or main SRT file.")
-        return subtitle_count
-    end
-
-    local subtitle_number = subtitle_count
-    if subtitle_number == 1 then
-        mp.osd_message("AI subtitles are loaded and updated in real time", 5)
-        msg.info("AI subtitles are loaded and updated in real time")
-    end
-    for line in temp_file:lines() do
-        if line:match("%d+:%d+:%d+,%d+%D+%d+:%d+:%d+,%d+") then
-            local start_ts, end_ts = line:match("(%d+:%d+:%d+,%d+)%D+(%d+:%d+:%d+,%d+)")
-            if start_ts and end_ts then
-                local start_seconds = timestamp_to_seconds(start_ts) + start_time
-                local end_seconds = timestamp_to_seconds(end_ts) + start_time
-                main_file:write(subtitle_number .. "\n")
-                main_file:write(seconds_to_timestamp(start_seconds) .. " --> " .. seconds_to_timestamp(end_seconds) .. "\n")
-                subtitle_number = subtitle_number + 1
-            end
-        elseif line ~= "" and not tonumber(line) then
-            main_file:write(line .. "\n")
-        end
-    end
-
-    temp_file:close()
-    main_file:close()
-
-    os.remove(temp_srt)
-
-    return subtitle_number
+    return subtitle_count, temp_srt
 end
 
 local function process_video_incrementally(video_path, srt_file, segment_duration)
     local start_time = 0
     local subtitle_count = 1
     local segment_index = 1
-    local temp_path = os.getenv("TEMP") or "/tmp/"
+    local temp_srt = nil
     local file_duration = mp.get_property_number('duration')
 
     while true do
@@ -774,8 +785,8 @@ local function process_video_incrementally(video_path, srt_file, segment_duratio
             segment_duration = file_duration - start_time
         end
 
-        local segment_audio_file = utils.join_path(temp_path, "temp.wav")
-        local temp_srt_file = utils.join_path(temp_path, "temp.srt")
+        local segment_audio_file = utils.join_path(temp_path, "temp-" .. pid .. ".wav")
+        local temp_srt_file = utils.join_path(temp_path, "temp-" .. pid .. ".srt")
         if file_exists(segment_audio_file) then
             os.remove(segment_audio_file)
         end
@@ -793,9 +804,18 @@ local function process_video_incrementally(video_path, srt_file, segment_duratio
         end
 
         msg.verbose("Processing segment: " .. segment_audio_file)
-        subtitle_count = process_audio_segment(segment_audio_file, srt_file, subtitle_count, start_time)
+        subtitle_count, temp_srt = process_audio_segment(segment_audio_file, subtitle_count)
+        if file_exists(temp_srt) then
+            subtitle_count = fix_subtitle_timestamps(temp_srt, srt_file, subtitle_count, start_time)
+        end
 
-        append_sub(srt_file)
+        if file_exists(srt_file) then
+            if gpt_api_enabled then
+                translate_srt_file(srt_file)
+            else
+                append_sub(srt_file)
+            end
+        end
 
         start_time = start_time + segment_duration
         segment_index = segment_index + 1
@@ -832,13 +852,93 @@ local function fastwhisper_segment()
 
     if file_exists(subtitles_file) then
         mp.osd_message("AI subtitles successfully generated", 5)
-        msg.info("Subtitles generation completed: " .. subtitles_file)
-        translate_srt_file(subtitles_file)
+        msg.info("AI subtitles successfully generated")
+        if gpt_api_enabled then
+            append_sub(subtitles_file, true)
+        else
+            append_sub(subtitles_file)
+        end
+    end
+end
+------------------------
+
+local function fastwhisper_cache(current_pos, subtitle_count)
+    if whisper_running then return end
+    local temp_video_file = utils.join_path(temp_path, "temp-" .. pid .. ".mkv")
+    local srt_file  = utils.join_path(temp_path, "temp.srt")
+    local file_duration = mp.get_property_number('duration')
+    local cache_state = mp.get_property_native("demuxer-cache-state")
+    local cache_ranges = cache_state and cache_state["seekable-ranges"] or {}
+    local cache_end = cache_ranges[1] and cache_ranges[1]["end"] or current_pos
+
+    if current_pos >= file_duration then
+        return
+    end
+
+    if cache_end <= current_pos then
+        translate_srt_file(srt_file)
+        mp.add_timeout(0.1, function() fastwhisper_cache(current_pos, subtitle_count) end)
+        return
+    end
+
+    if subtitle_count == 0 then
+        if file_exists(srt_file) then
+            os.remove(srt_file)
+        end
+        mp.osd_message("AI subtitle generation in progress", 9)
+        msg.info("AI subtitle generation in progress")
+    end
+
+    whisper_running = true
+    mp.commandv("dump-cache", current_pos, cache_end, temp_video_file)
+    local subtitle_number, temp_srt = process_audio_segment(temp_video_file, subtitle_count)
+    whisper_running = false
+    if file_exists(temp_srt) then
+        subtitle_number = fix_subtitle_timestamps(temp_srt, srt_file, subtitle_number, current_pos)
+    end
+
+    if file_exists(srt_file) then
+        os.remove(temp_video_file)
+        if gpt_api_enabled then
+            translate_srt_file(srt_file)
+        else
+            append_sub(srt_file)
+        end
+        subtitle_count = subtitle_count + subtitle_number
+    end
+
+    current_pos = cache_end
+
+    -- Callback
+    if current_pos < file_duration then
+        mp.add_timeout(0.1, function() fastwhisper_cache(current_pos, subtitle_count) end)
     end
 end
 ------------------------
 
 local function whisper()
+    gpt_api_enabled = call_gpt_api("test") ~= nil and true or false
+    local path =  mp.get_property_native("path")
+    local cache = mp.get_property_native("cache")
+    local cache_state = mp.get_property_native("demuxer-cache-state")
+    local cache_ranges = cache_state and cache_state["seekable-ranges"] or {}
+    if path and is_protocol(path) or cache == "auto" and #cache_ranges > 0 then
+        local subtitle_count = 0
+        local cache_start = cache_ranges[1]["start"]
+        fastwhisper_cache(cache_start, subtitle_count)
+        local srt_file  = utils.join_path(temp_path, "temp.srt")
+        if file_exists(srt_file) then
+            mp.osd_message("AI subtitles successfully generated", 5)
+            msg.info("AI subtitles successfully generated")
+            if gpt_api_enabled then
+                append_sub(srt_file, true)
+                translate_srt_file(srt_file)
+            else
+                append_sub(srt_file)
+            end
+        end
+        return
+    end
     if o.use_segment then
         fastwhisper_segment()
     else
@@ -848,17 +948,22 @@ end
 
 mp.add_hook("on_unload", 50, function()
     local temp_path = os.getenv("TEMP") or "/tmp/"
-    local segment_audio_file = utils.join_path(temp_path, "temp.wav")
-    local temp_srt_file = utils.join_path(temp_path, "temp.srt")
     local path = mp.get_property("path")
     local dir = utils.split_path(path)
     local filename = mp.get_property("filename/no-ext")
     local translated_file = utils.join_path(dir, filename .. ".translate.srt")
-    if file_exists(segment_audio_file) then
-        os.remove(segment_audio_file)
-    end
-    if file_exists(temp_srt_file) then
-        os.remove(temp_srt_file)
+    local files_to_remove = {
+        temp_video_file = utils.join_path(temp_path, "temp-" .. pid .. ".mkv"),
+        segment_audio_file = utils.join_path(temp_path, "temp-" .. pid .. ".wav"),
+        temp_srt_file1 = utils.join_path(temp_path, "temp-" .. pid .. ".srt"),
+        temp_srt_file2 = utils.join_path(temp_path, "temp.srt"),
+        temp_srt_file3 = utils.join_path(temp_path, "temp.translate.srt")
+    }
+
+    for _, file in ipairs(files_to_remove) do
+        if file_exists(file) then
+            os.remove(file)
+        end
     end
 
     check_and_remove_empty_file(subtitles_file)

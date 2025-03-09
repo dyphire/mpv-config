@@ -476,45 +476,37 @@ local function subtitle_line(data, codec)
         if codec == "subrip" or (sub_line ~= "" and sub_line:match("^%s+$") == nil) then
             local sub_time = line:match("%d+") * 60 + line:match(":([%d%.]*)")
             local time_seconds = math.floor(sub_time)
-
-            -- Use a dictionary to store the timestamp and content
-            if not sub_content[time_seconds] then
-                -- Initialize content list for that timestamp
-                sub_content[time_seconds] = {}
-            end
-
-            -- If the subtitle content is not already in the list for that timestamp, add it
-            local content_exists = false
-            for _, content in ipairs(sub_content[time_seconds]) do
-                if content == sub_line then
-                    content_exists = true
-                    break
-                end
-            end
-
-            if not content_exists then
-                sub_content[time_seconds][#sub_content[time_seconds] + 1] = sub_line
-            end
+            sub_content[time_seconds] = sub_content[time_seconds] or {}
+            sub_content[time_seconds][sub_line] = true
         end
     end
 
     -- Process all timestamps and content into selectable subtitle list
     for time_seconds, contents in pairs(sub_content) do
-        for _, sub_line in ipairs(contents) do
+        for sub_line in pairs(contents) do
             sub_times[#sub_times + 1] = time_seconds
             sub_lines[#sub_lines + 1] = format_time(time_seconds, duration) .. " " .. sub_line
         end
     end
 
-    -- Sort by timestamp
-    local function compare_times(a, b)
-        return a < b
+    -- Generate time -> subtitle mapping
+    local time_to_lines = {}
+    for i = 1, #sub_times do
+        local time = sub_times[i]
+        local line = sub_lines[i]
+
+        if not time_to_lines[time] then
+            time_to_lines[time] = {}
+        end
+        table.insert(time_to_lines[time], line)
     end
+
+    -- Sort by timestamp
     local sorted_sub_times = {}
     for i = 1, #sub_times do
         sorted_sub_times[i] = sub_times[i]
     end
-    table.sort(sorted_sub_times, compare_times)
+    table.sort(sorted_sub_times)
 
     -- Use a helper table to avoid duplicates
     local added_times = {}
@@ -525,10 +517,8 @@ local function subtitle_line(data, codec)
         -- Iterate over all subtitle content for this timestamp
         if not added_times[sub_time] then
             added_times[sub_time] = true
-            for i, time in ipairs(sub_times) do
-                if time == sub_time then
-                    sorted_sub_lines[#sorted_sub_lines + 1] = sub_lines[i]
-                end
+            for _, line in ipairs(time_to_lines[sub_time]) do
+                table.insert(sorted_sub_lines, line)
             end
         end
     end
