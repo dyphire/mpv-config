@@ -4,6 +4,7 @@
 config.json
 
 cache/
+state/
 files/
 playlists/
 

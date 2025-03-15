@@ -14,7 +14,7 @@ local function search_episodes(slug, season, type, id, title)
 
     local url = string.format("https://api.trakt.tv/shows/%s/seasons/%s/episodes", slug, season)
     local res = http_request("GET", url, {
-            ["trakt-api-key"] = base64.decode(config.client_id),
+            ["trakt-api-key"] = base64.decode(o.client_id),
             ["trakt-api-version"] = "2"
     })
     if not res or #res == 0 then
@@ -63,7 +63,7 @@ local function search_season(slug, type, id, title)
 
     local url = string.format("https://api.trakt.tv/shows/%s/seasons", slug)
     local res = http_request("GET", url, {
-        ["trakt-api-key"] = base64.decode(config.client_id),
+        ["trakt-api-key"] = base64.decode(o.client_id),
         ["trakt-api-version"] = "2"
     })
     if not res or #res == 0 then
@@ -119,7 +119,7 @@ local function search_trakt(name, class, page)
     local url = string.format("https://api.trakt.tv/search/%s?query=%s&page=%d&limit=%s",
         class, url_encode(name), page, limit)
     local res = http_request("GET", url, {
-        ["trakt-api-key"] = base64.decode(config.client_id),
+        ["trakt-api-key"] = base64.decode(o.client_id),
         ["trakt-api-version"] = "2"
     })
     if not res or #res == 0 then

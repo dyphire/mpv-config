@@ -14,11 +14,19 @@ local options = require "mp.options"
 input_available, input = pcall(require, "mp.input")
 uosc_available = false
 
-local o = {
+o = {
     enabled = true,
+    -- Set to '~~/trakt_config.json' for sub path of mpv portable_config directory
+    -- OR change to '/:dir%script%/trakt_config.json' for placing it in the same directory of script
+    -- OR write any variable using '/:var',
+    -- such as: '/:var%APPDATA%/mpv/trakt_config.json' or '/:var%HOME%/mpv/trakt_config.json'
+    congfig_path = "~~/trakt_config.json",
     history_path = "~~/trakt_history.json",
     --slice long filenames, and how many chars to show
     max_title_length = 100,
+    -- https://trakt.tv/oauth/applications
+    client_id = "MmU5ZDg5MDcyYmIxNThlZWZhZmNlNTA5ZjZiMWJmMzM3MzcwMTQwMDU4ODFlZGZiYjgzZWI3ZGRkMWMwNGY1YQ==",
+    client_secret = "MDcxYTUzZTVkZDhkODA1NTM2MTU2YWNlZTJjYjU5Njc5YjUwOTAwZWU3YmZkYmVmMTZiNGZmODdkMzQ2NGFiNg=="
 }
 
 options.read_options(o, _, function() end)
@@ -26,12 +34,25 @@ options.read_options(o, _, function() end)
 state = {}
 enabled = o.enabled
 local scrobble = false
-local config_file = utils.join_path(mp.get_script_directory(), "config.json")
-local history_path = mp.command_native({"expand-path", o.history_path})
 
-base64 = require("base64")
-require('guess')
-require('menu')
+base64 = require("modules/base64")
+require('modules/guess')
+require('modules/menu')
+
+local function expand_path(path)
+    if path:find('^/:dir%%script%%') then
+        path = path:gsub('/:dir%%script%%', mp.get_script_directory())
+    elseif path:find('/:var%%(.*)%%') then
+        local os_variable = path:match('/:var%%(.*)%%')
+        path = path:gsub('/:var%%(.*)%%', os.getenv(os_variable))
+    else
+        path = mp.command_native({ "expand-path", path }) -- Expands both ~ and ~~
+    end
+    return path
+end
+
+local config_file = expand_path(o.congfig_path)
+local history_path = expand_path(o.history_path)
 
 -- Check if the path is a protocol (e.g., http://)
 local function is_protocol(path)
@@ -306,8 +327,8 @@ local function init()
     if not config then
         return 10
     end
-    if not config.client_id or not config.client_secret
-    or #base64.decode(config.client_id) ~= 64 or #base64.decode(config.client_secret) ~= 64 then
+    if not o.client_id or not o.client_secret
+    or #base64.decode(o.client_id) ~= 64 or #base64.decode(o.client_secret) ~= 64 then
         return 10
     end
     if not config.access_token or #base64.decode(config.access_token) ~= 64 then
@@ -325,7 +346,7 @@ local function device_code()
     local res = http_request("POST", "https://api.trakt.tv/oauth/device/code", {
         ["Content-Type"] = "application/json"
     }, {
-        client_id = base64.decode(config.client_id)
+        client_id = base64.decode(o.client_id)
     })
     if not res then
         return -1
@@ -344,8 +365,8 @@ local function auth()
     local res = http_request("POST", "https://api.trakt.tv/oauth/device/token", {
         ["Content-Type"] = "application/json"
     }, {
-        client_id = base64.decode(config.client_id),
-        client_secret = base64.decode(config.client_secret),
+        client_id = base64.decode(o.client_id),
+        client_secret = base64.decode(o.client_secret),
         code = config.device_code
     })
     if not res or not res.access_token then
@@ -358,7 +379,7 @@ local function auth()
 
     -- Get user info
     local user_res = http_request("GET", "https://api.trakt.tv/users/settings", {
-        ["trakt-api-key"] = base64.decode(config.client_id),
+        ["trakt-api-key"] = base64.decode(o.client_id),
         ["Authorization"] = "Bearer " .. base64.decode(config.access_token),
         ["trakt-api-version"] = "2"
     })
@@ -400,8 +421,8 @@ local function refresh_token(config)
     local res = http_request("POST", "https://api.trakt.tv/oauth/token", {
         ["Content-Type"] = "application/json"
     }, {
-        client_id = base64.decode(config.client_id),
-        client_secret = base64.decode(config.client_secret),
+        client_id = base64.decode(o.client_id),
+        client_secret = base64.decode(o.client_secret),
         refresh_token = base64.decode(config.refresh_token),
         grant_type = "refresh_token"
     })
@@ -428,7 +449,7 @@ local function check_access_token(config)
     end
 
     local res = http_request("GET", "https://api.trakt.tv/users/settings", {
-        ["trakt-api-key"] = base64.decode(config.client_id),
+        ["trakt-api-key"] = base64.decode(o.client_id),
         ["Authorization"] = "Bearer " .. base64.decode(config.access_token),
         ["trakt-api-version"] = "2"
     })
@@ -486,7 +507,7 @@ function start_scrobble(config, data, no_osd)
     msg.info("Starting scrobbling to Trakt.tv")
     local res = http_request("POST", "https://api.trakt.tv/scrobble/start", {
         ["Content-Type"] = "application/json",
-        ["trakt-api-key"] = base64.decode(config.client_id),
+        ["trakt-api-key"] = base64.decode(o.client_id),
         ["Authorization"] = "Bearer " .. config.access_token and base64.decode(config.access_token),
         ["trakt-api-version"] = "2"
     }, data)
@@ -526,7 +547,7 @@ function stop_scrobble(config, data)
     msg.info("Stopping scrobbling to Trakt.tv")
     local res = http_request("POST", "https://api.trakt.tv/scrobble/stop", {
         ["Content-Type"] = "application/json",
-        ["trakt-api-key"] = base64.decode(config.client_id),
+        ["trakt-api-key"] = base64.decode(o.client_id),
         ["Authorization"] = "Bearer " .. config.access_token and base64.decode(config.access_token),
         ["trakt-api-version"] = "2"
     }, data)
@@ -548,7 +569,7 @@ local function query_search_show(name, season, episode)
     if year then name = title end
     local url = string.format("https://api.trakt.tv/search/show?query=%s", url_encode(name))
     res = http_request("GET", url, {
-        ["trakt-api-key"] = base64.decode(config.client_id),
+        ["trakt-api-key"] = base64.decode(o.client_id),
         ["trakt-api-version"] = "2"
     })
     if not res or #res == 0 then
@@ -583,7 +604,7 @@ local function query_search_show(name, season, episode)
 
     season_res = http_request("GET", string.format("https://api.trakt.tv/shows/%s/seasons/%s",
     state.slug, season), {
-            ["trakt-api-key"] = base64.decode(config.client_id),
+            ["trakt-api-key"] = base64.decode(o.client_id),
             ["trakt-api-version"] = "2"
     })
     if not season_res then
@@ -592,7 +613,7 @@ local function query_search_show(name, season, episode)
 
     ep_res = http_request("GET", string.format("https://api.trakt.tv/shows/%s/seasons/%s/episodes/%s",
         state.slug, season, episode), {
-            ["trakt-api-key"] = base64.decode(config.client_id),
+            ["trakt-api-key"] = base64.decode(o.client_id),
             ["trakt-api-version"] = "2"
     })
     if not ep_res then
@@ -612,7 +633,7 @@ end
 local function query_movie(movie, year)
     local url = string.format("https://api.trakt.tv/search/movie?query=%s", url_encode(movie))
     local res = http_request("GET", url, {
-        ["trakt-api-key"] = base64.decode(config.client_id),
+        ["trakt-api-key"] = base64.decode(o.client_id),
         ["trakt-api-version"] = "2"
     })
     if not res or #res == 0 then
@@ -636,7 +657,7 @@ end
 local function query_whatever(name)
     local url = string.format("https://api.trakt.tv/search/movie?query=%s", url_encode(name))
     local res = http_request("GET", url, {
-        ["trakt-api-key"] = base64.decode(config.client_id),
+        ["trakt-api-key"] = base64.decode(o.client_id),
         ["trakt-api-version"] = "2"
     })
     if not res or #res == 0 then
@@ -747,8 +768,8 @@ local function trackt_scrobble(force)
     config = read_config(config_file)
 
     if status == 10 then
-        send_message("[trakt] Please add your client_id and client_secret to config.json!", "0000FF", 4)
-        msg.warn("Please add your client_id and client_secret to config.json!")
+        send_message("[trakt] Please make sure you have set client_id and client_secret correctly!", "0000FF", 4)
+        msg.warn("Please make sure you have set client_id and client_secret correctly!")
     elseif status == 11 then
         send_message("[trakt] Press X to authenticate with Trakt.tv", "FF8800", 4)
         mp.add_forced_key_binding("x", "auth-trakt", activation)
