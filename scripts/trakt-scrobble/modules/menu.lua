@@ -9,7 +9,7 @@ local function search_episodes(slug, season, type, id, title)
     if uosc_available then
         update_menu_uosc(menu_type, menu_title, message, menu_footnote)
     else
-        mp.osd_message(message)
+        send_message(message)
     end
 
     local url = string.format("https://api.trakt.tv/shows/%s/seasons/%s/episodes", slug, season)
@@ -22,7 +22,7 @@ local function search_episodes(slug, season, type, id, title)
         if uosc_available then
             update_menu_uosc(menu_type, menu_title, message, menu_footnote)
         else
-            mp.osd_message(message, 3)
+            send_message(message, 3)
             msg.info(message)
         end
         return
@@ -42,8 +42,9 @@ local function search_episodes(slug, season, type, id, title)
 
     if uosc_available then
         update_menu_uosc(menu_type, menu_title, items, menu_footnote)
-    elseif input_loaded then
-        mp.osd_message("")
+    elseif input_available then
+        message_timer:kill()
+        message_overlay:remove()
         mp.add_timeout(0.1, function()
             open_menu_select(items)
         end)
@@ -58,7 +59,7 @@ local function search_season(slug, type, id, title)
     if uosc_available then
         update_menu_uosc(menu_type, menu_title, message, menu_footnote)
     else
-        mp.osd_message(message)
+        send_message(message)
     end
 
     local url = string.format("https://api.trakt.tv/shows/%s/seasons", slug)
@@ -71,7 +72,7 @@ local function search_season(slug, type, id, title)
         if uosc_available then
             update_menu_uosc(menu_type, menu_title, message, menu_footnote)
         else
-            mp.osd_message(message, 3)
+            send_message(message, 3)
             msg.info(message)
         end
         return
@@ -94,8 +95,9 @@ local function search_season(slug, type, id, title)
     
         if uosc_available then
             update_menu_uosc(menu_type, menu_title, items, menu_footnote)
-        elseif input_loaded then
-            mp.osd_message("")
+        elseif input_available then
+            message_timer:kill()
+            message_overlay:remove()
             mp.add_timeout(0.1, function()
                 open_menu_select(items)
             end)
@@ -112,7 +114,7 @@ local function search_trakt(name, class, page)
     if uosc_available then
         update_menu_uosc(menu_type, menu_title, message, menu_footnote, menu_cmd, name)
     else
-        mp.osd_message(message)
+        send_message(message)
     end
     local limit = 20
     local page = page or 1
@@ -127,7 +129,7 @@ local function search_trakt(name, class, page)
         if uosc_available then
             update_menu_uosc(menu_type, menu_title, message, menu_footnote)
         else
-            mp.osd_message(message, 3)
+            send_message(message, 3)
             msg.info(message)
         end
         return
@@ -163,8 +165,9 @@ local function search_trakt(name, class, page)
 
     if uosc_available then
         update_menu_uosc(menu_type, menu_title, items, menu_footnote)
-    elseif input_loaded then
-        mp.osd_message("")
+    elseif input_available then
+        message_timer:kill()
+        message_overlay:remove()
         mp.add_timeout(0.1, function()
             open_menu_select(items)
         end)
@@ -280,7 +283,7 @@ function open_input_menu(name)
     elseif input_available then
         open_input_menu_get(name)
     else
-        mp.osd_message("uosc or mp.input not available", 3)
+        send_message("uosc or mp.input not available", 3)
         msg.error("uosc or mp.input not available")
     end
 end

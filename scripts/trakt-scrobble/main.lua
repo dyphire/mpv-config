@@ -32,6 +32,7 @@ o = {
 options.read_options(o, _, function() end)
 
 state = {}
+config = {}
 enabled = o.enabled
 local scrobble = false
 
@@ -241,22 +242,29 @@ local function parse_title(path)
 end
 
 local function format_message(msg, color)
-    local ass_start = mp.get_property_osd("osd-ass-cc/0")
-    local ass_stop = mp.get_property_osd("osd-ass-cc/1")
-    return ass_start .. "{\\1c&H" .. color .. "&}" .. msg .. ass_stop
+    return string.format("{\\1c&H%s&}%s", color, msg)
 end
 
 -- Send a message to the OSD
-local function send_message(msg, color, time)
-    local msg = format_message(msg, color)
-    mp.osd_message(msg, time)
+message_overlay = mp.create_osd_overlay('ass-events')
+message_timer = mp.add_timeout(1, function ()
+    message_overlay:remove()
+end, true)
+
+function send_message(msg, time, color)
+    local text = color and format_message(msg, color) or msg
+    message_timer:kill()
+    message_timer.timeout = time or 1
+    message_overlay.data = text
+    message_overlay:update()
+    message_timer:resume()
 end
 
 -- Read config file
 local function read_config(file_path)
     local file = io.open(file_path, "r")
     if not file then
-        return nil
+        return {}
     end
     local content = file:read("*a")
     file:close()
@@ -324,14 +332,12 @@ end
 -- Initialize and check config
 local function init()
     config = read_config(config_file)
-    if not config then
-        return 10
-    end
     if not o.client_id or not o.client_secret
     or #base64.decode(o.client_id) ~= 64 or #base64.decode(o.client_secret) ~= 64 then
         return 10
     end
-    if not config.access_token or #base64.decode(config.access_token) ~= 64 then
+    if not next(config) or not config.access_token
+    or #base64.decode(config.access_token) ~= 64 then
         return 11
     end
     return 0
@@ -340,9 +346,6 @@ end
 -- Generate device code
 local function device_code()
     config = read_config(config_file)
-    if not config then
-        return -1
-    end
     local res = http_request("POST", "https://api.trakt.tv/oauth/device/code", {
         ["Content-Type"] = "application/json"
     }, {
@@ -359,7 +362,7 @@ end
 -- Authenticate with device code
 local function auth()
     config = read_config(config_file)
-    if not config then
+    if not next(config) then
         return -1
     end
     local res = http_request("POST", "https://api.trakt.tv/oauth/device/token", {
@@ -375,6 +378,8 @@ local function auth()
     config.access_token = base64.encode(res.access_token)
     config.refresh_token  = base64.encode(res.refresh_token)
     config.device_code = nil
+    config.created_at = res.created_at
+    config.expires_in = res.expires_in
     config.today = os.date("%Y-%m-%d")
 
     -- Get user info
@@ -393,25 +398,25 @@ end
 
 -- Authentication activation
 local function activation()
-    send_message("Querying trakt.tv... Hold tight", "FFFFFF", 10)
+    send_message("Querying trakt.tv... Hold tight", 10, "FFFFFF")
+    mp.remove_key_binding("auth-trakt")
     local status, output = device_code()
 
     if status == 0 then
-        send_message("Open https://trakt.tv/activate and type: " .. output .. "\nPress x when done", "FF8800", 50)
+        send_message("Open https://trakt.tv/activate and type: " .. output .. "\nPress x when done", 60, "FF8800")
         msg.info("Open https://trakt.tv/activate and type: " .. output)
-        mp.remove_key_binding("auth-trakt")
         mp.add_forced_key_binding("x", "auth-trakt", function()
+            mp.remove_key_binding("auth-trakt")
             local status = auth()
             if status == 0 then
                 send_message("It's done. Enjoy!", "00FF00", 3)
-                mp.remove_key_binding("auth-trakt")
             else
-                send_message("Authentication failed. Check the console for more info.", "0000FF", 4)
+                send_message("Authentication failed. Check the console for more info.", 5, "0000FF")
                 msg.error("Authentication failed")
             end
         end)
     else
-        send_message("Failed to generate device code. Check the console for more info.", "0000FF", 4)
+        send_message("Failed to generate device code. Check the console for more info.", 5, "0000FF")
         msg.error("Failed to generate device code")
     end
 end
@@ -434,6 +439,8 @@ local function refresh_token(config)
 
     config.access_token = base64.encode(res.access_token)
     config.refresh_token = base64.encode(res.refresh_token)
+    config.created_at = res.created_at
+    config.expires_in = res.expires_in
     config.today = os.date("%Y-%m-%d")
 
     write_config(config_file, config)
@@ -444,8 +451,18 @@ end
 
 -- Check if access_token is expired
 local function check_access_token(config)
-    if not config or not config.access_token or not config.refresh_token then
+    if not next(config) or not config.access_token or not config.refresh_token then
         return -1
+    end
+
+    if config.created_at and config.expires_in then
+        local time = os.time()
+        if time - config.created_at >= config.expires_in then
+            msg.warn("Access token was expired, attempting to refresh.")
+            return refresh_token(config)
+        else
+            return 0
+        end
     end
 
     local res = http_request("GET", "https://api.trakt.tv/users/settings", {
@@ -512,7 +529,7 @@ function start_scrobble(config, data, no_osd)
         ["trakt-api-version"] = "2"
     }, data)
     if not res then
-        send_message("Unable to scrobble ", "0000FF", 3)
+        send_message("Unable to scrobble ", 3, "0000FF")
         msg.error("Check-in failed")
         return
     end
@@ -525,16 +542,18 @@ function start_scrobble(config, data, no_osd)
         end
         if (input_available or uosc_available) and not no_osd then
             mp.add_forced_key_binding("x", "search-trakt", function()
-                mp.osd_message("")
+                message_timer:kill()
+                message_overlay:remove()
+                mp.remove_key_binding("search-trakt")
                 open_input_menu(state.filename)
                 stop_scrobble(config, data)
             end)
             local message1 = format_message(message, "00FF00")
             local message2 = format_message("Incorrect scrobble? Press x to open the search menu", "FF8800")
-            mp.osd_message(message1 .. "\n" .. message2, 9)
+            send_message(message1 .. "\n" .. message2, 10)
             msg.info(message)
         elseif not no_osd then
-            send_message(message, "00FF00", 3)
+            send_message(message, 3, "00FF00")
             msg.info(message)
         else
             msg.info(message)
@@ -599,7 +618,7 @@ local function query_search_show(name, season, episode)
         return
     end
 
-    mp.osd_message("Found on trakt.tv: " .. state.title .. " S" .. season .. "E" .. episode, 3)
+    send_message("Found on trakt.tv: " .. state.title .. " S" .. season .. "E" .. episode, 3)
     msg.info("Found on trakt.tv: " .. state.title .. " S" .. season .. "E" .. episode)
 
     season_res = http_request("GET", string.format("https://api.trakt.tv/shows/%s/seasons/%s",
@@ -646,7 +665,7 @@ local function query_movie(movie, year)
             state.type = "movie"
             state.title = item.movie.title
             state.id = item.movie.ids.trakt
-            mp.osd_message("Found: " .. state.title, 3)
+            send_message("Found: " .. state.title, 3)
             return
         end
     end
@@ -668,7 +687,7 @@ local function query_whatever(name)
     state.type = "movie"
     state.title = movie.title
     state.id = movie.ids.trakt
-    mp.osd_message("Found: " .. state.title, 3)
+    send_message("Found: " .. state.title, 3)
 end
 
 -- Query media
@@ -690,7 +709,7 @@ end
 -- Checkin function
 local function checkin_file(path)
     config = read_config(config_file)
-    if not config then return end
+    if not next(config) then return end
 
     state.duration = mp.get_property_number("duration", 0)
     local progress = get_progress()
@@ -720,7 +739,7 @@ local function checkin_file(path)
                 state.id = old_id
                 state.season = old_season
                 state.episode = old_episode + episode_num2 - episode_num1
-                mp.osd_message("Found on trakt.tv: " .. state.title .. " S" .. state.season .. "E" .. state.episode, 3)
+                send_message("Found on trakt.tv: " .. state.title .. " S" .. state.season .. "E" .. state.episode, 3)
                 msg.info("Found on trakt.tv: " .. state.title .. " S" .. state.season .. "E" .. state.episode)
             end
         end
@@ -736,9 +755,11 @@ local function checkin_file(path)
         end)
     elseif (input_available or uosc_available) then
         local message = format_message("Automatic parsing of media titles failed.\n Press x to open the search menu", "FF8800")
-        mp.osd_message(message, 5)
+        send_message(message, 5)
         mp.add_forced_key_binding("x", "search-trakt", function()
-            mp.osd_message("")
+            message_timer:kill()
+            message_overlay:remove()
+            mp.remove_key_binding("search-trakt")
             open_input_menu(state.filename)
             stop_scrobble(config, data)
         end)
@@ -768,15 +789,15 @@ local function trackt_scrobble(force)
     config = read_config(config_file)
 
     if status == 10 then
-        send_message("[trakt] Please make sure you have set client_id and client_secret correctly!", "0000FF", 4)
+        send_message("[trakt] Please make sure you have set client_id and client_secret correctly!", 5, "0000FF")
         msg.warn("Please make sure you have set client_id and client_secret correctly!")
     elseif status == 11 then
-        send_message("[trakt] Press X to authenticate with Trakt.tv", "FF8800", 4)
+        send_message("[trakt] Press X to authenticate with Trakt.tv", 10, "FF8800")
         mp.add_forced_key_binding("x", "auth-trakt", activation)
     elseif status == 0 then
         msg.info("Checking Trakt.tv authentication status.")
         if check_access_token(config) ~= 0 then
-            send_message("Authentication failed. Please re-login.", "FF0000", 5)
+            send_message("Authentication failed. Please re-login.", 5, "FF0000")
             return
         end
         checkin_file(path)
@@ -789,7 +810,7 @@ end
 
 function on_pause_change(paused)
     if not enabled then return end
-    if not config then return end
+    if not next(config) then return end
     local progress = get_progress()
     local data = get_data(progress)
     if data then
@@ -828,8 +849,8 @@ end)
 
 mp.register_script_message("search-menu", function()
     config = read_config(config_file)
-    if not config then
-        mp.osd_message("Failed to read config file", 3)
+    if not next(config) then
+        send_message("Failed to read config file", 3)
         msg.error("Failed to read config file")
         return
     end
@@ -847,7 +868,7 @@ end)
 
 mp.register_script_message("toggle-scrobble", function()
     if scrobble then
-        mp.osd_message("Trakt scrobbling disabled", 3)
+        send_message("Trakt scrobbling disabled", 3)
         msg.info("Trakt scrobbling disabled")
         on_pause_change(true)
         enabled = false

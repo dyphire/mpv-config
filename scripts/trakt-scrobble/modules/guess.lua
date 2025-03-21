@@ -86,6 +86,12 @@ local formatters = {
         end
     },
     {
+        regex = "^(.-)%s*[_%-%.%s]%s*(%d?%d)x(%d%d?%d?%d?)[^%dhHxXvVpPkKxXbBfF]",
+        format = function(name, season, episode)
+            return clean_name(name) .. " S" .. season .. "E" .. episode
+        end
+    },
+    {
         regex = "^%((%d%d%d%d)%.?%d?%d?%.?%d?%d?%)%s*(.-)%s*[%(%[]",
         format = function(year, name)
             return clean_name(name) .. " (" .. year .. ")"

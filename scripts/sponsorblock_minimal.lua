@@ -1,6 +1,6 @@
--- sponsorblock_minimal.lua v 0.5.0
+-- sponsorblock_minimal.lua v 0.5.1
 --
--- This script skips sponsored segments of YouTube and bilibili videos
+-- This script skip/mute sponsored segments of YouTube and bilibili videos
 -- using data from https://github.com/ajayyy/SponsorBlock
 -- and https://github.com/hanydd/BilibiliSponsorBlock
 
@@ -10,7 +10,8 @@ local utils = require 'mp.utils'
 local options = {
     youtube_sponsor_server = "https://sponsor.ajay.app/api/skipSegments",
     bilibili_sponsor_server = "https://bsbsb.top/api/skipSegments",
-    -- Categories to fetch and skip
+    -- Categories to fetch
+    -- Perform skip/mute/mark chapter based on the 'actionType' returned
     categories = '"sponsor"',
 }
 
@@ -19,6 +20,9 @@ opt.read_options(options)
 local ranges = nil
 local video_id = nil
 local sponsor_server = nil
+local cache = {}
+local mute = false
+local ON = false
 
 local function getranges(url)
     local res = mp.command_native{
@@ -28,7 +32,7 @@ local function getranges(url)
         args = {
             "curl", "-L", "-s", "-g",
             "-H", "origin: mpv-script/sponsorblock_minimal",
-            "-H", "x-ext-version: 0.5.0",
+            "-H", "x-ext-version: 0.5.1",
             url
         }
     }
@@ -67,23 +71,33 @@ end
 local function skip_ads(_, pos)
     if pos ~= nil and ranges ~= nil then
         for _, v in pairs(ranges) do
-            if v.segment[1] <= pos and v.segment[2] > pos then
+            if v.actionType == "skip" and v.segment[1] <= pos and v.segment[2] > pos then
                 --this message may sometimes be wrong
                 --it only seems to be a visual thing though
                 local time = math.floor(v.segment[2] - pos)
                 mp.osd_message(string.format("[sponsorblock] skipping forward %ds", time))
                 --need to do the +0.01 otherwise mpv will start spamming skip sometimes
                 mp.set_property("time-pos", v.segment[2] + 0.01)
-                return
+            elseif v.actionType == "mute" then
+                if v.segment[1] <= pos and v.segment[2] >= pos then
+                    cache[v.segment[2]] = nil
+                    mp.set_property_bool("mute", true)
+                elseif pos > v.segment[2] and not cache[v.segment[2]] and mute ~= false then
+                    cache[v.segment[2]] = true
+                    mp.set_property_bool("mute", false)
+                end
             end
         end
     end
 end
 
 local function file_loaded()
+    cache = {}
     local video_path = mp.get_property("path", "")
     local video_referer = mp.get_property("http-header-fields", ""):match("[Rr]eferer:%s*([^,\r\n]+)") or ""
+    local purl = mp.get_property("metadata/by-key/PURL", "")
     local bilibili = video_path:match("bilibili.com/video") or video_referer:match("bilibili.com/video") or false
+    mute = mp.get_property_bool("mute")
 
     local urls = {
         "ytdl://youtu%.be/([%w-_]+).*",
@@ -97,8 +111,6 @@ local function file_loaded()
         "^ytdl://([%w-_]+)$",
         "-([%w-_]+)%."
     }
-
-    local purl = mp.get_property("metadata/by-key/PURL", "")
 
     for _, url in ipairs(urls) do
         video_id = video_id or video_path:match(url) or video_referer:match(url) or purl:match(url)
@@ -127,6 +139,7 @@ end
 local function end_file()
     if not ON then return end
     mp.unobserve_property(skip_ads)
+    cache = nil
     ranges = nil
     ON = false
 end
