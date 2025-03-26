@@ -10,38 +10,47 @@ local utils = require 'mp.utils'
 local o = require 'modules.options'
 local g = require 'modules.globals'
 local fb_utils = require 'modules.utils'
+local addons = require 'modules.addons'
 local playlist = require 'modules.playlist'
 local controls = require 'modules.controls'
 local movement = require 'modules.navigation.directory-movement'
 local scanning = require 'modules.navigation.scanning'
 local cursor = require 'modules.navigation.cursor'
-local cache = require 'modules.cache'
 
 g.state.keybinds = {
-    {'ENTER',       'play',         function() playlist.add_files('replace', false) end},
-    {'Shift+ENTER', 'play_append',  function() playlist.add_files('append-play', false) end},
-    {'Alt+ENTER',   'play_autoload',function() playlist.add_files('replace', true) end},
-    {'ESC',         'close',        controls.escape},
-    {'RIGHT',       'down_dir',     movement.down_dir},
-    {'LEFT',        'up_dir',       movement.up_dir},
-    {'DOWN',        'scroll_down',  function() cursor.scroll(1, o.wrap) end,           {repeatable = true}},
-    {'UP',          'scroll_up',    function() cursor.scroll(-1, o.wrap) end,          {repeatable = true}},
-    {'PGDWN',       'page_down',    function() cursor.scroll(o.num_entries) end,       {repeatable = true}},
-    {'PGUP',        'page_up',      function() cursor.scroll(-o.num_entries) end,      {repeatable = true}},
-    {'Shift+PGDWN', 'list_bottom',  function() cursor.scroll(math.huge) end},
-    {'Shift+PGUP',  'list_top',     function() cursor.scroll(-math.huge) end},
-    {'HOME',        'goto_current', movement.goto_current_dir},
-    {'Shift+HOME',  'goto_root',    movement.goto_root},
-    {'Ctrl+r',      'reload',       function() cache:clear(); scanning.rescan() end},
-    {'s',           'select_mode',  cursor.toggle_select_mode},
-    {'S',           'select_item',  cursor.toggle_selection},
-    {'Ctrl+a',      'select_all',   cursor.select_all}
+    {'ENTER',       'play',             function() playlist.add_files('replace', false) end},
+    {'Shift+ENTER', 'play_append',      function() playlist.add_files('append-play', false) end},
+    {'Alt+ENTER',   'play_autoload',    function() playlist.add_files('replace', true) end},
+    {'ESC',         'close',            controls.escape},
+    {'RIGHT',       'down_dir',         movement.down_dir},
+    {'LEFT',        'up_dir',           movement.up_dir},
+    {'Alt+RIGHT',   'history_forward',  movement.forwards_history},
+    {'Alt+LEFT',    'history_back',     movement.back_history},
+    {'DOWN',        'scroll_down',      function() cursor.scroll(1, o.wrap) end,           {repeatable = true}},
+    {'UP',          'scroll_up',        function() cursor.scroll(-1, o.wrap) end,          {repeatable = true}},
+    {'PGDWN',       'page_down',        function() cursor.scroll(o.num_entries) end,       {repeatable = true}},
+    {'PGUP',        'page_up',          function() cursor.scroll(-o.num_entries) end,      {repeatable = true}},
+    {'Shift+PGDWN', 'list_bottom',      function() cursor.scroll(math.huge) end},
+    {'Shift+PGUP',  'list_top',         function() cursor.scroll(-math.huge) end},
+    {'HOME',        'goto_current',     movement.goto_current_dir},
+    {'Shift+HOME',  'goto_root',        movement.goto_root},
+    {'Ctrl+r',      'reload',           function() scanning.rescan() end},
+    {'s',           'select_mode',      cursor.toggle_select_mode},
+    {'S',           'select_item',      cursor.toggle_selection},
+    {'Ctrl+a',      'select_all',       cursor.select_all}
 }
 
---a map of key-keybinds - only saves the latest keybind if multiple have the same key code
+---a map of key-keybinds - only saves the latest keybind if multiple have the same key code
+---@type KeybindList
 local top_level_keys = {}
 
---format the item string for either single or multiple items
+---Format the item string for either single or multiple items.
+---@param base_code_fn Replacer
+---@param items Item[]
+---@param state State
+---@param cmd Keybind
+---@param quoted? boolean
+---@return string|nil
 local function create_item_string(base_code_fn, items, state, cmd, quoted)
     if not items[1] then return end
     local func = quoted and function(...) return ("%q"):format(base_code_fn(...)) end or base_code_fn
@@ -57,8 +66,14 @@ end
 local KEYBIND_CODE_PATTERN = fb_utils.get_code_pattern(fb_utils.code_fns)
 local item_specific_codes = 'fnij'
 
---substitutes the key codes for the 
+---Replaces codes in the given string using the replacers.
+---@param str string
+---@param cmd Keybind
+---@param items Item[]
+---@param state State
+---@return string
 local function substitute_codes(str, cmd, items, state)
+    ---@type ReplacerTable
     local overrides = {}
 
     for code in item_specific_codes:gmatch('.') do
@@ -69,25 +84,37 @@ local function substitute_codes(str, cmd, items, state)
     return fb_utils.substitute_codes(str, overrides, items[1], state)
 end
 
---iterates through the command table and substitutes special
---character codes for the correct strings used for custom functions
+---Iterates through the command table and substitutes special
+---character codes for the correct strings used for custom functions.
+---@param cmd Keybind
+---@param items Item[]
+---@param state State
+---@return KeybindCommand
 local function format_command_table(cmd, items, state)
+    local command = cmd.command
+    if type(command) == 'function' then return command end
+    ---@type string[][]
     local copy = {}
-    for i = 1, #cmd.command do
+    for i = 1, #command do
+        ---@type string[]
         copy[i] = {}
 
-        for j = 1, #cmd.command[i] do
+        for j = 1, #command[i] do
             copy[i][j] = substitute_codes(cmd.command[i][j], cmd, items, state)
         end
     end
     return copy
 end
 
---runs all of the commands in the command table
---key.command must be an array of command tables compatible with mp.command_native
---items must be an array of multiple items (when multi-type ~= concat the array will be 1 long)
+---Runs all of the commands in the command table.
+---@param cmd Keybind key.command must be an array of command tables compatible with mp.command_native
+---@param items Item[] must be an array of multiple items (when multi-type ~= concat the array will be 1 long).
+---@param state State
 local function run_custom_command(cmd, items, state)
     local custom_cmds = cmd.codes and format_command_table(cmd, items, state) or cmd.command
+    if type(custom_cmds) == 'function' then
+        error(('attempting to run a function keybind as a command table keybind\n%s'):format(utils.to_string(cmd)))
+    end
 
     for _, custom_cmd in ipairs(custom_cmds) do
         msg.debug("running command:", utils.to_string(custom_cmd))
@@ -95,7 +122,9 @@ local function run_custom_command(cmd, items, state)
     end
 end
 
---returns true if the given code set has item specific codes (%f, %i, etc)
+---returns true if the given code set has item specific codes (%f, %i, etc)
+---@param codes Set<string>
+---@return boolean
 local function has_item_codes(codes)
     for code in pairs(codes) do
         if item_specific_codes:find(code:lower(), 1, true) then return true end
@@ -103,7 +132,12 @@ local function has_item_codes(codes)
     return false
 end
 
---runs one of the custom commands
+---Runs one of the custom commands.
+---@async
+---@param cmd Keybind
+---@param state State
+---@param co thread
+---@return boolean|nil
 local function run_custom_keybind(cmd, state, co)
     --evaluates a condition and passes through the correct values
     local function evaluate_condition(condition, items)
@@ -112,6 +146,7 @@ local function run_custom_keybind(cmd, state, co)
     end
 
     -- evaluates the string condition to decide if the keybind should be run
+    ---@type boolean
     local do_item_condition
     if cmd.condition then
         if has_item_codes(cmd.condition_codes) then
@@ -177,8 +212,12 @@ local function run_custom_keybind(cmd, state, co)
     return #selection == num_selection
 end
 
---recursively runs the keybind functions, passing down through the chain
---of keybinds with the same key value
+---Recursively runs the keybind functions, passing down through the chain
+---of keybinds with the same key value.
+---@async
+---@param keybind Keybind
+---@param state State
+---@param co thread
 local function run_keybind_recursive(keybind, state, co)
     msg.trace("Attempting custom command:", utils.to_string(keybind))
 
@@ -194,7 +233,8 @@ local function run_keybind_recursive(keybind, state, co)
     end
 end
 
---a wrapper to run a custom keybind as a lua coroutine
+---A wrapper to run a custom keybind as a lua coroutine.
+---@param key Keybind
 local function run_keybind_coroutine(key)
     msg.debug("Received custom keybind "..key.key)
     local co = coroutine.create(run_keybind_recursive)
@@ -214,7 +254,10 @@ local function run_keybind_coroutine(key)
     end
 end
 
---scans the given command table to identify if they contain any custom keybind codes
+---Scans the given command table to identify if they contain any custom keybind codes.
+---@param command_table KeybindCommand
+---@param codes Set<string>
+---@return Set<string>
 local function scan_for_codes(command_table, codes)
     if type(command_table) ~= "table" then return codes end
     for _, value in pairs(command_table) do
@@ -230,12 +273,19 @@ local function scan_for_codes(command_table, codes)
     return codes
 end
 
---inserting the custom keybind into the keybind array for declaration when file-browser is opened
---custom keybinds with matching names will overwrite eachother
+---Inserting the custom keybind into the keybind array for declaration when file-browser is opened.
+---Custom keybinds with matching names will overwrite eachother.
+---@param keybind Keybind
 local function insert_custom_keybind(keybind)
+    -- api checking for the keybinds is optional, so set to a valid version if it does not exist
+    keybind.api_version = keybind.api_version or '1.0.0'
+    if not addons.check_api_version(keybind, 'keybind '..keybind.name) then return end
+
+    local command = keybind.command
+
     --we'll always save the keybinds as either an array of command arrays or a function
-    if type(keybind.command) == "table" and type(keybind.command[1]) ~= "table" then
-        keybind.command = {keybind.command}
+    if type(command) == "table" and type(command[1]) ~= "table" then
+        keybind.command = {command}
     end
 
     keybind.codes = scan_for_codes(keybind.command, {})
@@ -251,39 +301,39 @@ local function insert_custom_keybind(keybind)
     top_level_keys[keybind.key] = keybind
 end
 
---loading the custom keybinds
---can either load keybinds from the config file, from addons, or from both
+---Loading the custom keybinds.
+---Can either load keybinds from the config file, from addons, or from both.
 local function setup_keybinds()
-    if not o.custom_keybinds and not o.addons then return end
-
     --this is to make the default keybinds compatible with passthrough from custom keybinds
     for _, keybind in ipairs(g.state.keybinds) do
         top_level_keys[keybind[1]] = { key = keybind[1], name = keybind[2], command = keybind[3], flags = keybind[4] }
     end
 
     --this loads keybinds from addons
-    if o.addons then
-        for i = #g.parsers, 1, -1 do
-            local parser = g.parsers[i]
-            if parser.keybinds then
-                for i, keybind in ipairs(parser.keybinds) do
-                    --if addons use the native array command format, then we need to convert them over to the custom command format
-                    if not keybind.key then keybind = { key = keybind[1], name = keybind[2], command = keybind[3], flags = keybind[4] }
-                    else keybind = fb_utils.copy_table(keybind) end
+    for i = #g.parsers, 1, -1 do
+        local parser = g.parsers[i]
+        if parser.keybinds then
+            for i, keybind in ipairs(parser.keybinds) do
+                --if addons use the native array command format, then we need to convert them over to the custom command format
+                if not keybind.key then keybind = { key = keybind[1], name = keybind[2], command = keybind[3], flags = keybind[4] }
+                else keybind = fb_utils.copy_table(keybind) end
 
-                    keybind.name = g.parsers[parser].id.."/"..(keybind.name or tostring(i))
-                    keybind.addon = true
-                    insert_custom_keybind(keybind)
-                end
+                keybind.name = g.parsers[parser].id.."/"..(keybind.name or tostring(i))
+                keybind.addon = true
+                insert_custom_keybind(keybind)
             end
         end
     end
 
     --loads custom keybinds from file-browser-keybinds.json
     if o.custom_keybinds then
-        local path = mp.command_native({"expand-path", "~~/script-opts"}).."/file-browser-keybinds.json"
+        local path = mp.command_native({"expand-path", o.custom_keybinds_file}) --[[@as string]]
         local custom_keybinds, err = io.open( path )
-        if not custom_keybinds then return error(err) end
+        if not custom_keybinds then
+            msg.debug(err)
+            msg.verbose('could not read custom keybind file', path)
+            return
+        end
 
         local json = custom_keybinds:read("*a")
         custom_keybinds:close()
@@ -291,13 +341,14 @@ local function setup_keybinds()
         json = utils.parse_json(json)
         if not json then return error("invalid json syntax for "..path) end
 
-        for i, keybind in ipairs(json) do
+        for i, keybind in ipairs(json --[[@as KeybindList]]) do
             keybind.name = "custom/"..(keybind.name or tostring(i))
             insert_custom_keybind(keybind)
         end
     end
 end
 
+---@class keybinds
 return {
     setup_keybinds = setup_keybinds,
 }

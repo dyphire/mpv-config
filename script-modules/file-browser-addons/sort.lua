@@ -4,7 +4,7 @@ local fb = require 'file-browser'
 
 local parser = {
     priority = 105,
-    version = '1.2.0'
+    api_version = '1.2.0'
 }
 
 -- stores a table of the parsers loaded by file-browser

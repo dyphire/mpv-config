@@ -10,6 +10,7 @@ local movement = require 'modules.navigation.directory-movement'
 local ass = require 'modules.ass'
 local cursor = require 'modules.navigation.cursor'
 
+---@class controls
 local controls = {}
 
 --opens the browser
@@ -20,7 +21,7 @@ function controls.open()
         mp.add_forced_key_binding(v[1], 'dynamic/'..v[2], v[3], v[4])
     end
 
-    if o.set_shared_script_properties then utils.shared_script_property_set('file_browser-open', 'yes') end
+    if o.set_shared_script_properties then utils.shared_script_property_set('file_browser-open', 'yes') end ---@diagnostic disable-line deprecated
     if o.set_user_data then mp.set_property_bool('user-data/file_browser/open', true) end
 
     if o.toggle_idlescreen then mp.commandv('script-message', 'osc-idlescreen', 'no', 'no_osd') end
@@ -43,7 +44,7 @@ function controls.close()
         mp.remove_key_binding('dynamic/'..v[2])
     end
 
-    if o.set_shared_script_properties then utils.shared_script_property_set("file_browser-open", "no") end
+    if o.set_shared_script_properties then utils.shared_script_property_set("file_browser-open", "no") end ---@diagnostic disable-line deprecated
     if o.set_user_data then mp.set_property_bool('user-data/file_browser/open', false) end
 
     if o.toggle_idlescreen then mp.commandv('script-message', 'osc-idlescreen', 'yes', 'no_osd') end
@@ -70,18 +71,24 @@ function controls.escape()
     controls.close()
 end
 
---opens a specific directory
-function controls.browse_directory(directory)
+---opens a specific directory
+---@param directory string
+---@param open_browser? boolean
+---@return thread|nil
+function controls.browse_directory(directory, open_browser)
     if not directory then return end
-    directory = mp.command_native({"expand-path", directory}) or ''
+    if open_browser == nil then open_browser = true end
+
+    directory = mp.command_native({"expand-path", directory}, '') --[[@as string]]
     -- directory = join_path( mp.get_property("working-directory", ""), directory )
 
     if directory ~= "" then directory = fb_utils.fix_path(directory, true) end
     msg.verbose('recieved directory from script message: '..directory)
 
     directory = fb_utils.resolve_directory_mapping(directory)
-    movement.goto_directory(directory)
-    controls.open()
+    local co = movement.goto_directory(directory, nil, nil, {cache={use=false}})
+    if open_browser then controls.open() end
+    return co
 end
 
 return controls

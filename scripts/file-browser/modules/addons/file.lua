@@ -4,10 +4,12 @@
 local msg = require 'mp.msg'
 local utils = require 'mp.utils'
 
---parser object for native filesystems
+---Parser for native filesystems
+---@type ParserConfig
 local file_parser = {
     name = "file",
     priority = 110,
+    api_version = '1.0.0',
 }
 
 --try to parse any directory except for the root
@@ -31,6 +33,7 @@ function file_parser:parse(directory)
 
     --appends files to the list of directory items
     local list2 = utils.readdir(directory, 'files')
+    if list2 == nil then return nil end
     for i=1, #list2 do
         local item = list2[i]
 

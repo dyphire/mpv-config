@@ -5,7 +5,7 @@ local fb = require 'file-browser'
 local isos = {
     name = 'iso-loader',
     priority = 20,
-    version = '1.5'
+    api_version = '1.5'
 }
 
 function isos:setup()

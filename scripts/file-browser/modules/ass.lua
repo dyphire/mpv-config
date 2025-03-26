@@ -3,8 +3,6 @@
 --------------------------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------------------------
 
-local utils = require 'mp.utils'
-
 local g = require 'modules.globals'
 local o = require 'modules.options'
 local fb_utils = require 'modules.utils'
@@ -21,9 +19,11 @@ local function remove()
     ass:remove()
 end
 
+---@type string[]
 local string_buffer = {}
 
---appends the entered text to the overlay
+---appends the entered text to the overlay
+---@param ... string
 local function append(...)
     for i = 1, select("#", ...) do
         table.insert(string_buffer, select(i, ...) or '' )
@@ -40,30 +40,34 @@ local function flush_buffer()
     string_buffer = {}
 end
 
---detects whether or not to highlight the given entry as being played
+---detects whether or not to highlight the given entry as being played
+---@param v Item
+---@return boolean
 local function highlight_entry(v)
     if g.current_file.path == nil then return false end
     local full_path = fb_utils.get_full_path(v)
     local alt_path = v.name and g.state.directory..v.name or nil
 
     if fb_utils.parseable_item(v) then
-        return string.find(g.current_file.directory, full_path, 1, true)
+        return (
+            string.find(g.current_file.directory, full_path, 1, true)
             or (alt_path and string.find(g.current_file.directory, alt_path, 1, true))
+        ) ~= nil
     else
         return g.current_file.path == full_path
             or (alt_path and g.current_file.path == alt_path)
     end
 end
 
-local ass_cache = setmetatable({}, {__mode = 'k'})
-
--- escape ass values and replace newlines
-local function ass_escape(str)
-    if ass_cache[str] then return ass_cache[str] end
-    local escaped = fb_utils.ass_escape(str, true)
-    ass_cache[str] = escaped
-    return escaped
+---escape ass values and replace newlines
+---@param str string
+---@param style_reset string?
+---@return string
+local function ass_escape(str, style_reset)
+    return fb_utils.ass_escape(str, style_reset and style.warning..'␊'..style_reset or true)
 end
+
+local header_overrides = {['^'] = style.header}
 
 --refreshes the ass text using the contents of the list
 local function update_ass()
@@ -71,10 +75,11 @@ local function update_ass()
 
     append(style.global)
 
-    local dir_name = state.directory_label or state.directory
-    if dir_name == "" then dir_name = "ROOT" end
     append(style.header)
-    append(fb_utils.substitute_codes(o.format_string_header, nil, nil, nil, ass_escape))
+    append(fb_utils.substitute_codes(o.format_string_header, header_overrides, nil, nil, function(str, code)
+        if code == '^' then return str end
+        return ass_escape(str, style.header)
+    end))
     newline()
 
     if #state.list < 1 then
@@ -84,12 +89,15 @@ local function update_ass()
         return
     end
 
+    ---@type number
     local start = 1
+    ---@type number
     local finish = start+o.num_entries-1
 
     --handling cursor positioning
     local mid = math.ceil(o.num_entries/2)+1
     if state.selected+mid > finish then
+        ---@type number
         local offset = state.selected - finish + mid
 
         --if we've overshot the end of the list then undo some of the offset
@@ -112,7 +120,9 @@ local function update_ass()
 
     --adding a header to show there are items above in the list
     if o.format_string_topwrapper ~= '' and start > 1 then
-        append(style.footer_header, fb_utils.substitute_codes(o.format_string_topwrapper, wrapper_overrides, nil, nil, ass_escape))
+        append(style.footer_header, fb_utils.substitute_codes(o.format_string_topwrapper, wrapper_overrides, nil, nil, function(str)
+            return ass_escape(str)
+        end))
         newline()
     end
 
@@ -139,22 +149,24 @@ local function update_ass()
         local multiselected = state.selection[i]
 
         --sets the colour for the item
-        local function set_colour()
-            if multiselected then append(style.multiselect)
-            elseif i == state.selected then append(style.selected) end
+        local item_style = style.body
+        -- local function set_colour()
+        if multiselected then item_style = item_style..style.multiselect
+        elseif i == state.selected then item_style = item_style..style.selected end
 
-            if playing_file then append( multiselected and style.playing_selected or style.playing) end
-        end
-        set_colour()
+        if playing_file then item_style = item_style..(multiselected and style.playing_selected or style.playing) end
+        -- end
+        -- set_colour()
+        append(item_style)
 
         --sets the folder icon
         if v.type == 'dir' then
             append(style.folder, o.folder_icon, "\\h", style.body)
-            set_colour()
+            append(item_style)
         end
 
         --adds the actual name of the item
-        append(v.ass or ass_escape(v.label or v.name))
+        append(v.ass or ass_escape(v.label or v.name, item_style))
         newline()
     end
 
@@ -167,6 +179,7 @@ local function update_ass()
     draw()
 end
 
+---@class ass
 return {
     update_ass = update_ass,
     highlight_entry = highlight_entry,

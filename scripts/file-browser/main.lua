@@ -11,6 +11,10 @@
 local mp = require 'mp'
 
 local o = require 'modules.options'
+
+-- setting the package paths
+package.path = mp.command_native({"expand-path", o.module_directory}).."/?.lua;"..package.path
+
 local addons = require 'modules.addons'
 local keybinds = require 'modules.keybinds'
 local setup = require 'modules.setup'
@@ -18,16 +22,15 @@ local controls = require 'modules.controls'
 local observers = require 'modules.observers'
 local script_messages = require 'modules.script-messages'
 
--- setting the package paths
-package.path = mp.command_native({"expand-path", o.module_directory}).."/?.lua;"..package.path
 local input_loaded, input = pcall(require, "mp.input")
 local user_input_loaded, user_input = pcall(require, "user-input-module")
 
 
 -- root and addon setup
 setup.root()
-addons.load_internal_parsers()
+addons.load_internal_addons()
 if o.addons then addons.load_external_addons() end
+addons.setup_addons()
 
 --these need to be below the addon setup in case any parsers add custom entries
 setup.extensions_list()

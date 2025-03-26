@@ -1,15 +1,22 @@
 local utils = require 'mp.utils'
 local opt = require 'mp.options'
 
+---@class options
 local o = {
     --root directories
     root = "~/",
 
+    --automatically detect windows drives and adds them to the root.
+    auto_detect_windows_drives = true,
+
     --characters to use as separators
-    root_separators = ",;",
+    root_separators = ",",
 
     --number of entries to show on the screen at once
     num_entries = 20,
+
+    --number of directories to keep in the history
+    history_size = 100,
 
     --wrap the cursor around the top and bottom of the list
     wrap = false,
@@ -17,18 +24,18 @@ local o = {
     --only show files compatible with mpv
     filter_files = true,
 
-    --experimental feature that recurses directories concurrently when
-    --appending items to the playlist
-    concurrent_recursion = false,
+    --recurses directories concurrently when appending items to the playlist
+    concurrent_recursion = true,
 
     --maximum number of recursions that can run concurrently
     max_concurrency = 16,
 
     --enable custom keybinds
-    custom_keybinds = false,
+    custom_keybinds = true,
+    custom_keybinds_file = "~~/script-opts/file-browser-keybinds.json",
 
     --blacklist compatible files, it's recommended to use this rather than to edit the
-    --compatible list directly. A semicolon separated list of extensions without spaces
+    --compatible list directly. A comma separated list of extensions without spaces
     extension_blacklist = "",
 
     --add extra file extensions
@@ -42,10 +49,12 @@ local o = {
 
     --filter dot directories like .config
     --most useful on linux systems
-    filter_dot_dirs = false,
-    filter_dot_files = false,
+    ---@type 'auto'|'yes'|'no'
+    filter_dot_dirs = 'auto',
+    ---@type 'auto'|'yes'|'no'
+    filter_dot_files = 'auto',
 
-    --substitude forward slashes for backslashes when appending a local file to the playlist
+    --substitute forward slashes for backslashes when appending a local file to the playlist
     --potentially useful on windows systems
     substitute_backslash = false,
 
@@ -55,7 +64,14 @@ local o = {
     --cause mangled paths, though such filenames are rare.
     --Use `yes` and `no` to enable/disable. `auto` tries to use the mpv `platform`
     --property (mpv v0.36+) to decide. If the property is unavailable it defaults to `yes`.
+    ---@type 'auto'|'yes'|'no'
     normalise_backslash = 'auto',
+
+    --a directory cache to improve directory reading time,
+    --enable if it takes a long time to load directories.
+    --may cause 'ghost' files to be shown that no-longer exist or
+    --fail to show files that have recently been created.
+    cache = false,
 
     --this option reverses the behaviour of the alt+ENTER keybind
     --when disabled the keybind is required to enable autoload for the file
@@ -72,9 +88,23 @@ local o = {
     --move the browser there even if this option is set to false
     default_to_working_directory = false,
 
+    --When opening the browser prefer the directory last opened by a previous mpv instance of file-browser.
+    --Overrides the `default_to_working_directory` option.
+    --Requires `save_last_opened_directory` to be true.
+    --Uses the internal `last-opened-directory` addon.
+    default_to_last_opened_directory = false,
+
+    --Whether to save the last opened directory and the file to save this value in.
+    save_last_opened_directory = false,
+    last_opened_directory_file = '~~state/file_browser-last_opened_directory',
+
     --when moving up a directory do not stop on empty protocol schemes like `ftp://`
     --e.g. moving up from `ftp://localhost/` will move straight to the root instead of `ftp://`
     skip_protocol_schemes = true,
+
+    --Replace the user's home directory with `~/` in the header.
+    --Uses the internal home-label addon.
+    home_label = true,
 
     --map optical device paths to their respective file paths,
     --e.g. mapping bd:// to the value of the bluray-device property
@@ -88,8 +118,18 @@ local o = {
     cursor_icon = [[{\p1}m 14.11 6.86 l 0.34 0.02 b 0.25 -0.02 0.13 -0 0.06 0.08 b -0.01 0.16 -0.02 0.28 0.04 0.36 l 3.38 5.55 l 3.38 5.55 3.67 6.15 3.81 6.79 3.79 7.45 3.61 8.08 3.39 8.5l 0.04 13.77 b -0.02 13.86 -0.01 13.98 0.06 14.06 b 0.11 14.11 0.17 14.13 0.24 14.13 b 0.27 14.13 0.31 14.13 0.34 14.11 l 14.11 7.28 b 14.2 7.24 14.25 7.16 14.25 7.07 b 14.25 6.98 14.2 6.9 14.11 6.86{\p0}\h]],
 
     --enable addons
-    addons = false,
+    addons = true,
     addon_directory = "~~/script-modules/file-browser-addons",
+
+    --Enables the internal `ls` addon that parses directories using the `ls` commandline tool.
+    --Allows directory parsing to run concurrently, which prevents the browser from locking up.
+    --Automatically disables itself on Windows systems.
+    ls_parser = true,
+
+    --Enables the internal `windir` addon that parses directories using the `dir` command in cmd.exe.
+    --Allows directory parsing to run concurrently, which prevents the browser from locking up.
+    --Automatically disables itself on non-Windows systems.
+    windir_parser = true,
 
     --directory to load external modules - currently just user-input-module
     module_directory = "~~/script-modules",
@@ -111,16 +151,16 @@ local o = {
     alignment = 7,
 
     --style settings
-    format_string_header = '%q\\N----------------------------------------------------',
-    format_string_topwrapper = '%< item(s) above\\N',
-    format_string_bottomwrapper = '\\N%> item(s) remaining',
+    format_string_header = [[{\fnMonospace}[%i/%x]%^ %q\N------------------------------------------------------------------]],
+    format_string_topwrapper = '...',
+    format_string_bottomwrapper = '...',
 
     font_bold_header = true,
     font_opacity_selection_marker = "99",
 
     scaling_factor_base = 1,
     scaling_factor_header = 1.4,
-    scaling_factor_wrappers = 0.64,
+    scaling_factor_wrappers = 1,
 
     font_name_header = "",
     font_name_body = "",
@@ -132,6 +172,7 @@ local o = {
     font_colour_body = "ffffff",
     font_colour_wrappers = "00ccff",
     font_colour_cursor = "00ccff",
+    font_colour_escape_chars = "413eff",
 
     font_colour_multiselect = "fcad88",
     font_colour_selected = "fce788",
@@ -142,6 +183,7 @@ local o = {
 
 opt.read_options(o, 'file_browser')
 
+---@diagnostic disable-next-line deprecated
 o.set_shared_script_properties = o.set_shared_script_properties and utils.shared_script_property_set
 
 return o

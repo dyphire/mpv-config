@@ -1,13 +1,8 @@
 --[[
-    An addon for mpv-file-browser for searching the current directory
-    Available at: https://github.com/CogentRedTester/mpv-file-browser/tree/master/addons
+    This file is an internal file-browser addon.
+    It should not be imported like a normal module.
 
-    Requires mpv-user-input: https://github.com/CogentRedTester/mpv-user-input
-
-    Keybinds:
-        Ctrl+f  open search box
-        Ctrl+F  open advanced search box (supports Lua patterns)
-        n       cycle to next valid item
+    Allows searching the current directory.
 ]]--
 
 local msg = require "mp.msg"
@@ -15,12 +10,20 @@ local fb = require "file-browser"
 local input_loaded, input = pcall(require, "mp.input")
 local user_input_loaded, user_input = pcall(require, "user-input-module")
 
+---@type ParserConfig
 local find = {
-    version = "1.3.0"
+    api_version = "1.3.0"
 }
+
+---@type thread|nil
 local latest_coroutine = nil
+
+---@type State
 local global_fb_state = getmetatable(fb.get_state()).__original
 
+---@param name string
+---@param query string
+---@return boolean
 local function compare(name, query)
     if name:find(query) then return true end
     if name:lower():find(query) then return true end
@@ -29,9 +32,15 @@ local function compare(name, query)
     return false
 end
 
+---@async
+---@param key Keybind
+---@param state State
+---@param co thread
+---@return boolean?
 local function main(key, state, co)
     if not state.list then return false end
 
+    ---@type string
     local text
     if key.name == "find/find" then text = "Find: enter search string"
     else text = "Find: enter advanced search string" end
@@ -74,31 +83,42 @@ local function main(key, state, co)
     --keep cycling through the search results if any are found
     --putting this into a separate coroutine removes any passthrough ambiguity
     --the final return statement should return to `step_find` not any other function
+    ---@async
     fb.coroutine.run(function()
         latest_coroutine = coroutine.running()
+        ---@type number
+        local rindex = 1
         while (true) do
-            for _, index in ipairs(results) do
-                fb.set_selected_index(index)
-                coroutine.yield(true)
 
-                if parse_id ~= global_fb_state.co then
-                    latest_coroutine = nil
-                    return false
-                end
+            if rindex == 0 then rindex = #results
+            elseif rindex == #results + 1 then rindex = 1 end
+
+            fb.set_selected_index(results[rindex])
+            local direction = coroutine.yield(true) --[[@as number]]
+            rindex = rindex + direction
+
+            if parse_id ~= global_fb_state.co then
+                latest_coroutine = nil
+                return
             end
         end
     end)
 end
 
-local function step_find()
+local function step_find(key)
     if not latest_coroutine then return false end
-    return fb.coroutine.resume_err(latest_coroutine)
+    ---@type number
+    local direction = 0
+    if key.name == "find/next" then direction = 1
+    elseif key.name == "find/prev" then direction = -1 end
+    return fb.coroutine.resume_err(latest_coroutine, direction)
 end
 
 find.keybinds = {
     {"Ctrl+f", "find", main, {}},
     {"Ctrl+F", "find_advanced", main, {}},
     {"n", "next", step_find, {}},
+    {"N", "prev", step_find, {}},
 }
 
 return find
