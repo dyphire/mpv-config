@@ -102,6 +102,9 @@ local o = {
     --e.g. moving up from `ftp://localhost/` will move straight to the root instead of `ftp://`
     skip_protocol_schemes = true,
 
+    --move the cursor to the currently playing item (if available) when the playing file changes
+    cursor_follows_playing_item = false,
+
     --Replace the user's home directory with `~/` in the header.
     --Uses the internal home-label addon.
     home_label = true,

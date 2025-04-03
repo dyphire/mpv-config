@@ -8,6 +8,7 @@ local g = require 'modules.globals'
 local ass = require 'modules.ass'
 local scanning = require 'modules.navigation.scanning'
 local fb_utils = require 'modules.utils'
+local cursor = require 'modules.navigation.cursor'
 
 ---@class directory_movement
 local directory_movement = {}
@@ -32,6 +33,7 @@ local function directory_stack_append(dir)
     g.directory_stack.position = g.directory_stack.position + 1
 end
 
+---@param dir string
 local function directory_stack_prepend(dir)
     table.insert(g.directory_stack.stack, 1, dir)
     g.directory_stack.position = 1
@@ -90,6 +92,7 @@ function directory_movement.set_current_file(filepath)
         g.current_file.directory = fb_utils.fix_path( mp.get_property("working-directory", ""), true)
         g.current_file.name = nil
         g.current_file.path = nil
+        g.current_file.original_path = nil
         return
     end
 
@@ -100,8 +103,8 @@ function directory_movement.set_current_file(filepath)
     g.current_file.original_path = absolute_path
     g.current_file.path = resolved_path
 
-    if not g.state.hidden then ass.update_ass()
-    else g.state.flag_update = true end
+    if o.cursor_follows_playing_item then cursor.select_playing_item() end
+    ass.update_ass()
 end
 
 --the base function for moving to a directory
@@ -115,9 +118,9 @@ function directory_movement.goto_directory(directory, nav_type, store_history, p
     g.state.directory = directory
 
     if g.state.directory_label then
-        if nav_type == 1 then
+        if nav_type == NavType.DOWN then
             g.state.directory_label = g.state.directory_label..(current.label or current.name)
-        elseif nav_type == -1 then
+        elseif nav_type == NavType.UP then
             g.state.directory_label = string.match(g.state.directory_label, "^(.-/+)[^/]+/*$")
         end
     end
