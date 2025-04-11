@@ -346,6 +346,7 @@ mp.observe_property("track-auto-selection", "bool", function(_,b) track_auto_sel
 local function selection_enabled()
     if not ENABLED then return false end
     if not track_auto_selection then return false end
+    if #sub_tracks == 0 then return false end
     return true
 end
 

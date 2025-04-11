@@ -119,6 +119,7 @@ local o = {
     --the `\h` character is a hard space to add padding between the symbol and the text
     folder_icon = [[{\p1}m 6.52 0 l 1.63 0 b 0.73 0 0.01 0.73 0.01 1.63 l 0 11.41 b 0 12.32 0.73 13.05 1.63 13.05 l 14.68 13.05 b 15.58 13.05 16.31 12.32 16.31 11.41 l 16.31 3.26 b 16.31 2.36 15.58 1.63 14.68 1.63 l 8.15 1.63{\p0}\h]],
     cursor_icon = [[{\p1}m 14.11 6.86 l 0.34 0.02 b 0.25 -0.02 0.13 -0 0.06 0.08 b -0.01 0.16 -0.02 0.28 0.04 0.36 l 3.38 5.55 l 3.38 5.55 3.67 6.15 3.81 6.79 3.79 7.45 3.61 8.08 3.39 8.5l 0.04 13.77 b -0.02 13.86 -0.01 13.98 0.06 14.06 b 0.11 14.11 0.17 14.13 0.24 14.13 b 0.27 14.13 0.31 14.13 0.34 14.11 l 14.11 7.28 b 14.2 7.24 14.25 7.16 14.25 7.07 b 14.25 6.98 14.2 6.9 14.11 6.86{\p0}\h]],
+    cursor_icon_flipped = [[{\p1}m 0.13 6.86 l 13.9 0.02 b 14 -0.02 14.11 -0 14.19 0.08 b 14.26 0.16 14.27 0.28 14.21 0.36 l 10.87 5.55 l 10.87 5.55 10.44 6.79 10.64 8.08 10.86 8.5l 14.21 13.77 b 14.27 13.86 14.26 13.98 14.19 14.06 b 14.14 14.11 14.07 14.13 14.01 14.13 b 13.97 14.13 13.94 14.13 13.9 14.11 l 0.13 7.28 b 0.05 7.24 0 7.16 0 7.07 b 0 6.98 0.05 6.9 0.13 6.86{\p0}\h]],
 
     --enable addons
     addons = true,
@@ -148,10 +149,10 @@ local o = {
     --This property is deprecated. When it is removed in mpv v0.37 file-browser will automatically ignore this option.
     set_shared_script_properties = false,
 
-    --force file-browser to use a specific text alignment (default: top-left)
-    --uses ass tag alignment numbers: https://aegi.vmoe.info/docs/3.0/ASS_Tags/#index23h3
-    --set to 0 to use the default mpv osd-align options
-    alignment = 7,
+    ---@type 'auto'|'left'|'center'|'right'
+    align_x = 'left',
+    ---@type 'auto'|'top'|'center'|'bottom'
+    align_y = 'top',
 
     --style settings
     format_string_header = [[{\fnMonospace}[%i/%x]%^ %q\N------------------------------------------------------------------]],

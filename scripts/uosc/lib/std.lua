@@ -24,6 +24,17 @@ end
 ---@return string
 function trim(str) return str:match('^%s*(.-)%s*$') end
 
+---@param str string
+---@return string|nil
+function url_encode(str)
+	if str then
+		str = str:gsub('([^%w%-%.%_%~])', function(c)
+			return string.format('%%%02X', string.byte(c))
+		end)
+	end
+	return str
+end
+
 -- Escape special characters in url.
 ---@param str string
 ---@return string|nil
