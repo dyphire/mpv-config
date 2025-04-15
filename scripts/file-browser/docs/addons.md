@@ -1,4 +1,4 @@
-# How to Write an Addon - API v1.6.0
+# How to Write an Addon - API v1.9.0
 
 Addons provide ways for file-browser to parse non-native directory structures. This document describes how one can create their own custom addon.
 
@@ -17,7 +17,7 @@ version of the API. It follows [semantic versioning](https://semver.org/) conven
 A parser sets its version string with the `version` field, as seen [below](#overview).
 
 Any change that breaks backwards compatability will cause the major version number to increase.
-A parser MUST have the same version number as the API, otherwise an error message will be printed and the parser will
+A parser MUST have the same major version number as the API, otherwise an error message will be printed and the parser will
 not be loaded.
 
 A minor version number denotes a change to the API that is backwards compatible. This includes additional API functions,
@@ -36,7 +36,7 @@ Each addon must return either a single parser table, or an array of parser table
 | key       | type   | arguments                 | returns                | description                                                                                                  |
 |-----------|--------|---------------------------|------------------------|--------------------------------------------------------------------------------------------------------------|
 | priority  | number | -                         | -                      | a number to determine what order parsers are tested - see [here](#priority-suggestions) for suggested values |
-| version   | string | -                         | -                      | the API version the parser is using - see [API Version](#api-version)                                        |
+| api_version| string | -                         | -                      | the API version the parser is using - see [API Version](#api-version)                                        |
 | can_parse | method | string, parse_state_table | boolean                | returns whether or not the given path is compatible with the parser                                          |
 | parse     | method | string, parse_state_table | list_table, opts_table | returns an array of item_tables, and a table of options to control how file_browser handles the list         |
 
@@ -56,7 +56,7 @@ Here is an extremely simple example of an addon creating a parser table and retu
 
 ```lua
 local parser = {
-    version = '1.0.0',
+    api_version = '1.0.0',
     priority = 100,
     name = "example"        -- this parser will have the id 'example' or 'example_#' if there are duplicates
 }
@@ -96,6 +96,7 @@ The `parse` and `can_parse` functions are passed a state table as its second arg
 | key                  | type    | description                                                                                                                                                                                                           |
 |----------------------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | source               | string  | the source of the parse request                                                                                                                                                                                       |
+| properties           | table<string,any> | A table of arbitrary properties designed to be used by addons.                                                                                                                                              |
 | directory            | string  | the directory of the parse request - for debugging purposes                                                                                                                                                           |
 | already_deferred     | boolean | whether or not [defer](#advanced-functions) was called during this parse, if so then file-browser will not try to query any more parsers after receiving the result - set automatically, but can be manually disabled |
 | yield                | method  | a wrapper around `coroutine.yield()` - see [coroutines](#coroutines)                                                                                                                                                  |
@@ -114,9 +115,14 @@ Source can have the following values:
 | script-message | triggered by the `get-directory-contents` script-message                                                |
 | addon          | caused by an addon calling the `parse_directory` API function - note that addons can set a custom state |
 
-Note that all calls to any `parse` function during a specific parse request will be given the same parse_state table.
-This theoretically allows parsers to communicate with parsers of a lower priority (or modify how they see source information),
-but no guarantees are made that specific keys will remain unused by the API.
+The `properties` table is designed to be used to send options to parsers.
+It is recommended that addons nest their properties within a second table to avoid conflicts,
+for example the in-built cache parser checks the `properties.cache.use` field,
+and if set will either forcibly enable or bypass the cache for that particular parse.
+All calls to any `parse` function during a specific parse request will be given the same parse_state table.
+This allows parsers to communicate with parsers of a lower priority by modifying the table.
+
+Be aware that this is still an experimental feature, so any properties used by 1st party addons may change at any time.
 
 #### Coroutines
 
@@ -221,14 +227,16 @@ Below is a table of suggested priority ranges:
 
 | Range   | Suggested Use                                                                                  | Example parsers                                |
 |---------|------------------------------------------------------------------------------------------------|------------------------------------------------|
-| 0-20    | parsers that purely modify the results of other parsers                                        | [m3u-fixer](m3u-browser.lua)                   |
-| 21-40   | virtual filesystems which need to link to the results of other parsers                         | [favourites](favourites.lua)                   |
+| 0       | priority of the internal cache addon that caches the results of other parsers                  | [cache](../modules/addons/cache.lua)           |
+| 1-20    | parsers that purely modify the results of other parsers                                        | [url-decode](../addons/url-decode.lua)         |
+| 21-40   | virtual filesystems which need to link to the results of other parsers                         | [favourites](../addons/favourites.lua)         |
 | 41-50   | to support specific sites or systems which can be inferred from the path                       |                                                |
-| 51-80   | limitted support for specific protocols which requires complex parsing to verify compatability | [apache](apache-browser.lua)                   |
-| 81-90   | parsers that only need to modify the results of full parsers                                   | [home-label](home-label.lua)                   |
-| 91-100  | use for parsers which fully support a non-native protocol with absolutely no overlap           | [ftp](ftp-browser.lua), [m3u](m3u-browser.lua) |
-| 101-109 | replacements for the native file parser or fallbacks for the full parsers                      | [powershell](powershell.lua)                   |
-| 110     | priority of the native file parser - don't use                                                 |                                                |
+| 51-70   |                                                                                                |                                                |
+| 71-80   | limitted support for specific protocols which requires complex parsing to verify compatability | [apache](../addons/apache-browser.lua)         |
+| 81-90   | parsers that only need to modify the results of full parsers                                   | [home-label](../modules/addons/home-label.lua) |
+| 91-100  | use for parsers which fully support a non-native protocol with absolutely no overlap           | [ftp](../addons/ftp-browser.lua)               |
+| 101-109 | replacements for the native file parser or fallbacks for the full parsers                      | [ls](../modules/addons/ls.lua)                 |
+| 110     | priority of the native file parser - don't use                                                 | [file](../modules/addons/file.lua)             |
 | 111+    | fallbacks for native parser - potentially alternatives to the default root                     |                                                |
 
 ## Keybinds
@@ -443,11 +451,14 @@ The current API version in use by file-browser.
 
 Adds the given extension to the default extension filter whitelist. Can only be run inside the `setup()` method.
 
-#### `fb.browse_directory(directory: string): void`
+#### `fb.browse_directory(directory: string, open_browser: bool = true): coroutine`
 
-Clears the cache and opens the given directory in the browser. If the browser is closed then it will be opened.
-This function is non-blocking, it is possible that the function will return before the directory has finished
-being scanned.
+Opens the given directory in the browser. The cache is never used.
+If the `open_browser` argument is truthy or `nil` then the browser will be opened
+if it is currently closed. If `open_browser` is `false` then the directory will
+be opened in the background.
+Returns the coroutine of the upcoming parse operation. The parse is queued and run when the script thread next goes idle,
+allowing one to store this value and use it to identify the triggered parse operation.
 
 This is the equivalent of calling the `browse-directory` script-message.
 
@@ -523,8 +534,10 @@ Must be called from inside a [coroutine](#coroutines).
 This function allows addons to request the contents of directories from the loaded parsers. There are no protections
 against infinite recursion, so be careful about calling this from within another parse.
 
-Do not use the same `parse` table for multiple parses, state values for the two operations may intefere with each other
-and cause undefined behaviour. If the `parse.source` field is not set then it will be set to `"addon"`.
+Note that the parse does not use the actual table passed to this function,
+values are copied out. This means that, in practice, only the `source` and
+`properties` fields can be used.
+If the `parse.source` field is not set then it will be set to `"addon"`.
 
 Note that this function is for creating new parse operations, if you wish to create virtual directories or modify
 the results of other parsers then use [`defer`](#parserdeferdirectory-string-list_table-opts_table--nil).
@@ -547,10 +560,16 @@ that were removed.
 
 ### Advanced Functions
 
-#### `fb.clear_cache(): void`
+#### `fb.clear_cache(directories?: string[]): void`
 
 Clears the directory cache. Use this if you are modifying the contents of directories other
 than the current one to ensure that their contents will be rescanned when next opened.
+An an array of directory strings is passed to the function only those directories
+will be cleared from the cache.
+The cache is cleared asynchronously, it may not, and probably will not, have been cleared
+when the function returns. This may change in the future.
+
+The cache is implemented as an [internal parser](../modules/parsers/cache.lua).
 
 #### `fb.coroutine.assert(err?: string): coroutine`
 
@@ -636,9 +655,21 @@ Returns the success boolean returned by `coroutine.resume`, but drops all other 
 
 Runs the given function in a new coroutine, passing through any additional arguments.
 
-#### `fb.rescan(): void`
+#### `fb.coroutine.queue(fn: function, ...): coroutine`
 
-Rescans the current directory. Equivalent to Ctrl+r without the cache refresh for higher level directories.
+Runs the given function in a coroutine when the script next goes idle, passing through
+any additional arguments. The (not yet started) coroutine is returned by the function.
+
+#### `fb.rescan(): coroutine`
+
+Rescans the current directory. Equivalent to Ctrl+r.
+Returns the coroutine of the upcoming parse operation. The parse is queued and run when the script thread next goes idle,
+allowing one to store this value and use it to identify the triggered parse operation.
+
+#### `fb.rescan_await(): coroutine`
+
+Same as `fb.rescan()`, but if called from within a coroutine then the function will not
+return until the scan operation is complete.
 
 #### `fb.redraw(): void`
 
@@ -671,7 +702,7 @@ local fb = require "file-browser"
 local home = fb.fix_path(mp.command_native({"expand-path", "~/"}), true)
 
 local home_label = {
-    version = '1.0.0',
+    api_version = '1.0.0',
     priority = 100
 }
 
@@ -706,6 +737,42 @@ The copy is done recursively to the given `depth`, and any cyclical table refere
 Both keys and values are copied. If `depth` is undefined then it defaults to `math.huge` (infinity).
 Additionally, the original table is stored in the `__original` field of the copy's metatable.
 The copy behaviour of the metatable itself is subject to change, but currently it is not copied.
+
+#### `fb.evaluate_string(str: string, chunkname?: string, env?: table, defaults?: bool = true): unknown`
+
+Loads `str` as a chunk of Lua statement(s) and runs them, returning the result.
+Errors are propagated to the caller. `chunkname` is used
+for debug output and error messages.
+
+Each chunk has a separate global environment table that inherits
+from the main global table. This means new globals can be created safely,
+but the default globals can still be accessed. As such, this method
+cannot and should not be used for security or sandboxing.
+
+A custom environment table can be provided with the `env` argument.
+Inheritance from the global table is disabled if `defaults` is `false`.
+
+Examples:
+
+```lua
+fb.evaluate_string('return 5 + 5')          -- 10
+fb.evaluate_string('x = 20 ; return x * x') -- 400
+
+local code = [[
+local arr = {1, 2, 3, 4}
+table.insert(arr, x)
+return unpack(arr)
+]]
+fb.evaluate_string(code, 'test3', {x = 5})      -- 1, 2, 3, 4, 5
+fb.evaluate_string(code, 'test4', nil, false)   -- Lua error: [string "test4"]:2: attempt to index global 'table' (a nil value)
+
+```
+
+In an expression the `mp`, `mp.msg`, and `mp.utils` modules are available as `mp`, `msg`, and `utils` respectively.
+Additionally, in mpv v0.38+ the `mp.input` module is available as `input`.
+This addon API is available as `fb` and if [mpv-user-input](https://github.com/CogentRedTester/mpv-user-input)
+is installed then user-input will be available in `user_input`.
+These modules are all unavailable if `defaults` is `false`.
 
 #### `fb.filter(list: list_table): list_table`
 
@@ -813,8 +880,9 @@ Used for custom-keybind filtering.
 
 The current directory open in the browser.
 
-#### `fb.get_dvd_device(): string`
+#### ~~`fb.get_dvd_device(): string`~~
 
+*DEPRECATED*.
 The current dvd-device as reported by mpv's `dvd-device` property.
 Formatted to work with file-browser.
 
@@ -823,6 +891,17 @@ Formatted to work with file-browser.
 Returns the set of valid extensions after applying the user's whitelist/blacklist options.
 The table is in the form `{ mkv = true, mp3 = true, ... }`.
 Sub extensions, audio extensions, and parseable extensions are all included in this set.
+
+#### `fb.get_history(): string[]`
+
+Returns the browser history.
+The history is a linear list of visited directories from oldest to newest.
+If the user changes directories while the current history position is not the head of the list,
+any later directories get cleared and the new directory becomes the new head.
+
+#### `fb.get_history_index(): number`
+
+Returns the index of the current history position.
 
 #### `fb.get_list(): list_table`
 
@@ -853,6 +932,11 @@ Every parse operation is guaranteed to have a unique coroutine.
 Returns a set of extensions like [`fb.get_extensions`](#fbget_extensions-table) but for extensions that are
 treated as parseable by the browser.
 All of these are included in `fb.get_extensions`.
+
+#### `fb.get_platform(): string`
+
+Returns the contents of the `platform` property on mpv v0.36+,
+and `windows`, `darwin`, or `other` on older versions.
 
 #### `fb.get_root(): list_table`
 
@@ -897,6 +981,14 @@ The index of the parser in order of preference (based on the priority value).
 
 ### Setters
 
+#### `fb.set_history_index(pos: number): number | false`
+
+Sets the current index in the browser history and triggers the browser to asynchronously
+load that directory.
+If `pos` is out of bounds, it gets clamped to 1 and the history length. The return
+value is the actual history index that the browser ended up.
+If `pos` is not a number, or if the history is empty, then returns `false`.
+
 #### `fb.set_selected_index(pos: number): number | false`
 
 Sets the cursor position and returns the new index.
@@ -904,9 +996,14 @@ If the input is not a number return false, if the input is out of bounds move it
 
 ## Examples
 
-For standard addons that add support for non-native filesystems, but otherwise don't do anything fancy, see [ftp-browser](ftp-browser.lua) and [apache-browser](apache-browser.lua).
+The internal [file](../modules/addons/file.lua), [ls](../modules/addons/ls.lua), and [windir](../modules/addons/windir.lua) addons provide
+support for browsing the native filesystem.
 
-For more simple addons that make a few small modifications to how other parsers are displayed, see [home-label](home-label.lua).
+For standard addons that add support for non-native filesystems, but otherwise don't do anything fancy, see [ftp-browser](../addons/ftp-browser.lua) and [apache-browser](../addons/apache-browser.lua).
+
+For more simple addons that make a few small modifications to how other parsers are displayed, see [home-label](../modules/addons/home-label.lua).
 
 For more complex addons that maintain their own virtual directory structure, see
-[favourites](favourites.lua).
+[favourites](../addons/favourites.lua).
+
+

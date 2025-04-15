@@ -919,8 +919,7 @@ function open_subtitle_downloader()
 		return
 	end
 
-	local search_suggestion, file_path, destination_directory = '', nil, nil
-	local credentials = {'--api-key', config.open_subtitles_api_key, '--agent', config.open_subtitles_agent}
+	local search_suggestion, destination_directory = '', nil
 
 	if state.path then
 		if is_protocol(state.path) then
@@ -929,7 +928,6 @@ function open_subtitle_downloader()
 			local serialized_path = serialize_path(state.path)
 			if serialized_path then
 				search_suggestion = serialized_path.filename
-				file_path = state.path
 				destination_directory = serialized_path.dirname
 			end
 		end
@@ -942,6 +940,7 @@ function open_subtitle_downloader()
 	end
 
 	local handle_download, handle_search
+	local url = 'https://api.opensubtitles.com/api/v1'
 
 	-- Checks if there an error, or data is invalid. If true, reports the error,
 	-- updates menu to inform about it, and returns true.
@@ -990,16 +989,49 @@ function open_subtitle_downloader()
 			end
 		end)
 
-		local args = itable_join({'download-subtitles'}, credentials, {
-			'--file-id', tostring(data.id),
-			'--destination', destination_directory,
-		})
+		local download_url = url .. '/download'
 
-		call_ziggy_async(args, function(error, data)
+		local headers = {
+			['Accept'] =  'application/json',
+ 			['Api-Key'] = config.open_subtitles_api_key,
+			['Content-Type'] = 'application/json',
+			['User-Agent'] = config.open_subtitles_agent,
+
+ 		}
+
+		local body = {
+			file_id = data.id
+		}
+
+		http_request_async('POST', download_url, headers, body, function(error, data)
 			if not menu:is_alive() then return end
-			if should_abort(error, data, function(data) return type(data.file) == 'string' end) then return end
+			if data and data.link then
+				local file_path = utils.join_path(destination_directory, data.file_name)
+				local arg = {
+					'curl',
+					'-sL',
+					'--user-agent', config.open_subtitles_agent,
+					'-o', file_path,
+					data.link
+				}
 
-			load_track('sub', data.file)
+				mp.command_native({
+					name = 'subprocess',
+					capture_stdout = true,
+					capture_stderr = true,
+					playback_only = false,
+					args = arg
+				})
+			end
+
+			local function check_is_valid(data)
+				local path = data and utils.join_path(destination_directory, data.file_name) or nil
+				local meta = path and utils.file_info(path) or nil
+				return meta and meta.is_file
+			end
+			if should_abort(error, data, check_is_valid) then return end
+
+			load_track('sub', utils.join_path(destination_directory, data.file_name))
 
 			menu:update_items({
 				{
@@ -1009,7 +1041,7 @@ function open_subtitle_downloader()
 					selectable = false,
 				},
 				{
-					title = t('Remaining downloads today: %s', data.remaining .. '/' .. data.total),
+					title = t('Remaining downloads today: %s', data.remaining),
 					italic = true,
 					muted = true,
 					icon = 'file_download',
@@ -1034,32 +1066,22 @@ function open_subtitle_downloader()
 
 		menu:update_items({{icon = 'spinner', align = 'center', selectable = false, muted = true}})
 
-		local args = itable_join({'search-subtitles'}, credentials)
-
 		local languages = itable_filter(get_languages(), function(lang) return lang:match('.json$') == nil end)
-		args[#args + 1] = '--languages'
-		args[#args + 1] = table.concat(table_keys(create_set(languages)), ',') -- deduplicates stuff like `en,eng,en`
 
-		args[#args + 1] = '--page'
-		args[#args + 1] = tostring(page)
+		local search_url = string.format('%s/subtitles?query=%s&languages=%s&page=%s', url, url_encode(query),
+			table.concat(table_keys(create_set(languages)), ','), tostring(page))
 
-		if file_path then
-			args[#args + 1] = '--hash'
-			args[#args + 1] = file_path
-		end
+		local headers = {
+ 			['Api-Key'] = config.open_subtitles_api_key,
+			['User-Agent'] = config.open_subtitles_agent,
+ 		}
 
-		if query and #query > 0 then
-			args[#args + 1] = '--query'
-			args[#args + 1] = query
-		end
-
-		call_ziggy_async(args, function(error, data)
+		http_request_async('GET', search_url, headers, nil, function(error, data)
 			if not menu:is_alive() then return end
 
 			local function check_is_valid(data)
-				return type(data.data) == 'table' and data.page and data.total_pages
+				return data and type(data.data) == 'table' and data.page and data.total_pages
 			end
-
 			if should_abort(error, data, check_is_valid) then return end
 
 			local subs = itable_filter(data.data, function(sub)
@@ -1128,6 +1150,7 @@ function open_subtitle_downloader()
 			on_search = 'callback',
 			search_debounce = 'submit',
 			search_suggestion = search_suggestion,
+			search_submit = search_suggestion and #search_suggestion > 0,
 		},
 		function(event)
 			if event.type == 'activate' then

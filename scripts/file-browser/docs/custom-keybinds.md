@@ -20,6 +20,7 @@ Keybinds are declared in the `~~/script-opts/file-browser-keybinds.json` file, t
 | delay         | no       | `0`        | time to wait between sending repeated multi commands                                       |
 | concat-string | no       | `' '` (space) | string to insert between items when concatenating multi commands                        |
 | passthrough   | no       | -          | force or ban passthrough behaviour - see [passthrough](#passthrough-keybinds)              |
+| api_version   | no       | -          | tie the keybind to a particular [addon API version](./addons.md#api-version), printing warnings and throwing errors if the keybind is used with wrong versions |
 
 Example:
 
@@ -175,8 +176,10 @@ To avoid conflicts custom keybinds use the format: `file_browser/dynamic/custom/
 Expressions are used to evaluate Lua code into a string that can be used for commands.
 These behave similarly to those used for [`profile-cond`](https://mpv.io/manual/master/#conditional-auto-profiles)
 values. In an expression the `mp`, `mp.msg`, and `mp.utils` modules are available as `mp`, `msg`, and `utils` respectively.
-Additionally the file-browser [addon API](addons/addons.md#the-api) is available as `fb` and if [mpv-user-input](https://github.com/CogentRedTester/mpv-user-input)
-is installed then user-input API will be available in `input`.
+Additionally, in mpv v0.38+ the `mp.input` module is available as `input`.
+
+The file-browser [addon API](addons/addons.md#the-api) is available as `fb` and if [mpv-user-input](https://github.com/CogentRedTester/mpv-user-input)
+is installed then user-input API will be available in `user_input`.
 
 This example only runs the keybind if the browser is in the Windows C drive or if
 the selected item is a matroska file:
@@ -301,9 +304,9 @@ rename items in file-browser:
 {
     "key": "KP1",
     "command": ["script-message", "run-statement",
-                    "assert(input, 'install mpv-user-input!')",
+                    "assert(user_input, 'install mpv-user-input!')",
 
-                    "local line, err = input.get_user_input_co({",
+                    "local line, err = user_input.get_user_input_co({",
                                             "id = 'rename-file',",
                                             "source = 'custom-keybind',",
                                             "request_text = 'rename file:',",

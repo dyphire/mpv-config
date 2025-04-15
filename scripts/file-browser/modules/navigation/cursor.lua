@@ -7,6 +7,7 @@ local g = require 'modules.globals'
 local fb_utils = require 'modules.utils'
 local ass = require 'modules.ass'
 
+---@class cursor
 local cursor = {}
 
 --disables multiselect
@@ -25,7 +26,7 @@ end
 local function drag_select(original_pos, new_pos)
     if original_pos == new_pos then return end
 
-    local setting = g.state.selection[g.state.multiselect_start]
+    local setting = g.state.selection[g.state.multiselect_start or -1]
     for i = original_pos, new_pos, (new_pos > original_pos and 1 or -1) do
         --if we're moving the cursor away from the starting point then set the selection
         --otherwise restore the original selection
@@ -78,14 +79,26 @@ end
 --chooses the folder that the script just moved out of
 --or, otherwise, the item highlighted as currently playing
 function cursor.select_prev_directory()
-    if g.state.prev_directory:find(g.state.directory, 1, true) == 1 then
-        local i = 1
-        while (g.state.list[i] and fb_utils.parseable_item(g.state.list[i])) do
-            if g.state.prev_directory:find(fb_utils.get_full_path(g.state.list[i]), 1, true) then
+    -- makes use of the directory stack to more exactly select the prev directory
+    local down_stack = g.directory_stack.stack[g.directory_stack.position + 1]
+    if down_stack then
+        for i, item in ipairs(g.state.list) do
+            if fb_utils.get_new_directory(item, g.state.directory) == down_stack then
                 g.state.selected = i
                 return
             end
-            i = i+1
+        end
+    end
+
+    if g.state.prev_directory:find(g.state.directory, 1, true) == 1 then
+        for i, item in ipairs(g.state.list) do
+            if
+                g.state.prev_directory:find(fb_utils.get_full_path(item), 1, true) or
+                g.state.prev_directory:find(fb_utils.get_new_directory(item, g.state.directory), 1, true)
+            then
+                g.state.selected = i
+                return
+            end
         end
     end
 

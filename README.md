@@ -24,7 +24,7 @@ PS: When editing the configuration file by yourself, please note that the encodi
 - Recommended method for browser to call mpv playback
 - [mpv-handler](https://github.com/akiirui/mpv-handler) with script [play-with-mpv](https://greasyfork.org/zh-CN/scripts/416271-play-with-mpv)
 - [Play-With-MPV](https://github.com/LuckyPuppy514/Play-With-MPV)
-- Single instance mode: [umpvw](https://github.com/SilverEzhik/umpvw)
+- Single instance mode: [umpv](https://github.com/zhongfly/umpv-go)
 
 ### Script shader description
 For a detailed introduction to the mpv script and functions used in this project, please see the wiki content: [Script description - wiki](https://github.com/dyphire/mpv-config/wiki/脚本说明)

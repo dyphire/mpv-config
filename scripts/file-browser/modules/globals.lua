@@ -4,15 +4,27 @@
 --------------------------------------------------------------------------------------------------------
 
 local mp = require 'mp'
-
-local globals = {}
 local o = require 'modules.options'
 
---sets the version for the file-browser API
-globals.API_VERSION = "1.6.0"
+---@class globals
+local globals = {}
 
---gets the current platform (only works in mpv v0.36+)
+--sets the version for the file-browser API
+globals.API_VERSION = "1.9.0"
+
+---gets the current platform (in mpv v0.36+)
+---in earlier versions it is set to `windows`, `darwin` or `other`
+---@type 'windows'|'darwin'|'linux'|'android'|'freebsd'|'other'|string|nil
 globals.PLATFORM = mp.get_property_native('platform')
+if not globals.PLATFORM then
+    local _ = {}
+    if mp.get_property_native('options/vo-mmcss-profile', _) ~= _ then
+        globals.PLATFORM = 'windows'
+    elseif mp.get_property_native('options/macos-force-dedicated-gpu', _) ~= _ then
+        globals.PLATFORM = 'darwin'
+    end
+    return 'other'
+end
 
 --the osd_overlay API was not added until v0.31. The expand-path command was not added until 0.30
 assert(mp.create_osd_overlay, "Script requires minimum mpv version 0.33")
@@ -22,8 +34,19 @@ globals.ass.res_y = 720 / o.scaling_factor_base
 
 local BASE_FONT_SIZE = 25
 
+--force file-browser to use a specific text alignment (default: top-left)
+--uses ass tag alignment numbers: https://aegi.vmoe.info/docs/3.0/ASS_Tags/#index23h3
+globals.ASS_ALIGNMENT_MATRIX = {
+    top =       {left = 7, center = 8, right = 9},
+    center =    {left = 4, center = 5, right = 6},
+    bottom =    {left = 1, center = 2, right = 3},
+}
+
+globals.ALIGN_X = o.align_x == 'auto' and mp.get_property('osd-align-x', 'left') or o.align_x
+globals.ALIGN_Y = o.align_y == 'auto' and mp.get_property('osd-align-y', 'top') or o.align_y
+
 globals.style = {
-    global = o.alignment == 0 and "" or ([[{\an%d}]]):format(o.alignment),
+    global = ([[{\an%d}]]):format(globals.ASS_ALIGNMENT_MATRIX[globals.ALIGN_Y][globals.ALIGN_X]),
 
     -- full line styles
     header = ([[{\r\q2\b%s\fs%d\fn%s\c&H%s&}]]):format((o.font_bold_header and "1" or "0"), o.scaling_factor_header*BASE_FONT_SIZE, o.font_name_header, o.font_colour_header),
@@ -35,6 +58,7 @@ globals.style = {
     selected = ([[{\c&H%s&}]]):format(o.font_colour_selected),
     playing = ([[{\c&H%s&}]]):format(o.font_colour_playing),
     playing_selected = ([[{\c&H%s&}]]):format(o.font_colour_playing_multiselected),
+    warning = ([[{\c&H%s&}]]):format(o.font_colour_escape_chars),
 
     --icon styles
     indent = ([[{\alpha&H%s}]]):format('ff'),
@@ -45,6 +69,7 @@ globals.style = {
     selection_marker = ([[{\alpha&H%s}]]):format(o.font_opacity_selection_marker),
 }
 
+---@type State
 globals.state = {
     list = {},
     selected = 1,
@@ -55,7 +80,8 @@ globals.state = {
     parser = nil,
     directory = nil,
     directory_label = nil,
-    prev_directory = "",
+    prev_directory = '',
+    empty_text = 'Empty Directory',
     co = nil,
 
     multiselect_start = nil,
@@ -63,6 +89,11 @@ globals.state = {
     selection = {}
 }
 
+---@class ParserRef
+---@field id string
+---@field index number?
+
+---@type table<number,Parser>|table<string,Parser>|table<Parser,ParserRef>>
 --the parser table actually contains 3 entries for each parser
 --a numeric entry which represents the priority of the parsers and has the parser object as the value
 --a string entry representing the id of each parser and with the parser object as the value
@@ -72,21 +103,35 @@ globals.parsers = {}
 --this table contains the parse_state tables for every parse operation indexed with the coroutine used for the parse
 --this table has weakly referenced keys, meaning that once the coroutine for a parse is no-longer used by anything that
 --field in the table will be removed by the garbage collector
+---@type table<thread,ParseState>
 globals.parse_states = setmetatable({}, { __mode = "k"})
 
+---@type Set<string>
 globals.extensions = {}
+
+---@type Set<string>
 globals.sub_extensions = {}
+
+---@type Set<string>
 globals.audio_extensions = {}
+
+---@type Set<string>
 globals.parseable_extensions = {}
 
---This table contains mappings to convert external directories to cannonical
+---This table contains mappings to convert external directories to cannonical
 --locations within the file-browser file tree. The keys of the table are Lua
 --patterns used to evaluate external directory paths. The value is the path
 --that should replace the part of the path than matched the pattern.
 --These mappings should only applied at the edges where external paths are
 --ingested by file-browser.
+---@type table<string,string>
 globals.directory_mappings = {}
 
+---@class CurrentFile
+---@field directory string?
+---@field name string?
+---@field path string?
+---@field original_path string?
 globals.current_file = {
     directory = nil,
     name = nil,
@@ -94,7 +139,27 @@ globals.current_file = {
     original_path = nil,
 }
 
+---@type List
 globals.root = {}
+
+---@class (strict) History
+---@field list string[]
+---@field size number
+---@field position number
+globals.history = {
+    list = {},
+    size = 0,
+    position = 0,
+}
+
+---@class (strict) DirectoryStack
+---@field stack string[]
+---@field position number
+globals.directory_stack = {
+    stack = {},
+    position = 0,
+}
+
 
 --default list of compatible file extensions
 --adding an item to this list is a valid request on github
@@ -108,6 +173,7 @@ globals.compatible_file_extensions = {
     "wv","x264","x265","xvid","y4m","yuv"
 }
 
+---@class BrowserAbortError
 globals.ABORT_ERROR = {
     msg = "browser is no longer waiting for list - aborting parse"
 }

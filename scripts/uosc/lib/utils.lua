@@ -428,6 +428,11 @@ function serialize_path(path)
 	}
 end
 
+local system_files = create_set({
+	'$RECYCLE.BIN', '$Recycle.Bin', '$SysReset', '$WinREAgent', '.sys', 'pagefile.sys', 'hiberfil.sys', 'config.sys',
+	'swapfile.sys', 'Thumbs.db', 'desktop.ini',
+})
+
 -- Reads items in directory and splits it into directories and files tables.
 ---@param path string
 ---@param opts? {types?: string[], hidden?: boolean}
@@ -444,7 +449,7 @@ function read_directory(path, opts)
 	end
 
 	for _, item in ipairs(items) do
-		if item ~= '.' and item ~= '..' and (opts.hidden or item:sub(1, 1) ~= '.') then
+		if item ~= '.' and item ~= '..' and not system_files[item] and (opts.hidden or item:sub(1, 1) ~= '.') then
 			local info = utils.file_info(join_path(path, item))
 			if info then
 				if info.is_file then
@@ -874,8 +879,79 @@ function call_ziggy_async(args, callback)
 	end
 end
 
+---@param url string
+---@param method string
+---@param callback fun(error: string|nil, data: table|nil)
+---@return fun() abort Function to abort the request.
+function http_request_async(method, url, headers, body, callback)
+	local args = { 'curl', '-s', '-L',  '-X', method, url }
+
+	if headers then
+		for k, v in pairs(headers) do
+			table.insert(args, '-H')
+			table.insert(args, string.format('%s: %s', k, v))
+		end
+	end
+
+	if body then
+		table.insert(args, '-d')
+		table.insert(args, utils.format_json(body))
+	end
+
+	local abort_signal = mp.command_native_async({
+		name = 'subprocess',
+		capture_stdout = true,
+		capture_stderr = true,
+		playback_only = false,
+		args = args
+	}, function(success, res, error)
+		local error = error ~= '' and error or res and res.stderr ~= '' and res.stderr or nil
+		if not success or not res or res.status ~= 0 then
+			msg.error('HTTP request failed: ' .. (res.stderr or 'unknown error'))
+			callback(error, nil)
+			return
+		end
+
+		local data = utils.parse_json(res.stdout)
+		callback(error, data)
+	end)
+
+	return function()
+		mp.abort_async_command(abort_signal)
+	end
+end
+
 ---@return string|nil
 function get_clipboard()
+	if state.current_clipboard_backend then
+		if state.platform == 'windows' or state.platform == 'darwin' then
+			return mp.get_property('clipboard/text', '')
+		end
+		if state.platform == 'linux' then
+			-- Wayland
+			if os.getenv('WAYLAND_DISPLAY') or os.getenv('WAYLAND_SOCKET') then
+				if state.current_clipboard_backend == "wayland" or mp.get_property_cached("focused") then
+					return mp.get_property('clipboard/text', '')
+				end
+				local res = utils.subprocess({
+					args = { 'wl-paste', '-n' },
+					playback_only = false,
+				})
+				if not res.error then
+					return res.stdout
+				end
+			end
+			-- X11
+			local res = utils.subprocess({
+				args = { 'xclip', '-selection', 'clipboard', '-out' },
+				playback_only = false,
+			})
+			if not res.error then
+				return res.stdout
+			end
+		end
+	end
+	-- Fallback to ziggy
 	local err, data = call_ziggy({'get-clipboard'})
 	if err then
 		mp.commandv('show-text', 'Get clipboard error. See console for details.')
@@ -888,6 +964,26 @@ end
 ---@return string|nil payload String that was copied to clipboard.
 function set_clipboard(payload)
 	payload = tostring(payload)
+	if state.current_clipboard_backend then
+		if state.platform == 'windows' or state.platform == 'darwin' then
+			return mp.commandv('set', 'clipboard/text', payload)
+		end
+		if state.platform == 'linux' then
+			-- Wayland
+			if os.getenv('WAYLAND_DISPLAY') or os.getenv('WAYLAND_SOCKET') then
+				if state.current_clipboard_backend == "wayland" or mp.get_property_cached("focused") then
+					return mp.commandv('set', 'clipboard/text', payload)
+				end
+				return utils.subprocess({ args = { 'wl-copy' }, stdin_data = payload })
+			end
+			-- X11
+			return utils.subprocess({
+				args = { 'xclip', '-silent', '-selection', 'clipboard', '-in' },
+				stdin_data = payload
+			})
+		end
+	end
+	-- Fallback to ziggy
 	local err, data = call_ziggy({'set-clipboard', payload})
 	if err then
 		mp.commandv('show-text', 'Set clipboard error. See console for details.')

@@ -266,7 +266,7 @@ end
 
 -- Returns a string of UTF-8 text from the clipboard
 local function get_clipboard()
-    if mp.get_property_bool('clipboard-enable', false) then
+    if mp.get_property('clipboard-backends') ~= nil or mp.get_property_bool('clipboard-enable') then
         return mp.get_property('clipboard/text', '')
     end
     local res = mp.command_native({
@@ -338,7 +338,7 @@ end
 -- sets the contents of the clipboard to the given string
 local function set_clipboard(text)
     msg.verbose('setting clipboard text:', text)
-    if mp.get_property_bool('clipboard-enable', false) then
+    if mp.get_property('clipboard-backends') ~= nil or mp.get_property_bool('clipboard-enable') then
         mp.commandv('set', 'clipboard/text', text)
     else
         mp.commandv('run', 'powershell', '-NoProfile', '-command', 'set-clipboard', escape_powershell(text))
