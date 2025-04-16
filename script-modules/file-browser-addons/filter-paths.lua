@@ -11,7 +11,7 @@ opt.read_options(o, "file-browser/filter")
 
 local parser = {
     priority = 10,
-    version = "1.3.0"
+    api_version = "1.3.0"
 }
 
 local paths = {}

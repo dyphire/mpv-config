@@ -1,4 +1,7 @@
+local fb = require "file-browser"
 local fb_utils = require 'modules.utils'
+
+local PLATFORM = fb.get_platform()
 
 -- this code is based on https://github.com/mpvnet-player/mpv.net/issues/575#issuecomment-1817413401
 local ffi = require "ffi"
@@ -32,14 +35,16 @@ winapi.utf8_to_wide = function(utf8_str)
     return ""
 end
 
-fb_utils.sort = function (t)
-    table.sort(t, function(a, b)
-        local a_wide = winapi.utf8_to_wide(a.type:sub(1, 1) .. (a.label or a.name))
-        local b_wide = winapi.utf8_to_wide(b.type:sub(1, 1) .. (b.label or b.name))
-        return winapi.shlwapi.StrCmpLogicalW(a_wide, b_wide) == -1
-    end)
-
-    return t
+if PLATFORM == 'windows' then
+    fb_utils.sort = function (t)
+        table.sort(t, function(a, b)
+            local a_wide = winapi.utf8_to_wide(a.type:sub(1, 1) .. (a.label or a.name))
+            local b_wide = winapi.utf8_to_wide(b.type:sub(1, 1) .. (b.label or b.name))
+            return winapi.shlwapi.StrCmpLogicalW(a_wide, b_wide) == -1
+        end)
+    
+        return t
+    end
 end
 
-return { version = '1.1.0' }
+return { api_version = '1.2.0' }

@@ -1,46 +1,10 @@
 [
     {
-        "key": "KP1",
-        "command": ["print-text", "file: %f"],
-        "multiselect": true
-    },
-    {
-        "key": "KP2",
-        "command": ["print-text", "name: %n"],
-        "multiselect": true
-    },
-    {
-        "key": "KP3",
-        "command": ["print-text", "open directory: %p"]
-    },
-    {
-        "key": "KP4",
-        "command": ["print-text", "directory name: %d"]
-    },
-    {
-        "key": "KP5",
-        "command": ["print-text", "escape the code: %%f"],
-        "multiselect": true
-    },
-    {
-        "key": "KP6",
-        "command": ["print-text", "full filepath via concatenation: %p%n"],
-        "multiselect": true
-    },
-    {
-        "key": "KP7",
-        "command": ["print-text", "quote/escape filepath: %F"],
-        "multiselect": true
-    },
-
-
-    {
         "comment": "deletes the currently selected file",
         "key": "Alt+DEL",
-        "command": ["run", "rm", "%F"],
-        "filter": "file",
+        "command": ["script-message", "run-statement", "os.remove(%F) ; fb.rescan()"],
         "multiselect": true,
-        "multi-type": "concat"
+        "multi-type": "repeat"
     },
     {
         "comment": "opens the currently selected items in a new mpv window",
@@ -55,45 +19,22 @@
             ["run", "powershell", "-command", "Set-Clipboard", "%F"],
             ["print-text", "copied filepath to clipboard"]
         ],
+        "condition": "fb.get_platform() == 'windows'",
+        "api_version": "1.9.0",
         "multiselect": true,
         "delay": 0.3
-    },
-    {
-        "comment": "Opens the current directory in windows explorer",
-        "key": "Ctrl+o",
-        "command": ["run", "powershell", "-command", "explorer.exe", "(( %P ).TrimEnd('/') -replace '/', '\\' )"],
-        "multiselect": false
-    },
-    {
-        "comment": "Opens the selected directory in windows explorer",
-        "key": "Ctrl+O",
-        "command": ["run", "powershell", "-command", "explorer.exe", "(( %F ).TrimEnd('/') -replace '/', '\\' )"],
-        "filter": "dir",
-        "multiselect": true
-    },
-    {
-        "comment": "Opens the current directory in windows explorer and highlights the currently selected file",
-        "key": "Ctrl+O",
-        "command": ["run", "powershell", "-command", "explorer.exe", "'/select,'", "( %F -replace '/', '\\' )"],
-        "filter": "file",
-        "multiselect": true
-    },
-    {
-        "key": "INS",
-        "command": ["run", "powershell", "-command", "Set-Content", "-LiteralPath", "( %P + '/.ordered-chapters.m3u' )", "-Value", "( %N )"],
-        "multiselect": true,
-        "multi-type": "concat",
-        "concat-string": "+ '\n' +"
     },
 
 
     {
         "key": "WHEEL_UP",
-        "command": ["script-binding", "file_browser/dynamic/scroll_up"]
+        "command": ["script-binding", "file_browser/dynamic/scroll_up"],
+        "flags": { "repeat": true }
     },
     {
         "key": "WHEEL_DOWN",
-        "command": ["script-binding", "file_browser/dynamic/scroll_down"]
+        "command": ["script-binding", "file_browser/dynamic/scroll_down"],
+        "flags": { "repeat": true }
     },
     {
         "key": "MBTN_LEFT",
@@ -106,13 +47,5 @@
     {
         "key": "MBTN_MID",
         "command": ["script-binding", "file_browser/dynamic/play"]
-    },
-    {
-        "key": "UP",
-        "command": ["osd-auto", "add", "volume", "2"]
-    },
-    {
-        "key": "DOWN",
-        "command": ["osd-auto", "add", "volume", "-2"]
     }
 ]

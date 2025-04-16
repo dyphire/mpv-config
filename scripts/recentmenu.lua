@@ -360,11 +360,10 @@ function open_menu()
     read_json()
     if uosc_available then
         open_menu_uosc()
-    elseif command_palette_available then
-        open_menu_command_palette()
     elseif input_available then
         open_menu_select()
-        return
+    elseif command_palette_available then
+        open_menu_command_palette()
     else
         mp.msg.warn("No menu providers available")
     end

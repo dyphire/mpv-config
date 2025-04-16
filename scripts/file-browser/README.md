@@ -25,21 +25,67 @@ You can then pull to receive updates.
 Alternatively, you can download the zip and extract the contents to `~~/scripts/file-browser`.
 `~~/` is the mpv config directory which is typically `~/.config/mpv/` on linux and `%APPDATA%/mpv/` on windows.
 
-Create a `file_browser.conf` file in the `~~/script-opts/` directory and customise the [`root` option](#root-directory) for your
-system. The [`docs/file_browser.conf`](docs/file_browser.conf) file contains the full list of options and their defaults.
+### Configuration
 
-### Advanced
+Create a `file_browser.conf` file in the `~~/script-opts/` directory to configure the script.
+See [docs/file_browser.conf](docs/file_browser.conf) for the full list of options and their default values.
+The [`root` option](#root-directory) may be worth tweaking for your system.
 
-To setup [custom keybinds](docs/custom-keybinds.md) enable the `custom_keybinds` option in `file_browser.conf` and
-create a `~~/script-opts/file-browser-keybinds.json` file. Do **not** copy the `file-browser-keybinds.json` file
+### Addons
+
+To use [addons](addons/README.md) place addon files in the `~~/script-modules/file-browser-addons/` directory.
+
+### Custom Keybinds
+To setup [custom keybinds](docs/custom-keybinds.md) create a `~~/script-opts/file-browser-keybinds.json` file.
+Do **not** copy the `file-browser-keybinds.json` file
 stored in this repository, that file is a collection of random examples, many of which are for completely different
 operating systems. Use them and the [docs](docs/custom-keybinds.md) to create your own collection of keybinds.
 
-To setup [addons](addons/README.md) enable the `addons` option in `file_browser.conf` and place the addon files
-in the `~~/script-modules/file-browser-addons/` directory.
+### File Structure
 
-If you are not going to enable custom keybinds or addons then there is no reason to
-create `file-browser-keybinds.json` or `script-modules/file-browser-addons/`.
+<details>
+<summary>Expected directory tree (basic):</summary>
+
+```
+~~/
+├── script-opts
+│   └── file_browser.conf
+└── scripts
+    └── file-browser
+        ├── addons/
+        ├── docs/
+        ├── modules/
+        ├── screenshots/
+        ├── LICENSE
+        ├── main.lua
+        └── README.md
+```
+</details>
+
+<details>
+<summary>Expected directory tree (full):</summary>
+
+```
+~~/
+├── script-modules
+│   └── file-browser-addons
+│       ├── addon1.lua
+│       ├── addon2.lua
+│       └── etc.lua
+├── script-opts
+│   ├── file_browser.conf
+│   └── file-browser-keybinds.json
+└── scripts
+    └── file-browser
+        ├── addons/
+        ├── docs/
+        ├── modules/
+        ├── screenshots/
+        ├── LICENSE
+        ├── main.lua
+        └── README.md
+```
+</details>
 
 ## Keybinds
 
@@ -49,7 +95,7 @@ The following keybinds are set by default
 |-------------|----------------------------------|-------------------------------------------------------------------------------|
 | MENU        | browse-files                     | toggles the browser                                                           |
 | Ctrl+o      | open-browser                     | opens the browser                                                             |
-| Alt+o       | browse-directory/get-user-input  | opens a dialogue box to type in a directory - requires [mpv-user-input](#mpv-user-input) |
+| Alt+o       | browse-directory/get-user-input  | opens a dialogue box to type in a directory - requires [mpv-user-input](#mpv-user-input) when mpv < v0.38 |
 
 The following dynamic keybinds are only set while the browser is open:
 
@@ -69,10 +115,17 @@ The following dynamic keybinds are only set while the browser is open:
 | Shift+PGUP  | list_top      | move selector to the top of the list                                          |
 | HOME        | goto_current  | move to the directory of the currently playing file                           |
 | Shift+HOME  | goto_root     | move to the root directory                                                    |
-| Ctrl+r      | reload        | reload directory and reset cache                                              |
+| Alt+LEFT    | history_back  | move to previously open directory                                             |
+| Alt+RIGHT   | history_forward| move forwards again in history to the next directory                         |
+| Ctrl+r      | reload        | reload current directory                                                      |
+| Ctrl+Shift+r| cache/clear   | clears the directory cache (disabled by default)                              |
 | s           | select_mode   | toggles multiselect mode                                                      |
 | S           | select_item   | toggles selection for the current item                                        |
 | Ctrl+a      | select_all    | select all items in the current directory                                     |
+| Ctrl+f      | find/find     | Opens a text input to search the contents of the folder - requires [mpv-user-input](#mpv-user-input) when mpv < v0.38|
+| Ctrl+F      | find/find_advanced| Allows using [Lua Patterns](https://www.lua.org/manual/5.1/manual.html#5.4.1) in the search input|
+| n           | find/next     | Jumps to the next matching entry for the latest search term                   |
+| N           | find/prev     | Jumps to the previous matching entry for the latest search term               |
 
 When attempting to play or append a subtitle file the script will instead load the subtitle track into the existing video.
 
@@ -83,11 +136,9 @@ By default the playlist will only be autoloaded if `Alt+ENTER` is used on a sing
 
 To accomodate for both windows and linux this script has its own virtual root directory where drives and file folders can be manually added. The root directory can only contain folders.
 
-The root directory is set using the `root` option, which is a comma separated list of directories. Entries are sent through mpv's `expand-path` command. By default the only root value is the user's home folder:
-
-`root=~/`
-
-It is highly recommended that this be customised for the computer being used; [file_browser.conf](file_browser.conf) contains commented out suggestions for generic linux and windows systems. For example, my windows root looks like:
+The root directory is set using the `root` option, which is a comma separated list of directories. Entries are sent through mpv's `expand-path` command. By default `~/` and `C:/` are set on Windows
+and `~/` and `/` are set on non-Windows systems.
+Extra locations can be added manually, for example, my Windows root looks like:
 
 `root=~/,C:/,D:/,E:/,Z:/`
 
@@ -142,11 +193,6 @@ The `response-string` refers to an arbitrary script-message that the tables shou
 
 This script-message allows other scripts to utilise file-browser's directory parsing capabilities, as well as those of the file-browser addons.
 
-## Configuration
-
-See [file_browser.conf](docs/file_browser.conf) for the full list of options and their default values.
-The file is placed in the `~~/script-opts/` folder.
-
 ## Conditional Auto-Profiles
 
 file-browser provides a property that can be used with [conditional auto-profiles](https://mpv.io/manual/master/#conditional-auto-profiles)
@@ -177,4 +223,7 @@ See [#55](https://github.com/CogentRedTester/mpv-file-browser/issues/55) for mor
 
 mpv-user-input is a script that provides an API to request text input from the user over the OSD.
 It was built using `console.lua` as a base, so supports almost all the same text input commands.
-If `user-input.lua` is loaded by mpv, and `user-input-module` is in the `~~/script-modules/` directory, then using `Alt+o` will open an input box that can be used to directly enter directories for file-browser to open.
+If `user-input.lua` is loaded by mpv, and `user-input-module` is in the `~~/script-modules/` directory,
+then using `Alt+o` will open an input box that can be used to directly enter directories for file-browser to open.
+
+Mpv v0.38 added the `mp.input` module, which means `mpv-user-input` is no-longer necessary from that version onwards.
