@@ -930,7 +930,7 @@ function get_clipboard()
 		if state.platform == 'linux' then
 			-- Wayland
 			if os.getenv('WAYLAND_DISPLAY') or os.getenv('WAYLAND_SOCKET') then
-				if state.current_clipboard_backend == "wayland" or mp.get_property_cached("focused") then
+				if state.current_clipboard_backend == "wayland" or mp.get_property_native("focused") then
 					return mp.get_property('clipboard/text', '')
 				end
 				local res = utils.subprocess({
@@ -971,9 +971,6 @@ function set_clipboard(payload)
 		if state.platform == 'linux' then
 			-- Wayland
 			if os.getenv('WAYLAND_DISPLAY') or os.getenv('WAYLAND_SOCKET') then
-				if state.current_clipboard_backend == "wayland" or mp.get_property_cached("focused") then
-					return mp.commandv('set', 'clipboard/text', payload)
-				end
 				return utils.subprocess({ args = { 'wl-copy' }, stdin_data = payload })
 			end
 			-- X11
