@@ -13,7 +13,7 @@ local Element = require('elements/Element')
 ---@alias MenuStackChild MenuStackItem|MenuStack
 ---@alias MenuStackItem {title?: string; hint?: string; icon?: string; value: any; actions?: MenuAction[]; actions_place?: 'inside' | 'outside'; active?: boolean; keep_open?: boolean; selectable?: boolean; bold?: boolean; italic?: boolean; muted?: boolean; separator?: boolean; align?: 'left'|'center'|'right'; title_width: number; hint_width: number; ass_safe_hint?: string}
 ---@alias Fling {y: number, distance: number, time: number, easing: fun(x: number), duration: number, update_cursor?: boolean}
----@alias Search {query: string; timeout: unknown; min_top: number; max_width: number; source: {width: number; top: number; scroll_y: number; selected_index?: integer; items?: MenuStackChild[]}}
+---@alias Search {query: string; cursor: number; timeout: unknown; min_top: number; max_width: number; source: {width: number; top: number; scroll_y: number; selected_index?: integer; items?: MenuStackChild[]}}
 
 ---@alias MenuEventActivate {type: 'activate'; index: number; value: any; action?: string; modifiers?: string; alt: boolean; ctrl: boolean; shift: boolean; is_pointer: boolean; keep_open?: boolean; menu_id: string;}
 ---@alias MenuEventMove {type: 'move'; from_index: number; to_index: number; menu_id: string;}
@@ -266,7 +266,10 @@ function Menu:update(data)
 	end
 	-- Apply search suggestions
 	for _, menu in ipairs(new_menus) do
-		if menu.search_suggestion then menu.search.query = menu.search_suggestion end
+		if menu.search_suggestion then
+			menu.search.query = menu.search_suggestion
+			menu.search.cursor = #menu.search_suggestion
+		end
 	end
 	for _, menu in ipairs(self.all) do
 		if menu.search then
@@ -718,9 +721,11 @@ function Menu:on_global_mouse_move()
 	self.mouse_nav = true
 	if self.drag_last_y then
 		self.is_dragging = self.is_dragging or math.abs(cursor.y - self.drag_last_y) >= 10
-		local distance = self.drag_last_y - cursor.y
-		if distance ~= 0 then self:set_scroll_by(distance) end
-		if self.is_dragging then self.drag_last_y = cursor.y end
+		if self.is_dragging then
+			local distance = self.drag_last_y - cursor.y
+			if distance ~= 0 then self:set_scroll_by(distance) end
+			self.drag_last_y = cursor.y
+		end
 	end
 	request_render()
 end
@@ -785,10 +790,10 @@ function Menu:paste()
 			},
 		})
 	elseif menu.search then
-		self:search_query_update(menu.search.query .. payload)
+		self:search_query_replace(menu.search.query .. payload)
 	elseif menu.search_style ~= 'disabled' then
 		self:search_start(menu.id)
-		self:search_query_update(payload, menu.id)
+		self:search_query_replace(payload, menu.id)
 	end
 end
 
@@ -868,13 +873,81 @@ function Menu:search_submit(menu_id)
 	end
 end
 
+-- Move search query cursor by an amount.
+---@param amount number `<0` for left, `>0` for right.
+---@param word_mode? boolean Move by words/segments. Overwrites amount, but respects its direction.
+function Menu:search_cursor_move(amount, word_mode)
+	local menu = self:get_menu()
+	if not menu or not menu.search then return end
+	local query, cursor = menu.search.query, menu.search.cursor
+
+	local function utf8_next(s, i)
+		if i >= #s then return #s end
+		local len = utf8_char_bytes(s, i + 1)
+		return math.min(i + len, #s)
+	end
+
+	local function utf8_prev(s, i)
+		if i <= 0 then return 0 end
+		local pos = 1
+		local last_valid = 0
+		while pos <= #s do
+			local len = utf8_char_bytes(s, pos)
+			if pos > i then break end
+			last_valid = pos - 1
+			pos = pos + len
+		end
+		return last_valid
+	end
+
+	if word_mode then
+		menu.search.cursor = find_string_segment_bound(query, cursor, amount) + (amount < 0 and -1 or 0)
+	else
+		local move = amount > 0 and utf8_next or utf8_prev
+		local step_count = 0
+		local limit = math.abs(amount)
+
+		while step_count < limit do
+			local next_cursor = move(query, cursor)
+			if next_cursor == cursor then break end
+			cursor = next_cursor
+			step_count = step_count + 1
+		end
+
+		menu.search.cursor = clamp(0, cursor, #query)
+	end
+
+	request_render()
+end
+
 ---@param query string
 ---@param menu_id? string
 ---@param immediate? boolean
-function Menu:search_query_update(query, menu_id, immediate)
+function Menu:search_query_replace(query, menu_id, immediate)
 	local menu = self:get_menu(menu_id)
 	if not menu or not menu.search then return end
 	menu.search.query = query
+	menu.search.cursor = #query
+	self:search_trigger(menu_id, immediate)
+end
+
+-- Insert string into search query at cursor.
+---@param str string
+---@param menu_id? string
+function Menu:search_query_insert(str, menu_id)
+	local menu = self:get_menu(menu_id)
+	if not menu or not menu.search then return end
+	local query, cursor = menu.search.query, menu.search.cursor
+	local head, tail = string.sub(query, 1, cursor), string.sub(query, cursor + 1)
+	menu.search.query = head .. str .. tail
+	menu.search.cursor = cursor + #str
+	self:search_trigger(menu_id)
+end
+
+-- Trigger menu search callbacks, should be called after any query changes.
+function Menu:search_trigger(menu_id, immediate)
+	local menu = self:get_menu(menu_id)
+	if not menu or not menu.search then return end
 	if menu.search_debounce ~= 'submit' then
 		if menu.search.timeout then menu.search.timeout:kill() end
 		if menu.search.timeout and not immediate then
@@ -892,33 +965,73 @@ end
 
 ---@param event? string
 ---@param word_mode? boolean Delete by words.
-function Menu:search_backspace(event, word_mode)
-	local pos, old_query = #self.current.search.query, self.current.search.query
-	local is_palette = self.current.search_style == 'palette'
-	if word_mode and #old_query > 1 then
-		local word_pat, other_pat = '[^%c%s%p]+$', '[%c%s%p]+$'
-		local init_pat = old_query:sub(#old_query):match(word_pat) and word_pat or other_pat
-		-- First we match all same type consecutive chars at the end
-		local tail = old_query:match(init_pat) or ''
-		-- If there's only one, we extend the tail with opposite type chars
-		if tail and #tail == 1 then
-			tail = tail .. old_query:sub(1, #old_query - #tail):match(init_pat == word_pat and other_pat or word_pat)
-		end
-		pos = pos - #tail
-	else
+function Menu:search_query_backspace(event, word_mode)
+	local search = self.current.search
+	if not search then return end
+
+	local cursor, old_query = search.cursor, search.query
+	local head, tail = string.sub(old_query, 1, cursor), string.sub(old_query, cursor + 1)
+
+	if word_mode then
+		cursor = find_string_segment_bound(head, cursor, -1) - 1
+	elseif cursor > 0 then
 		-- The while loop is for skipping utf8 continuation bytes
-		while pos > 1 and old_query:byte(pos) >= 0x80 and old_query:byte(pos) <= 0xbf do
-			pos = pos - 1
+		while cursor > 1 and old_query:byte(cursor) >= 0x80 and old_query:byte(cursor) <= 0xbf do
+			cursor = cursor - 1
 		end
-		pos = pos - 1
+		cursor = cursor - 1
 	end
-	local new_query = old_query:sub(1, pos)
-	if new_query ~= old_query and (is_palette or not self.type_to_search or pos > 0) then
-		self:search_query_update(new_query)
-	elseif not is_palette and self.type_to_search then
-		self:search_cancel()
-	elseif is_palette and event ~= 'repeat' then
-		self:back()
+
+	local new_query = head:sub(1, cursor) .. tail
+	if new_query ~= old_query then
+		search.query = new_query
+		search.cursor = math.max(0, cursor)
+		self:search_trigger()
+	end
+
+	if #new_query == 0 then
+		local is_palette = self.current.search_style == 'palette'
+		if not is_palette and self.type_to_search then
+			self:search_cancel()
+		elseif is_palette and event ~= 'repeat' then
+			self:back()
+		end
+	end
+end
+
+---@param event? string
+---@param word_mode? boolean Delete by words.
+function Menu:search_query_delete(event, word_mode)
+	local search = self.current.search
+	if not search then return end
+
+	local cursor, old_query = search.cursor, search.query
+	local head, tail = string.sub(old_query, 1, cursor), string.sub(old_query, cursor + 1)
+
+	if word_mode then
+		cursor = find_string_segment_bound(head, cursor, -1) - 1
+	elseif cursor > 0 then
+		-- The while loop is for skipping utf8 continuation bytes
+		while cursor > 1 and old_query:byte(cursor) >= 0x80 and old_query:byte(cursor) <= 0xbf do
+			cursor = cursor - 1
+		end
+		cursor = cursor - 1
+	end
+
+	local new_query = head:sub(1, cursor) .. tail
+	if new_query ~= old_query then
+		search.query = new_query
+		search.cursor = math.max(0, cursor)
+		self:search_trigger()
+	end
+
+	if #new_query == 0 then
+		local is_palette = self.current.search_style == 'palette'
+		if not is_palette and self.type_to_search then
+			self:search_cancel()
+		elseif is_palette and event ~= 'repeat' then
+			self:back()
+		end
 	end
 end
 
@@ -934,7 +1047,7 @@ function Menu:search_text_input(info)
 			if key_text == 'DEC' then key_text = '.' end
 		end
 		if not menu.search then self:search_start() end
-		self:search_query_update(menu.search.query .. key_text)
+		self:search_query_insert(key_text)
 	end
 end
 
@@ -942,13 +1055,13 @@ end
 function Menu:search_cancel(menu_id)
 	local menu = self:get_menu(menu_id)
 	if not menu or not menu.search or menu.search_style == 'palette' then
-		self:search_query_update('', menu_id)
+		self:search_query_replace('', menu_id)
 		return
 	end
 	if state.ime_active == false then
 		mp.set_property_bool('input-ime', false)
 	end
-	self:search_query_update('', menu_id, true)
+	self:search_query_replace('', menu_id, true)
 	menu.search = nil
 	self:search_ensure_key_bindings()
 	self:update_dimensions()
@@ -972,6 +1085,7 @@ function Menu:search_init(menu_id)
 	end
 	menu.search = {
 		query = '',
+		cursor = 0,
 		timeout = timeout,
 		min_top = menu.top,
 		max_width = menu.width,
@@ -1001,7 +1115,7 @@ function Menu:search_clear_query(menu_id)
 	if not self.current.search_style == 'palette' and self.type_to_search then
 		self:search_cancel(menu_id)
 	else
-		self:search_query_update('', menu_id)
+		self:search_query_replace('', menu_id)
 	end
 end
 
@@ -1081,7 +1195,7 @@ function Menu:handle_shortcut(shortcut, info)
 
 	if info.event == 'up' then return end
 
-	if (key == 'enter' and selected_item) or (id == 'right' and is_submenu) then
+	if (key == 'enter' and selected_item) or (id == 'right' and is_submenu and not menu.search) then
 		self:activate_selected_item(shortcut)
 	elseif id == 'enter' and menu.search and menu.search_debounce == 'submit' then
 		self:search_submit()
@@ -1090,6 +1204,14 @@ function Menu:handle_shortcut(shortcut, info)
 	elseif id == 'pgup' or id == 'pgdwn' then
 		local items_per_page = round((menu.height / self.scroll_step) * 0.4)
 		self:navigate_by_offset(items_per_page * (id == 'pgup' and -1 or 1))
+	elseif menu.search and (id == 'left' or id == 'ctrl+left') then
+		self:search_cursor_move(-1, modifiers == 'ctrl')
+	elseif menu.search and (id == 'right' or id == 'ctrl+right') then
+		self:search_cursor_move(1, modifiers == 'ctrl')
+	elseif menu.search and id == 'home' then
+		self:search_cursor_move(-math.huge)
+	elseif menu.search and id == 'end' then
+		self:search_cursor_move(math.huge)
 	elseif id == 'home' or id == 'end' then
 		self:navigate_by_offset(id == 'home' and -math.huge or math.huge)
 	elseif id == 'shift+tab' then
@@ -1123,11 +1245,13 @@ function Menu:handle_shortcut(shortcut, info)
 			if modifiers == 'shift' then
 				self:search_clear_query()
 			elseif not modifiers or modifiers == 'ctrl' then
-				self:search_backspace(info.event, modifiers == 'ctrl')
+				self:search_query_backspace(info.event, modifiers == 'ctrl')
 			end
 		elseif not modifiers and info.event ~= 'repeat' then
 			self:back()
 		end
+	elseif menu.search and (id == 'del' or id == 'ctrl+del') then
+		self:search_query_delete(info.event, modifiers == 'ctrl')
 	elseif key == 'mbtn_back' then
 		self:back()
 	elseif id == 'ctrl+v' then
@@ -1186,9 +1310,8 @@ function Menu:render()
 		end
 	end
 
-	local display_rect = {ax = 0, ay = 0, bx = display.width, by = display.height}
-	cursor:zone('primary_down', display_rect, self:create_action(function() self:handle_cursor_down() end))
-	cursor:zone('primary_up', display_rect, self:create_action(function(shortcut) self:handle_cursor_up(shortcut) end))
+	cursor:zone('primary_down', display, self:create_action(function() self:handle_cursor_down() end))
+	cursor:zone('primary_up', display, self:create_action(function(shortcut) self:handle_cursor_up(shortcut) end))
 	cursor:zone('wheel_down', self, function() self:handle_wheel_down() end)
 	cursor:zone('wheel_up', self, function() self:handle_wheel_up() end)
 
@@ -1355,7 +1478,7 @@ function Menu:render()
 
 						-- Select action on cursor hover
 						if self.mouse_nav and get_point_to_rectangle_proximity(cursor, rect) == 0 then
-							cursor:zone('primary_click', rect, self:create_action(function(shortcut)
+							cursor:zone('primary_down', rect, self:create_action(function(shortcut)
 								self:activate_selected_item(shortcut, true)
 							end))
 							blur_action_index = false
@@ -1564,16 +1687,23 @@ function Menu:render()
 				})
 
 				-- Query/Placeholder
+				local cursor_height_half, cursor_thickness = round(self.font_size * 0.6), round(self.font_size / 12)
+				local cursor_ax = rect.bx + 1
 				if menu.search.query ~= '' then
-					-- Add a ZWNBSP suffix to prevent libass from trimming trailing spaces
-					local query = ass_escape(menu.search.query) .. '\239\187\191'
-					ass:txt(rect.bx, rect.cy, 6, query, {
+					local opts = {
 						size = self.font_size,
 						color = bgt,
 						wrap = 2,
 						opacity = menu_opacity,
 						clip = '\\clip(' .. icon_rect.bx .. ',' .. rect.ay .. ',' .. rect.bx .. ',' .. rect.by .. ')',
-					})
+					}
+					local query, cursor = menu.search.query, menu.search.cursor
+					-- Add a ZWNBSP suffix to prevent libass from trimming trailing spaces
+					local head = ass_escape(string.sub(query, 1, cursor)) .. '\239\187\191'
+					local tail = ass_escape(string.sub(query, cursor + 1)) .. '\239\187\191'
+					cursor_ax = math.max(round(cursor_ax - text_width(tail, opts)), rect.cx)
+					ass:txt(cursor_ax, rect.cy, 6, head, opts)
+					ass:txt(cursor_ax, rect.cy, 4, tail, opts)
 				else
 					local placeholder = (menu.search_style == 'palette' and menu.ass_safe_title)
 						and menu.ass_safe_title
@@ -1597,8 +1727,7 @@ function Menu:render()
 				local input_is_blurred = menu.search_debounce == 'submit' and menu.selected_index
 
 				-- Cursor
-				local cursor_height_half, cursor_thickness = round(self.font_size * 0.6), round(self.font_size / 12)
-				local cursor_ax, cursor_bx = rect.bx + 1, rect.bx + 1 + cursor_thickness
+				local cursor_bx = cursor_ax + cursor_thickness
 				ass:rect(cursor_ax, rect.cy - cursor_height_half, cursor_bx, rect.cy + cursor_height_half, {
 					color = fg,
 					opacity = menu_opacity * (input_is_blurred and 0.5 or 1),
