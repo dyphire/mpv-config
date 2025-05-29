@@ -61,7 +61,7 @@ local cursor = {
 		secondary_up = {is_end = true, start_event = 'secondary_down', trigger_event = 'secondary_click'},
 	},
 	-- Holds positions and times of starting events (events that start compound events like click).
-	---@type {[string]: {x: number, y: number, time: number}}
+	---@type {[string]: {x: number, y: number, time: number, zone_handled: boolean}}
 	last_events = {},
 }
 
@@ -158,52 +158,59 @@ end
 ---@param event string
 ---@param shortcut? Shortcut
 function cursor:trigger(event, shortcut)
-	local forward = true
+	local forward, zone_handled = true, false
 
 	-- Call raw event handlers.
 	local zone = self:find_zone(event)
 	local callbacks = self.handlers[event]
 	if zone or #callbacks > 0 then
 		forward = false
-		if zone and shortcut then zone.handler(shortcut) end
+		if zone and shortcut then
+			zone.handler(shortcut)
+			zone_handled = true
+		end
 		for _, callback in ipairs(callbacks) do callback(shortcut) end
 	end
 
-	-- Call compound/parent (click) event handlers if both start and end events are within `parent_zone.hitbox`.
-	local meta = self.event_meta[event]
-	if meta then
-		-- Trigger compound event
-		local parent_zone = self:find_zone(meta.trigger_event)
-		if parent_zone then
-			forward = false -- Canceled here so we don't forward down events if they can lead to a click.
-			if meta.is_end then
-				local start_event = self.last_events[meta.start_event]
-				if start_event and point_collides_with(start_event, parent_zone.hitbox) and shortcut then
-					parent_zone.handler(create_shortcut('primary_click', shortcut.modifiers))
+	if event ~= 'move' then
+		-- Call compound/parent (click) event handlers if both start and end events are within `parent_zone.hitbox`.
+		local meta = self.event_meta[event]
+		if meta then
+			-- Trigger compound event
+			local parent_zone = self:find_zone(meta.trigger_event)
+			if parent_zone then
+				forward = false -- Canceled here so we don't forward down events if they can lead to a click.
+				if meta.is_end then
+					local start_event = self.last_events[meta.start_event]
+					if start_event and point_collides_with(start_event, parent_zone.hitbox) and shortcut then
+						parent_zone.handler(create_shortcut('primary_click', shortcut.modifiers))
+					end
 				end
 			end
 		end
-	end
 
-	-- Forward unhandled events.
-	if forward then
-		local forward_name = self.event_forward_map[event]
-		if forward_name then
-			-- Forward events if there was no handler.
-			local active = find_active_keybindings(forward_name)
-			if active and active.cmd then
-				local is_wheel = event:find('wheel', 1, true)
-				local is_up = event:sub(-3) == '_up'
-				if active.owner then
-					-- Binding belongs to other script, so make it look like regular key event.
-					-- Mouse bindings are simple, other keys would require repeat and pressed handling,
-					-- which can't be done with mp.set_key_bindings(), but is possible with mp.add_key_binding().
-					local state = is_wheel and 'pm' or is_up and 'um' or 'dm'
-					local name = active.cmd:sub(active.cmd:find('/') + 1, -1)
-					mp.commandv('script-message-to', active.owner, 'key-binding', name, state, forward_name)
-				elseif is_wheel or is_up then
-					-- input.conf binding, react to button release for mouse buttons
-					mp.command(active.cmd)
+		-- Forward unhandled events.
+		if forward then
+			local forward_name = self.event_forward_map[event]
+			local last_down = meta and meta.is_end and self.last_events[meta.start_event]
+			local down_zone_handled = last_down and last_down.zone_handled
+			if forward_name and not down_zone_handled then
+				-- Forward events if there was no handler.
+				local active = find_active_keybindings(forward_name)
+				if active and active.cmd then
+					local is_wheel = event:find('wheel', 1, true)
+					local is_up = event:sub(-3) == '_up'
+					if active.owner then
+						-- Binding belongs to other script, so make it look like regular key event.
+						-- Mouse bindings are simple, other keys would require repeat and pressed handling,
+						-- which can't be done with mp.set_key_bindings(), but is possible with mp.add_key_binding().
+						local state = is_wheel and 'pm' or is_up and 'um' or 'dm'
+						local name = active.cmd:sub(active.cmd:find('/') + 1, -1)
+						mp.commandv('script-message-to', active.owner, 'key-binding', name, state, forward_name)
+					elseif is_wheel or is_up then
+						-- input.conf binding, react to button release for mouse buttons
+						mp.command(active.cmd)
+					end
 				end
 			end
 		end
@@ -211,7 +218,7 @@ function cursor:trigger(event, shortcut)
 
 	-- Track last events
 	local last = self.last_events[event] or {}
-	last.x, last.y, last.time = self.x, self.y, mp.get_time()
+	last.x, last.y, last.time, last.zone_handled = self.x, self.y, mp.get_time(), zone_handled
 	self.last_events[event] = last
 
 	-- Refresh cursor autohide timer.
@@ -234,11 +241,7 @@ function cursor:decide_keybinds()
 	-- Check zones.
 	for _, zone in ipairs(self.zones) do
 		local binding = self.event_binding_map[zone.event]
-
-		-- We enable keybinds if there's any rendered element with a listener for it. Previously
-		-- we only enabled if the cursor was above one such element, but that broke touch input, as
-		-- we don't know what the finger is hovering, causing taps to be ignored.
-		if binding then
+		if binding and cursor:collides_with(zone.hitbox) then
 			local new_level = (self.window_dragging_blockers[zone.event] and zone.hitbox.window_drag ~= true) and 2
 				or math.max(new_levels[binding], zone.hitbox.window_drag == false and 2 or 1)
 

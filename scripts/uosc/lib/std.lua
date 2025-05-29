@@ -111,6 +111,18 @@ function string_last_index_of(str, sub)
 	end
 end
 
+-- Creates a pattern that matches `str` of any case.
+-- Usage:
+-- ```lua
+-- string.gsub(str, anycase('foo'), 'bar')
+-- ```
+---@param str string
+function anycase(str)
+	return string.gsub(str, '%a', function(c)
+		return string.format('[%s%s]', c:lower(), c:upper())
+	end)
+end
+
 -- Escapes a string to be used in a matching expression.
 ---@param value string
 function regexp_escape(value)

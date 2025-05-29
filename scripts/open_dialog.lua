@@ -77,8 +77,12 @@ local function pwsh_check()
     end
 end
 
--- https://github.com/mpv-player/mpv/blob/master/etc/mpv-icon-8bit-16x16.png
-local mpv_icon_base64 = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAACvklEQVQ4y3WTSWhUWRSGv/MmU1UpwYSoFbs0VXFo7IhTowgaJGrEhbYLFw44LNqFjWD3Og3dLsSFLlwILgRbXShuXPRCEcUhEUQRIyZROnGImipRkjhVXr2q9+69LrpSiMOBs7nn8t9z7v8d4esQwKqkVM4MoCtpvrz8edhL61obG+KTf3fEaReRZkFcbfRAaKKLw/6bI7dHO/OA+paAuza1YWvcTRwVpPYbnWEwBT8c23vp1b9ngBDArtSc9tT67bVu8h9BPICmWRl+Xr2YzNwMumx4P/oOQTzP9jam401PnxT6ewEtgCyZtHz2tGT6niDxmpoYew79yoK2FrTWKKXQWtN9tZcTf56mFAQYjJ/7+HLRnbc3+y3ArY817BMkDrDn8G4WtLVw8q+zvBkaRmuN1pp5rT+y8++tlbklXh9r2Ae4FjDBs712gMzsLPNXzkUpxcDdJxz57RgXTl4h8EsopfhpxRx+yKQB8GxvDeBZgGuJ1QQwc1G2+mIYhRT9IhdPXWL/joN0dz1AKcWMef8LWGJlAM+p+B0CtjGmKhCUivgln6BcxC5bRGGE1hqjqxiEgOUARhmVd8TJPu5+Wv20QlBAmYg1m1exdlsbtmujtWaw9wUAyqg8YBwgKoZ+V9KbmB3sf8b9a320rJjDzIXNbNr7C/VTJ1W76rnxiPxgDoBi6HcBkQ1YEsnrKYnUFkGcns4+UtkU63atJpaoqVrZd/M/zh08j1IKgwkejfT+8TYaGZIKTHXL6lfuTiUaD4wPmG6ezoyWNNponve8JPdsqErkq7F8x62R68eB0XGUJwBTlta17misndYhSM13UA7yhdyB26Odp4HXQGkcZQ2Uc8XnA37gX4u5cXEsJ2mJFQNUpKOhD+X3F/pGHnQ8LNy/DAwDpS+XSQAPSAITgQTgfmbZGPAB+AiUx9f6E25gOc5E3m0HAAAAAElFTkSuQmCC"
+-- escapes a string so that it can be inserted into powershell as a string literal
+local function escape_powershell(str)
+    if not str then return '""' end
+    str = str:gsub('[$"`]', '`%1'):gsub('“', '`%1'):gsub('”', '`%1')
+    return '"'..str..'"'
+end
 
 local function end_file(event)
     mp.unregister_event(end_file)
@@ -151,38 +155,32 @@ end
 
 local function select_folder()
     if not powershell then pwsh_check() end
-    local was_ontop = mp.get_property_native("ontop")
-    if was_ontop then mp.set_property_native("ontop", false) end
-    local powershell_script = string.format([[
+    local powershell_script = string.format([[&{
         Add-Type -AssemblyName System.Windows.Forms
-        $u8 = [System.Text.Encoding]::UTF8
-        $out = [Console]::OpenStandardOutput()
-        $TopForm = New-Object System.Windows.Forms.Form
-        $TopForm.TopMost = $true
-        $TopForm.ShowInTaskbar = $false
-        $TopForm.Visible = $false
-        $IconBytes = [Convert]::FromBase64String("%s")
-        $IconStream = New-Object IO.MemoryStream($IconBytes, 0, $IconBytes.Length)
-        $IconStream.Write($IconBytes, 0, $IconBytes.Length)
-        $TopForm.Icon = [System.Drawing.Icon]::FromHandle((New-Object System.Drawing.Bitmap -Argument $IconStream).GetHIcon())
-        $folderBrowser = New-Object -TypeName System.Windows.Forms.FolderBrowserDialog
-        $folderBrowser.RootFolder = "Desktop"
-        $folderBrowser.ShowNewFolderButton = $true
-        $result = $folderBrowser.ShowDialog($TopForm)
-        if ($result -eq "OK") {
-            $selectedFolder = $folderBrowser.SelectedPath
-            $u8selectedFolder = $u8.GetBytes("$selectedFolder`n")
-            $out.Write($u8selectedFolder, 0, $u8selectedFolder.Length)
+        $fbd = New-Object System.Windows.Forms.FolderBrowserDialog
+        $fbd.RootFolder = "Desktop"
+        $fbd.ShowNewFolderButton = $true
+        $owner = New-Object System.Windows.Forms.NativeWindow
+        $owner.AssignHandle((Get-Process -Id %d).MainWindowHandle)
+        try {
+            if ($fbd.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK) {
+                $u8 = [System.Text.Encoding]::UTF8
+                $out = [Console]::OpenStandardOutput()
+                $selectedFolder = $fbd.SelectedPath
+                $u8selectedFolder = $u8.GetBytes("$selectedFolder`n")
+                $out.Write($u8selectedFolder, 0, $u8selectedFolder.Length)
+            }
+        } finally {
+            $owner.ReleaseHandle()
+            $fbd.Dispose()
         }
-        $TopForm.Dispose()
-    ]], mpv_icon_base64)
+    }]], mp.get_property_number('pid'))
     local res = mp.command_native({
         name = 'subprocess',
         playback_only = false,
         capture_stdout = true,
         args = { powershell, '-NoProfile', '-Command', powershell_script },
     })
-    if was_ontop then mp.set_property_native("ontop", true) end
     if res.status ~= 0 then
         mp.osd_message("Failed to open folder dialog.")
         return nil
@@ -193,42 +191,33 @@ end
 
 local function select_files(filter)
     if not powershell then pwsh_check() end
-    local was_ontop = mp.get_property_native("ontop")
-    if was_ontop then mp.set_property_native("ontop", false) end
-    local powershell_script = string.format([[& {
-        Trap {
-            Write-Error -ErrorRecord $_
-            Exit 1
-        }
+    local powershell_script = string.format([[&{
         Add-Type -AssemblyName System.Windows.Forms
-        $u8 = [System.Text.Encoding]::UTF8
-        $out = [Console]::OpenStandardOutput()
-        $TopForm = New-Object System.Windows.Forms.Form
-        $TopForm.TopMost = $true
-        $TopForm.ShowInTaskbar = $false
-        $TopForm.Visible = $false
-        $IconBytes = [Convert]::FromBase64String("%s")
-        $IconStream = New-Object IO.MemoryStream($IconBytes, 0, $IconBytes.Length)
-        $IconStream.Write($IconBytes, 0, $IconBytes.Length)
-        $TopForm.Icon = [System.Drawing.Icon]::FromHandle((New-Object System.Drawing.Bitmap -Argument $IconStream).GetHIcon())
         $ofd = New-Object System.Windows.Forms.OpenFileDialog
         $ofd.Multiselect = $true
-        $ofd.Filter = "%s"
-        If ($ofd.ShowDialog($TopForm) -eq $true) {
-            ForEach ($filename in $ofd.FileNames) {
-                $u8filename = $u8.GetBytes("$filename`n")
-                $out.Write($u8filename, 0, $u8filename.Length)
+        $ofd.Filter = %s
+        $owner = New-Object System.Windows.Forms.NativeWindow
+        $owner.AssignHandle((Get-Process -Id %d).MainWindowHandle)
+        try {
+            if ($ofd.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK) {
+                $u8 = [System.Text.Encoding]::UTF8
+                $out = [Console]::OpenStandardOutput()
+                ForEach ($filename in $ofd.FileNames) {
+                    $u8filename = $u8.GetBytes("$filename`n")
+                    $out.Write($u8filename, 0, $u8filename.Length)
+                }
             }
+        } finally {
+            $owner.ReleaseHandle()
+            $ofd.Dispose()
         }
-        $TopForm.Dispose()
-    }]], mpv_icon_base64, filter)
+    }]], escape_powershell(filter), mp.get_property_number('pid'))
     local res = mp.command_native({
         name = 'subprocess',
         playback_only = false,
         capture_stdout = true,
         args = { powershell, '-NoProfile', '-Command', powershell_script },
     })
-    if was_ontop then mp.set_property_native("ontop", true) end
     local file_paths = {}
     if res.status ~= 0 then
         mp.osd_message("Failed to open files dialog.")
@@ -326,13 +315,6 @@ local function import_clipboard(type)
         mp.osd_message('Clipboard is empty')
         msg.warn('Clipboard is empty')
     end
-end
-
--- escapes a string so that it can be inserted into powershell as a string literal
-local function escape_powershell(str)
-    if not str then return '""' end
-    str = str:gsub('[$"`]', '`%1'):gsub('“', '`%1'):gsub('”', '`%1')
-    return '"'..str..'"'
 end
 
 -- sets the contents of the clipboard to the given string

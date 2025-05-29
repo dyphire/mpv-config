@@ -809,6 +809,19 @@ function find_active_keybindings(key)
 	return key and active_map[key] or active_table
 end
 
+do
+	local key_subs = {{'^#$', ''}, {anycase('sharp'), '#'}}
+
+	-- Replaces stuff like `SHARP` -> `#`, `#` -> ``
+	---@param keybind string
+	function keybind_to_human(keybind)
+		for _, sub in ipairs(key_subs) do
+			keybind = string.gsub(keybind, sub[1], sub[2])
+		end
+		return keybind
+	end
+end
+
 ---@param type 'sub'|'audio'|'video'
 ---@param path string
 function load_track(type, path)

@@ -777,7 +777,9 @@ function Menu:paste()
 	local menu = self.current
 	local payload = get_clipboard()
 	if not payload then return end
-	if menu.on_paste then
+	if menu.search then
+		self:search_query_insert(payload)
+	elseif menu.on_paste then
 		local selected_item = menu.items and menu.selected_index and menu.items[menu.selected_index]
 		local actions = selected_item and selected_item.actions or menu.item_actions
 		local selected_action = actions and menu.action_index and actions[menu.action_index]
@@ -789,8 +791,6 @@ function Menu:paste()
 				index = menu.selected_index, value = selected_item.value, action = selected_action,
 			},
 		})
-	elseif menu.search then
-		self:search_query_insert(payload)
 	elseif menu.search_style ~= 'disabled' then
 		self:search_start(menu.id)
 		self:search_query_replace(payload, menu.id)
@@ -1174,6 +1174,16 @@ function Menu:handle_shortcut(shortcut, info)
 
 	if info.event == 'up' then return end
 
+	function trigger_shortcut(shortcut)
+		self.callback(table_assign({}, shortcut, {
+			type = 'key',
+			menu_id = menu.id,
+			selected_item = selected_item and {
+				index = selected_index, value = selected_item.value, action = selected_action,
+			},
+		}))
+	end
+
 	if (key == 'enter' and selected_item) or (id == 'right' and is_submenu and not menu.search) then
 		self:activate_selected_item(shortcut)
 	elseif id == 'enter' and menu.search and menu.search_debounce == 'submit' then
@@ -1229,20 +1239,20 @@ function Menu:handle_shortcut(shortcut, info)
 		elseif not modifiers and info.event ~= 'repeat' then
 			self:back()
 		end
-	elseif menu.search and (id == 'del' or id == 'ctrl+del') then
-		self:search_query_delete(info.event, modifiers == 'ctrl')
+	elseif menu.search and (id == 'del' or id == 'ctrl+del' or id == 'shift+del') then
+		if id == 'shift+del' then
+			-- During search `del` edits the string. We convert `shift+del` to
+			-- `del` to have a way to trigger menu callbacks bound to `del`.
+			trigger_shortcut(create_shortcut('del'))
+		else
+			self:search_query_delete(info.event, modifiers == 'ctrl')
+		end
 	elseif key == 'mbtn_back' then
 		self:back()
 	elseif id == 'ctrl+v' then
 		self:paste()
 	else
-		self.callback(table_assign({}, shortcut, {
-			type = 'key',
-			menu_id = menu.id,
-			selected_item = selected_item and {
-				index = selected_index, value = selected_item.value, action = selected_action,
-			},
-		}))
+		trigger_shortcut(shortcut)
 	end
 end
 
@@ -1679,8 +1689,9 @@ function Menu:render()
 					local query, cursor = menu.search.query, menu.search.cursor
 					-- Add a ZWNBSP suffix to prevent libass from trimming trailing spaces
 					local head = ass_escape(string.sub(query, 1, cursor)) .. '\239\187\191'
-					local tail = ass_escape(string.sub(query, cursor + 1)) .. '\239\187\191'
-					cursor_ax = math.max(round(cursor_ax - text_width(tail, opts)), rect.cx)
+					local tail_no_escape = string.sub(query, cursor + 1)
+					local tail = ass_escape(tail_no_escape) .. '\239\187\191'
+					cursor_ax = math.max(round(cursor_ax - text_width(tail_no_escape, opts)), rect.cx)
 					ass:txt(cursor_ax, rect.cy, 6, head, opts)
 					ass:txt(cursor_ax, rect.cy, 4, tail, opts)
 				else
