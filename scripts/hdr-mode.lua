@@ -35,6 +35,7 @@ options.read_options(o, _, function() end)
 local hdr_active = false
 local hdr_supported = false
 local first_switch_check = true
+local file_loaded = false
 
 local state = {
     target_peak = mp.get_property_native("target-peak"),
@@ -107,20 +108,22 @@ local function resume_if_needed(paused_before)
     end
 end
 
-local function handle_hdr_logic(paused_before, target_peak)
+local function handle_hdr_logic(paused_before, target_peak, target_prim, target_trc)
     query_hdr_state()
     if hdr_active and o.hdr_mode ~= "noth" then
         apply_hdr_settings()
         resume_if_needed(paused_before)
-    elseif not hdr_active and o.hdr_mode ~= "noth" and tonumber(target_peak) ~= 203 then
+    elseif not hdr_active and o.hdr_mode ~= "noth" and
+    (tonumber(target_peak) ~= 203 or target_prim == "bt.2020" or target_trc == "pq") then
         apply_sdr_settings()
     end
 end
 
-local function handle_sdr_logic(paused_before, target_peak)
+local function handle_sdr_logic(paused_before, target_peak, target_prim, target_trc)
     query_hdr_state()
     if not hdr_active or o.hdr_mode ~= "noth" then
-        if tonumber(target_peak) ~= 203 and (not hdr_active or not state.inverse_mapping) then
+        if (not hdr_active or not state.inverse_mapping) and
+        (tonumber(target_peak) ~= 203 or target_prim == "bt.2020" or target_trc == "pq") then
             apply_sdr_settings()
         elseif hdr_active and state.inverse_mapping then
             reset_target_settings()
@@ -155,11 +158,13 @@ local function switch_hdr()
     local fullscreen = mp.get_property_native("fullscreen")
     local maximized = mp.get_property_native("window-maximized")
     local target_peak = mp.get_property_native("target-peak")
+    local target_prim = mp.get_property_native("target-prim")
+    local target_trc = mp.get_property_native("target-trc")
     local is_fullscreen = fullscreen or maximized
 
     if current_state == "hdr" then
         local function continue_hdr()
-            handle_hdr_logic(pause_changed, target_peak)
+            handle_hdr_logic(pause_changed, target_peak, target_prim, target_trc)
         end
 
         if first_switch_check and o.fullscreen_only and not is_fullscreen then
@@ -177,11 +182,11 @@ local function switch_hdr()
             return
         end
 
-        handle_hdr_logic(false, target_peak)
+        handle_hdr_logic(false, target_peak, target_prim, target_trc)
 
     elseif current_state == "sdr" then
         local function continue_sdr()
-            handle_sdr_logic(pause_changed, target_peak)
+            handle_sdr_logic(pause_changed, target_peak, target_prim, target_trc)
         end
 
         if hdr_active and o.hdr_mode == "switch" and (not o.fullscreen_only or is_fullscreen) then
@@ -192,7 +197,7 @@ local function switch_hdr()
             return
         end
 
-        handle_sdr_logic(false, target_peak)
+        handle_sdr_logic(false, target_peak, target_prim, target_trc)
     end
 end
 
@@ -245,6 +250,7 @@ local function on_start()
         msg.warn("The current video output is not supported, please use gpu-next")
         return
     end
+    file_loaded = true
     query_hdr_state()
     mp.observe_property("video-params", "native", switch_hdr)
     mp.observe_property("target-peak", "native", check_paramet)
@@ -264,8 +270,8 @@ local function on_end(event)
     first_switch_check = true
     mp.unobserve_property(switch_hdr)
     mp.unobserve_property(check_paramet)
-    if event["reason"] == "quit" then
-        if hdr_active and o.hdr_mode == "switch" then
+    if event["reason"] == "quit" and o.hdr_mode == "switch" then
+        if hdr_active then
             msg.info("Restoring display to SDR on shutdown")
             switch_display_mode(false)
         end
@@ -274,8 +280,19 @@ end
 
 local function on_idle(_, active)
     local target_peak = mp.get_property_native("target-peak")
-    if active and o.hdr_mode ~= "noth" and tonumber(target_peak) ~= 203 then
+    local target_prim = mp.get_property_native("target-prim")
+    local target_trc = mp.get_property_native("target-trc")
+    if active and o.hdr_mode ~= "noth" and
+    (tonumber(target_peak) ~= 203 or target_prim == "bt.2020" or target_trc == "pq") then
         apply_sdr_settings()
+    end
+    if active and file_loaded and o.hdr_mode == "switch" then
+        file_loaded = false
+        query_hdr_state()
+        if hdr_active then
+            msg.info("Restoring display to SDR on shutdown")
+            switch_display_mode(false)
+        end
     end
 end
 
