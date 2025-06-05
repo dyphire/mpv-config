@@ -38,6 +38,8 @@ local first_switch_check = true
 local file_loaded = false
 
 local state = {
+    icc_profile = mp.get_property_native("icc-profile"),
+    icc_profile_auto = mp.get_property_native("icc-profile-auto"),
     target_peak = mp.get_property_native("target-peak"),
     target_prim = mp.get_property_native("target-prim"),
     target_trc = mp.get_property_native("target-trc"),
@@ -58,6 +60,8 @@ local function switch_display_mode(enable)
 end
 
 local function apply_hdr_settings()
+    mp.set_property_native("icc-profile", "")
+    mp.set_property_native("icc-profile-auto", false)
     mp.set_property_native("target-prim", "bt.2020")
     mp.set_property_native("target-trc", "pq")
     mp.set_property_native("target-peak", o.target_peak)
@@ -67,6 +71,8 @@ local function apply_hdr_settings()
 end
 
 local function apply_sdr_settings()
+    mp.set_property_native("icc-profile", state.icc_profile)
+    mp.set_property_native("icc-profile-auto", state.icc_profile_auto)
     mp.set_property_native("target-peak", "203")
     mp.set_property_native("target-contrast", state.target_contrast)
     mp.set_property_native("target-colorspace-hint", "no")
