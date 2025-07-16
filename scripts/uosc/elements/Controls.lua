@@ -96,14 +96,21 @@ function Controls:init_options()
 		-- Serialize dispositions into OR groups of AND conditions
 		---@type {[string]: boolean}[]
 		local dispositions = {}
+		---@type string[]
+		local disposition_props = {}
 		for _, or_group in ipairs(comma_split(item.disposition)) do
 			local group = {}
 			for _, condition in ipairs(split(or_group, ' *+ *')) do
 				if #condition > 0 then
 					local value = condition:sub(1, 1) ~= '!'
 					local name = not value and condition:sub(2) or condition
-					local prop = name:sub(1, 4) == 'has_' and name or 'is_' .. name
-					group[prop] = value
+					if name:sub(1, 4) == 'has_' or itable_has({'idle', 'image', 'audio', 'video', 'stream'}, name) then
+						local prop = name:sub(1, 4) == 'has_' and name or 'is_' .. name
+						group[prop] = value
+					else
+						disposition_props[#disposition_props + 1] = name
+						group[name] = value
+					end
 				end
 			end
 			dispositions[#dispositions + 1] = group
@@ -180,6 +187,7 @@ function Controls:init_options()
 					name = params[1],
 					render_order = self.render_order,
 					anchor_id = 'controls',
+					on_hide = function() self:reflow() end,
 				})
 				table_assign(control, {element = element, sizing = 'static', scale = 1, ratio = 1})
 			end
@@ -198,6 +206,11 @@ function Controls:init_options()
 			break
 		end
 
+		if control.element then
+			for _, prop in ipairs(disposition_props) do
+				control.element:observe_mp_property(prop, function() self:reflow() end)
+			end
+		end
 		self.controls[#self.controls + 1] = control
 	end
 
@@ -205,7 +218,7 @@ function Controls:init_options()
 end
 
 function Controls:reflow()
-	-- Populate the layout only with items that match current disposition
+	-- Populate the layout only with items that are not hidden and match current disposition
 	self.layout = {}
 	for _, control in ipairs(self.controls) do
 		local matches = false
@@ -216,7 +229,14 @@ function Controls:reflow()
 			local group_matches = true
 			for prop, value in pairs(group) do
 				conditions_num = conditions_num + 1
-				if state[prop] ~= value then
+				---@type boolean
+				local current_value
+				if prop:sub(1, 4) == 'has_' or prop:sub(1, 3) == 'is_' then
+					current_value = state[prop]
+				else
+					current_value = mp.get_property_bool(prop, false)
+				end
+				if current_value ~= value then
 					group_matches = false
 					break
 				end
@@ -228,8 +248,9 @@ function Controls:reflow()
 		end
 
 		if conditions_num == 0 then matches = true end
-		if control.element then control.element.enabled = matches end
-		if matches then self.layout[#self.layout + 1] = control end
+		local show = matches and (not control.element or control.element.hide ~= true)
+		if control.element then control.element.enabled = show end
+		if show then self.layout[#self.layout + 1] = control end
 	end
 
 	self:update_dimensions()
@@ -271,7 +292,7 @@ function Controls:register_badge_updater(badge, element)
 	if is_external_prop then
 		element['on_external_prop_' .. prop] = function(_, value) handler(prop, value) end
 	else
-		self:observe_mp_property(observable_name, handler)
+		element:observe_mp_property(observable_name, handler)
 	end
 end
 

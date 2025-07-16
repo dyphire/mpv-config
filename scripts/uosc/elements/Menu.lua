@@ -986,21 +986,22 @@ function Menu:search_query_delete(event, word_mode)
 
 	local cursor, old_query = search.cursor, search.query
 	local head, tail = string.sub(old_query, 1, cursor), string.sub(old_query, cursor + 1)
+	local tail_cursor = 1
 
 	if word_mode then
-		cursor = find_string_segment_bound(head, cursor, -1) - 1
-	elseif cursor > 0 then
+		tail_cursor = find_string_segment_bound(tail, 0, 1) + 1
+	else
 		-- The while loop is for skipping utf8 continuation bytes
-		while cursor > 1 and old_query:byte(cursor) >= 0x80 and old_query:byte(cursor) <= 0xbf do
-			cursor = cursor - 1
+		while tail_cursor < #tail and tail:byte(tail_cursor) >= 0x80 and tail:byte(tail_cursor) <= 0xbf do
+			tail_cursor = tail_cursor + 1
 		end
-		cursor = cursor - 1
+		tail_cursor = tail_cursor + 1
 	end
 
-	local new_query = head:sub(1, cursor) .. tail
+	local new_query = head .. tail:sub(tail_cursor)
 	if new_query ~= old_query then
 		search.query = new_query
-		search.cursor = math.max(0, cursor)
+		search.cursor = #head
 		self:search_trigger()
 	end
 
