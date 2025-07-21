@@ -184,7 +184,7 @@ function Timeline:render()
 	if self.proximity_raw == 0 then
 		self.is_hovered = true
 	end
-	if visibility > 0 then
+	if visibility > 0 and chapter == hovered_chapter then
 		cursor:zone('primary_down', self, function()
 			self:handle_cursor_down()
 			cursor:once('primary_up', function() self:handle_cursor_up() end)

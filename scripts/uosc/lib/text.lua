@@ -49,7 +49,7 @@ local osd_width, osd_height = 100, 100
 ---@param str string
 ---@param i integer?
 ---@return integer
-local function utf8_char_bytes(str, i)
+function utf8_char_bytes(str, i)
 	local char_byte = str:byte(i)
 	local max_bytes = #str - i + 1
 	if char_byte < 0xC0 then
@@ -116,6 +116,22 @@ function utf8_prev(str, i)
 		pos = pos + len
 	end
 	return last_valid
+end
+
+---Convert character position to byte position in utf-8 encoded string
+---@param str string
+---@param char_pos integer
+---@return integer
+function utf8_charpos_to_bytepos(str, char_pos)
+	local byte_pos = 1
+	local current_char = 1
+	local str_len = #str
+	while byte_pos <= str_len and current_char < char_pos do
+		local char_len = utf8_char_bytes(str, byte_pos)
+		byte_pos = byte_pos + char_len
+		current_char = current_char + 1
+	end
+	return byte_pos
 end
 
 ---Extract Unicode code point from utf-8 character at index i in str
