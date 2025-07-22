@@ -766,11 +766,18 @@ end
 
 ---@param offset integer
 ---@param immediate? boolean
-function Menu:navigate_by_offset(offset, immediate)
+function Menu:navigate_by_items(offset, immediate)
 	self:select_by_offset(offset)
 	if self.current.selected_index then
 		self:scroll_to_index(self.current.selected_index, self.current.id, immediate)
 	end
+end
+
+---@param offset integer
+---@param immediate? boolean
+function Menu:navigate_by_page(offset, immediate)
+	local items_per_page = round((self.current.height / self.scroll_step) * 0.4)
+	self:navigate_by_items(items_per_page * offset, immediate)
 end
 
 function Menu:paste()
@@ -822,75 +829,6 @@ function Menu:search_internal(menu_id, no_select_first)
 	self:update_content_dimensions()
 end
 
----@param text string
----@param positions integer
----@param font_color string
----@return string
-local function highlight_match(text, byte_positions, font_color)
-	if not byte_positions or #byte_positions == 0 then
-		return text
-	end
-
-	table.sort(byte_positions)
-	local start_tag = '{\\c&H' .. config.color.match .. '&}'
-	local end_tag   = '{\\c&H' .. font_color .. '&}'
-
-	local result = {}
-	local pos_set = {}
-	for _, p in ipairs(byte_positions) do
-		pos_set[p] = true
-	end
-
-	local i = 1
-	local len = #text
-	while i <= len do
-		if pos_set[i] then
-			table.insert(result, start_tag)
-			local char_len = utf8_char_bytes(text, i)
-			table.insert(result, text:sub(i, i + char_len - 1))
-			table.insert(result, end_tag)
-			i = i + char_len
-		else
-			local char_len = utf8_char_bytes(text, i)
-			table.insert(result, text:sub(i, i + char_len - 1))
-			i = i + char_len
-		end
-	end
-
-	return table.concat(result)
-end
-
----@param title string
----@param query string
----@param mode string
----@param roman string[]
-function get_roman_match_positions(title, query, mode, roman)
-	local romans = {}
-	local char_ranges = {}
-	local total_len = 0
-	for _, char in ipairs(roman) do
-		local part = (mode == "initial") and char:sub(1, 1) or char
-		part = part:lower()
-		romans[#romans + 1] = part
-		char_ranges[#char_ranges + 1] = {total_len + 1, total_len + #part}
-		total_len = total_len + #part
-	end
-
-	local full_roman = table.concat(romans)
-	local s, e = full_roman:find(query, 1, true)
-	if not s then return nil end
-
-	local byte_positions = {}
-	for i, range in ipairs(char_ranges) do
-		local rs, re = range[1], range[2]
-		if not (re < s or rs > e) then
-			byte_positions[#byte_positions + 1] = utf8_charpos_to_bytepos(title, i)
-		end
-	end
-
-	return byte_positions
-end
-
 ---@param items MenuStackChild[]
 ---@param query string
 ---@param recursive? boolean
@@ -925,8 +863,9 @@ function search_items(items, query, recursive, prefix)
 		local prefixed_title = prefix and prefix .. ' / ' .. (item.title or '') or item.title
 
 		if item.selectable ~= false and not (item.items and recursive) and not seen[item] then
+			local bold = item.bold
 			local font_color = item.active and fgt or bgt
-			local ass_safe_title = highlight_match(matched_title, positions, font_color) or nil
+			local ass_safe_title = highlight_match(matched_title, positions, font_color, bold) or nil
 			local new_item = table_assign({}, item)
 			new_item.title = prefixed_title
 			new_item.ass_safe_title = prefix and prefix .. ' / ' .. (ass_safe_title or '') or ass_safe_title
@@ -939,6 +878,7 @@ function search_items(items, query, recursive, prefix)
 	for _, item in ipairs(items) do
 		local title = item.title and item.title:lower()
 		local hint = item.hint and item.hint:lower()
+		local bold = item.bold
 		local font_color = item.active and fgt or bgt
 		local ass_safe_title = nil
 		local prefixed_title = prefix and prefix .. ' / ' .. (item.title or '') or item.title
@@ -955,14 +895,14 @@ function search_items(items, query, recursive, prefix)
 					score = 1000
 					local pos = get_roman_match_positions(title, query, "ligature", ligature_roman)
 					if pos then
-						ass_safe_title = highlight_match(item.title, pos, font_color)
+						ass_safe_title = highlight_match(item.title, pos, font_color, bold)
 					end
 				elseif initials_conv_title:find(query, 1, true) then
 					match = true
 					score = 900
 					local pos = get_roman_match_positions(title, query, "initial", initials_roman)
 					if pos then
-						ass_safe_title = highlight_match(item.title, pos, font_color)
+						ass_safe_title = highlight_match(item.title, pos, font_color, bold)
 					end
 				end
 			end
@@ -1316,10 +1256,9 @@ function Menu:handle_shortcut(shortcut, info)
 	elseif id == 'enter' and menu.search and menu.search_debounce == 'submit' then
 		self:search_submit()
 	elseif id == 'up' or id == 'down' then
-		self:navigate_by_offset(id == 'up' and -1 or 1, true)
+		self:navigate_by_items(id == 'up' and -1 or 1, true)
 	elseif id == 'pgup' or id == 'pgdwn' then
-		local items_per_page = round((menu.height / self.scroll_step) * 0.4)
-		self:navigate_by_offset(items_per_page * (id == 'pgup' and -1 or 1))
+		self:navigate_by_page(id == 'pgup' and -1 or 1)
 	elseif menu.search and (id == 'left' or id == 'ctrl+left') then
 		self:search_cursor_move(-1, modifiers == 'ctrl')
 	elseif menu.search and (id == 'right' or id == 'ctrl+right') then
@@ -1329,7 +1268,7 @@ function Menu:handle_shortcut(shortcut, info)
 	elseif menu.search and id == 'end' then
 		self:search_cursor_move(math.huge)
 	elseif id == 'home' or id == 'end' then
-		self:navigate_by_offset(id == 'home' and -math.huge or math.huge)
+		self:navigate_by_items(id == 'home' and -math.huge or math.huge)
 	elseif id == 'shift+tab' then
 		self:prev_action()
 	elseif id == 'tab' then
