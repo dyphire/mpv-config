@@ -305,6 +305,16 @@ local function format_filename(title)
     return title
 end
 
+local function is_writable(path)
+    local file = io.open(path, "w")
+    if file then
+        file:close()
+        os.remove(path)
+        return true
+    end
+    return false
+end
+
 local function download_file(url, fname)
     local path = mp.get_property("path")
     local filename = mp.get_property("filename/no-ext")
@@ -315,6 +325,9 @@ local function download_file(url, fname)
     else
         local dir = utils.split_path(normalize(path))
         sub_path = utils.join_path(dir, filename .. ".assrt." .. ext)
+        if not is_writable(sub_path) then
+            sub_path = utils.join_path(TEMP_DIR, fname)
+        end
     end
 
     local message = "正在下载字幕..."

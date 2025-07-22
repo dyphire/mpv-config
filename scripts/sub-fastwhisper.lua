@@ -93,6 +93,16 @@ local function file_exists(path)
     return false
 end
 
+local function is_writable(path)
+    local file = io.open(path, "w")
+    if file then
+        file:close()
+        os.remove(path)
+        return true
+    end
+    return false
+end
+
 local function check_and_remove_empty_file(file_path)
     if file_exists(file_path) then
         local file = io.open(file_path, "r")
@@ -718,6 +728,10 @@ local function fastwhisper()
 
     if file_exists(subtitles_file) then return end
 
+    if not is_writable(subtitles_file) then
+        subtitles_file = utils.join_path(temp_path, fname .. ".srt")
+    end
+
     local screenx, screeny, aspect = mp.get_osd_size()
     mp.set_osd_ass(screenx, screeny, "{\\an9}● ")
     mp.osd_message("AI subtitle generation in progress", 9)
@@ -909,6 +923,10 @@ local function fastwhisper_segment()
     if file_exists(subtitles_file) then
         msg.info("Subtitles file already exists: " .. subtitles_file)
         return
+    end
+
+    if not is_writable(subtitles_file) then
+        subtitles_file = utils.join_path(temp_path, fname .. ".srt")
     end
 
     mp.osd_message("AI subtitle generation in progress", 9)
