@@ -16,10 +16,10 @@ local function load_extra_danmaku(url, episode, number, class, id, site, title, 
         play_url = url:gsub("%?bsource=360ogvys$","")
     end
     ENABLED = true
-    danmaku.anime = title .. " (" .. year .. ")"
-    danmaku.episode = "第" .. episode .. "话"
-    danmaku.source = site
-    danmaku.extra = {
+    DANMAKU.anime = title .. " (" .. year .. ")"
+    DANMAKU.episode = "第" .. episode .. "话"
+    DANMAKU.source = site
+    DANMAKU.extra = {
         id = id,
         site = site,
         year = year,
@@ -329,9 +329,9 @@ mp.register_script_message("get-extra-event", function(cat, id, playlink, source
         else
             playlink = playlink:gsub("%?bsource=360ogvys$","")
         end
-        danmaku.anime = title .. " (" .. year .. ")"
-        danmaku.episode = "电影"
-        danmaku.source = source_id
+        DANMAKU.anime = title .. " (" .. year .. ")"
+        DANMAKU.episode = "电影"
+        DANMAKU.source = source_id
         write_history()
         add_danmaku_source(playlink, true)
     else

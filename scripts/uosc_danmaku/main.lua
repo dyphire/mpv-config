@@ -1,3 +1,7 @@
+VERSION = "2.0.0"
+
+mp.commandv('script-message', 'uosc_danmaku-version', VERSION)
+
 local msg = require('mp.msg')
 local utils = require("mp.utils")
 
@@ -12,6 +16,7 @@ require("modules/parse")
 require("modules/guess")
 require('modules/render')
 require('modules/menu')
+require("modules/update")
 
 require("apis/dandanplay")
 require('apis/extra')
@@ -35,7 +40,7 @@ KEY = table_to_zero_indexed({
     0x1e,0x1f
 })
 
-platform = (function()
+PLATFORM = (function()
     local platform = mp.get_property_native("platform")
     if platform then
         if itable_index_of({ "windows", "darwin" }, platform) then
@@ -915,6 +920,7 @@ mp.register_script_message("show_danmaku_keyboard", function()
     end
 end)
 
+mp.register_script_message("check-update", check_for_update)
 mp.register_script_message("clear-source", clear_source)
 mp.register_script_message("immediately_save_danmaku", save_danmaku)
 mp.register_script_message("open_source_delay_menu", danmaku_delay_setup)
