@@ -337,7 +337,7 @@ function normalize(path)
         else
             local directory = mp.get_property("working-directory", "")
             path = utils.join_path(directory, path:gsub('^%.[\\/]',''))
-            if platform == "windows" then path = path:gsub("\\", "/") end
+            if PLATFORM == "windows" then path = path:gsub("\\", "/") end
         end
         return path
     end

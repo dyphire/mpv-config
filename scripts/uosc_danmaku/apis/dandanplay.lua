@@ -693,7 +693,7 @@ function get_danmaku_with_hash(file_name, file_path)
     else
         local dir = get_parent_directory(file_path)
         local excluded_path = utils.parse_json(options.excluded_path)
-        if platform == "windows" then
+        if PLATFORM == "windows" then
             for i, path in pairs(excluded_path) do
                 excluded_path[i] = path:gsub("/", "\\")
             end
