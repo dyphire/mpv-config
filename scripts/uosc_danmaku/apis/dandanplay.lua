@@ -151,7 +151,8 @@ local function match_episode(animeTitle, bangumiId, episode_num)
         end
 
         for _, episode in ipairs(data.bangumi.episodes) do
-            if tonumber(episode.episodeNumber) == tonumber(episode_num) then
+            local ep_num = tonumber(episode.episodeNumber)
+            if ep_num and ep_num == tonumber(episode_num) then
                 DANMAKU.anime = animeTitle
                 DANMAKU.episode = episode.episodeTitle
                 set_episode_id(episode.episodeId)
@@ -181,9 +182,7 @@ local function match_anime()
     local full_url = url .. "?" .. params
     local args = make_danmaku_request_args("GET", full_url)
 
-    if args == nil then
-        return
-    end
+    if not args then return end
 
     call_cmd_async(args, function(error, json)
         async_running = false
@@ -205,10 +204,35 @@ local function match_anime()
                 table.insert(animes, anime)
             end
         end
+
         if type_count == 1 then
             match_episode(animes[1].animeTitle, animes[1].bangumiId, episode_num)
+        elseif type_count > 1 and season_num then
+            local best_match, best_score = nil, -1
+            local target_title = title
+            if tonumber(season_num) > 1 then
+                target_title = title .. " 第" .. number_to_chinese(season_num) .. "季"
+            end
+            for _, anime in ipairs(animes) do
+                if anime.animeTitle:match("第一[季部]") and not target_title:match("第%d+季") then
+                    target_title = title .. " 第一季"
+                end
+                local score = jaro_winkler(target_title, anime.animeTitle)
+                msg.debug(("候选: %s -> 相似度 %.3f"):format(anime.animeTitle, score))
+                if score > best_score then
+                    best_score = score
+                    best_match = anime
+                end
+            end
+
+            if best_match and best_score >= 0.75 then
+                msg.info(("模糊匹配选中: %s (score=%.2f)"):format(best_match.animeTitle, best_score))
+                match_episode(best_match.animeTitle, best_match.bangumiId, episode_num)
+            else
+                msg.info("匹配到多个结果，但相似度不足，请手动搜索")
+            end
         else
-            msg.info("匹配到多个结果，请尝试手动搜索")
+            msg.info("没有找到合适的匹配结果")
         end
     end)
 end
@@ -257,9 +281,7 @@ local function match_file(file_path, file_name, callback)
         }
     )
 
-    if args == nil then
-        return
-    end
+    if not args then return end
 
     call_cmd_async(args, function(error, json)
         async_running = false

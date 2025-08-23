@@ -186,10 +186,6 @@ show_danmaku_keyboard_key=i
 
 从弹幕源添加弹幕。在已经在播放弹幕的情况下会将添加的弹幕追加到现有弹幕中。
 
-~目前尚未解决弹幕去重等问题~
-
-弹幕去重问题已解决，可参考[此issue](https://github.com/Tony15246/uosc_danmaku/issues/31)
-
 可添加的弹幕源如哔哩哔哩上任意视频通过video路径加BV号，或者巴哈姆特上的视频地址等。比如说以下地址均可作为有效弹幕源被添加：
 
 ```
@@ -441,10 +437,6 @@ autoload_for_url
 
 另外，开启此选项后还会在网络播放bilibili以及巴哈姆特的视频时自动加载对应视频的弹幕，可配合[Play-With-MPV](https://github.com/LuckyPuppy514/Play-With-MPV)或[ff2mpv](https://github.com/woodruffw/ff2mpv)等网络播放手段使用。（播放巴哈姆特的视频时弹幕自动加载如果失败，请检查[proxy](#proxy)选项配置是否正确）
 
-> **⚠️NOTE！**
->
-> 实验性功能，尚不完善
-
 #### 使用方法
 
 想要开启此选项，请在mpv配置文件夹下的 `script-opts`中创建 `uosc_danmaku.conf`文件并添加如下内容：
@@ -635,6 +627,31 @@ merge_tolerance=1
 </details>
 
 ---
+<details>
+<summary>
+max_screen_danmaku
+
+> 限制屏幕中同时显示的弹幕数量
+
+</summary>
+
+### max_screen_danmaku
+
+#### 功能说明
+
+当该值大于0时，脚本会在解析弹幕时丢弃部分弹幕，确保任意时刻屏幕中显示的弹幕不超过设定值。
+
+#### 使用方法
+
+在 `script-opts` 目录下创建 `uosc_danmaku.conf` 并添加如下内容：
+
+```
+max_screen_danmaku=60
+```
+
+</details>
+
+---
 
 <details>
 <summary>
@@ -714,7 +731,7 @@ api_server
 
 > **⚠️NOTE！**
 >
-> 请确保自定义服务的 API 与弹弹play 的兼容，已知兼容：[anoraker/abetsy](https://hub.docker.com/repository/docker/anoraker/abetsy)
+> 请确保自定义服务的 API 与弹弹play 的兼容，已知兼容：[l429609201/misaka_danmu_server](https://github.com/l429609201/misaka_danmu_server)，[laozishen/abetsy](https://hub.docker.com/r/laozishen/abetsy)
 
 #### 使用方法
 
@@ -998,8 +1015,6 @@ bold=yes
 displayarea=0.85
 #描边 0-4
 outline=1
-#指定不会显示在屏幕上的弹幕类型。使用“-”连接类型名称，例如“L2R-TOP-BOTTOM”。可用的类型包括：L2R,R2L,TOP,BOTTOM,SPECIAL,COLOR,REPEAT
-blockmode=REPEAT
 #指定弹幕屏蔽词文件路径(black.txt)，支持绝对路径和相对路径。文件内容以换行分隔
 ##支持 lua 的正则表达式写法
 blacklist_path=

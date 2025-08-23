@@ -127,6 +127,7 @@ function get_episodes(animeTitle, bangumiId)
     for _, episode in ipairs(response.bangumi.episodes) do
         table.insert(items, {
             title = episode.episodeTitle,
+            hint = episode.episodeNumber,
             value = { "script-message-to", mp.get_script_name(), "load-danmaku",
             animeTitle, episode.episodeTitle, episode.episodeId },
             keep_open = false,

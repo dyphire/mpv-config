@@ -9,17 +9,37 @@ function utf8_sub(s, i, j)
     if i > j then
         return s
     end
-
-    local t = {}
-    local idx = 1
+    local t, idx = {}, 1
     for char in s:gmatch(UTF8_PATTERN) do
-        if i <= idx and idx <= j then
-            local width = #char > 2 and 2 or 1
-            idx = idx + width
+        if idx >= i and idx <= j then
             t[#t + 1] = char
         end
+        idx = idx + 1
     end
     return table.concat(t)
+end
+
+function utf8_len(s)
+    local count = 0
+    for _ in s:gmatch(UTF8_PATTERN) do
+        count = count + 1
+    end
+    return count
+end
+
+function utf8_iter(s)
+    local iter = s:gmatch(UTF8_PATTERN)
+    return function()
+        return iter()
+    end
+end
+
+function utf8_to_table(s)
+    local t = {}
+    for ch in utf8_iter(s) do
+        t[#t + 1] = ch
+    end
+    return t
 end
 
 -- abbreviate string if it's too long
@@ -87,6 +107,74 @@ function unicode_to_utf8(unicode)
         ---@diagnostic disable-next-line: deprecated
         return string.char(unpack(res))
     end
+end
+
+function jaro(s1, s2)
+    local match_window = math.floor(math.max(#s1, #s2) / 2.0) - 1
+    local matches1 = {}
+    local matches2 = {}
+
+    local m = 0;
+    local t = 0;
+
+    for i = 0, #s1, 1 do
+        local start = math.max(0, i - match_window)
+        local final = math.min(i + match_window + 1, #s2)
+
+        for k = start, final, 1 do
+            if not (matches2[k] or s1[i] ~= s2[k]) then
+                matches1[i] = true
+                matches2[k] = true
+                m = m + 1
+                break
+            end
+        end
+    end
+
+    if m == 0 then
+        return 0.0
+    end
+
+    local k = 0
+    for i = 0, #s1, 1 do
+        if matches1[i] then
+            while not matches2[k] do
+                k = k + 1
+            end
+
+            if s1[i] ~= s2[k] then
+                t = t + 1
+            end
+
+            k = k + 1
+        end
+    end
+
+    t = t / 2.0
+
+    return (m / #s1 + m / #s2 + (m - t) / m) / 3.0
+end
+
+function jaro_winkler(s1, s2)
+    if #s1 + #s2 == 0 then
+        return 0.0
+    end
+
+    if s1 == s2 then
+        return 1.0
+    end
+
+    s1 = utf8_to_table(s1)
+    s2 = utf8_to_table(s2)
+
+    local d = jaro(s1, s2)
+    local p = 0.1
+    local l = 0;
+    while (s1[l] == s2[l] and l < 4) do
+        l = l + 1
+    end
+
+    return d + l * p * (1 - d)
 end
 
 -- 从时间字符串转换为秒数
@@ -297,7 +385,7 @@ local function split_by_numbers(filename)
     end
     return parts
 end
- 
+
 -- 识别并匹配前后剧集
 local function compare_filenames(fname1, fname2)
     local parts1 = split_by_numbers(fname1)
@@ -460,6 +548,92 @@ function get_episode_number(filename, fname)
         end
     end
     return nil
+end
+
+local CHINESE_NUM_MAP = {
+    ["零"] = 0, ["一"] = 1, ["二"] = 2, ["三"] = 3, ["四"] = 4,
+    ["五"] = 5, ["六"] = 6, ["七"] = 7, ["八"] = 8, ["九"] = 9,
+    ["十"] = 10, ["百"] = 100, ["千"] = 1000, ["万"] = 10000,
+}
+
+function chinese_to_number(cn)
+    local total = 0
+    local num = 0
+    local unit = 1
+
+    local chars = {}
+    for uchar in cn:gmatch(UTF8_PATTERN) do
+        table.insert(chars, 1, uchar)
+    end
+
+    for _, char in ipairs(chars) do
+        local val = CHINESE_NUM_MAP[char]
+        if val then
+            if val >= 10 then
+                if num == 0 then
+                    num = 1
+                end
+                unit = val
+            else
+                total = total + val * unit
+                unit = 1
+                num = 0
+            end
+        end
+    end
+
+    if unit > 1 then
+        total = total + num * unit
+    end
+
+    if total > 0 then
+        return total
+    else
+        return num
+    end
+end
+
+local CHINESE_NUM = {"零", "一", "二", "三", "四", "五", "六", "七", "八", "九"}
+local CHINESE_UNIT = {"", "十", "百", "千"}
+local CHINESE_BIG_UNIT = {"", "万", "亿"}
+
+function number_to_chinese(num)
+    if num == 0 then return "零" end
+
+    local str = tostring(num)
+    local len = #str
+    local result = ""
+    local zero_flag = false
+
+    for i = 1, len do
+        local digit = tonumber(str:sub(i, i))
+        local pos = len - i + 1
+        local small_unit_index = (pos - 1) % 4 + 1
+        local small_unit = CHINESE_UNIT[small_unit_index]
+
+        if digit == 0 then
+            zero_flag = true
+        else
+            if zero_flag then
+                result = result .. "零"
+                zero_flag = false
+            end
+            if digit == 1 and small_unit_index == 2 and i == 1 then
+                result = result .. small_unit
+            else
+                result = result .. CHINESE_NUM[digit + 1] .. small_unit
+            end
+        end
+
+        if pos % 4 == 1 and pos > 1 then
+            local big_unit_index = math.floor((pos - 1) / 4)
+            result = result .. CHINESE_BIG_UNIT[big_unit_index + 1]
+        end
+    end
+
+    result = result:gsub("零+$", "")
+
+    return result
 end
 
 -- 异步执行命令

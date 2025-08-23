@@ -165,6 +165,47 @@ local function merge_duplicate_danmaku(danmakus, threshold)
     return merged
 end
 
+-- 限制每屏弹幕条数
+local function limit_danmaku(danmakus, limit)
+    if not limit or limit <= 0 then
+        return danmakus
+    end
+
+    local window = {}
+    for _, d in ipairs(danmakus) do
+        for i = #window, 1, -1 do
+            if window[i].end_time <= d.start_time then
+                table.remove(window, i)
+            end
+        end
+
+        if #window < limit then
+            table.insert(window, d)
+        else
+            local max_idx = 1
+            for i = 2, #window do
+                if window[i].end_time > window[max_idx].end_time then
+                    max_idx = i
+                end
+            end
+            if window[max_idx].end_time > d.end_time then
+                window[max_idx].drop = true
+                window[max_idx] = d
+            else
+                d.drop = true
+            end
+        end
+    end
+
+    local result = {}
+    for _, d in ipairs(danmakus) do
+        if not d.drop then
+            table.insert(result, d)
+        end
+    end
+    return result
+end
+
 -- 解析 XML 弹幕
 local function parse_xml_danmaku(xml_string, delay_segments)
     local danmakus = {}
@@ -280,6 +321,10 @@ function parse_danmaku_files(danmaku_input, delays)
     if #all_danmaku == 0 then
         msg.info("未能解析任何弹幕")
         return nil
+    end
+
+    if options.max_screen_danmaku > 0 and options.merge_tolerance <= 0 then
+        options.merge_tolerance = options.scrolltime
     end
 
     -- 按时间排序
@@ -453,11 +498,33 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     options.fontname, fontsize, alpha, alpha, bold, outline, shadow,
     options.fontname, fontsize, alpha, alpha, bold, outline, shadow)
 
-    local ass_events = {}
-
+    -- 预处理弹幕，先计算时间段以便进行数量限制
+    local pre_events = {}
     for _, d in ipairs(all_danmaku) do
         local time = d.type == 1 and math.floor(d.time + 0.5) or d.time
         local appear_time = time
+        local danmaku_type = d.type
+
+        local end_time = nil
+        if danmaku_type >= 1 and danmaku_type <= 3 then
+            end_time = appear_time + scrolltime
+        elseif danmaku_type == 5 or danmaku_type == 4 then
+            end_time = appear_time + fixtime
+        end
+
+        if end_time then
+            table.insert(pre_events, {start_time = appear_time, end_time = end_time, danmaku = d})
+        end
+    end
+
+    if options.max_screen_danmaku > 0 then
+        pre_events = limit_danmaku(pre_events, options.max_screen_danmaku)
+    end
+
+    local ass_events = {}
+    for _, ev in ipairs(pre_events) do
+        local d = ev.danmaku
+        local appear_time = ev.start_time
         local danmaku_type = d.type
         local text = ass_escape(decode_html_entities(d.text))
                     :gsub("x(%d+)$", "{\\b1\\i1}x%1")
@@ -476,7 +543,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         -- 滚动弹幕 (类型 1, 2, 3)
         if danmaku_type >= 1 and danmaku_type <= 3 then
             layer = 0
-            end_time_str = seconds_to_time(appear_time + scrolltime)
+            end_time_str = seconds_to_time(ev.end_time)
             style = "R2L"
             local text_length = get_str_width(text, fontsize)
             local x1 = res_x + text_length / 2
@@ -489,7 +556,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         -- 顶部弹幕 (类型 5)
         elseif danmaku_type == 5 then
             layer = 1
-            end_time_str = seconds_to_time(appear_time + fixtime)
+            end_time_str = seconds_to_time(ev.end_time)
             style = "TOP"
             local x = res_x / 2
             local y = get_fixed_y(fontsize, appear_time, fixtime, top_array, true)
@@ -500,7 +567,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         -- 底部弹幕 (类型 4)
         elseif danmaku_type == 4 then
             layer = 1
-            end_time_str = seconds_to_time(appear_time + fixtime)
+            end_time_str = seconds_to_time(ev.end_time)
             style = "BTM"
             local x = res_x / 2
             local y = get_fixed_y(fontsize, appear_time, fixtime, top_array, false)
