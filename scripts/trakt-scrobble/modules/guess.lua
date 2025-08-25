@@ -4,7 +4,7 @@ local function clean_name(name)
            :gsub("^%(.-%)", " ")
            :gsub("[_%.%[%]]", " ")
            :gsub("^%s*(.-)%s*$", "%1")
-           :gsub("[@#%.%+%-%%&*_=,/~`]+$", "")
+           :gsub("[!@#%.%?%+%-%%&*_=,/~`]+$", "")
 end
 
 -- Formatters for media titles
@@ -26,7 +26,7 @@ local formatters = {
         end
     },
     {
-        regex = "^(.-)%s*[_%.%s]%s*(%d%d%d%d)%s*[_%.%s]%s*[eEpP]+(%d+%.?%d*)",
+        regex = "^(.-)%s*[_%.%s]%s*(%d%d%d%d)%s*[_%.%s]%s*[eEpP]+[_%-%.%s]?(%d+%.?%d*)",
         format = function(name, year, episode)
             return clean_name(name) .. " (" .. year .. ") E" .. episode
         end
@@ -50,13 +50,13 @@ local formatters = {
         end
     },
     {
-        regex = "^(.-)%s*[^dD][eEpP]+(%d+[%.v]?%d*)[_%.%s]%s*(%d%d%d%d)[^%dhHxXvVpPkKxXbBfF]",
+        regex = "^(.-)%s*[^dD][eEpP]+[_%-%.%s]?(%d+[%.v]?%d*)[_%.%s]%s*(%d%d%d%d)[^%dhHxXvVpPkKxXbBfF]",
         format = function(name, episode, year)
             return clean_name(name) .. " (" .. year .. ") E" .. episode:gsub("v%d+$","")
         end
     },
     {
-        regex = "^(.-)%s*[^dD][eEpP]+(%d+%.?%d*)",
+        regex = "^(.-)%s*[^dD][eEpP]+[_%-%.%s]?(%d+%.?%d*)",
         format = function(name, episode)
             return clean_name(name) .. " E" .. episode
         end
@@ -124,6 +124,6 @@ function format_filename(title)
         :gsub("^%(.-%)", " ")
         :gsub("[_%.]", " ")
         :gsub("^%s*(.-)%s*$", "%1")
-        :gsub("[@#%.%+%-%%&*_=,/~`]+$", "")
+        :gsub("[!@#%.%?%+%-%%&*_=,/~`]+$", "")
     return title
 end

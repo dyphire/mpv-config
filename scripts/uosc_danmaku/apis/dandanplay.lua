@@ -214,7 +214,7 @@ local function match_anime()
                 target_title = title .. " 第" .. number_to_chinese(season_num) .. "季"
             end
             for _, anime in ipairs(animes) do
-                if anime.animeTitle:match("第一[季部]") and not target_title:match("第%d+季") then
+                if anime.animeTitle:match("第一[季部]") and tonumber(season_num) == 1 then
                     target_title = title .. " 第一季"
                 end
                 local score = jaro_winkler(target_title, anime.animeTitle)

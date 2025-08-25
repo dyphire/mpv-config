@@ -1,5 +1,5 @@
 --[[
-  * chapterskip.lua v.2025-08-22
+  * chapterskip.lua v.2025-08-25
   *
   * AUTHORS: detuur, microraptor, Eisa01, dyphire
   * License: MIT
@@ -64,7 +64,7 @@ local o = {
     mode = "manual",
     -- eng=English, chs=Chinese Simplified
     language = 'eng',
-    skip_once = true,
+    timeout = 15,
     categories = "",
     skip = "",
     silence_audio_level = -40,
@@ -92,6 +92,8 @@ local skipped = {}
 local parsed = {}
 local chapter_skip = {}
 local active_skips = {}
+local skip_prompt_queue = {}
+local confirm_timer = nil
 local skip_timer = nil
 local history_path = mp.command_native({ "expand-path", o.history_path })
 
@@ -304,78 +306,6 @@ local function info(s)
     show_message(s, 2)
 end
 
-local confirm_timer = nil
-
-local function cancel_skip_prompt()
-    if confirm_timer then
-        confirm_timer:kill()
-        confirm_timer = nil
-    end
-    mp.remove_key_binding("skip-confirm")
-    mp.remove_key_binding("skip-cancel")
-end
-
-local function confirm_skip_prompt(action)
-    cancel_skip_prompt()
-    if action then action() end
-end
-
-local function show_skip_prompt(action)
-    if confirm_timer then
-        return
-    end
-
-    local countdown = 15
-    local function update_msg()
-        if not confirm_timer or not confirm_timer:is_enabled() then
-            return
-        end
-
-        local yn_text = "{\\c&H00FFFF&}[y/n]{\\c&HFFFFFF&}"
-
-        show_message(
-            texts.skip_detected .. "\n" ..
-            texts.skip_confirm .. " " .. yn_text .. "\n" ..
-            texts.countdown:format(countdown),
-            1,
-            "FFFF00"
-        )
-        countdown = countdown - 1
-        if countdown < 0 then
-            cancel_skip_prompt()
-        end
-    end
-
-    update_msg()
-    confirm_timer = mp.add_periodic_timer(1, update_msg)
-
-    mp.add_forced_key_binding("y", "skip-confirm", function() confirm_skip_prompt(action) end)
-    mp.add_forced_key_binding("n", "skip-cancel", cancel_skip_prompt)
-end
-
-local function do_skip_with_mode(action)
-    if o.mode == "none" then
-        msg.verbose("Skipping is disabled")
-        return
-    elseif o.mode == "manual" then
-        show_skip_prompt(action)
-    else -- "auto"
-        action()
-    end
-end
-
-local function switch_chapterskip()
-    if o.mode == "none" then
-        o.mode = "auto"
-    elseif o.mode == "auto" then
-        o.mode = "manual"
-    else
-        o.mode = "none"
-    end
-
-    info(texts.chapter_mode .. o.mode)
-end
-
 local function matches(i, title)
     for category in string.gmatch(o.skip, " *([^;]*[^; ]) *") do
         if categories[category:lower()] then
@@ -395,44 +325,6 @@ local function matches(i, title)
                 end
             end
         end
-    end
-end
-
-local function chapterskip(_, current)
-    if o.mode == "none" then return end
-    for category in string.gmatch(o.categories, "([^;]+)") do
-        local name, patterns = string.match(category, " *([^+>]*[^+> ]) *[+>](.*)")
-        if name then
-            categories[name:lower()] = patterns
-        elseif not parsed[category] then
-            msg.warn("Improper category definition: " .. category)
-        end
-        parsed[category] = true
-    end
-    local chapters = mp.get_property_native("chapter-list")
-    local skip = nil
-    for i, chapter in ipairs(chapters) do
-        if (not o.skip_once or not skipped[i]) and matches(i, chapter.title) then
-            if i == current + 1 or (skip and skip == i - 1) then
-                if skip then
-                    skipped[skip] = true
-                end
-                skip = i
-            end
-        elseif skip then
-            do_skip_with_mode(function()
-                info(texts.skipping_chapter .. (chapters[skip].title or ("Chapter "..skip)))
-                mp.set_property("time-pos", chapter.time)
-                skipped[skip] = true
-            end)
-            return
-        end
-    end
-    if skip then
-        if mp.get_property_native("playlist-count") == mp.get_property_native("playlist-pos-1") then
-            return mp.set_property("time-pos", mp.get_property_native("duration"))
-        end
-        mp.commandv("playlist-next")
     end
 end
 
@@ -475,22 +367,111 @@ local function cache_skip()
     end
 end
 
+function cancel_skip_prompt()
+    if confirm_timer then
+        confirm_timer:kill()
+        confirm_timer = nil
+    end
+    mp.remove_key_binding("skip-confirm")
+    mp.remove_key_binding("skip-cancel")
+    show_message("", 0)
+
+    if #skip_prompt_queue > 0 then
+        local next_prompt = table.remove(skip_prompt_queue, 1)
+        show_skip_prompt(next_prompt.action, next_prompt.skip_obj)
+    end
+end
+
+function confirm_skip_prompt(action)
+    cancel_skip_prompt()
+    if action then action() end
+end
+
+function show_skip_prompt(action, skip_obj)
+    if confirm_timer then
+        table.insert(skip_prompt_queue, {action = action, skip_obj = skip_obj})
+        return
+    end
+
+    local countdown = o.timeout
+    local function update_msg()
+        if not confirm_timer or not confirm_timer:is_enabled() then
+            return
+        end
+
+        local yn_text = "{\\c&H00FFFF&}[y/n]{\\c&HFFFFFF&}"
+        show_message(
+            texts.skip_detected .. " " .. (skip_obj.title or "") .. "\n" ..
+            texts.skip_confirm .. " " .. yn_text .. "\n" ..
+            texts.countdown:format(countdown),
+            1,
+            "FFFF00"
+        )
+
+        countdown = countdown - 1
+        if countdown < 0 then
+            if skip_obj then skip_obj.cancelled = true end
+            cancel_skip_prompt()
+        end
+    end
+
+    update_msg()
+    confirm_timer = mp.add_periodic_timer(1, update_msg)
+
+    mp.add_forced_key_binding("y", "skip-confirm", function()
+        confirm_skip_prompt(action)
+    end)
+    mp.add_forced_key_binding("n", "skip-cancel", function()
+        if skip_obj then skip_obj.cancelled = true end
+        cancel_skip_prompt()
+    end)
+end
+
 local function start_skip_watcher()
-    if skip_timer or o.mode == "none" then return end
+    if skip_timer then return end
     skip_timer = mp.add_periodic_timer(0.5, function()
         local t = mp.get_property_number("time-pos")
-        if not t then return end
+        local paused = mp.get_property_native("pause")
+        if not t or o.mode == "none" or paused then return end
 
-        for i = #active_skips, 1, -1 do
+        local i = 1
+        while i <= #active_skips do
             local s = active_skips[i]
-            if (t >= s.start - 0.5 and t < s.ended) then
-                do_skip_with_mode(function()
-                    info((texts.auto_skip):format(timestamp(s.start), timestamp(s.ended)))
-                    mp.set_property_number("time-pos", s.ended)
-                    table.remove(active_skips, i)
-                end)
-            elseif t >= s.ended then
+            if s.cancelled then
                 table.remove(active_skips, i)
+            elseif t >= s.start - 0.5 and t <= s.ended then
+                if o.mode == "auto" then
+                    info((texts.auto_skip):format(timestamp(s.start), timestamp(s.ended), s.title))
+                    mp.set_property_number("time-pos", s.ended)
+                    s.triggered = true
+                    table.remove(active_skips, i)
+                elseif o.mode == "manual" and not s.triggered then
+                    s.triggered = true
+                    show_skip_prompt(function()
+                        info((texts.auto_skip):format(timestamp(s.start), timestamp(s.ended), s.title))
+                        mp.set_property_number("time-pos", s.ended)
+                        for j = #active_skips, 1, -1 do
+                            if active_skips[j] == s then
+                                table.remove(active_skips, j)
+                                break
+                            end
+                        end
+                    end, s)
+                    i = i + 1
+                else
+                    i = i + 1
+                end
+            elseif t < s.start - 0.5 then
+                if s.triggered then
+                    s.cancelled = true
+                    table.remove(active_skips, i)
+                    cancel_skip_prompt()
+                else
+                    i = i + 1
+                end
+            else
+                table.remove(active_skips, i)
+                cancel_skip_prompt()
             end
         end
 
@@ -507,8 +488,35 @@ local function add_active_skip(s)
             return
         end
     end
-    table.insert(active_skips, { start = s.start, ended = s.ended })
+    table.insert(active_skips, { start = s.start, ended = s.ended, title = s.title, triggered = false })
     start_skip_watcher()
+end
+
+local function chapterskip(_, current)
+    if o.mode == "none" then return end
+    for category in string.gmatch(o.categories, "([^;]+)") do
+        local name, patterns = string.match(category, " *([^+>]*[^+> ]) *[+>](.*)")
+        if name then
+            categories[name:lower()] = patterns
+        elseif not parsed[category] then
+            msg.warn("Improper category definition: " .. category)
+        end
+        parsed[category] = true
+    end
+    local chapters = mp.get_property_native("chapter-list")
+    for i, chapter in ipairs(chapters) do
+        if not skipped[i] and matches(i, chapter.title) then
+            if i == current + 1 then
+                skipped[i] = true
+                local skip_time = chapters[i + 1] and chapters[i + 1].time or mp.get_property_native("duration")
+                add_active_skip({
+                    start = chapter.time,
+                    ended = skip_time,
+                    title = chapter.title,
+                })
+            end
+        end
+    end
 end
 
 local function check_skip()
@@ -517,7 +525,9 @@ local function check_skip()
 
     local chapters = mp.get_property_native("chapter-list") or {}
     local history = read_config(history_path) or {}
+    local duration = mp.get_property_number("duration") or 0
     local filename = mp.get_property("filename")
+    local file_ext = filename:lower():match("%.([^%.]+)$") or ""
     local title = mp.get_property_native("media-title"):gsub("%.[^%.]+$", "")
     local dir = get_parent_dir(path)
 
@@ -535,34 +545,41 @@ local function check_skip()
         end
     end
 
-    if not history[dir] or not history[dir].chapterskip then
+    local file_history = history[dir]
+    if not file_history or not file_history.chapterskip then return end
+
+    local skip_list = file_history.chapterskip
+    local fname = file_history.fname
+    local fname_ext = fname:lower():match("%.([^%.]+)$") or ""
+
+    if (not is_protocol(path) and file_ext ~= fname_ext) or
+    (fname ~= filename and not compare_filenames(fname, filename)) then
         return
     end
 
-    local fname = history[dir].fname
-    local skip = history[dir].chapterskip
-    if fname ~= filename and not compare_filenames(fname, filename) then
-        return
-    end
+    table.sort(skip_list, function(a, b) return a.start < b.start end)
 
-    if next(skip) == nil then return end
-
+    if next(skip_list) == nil then return end
     if next(chapters) == nil then
-        for _, s in ipairs(skip) do
+        for _, s in ipairs(skip_list) do
             add_active_skip(s)
         end
         return
     end
 
-    for _, s in ipairs(skip) do
+    local used_chapters = {}
+    for _, s in ipairs(skip_list) do
         local matched = false
         for i, chapter in ipairs(chapters) do
-            local start_time = chapters[i - 1] and chapters[i - 1].time or 0
-            local end_time   = chapter.time
-            if math.abs(end_time - start_time - (s.ended - s.start)) <= 0.1 then
-                matched = true
-                add_active_skip({ start = start_time, ended = end_time })
-                break
+            if not used_chapters[i] then
+                local start_time = chapter.time
+                local end_time   = chapters[i + 1] and chapters[i + 1].time or duration
+                if math.abs((end_time - start_time) - (s.ended - s.start)) <= 0.05 then
+                    matched = true
+                    used_chapters[i] = true
+                    add_active_skip({ start = start_time, ended = end_time })
+                    break
+                end
             end
         end
         if not matched then
@@ -595,6 +612,18 @@ local function toggle_markskip()
         state.start = pos
         info(string.format(texts.mark_start_pos, timestamp(pos)))
     end
+end
+
+local function switch_chapterskip()
+    if o.mode == "none" then
+        o.mode = "auto"
+    elseif o.mode == "auto" then
+        o.mode = "manual"
+    else
+        o.mode = "none"
+    end
+
+    info(texts.chapter_mode .. o.mode)
 end
 
 local function restoreProp(pause)
@@ -708,12 +737,7 @@ end
 
 
 mp.observe_property("chapter", "number", chapterskip)
-mp.register_event("file-loaded", function()
-    state = {}
-    skipped = {}
-    chapter_skip = {}
-    check_skip()
-end)
+mp.register_event("file-loaded", check_skip)
 
 mp.observe_property('pause', 'bool', function(_, value)
     if value and skip_flag then
@@ -731,13 +755,20 @@ mp.observe_property('percent-pos', 'number', function(_, value)
     end
 end)
 
-mp.add_hook('on_unload', 9, function()
-    if next(chapter_skip) ~= nil then
+mp.add_hook('on_unload', 10, function()
+    if confirm_timer then
+        cancel_skip_prompt()
+    end
+    if chapter_skip and next(chapter_skip) ~= nil then
         write_history(mp.get_property("path"))
     end
-    state = nil
-    skipped = nil
-    chapter_skip = nil
+    skip_timer = nil
+    state = {}
+    parsed = {}
+    skipped = {}
+    chapter_skip = {}
+    active_skips = {}
+    skip_prompt_queue = {}
     if skip_flag then
         restoreProp()
     end

@@ -462,14 +462,15 @@ function parse_title()
     end
     local thin_space = string.char(0xE2, 0x80, 0x89)
     filename = filename:gsub(thin_space, " ")
+    local media_title, season, episode = nil, nil, nil
     if path and not is_protocol(path) then
         local title = format_filename(filename)
         if title then
-            local media_title, season, episode = title:match("^(.-)%s*[sS](%d+)[eE](%d+)")
+            media_title, season, episode = title:match("^(.-)%s*[sS](%d+)[eE](%d+)")
             if season then
                 return title_replace(media_title), season, episode
             else
-                local media_title, episode = title:match("^(.-)%s*[eE](%d+)")
+                media_title, episode = title:match("^(.-)%s*[eE](%d+)")
                 if episode then
                     return title_replace(media_title), season, episode
                 end
@@ -494,7 +495,6 @@ function parse_title()
     end
 
     local title = mp.get_property("media-title")
-    local media_title, season, episode = nil, nil, nil
     if title then
         title = title:gsub(thin_space, " ")
         local ftitle = url_decode(title)
