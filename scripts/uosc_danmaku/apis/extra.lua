@@ -78,7 +78,7 @@ local function get_number(cat, id, site)
     local url = string.format("https://api.web.360kan.com/v1/detail?cat=%s&id=%s&site=%s",
         cat, id, site)
 
-    local cmd = { "curl", "-s", url }
+    local cmd = { "curl", "-s", "-k", url }
     local res = mp.command_native({
         name = "subprocess",
         args = cmd,
@@ -137,7 +137,7 @@ function get_details(class, id, site, title, year, number, episodenum)
     local url = string.format("https://api.web.360kan.com/v1/detail?cat=%s&id=%s&start=1&end=%s&site=%s",
         cat, id, number, site)
 
-    local cmd = { "curl", "-s", url }
+    local cmd = { "curl", "-s", "-k", url }
     local res = mp.command_native({
         name = "subprocess",
         args = cmd,
@@ -212,7 +212,7 @@ local function search_query(query, class, menu)
     if class ~= nil then
         url = url .. "&type=" .. class
     end
-    local cmd = { "curl", "-s", url }
+    local cmd = { "curl", "-s", "-k", url }
 
     local res = mp.command_native({
         name = "subprocess",
