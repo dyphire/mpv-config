@@ -386,10 +386,19 @@ local function split_by_numbers(filename)
     return parts
 end
 
--- 识别并匹配前后剧集
-local function compare_filenames(fname1, fname2)
+-- 识别匹配前后剧集并提取集数
+local function get_series_episodes(fname1, fname2)
     local parts1 = split_by_numbers(fname1)
     local parts2 = split_by_numbers(fname2)
+    local title1 = format_filename(fname1)
+    local title2 = format_filename(fname2)
+    if title1 and title2 then
+        local media_title1, season1, episode1 = title1:match("^(.-)%s*[sS](%d+)[eE](%d+)")
+        local media_title2, season2, episode2 = title2:match("^(.-)%s*[sS](%d+)[eE](%d+)")
+        if season1 and season2 and season1 ~= season2 then
+            return nil, nil
+        end
+    end
 
     local min_len = math.min(#parts1, #parts2)
 
@@ -400,7 +409,7 @@ local function compare_filenames(fname1, fname2)
 
         -- 比较数字前的字符是否相同
         if part1.pre ~= part2.pre then
-            return false
+            return nil, nil
         end
 
         -- 比较数字部分
@@ -410,11 +419,36 @@ local function compare_filenames(fname1, fname2)
 
         -- 比较数字后的字符是否相同
         if part1.post ~= part2.post then
-            return false
+            return nil, nil
         end
     end
 
-    return false
+    return nil, nil
+end
+
+-- 获取当前文件名所包含的集数
+function get_episode_number(filename, fname)
+    -- 尝试对比记录文件名来获取当前集数
+    if fname then
+        return get_series_episodes(fname, filename)
+    end
+
+    local thin_space = string.char(0xE2, 0x80, 0x89)
+    filename = filename:gsub(thin_space, " ")
+
+    local title = format_filename(filename)
+    if title then
+        local media_title, season, episode = title:match("^(.-)%s*[sS](%d+)[eE](%d+)")
+        if season then
+            return tonumber(episode)
+        else
+            local media_title, episode = title:match("^(.-)%s*[eE](%d+)")
+            if episode then
+                return tonumber(episode)
+            end
+        end
+    end
+    return nil
 end
 
 -- 规范化路径
@@ -518,36 +552,6 @@ function parse_title()
     end
 
     return title_replace(title), season, episode
-end
-
--- 获取当前文件名所包含的集数
-function get_episode_number(filename, fname)
-    -- 尝试对比记录文件名来获取当前集数
-    if fname then
-        local episode_num1, episode_num2 = compare_filenames(fname, filename)
-        if episode_num1 and episode_num2 then
-            return episode_num1, episode_num2
-        else
-            return nil, nil
-        end
-    end
-
-    local thin_space = string.char(0xE2, 0x80, 0x89)
-    filename = filename:gsub(thin_space, " ")
-
-    local title = format_filename(filename)
-    if title then
-        local media_title, season, episode = title:match("^(.-)%s*[sS](%d+)[eE](%d+)")
-        if season then
-            return tonumber(episode)
-        else
-            local media_title, episode = title:match("^(.-)%s*[eE](%d+)")
-            if episode then
-                return tonumber(episode)
-            end
-        end
-    end
-    return nil
 end
 
 local CHINESE_NUM_MAP = {

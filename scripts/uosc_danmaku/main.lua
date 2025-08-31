@@ -29,7 +29,8 @@ DELAYS = {}
 ENABLED, COMMENTS, DELAY = false, nil, 0
 DELAY_PROPERTY = string.format("user-data/%s/danmaku-delay", mp.get_script_name())
 mp.set_property_native(DELAY_PROPERTY, 0)
-
+HAS_DANMAKU = string.format("user-data/%s/has-danmaku", mp.get_script_name())
+mp.set_property_bool(HAS_DANMAKU, false)
 KEY = table_to_zero_indexed({
     0x00,0x01,0x02,0x03,0x04,
     0x05,0x06,0x07,0x08,0x09,

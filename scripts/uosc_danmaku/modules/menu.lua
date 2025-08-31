@@ -537,7 +537,6 @@ function open_add_total_menu()
     end
 end
 
--- 添加 uosc 菜单栏按钮
 mp.commandv(
     "script-message-to",
     "uosc",
@@ -597,7 +596,6 @@ mp.commandv(
         command = "script-message open_add_total_menu",
     })
 )
-
 
 mp.register_script_message('uosc-version', function()
     uosc_available = true

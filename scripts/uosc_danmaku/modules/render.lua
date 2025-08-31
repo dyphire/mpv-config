@@ -173,6 +173,7 @@ end
 
 function show_danmaku_func()
     render()
+    mp.set_property_bool(HAS_DANMAKU, true)
     if not pause then
         timer:resume()
     end
@@ -190,6 +191,7 @@ end
 
 function hide_danmaku_func()
     timer:kill()
+    mp.set_property_bool(HAS_DANMAKU, false)
     overlay:remove()
     if filter_state("danmaku") then
         mp.commandv("vf", "remove", "@danmaku")

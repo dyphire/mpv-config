@@ -1019,6 +1019,16 @@ outline=1
 ##支持 lua 的正则表达式写法
 blacklist_path=
 ```
+## 插件自定义属性
+
+- `user-data/uosc_danmaku/danmaku-delay`
+
+
+    从 `user-data/uosc_danmaku/danmaku-delay`属性中可以获取到当前弹幕延迟的值，具体用法可以参考[此issue](https://github.com/Tony15246/uosc_danmaku/issues/77)
+
+- `user-data/uosc_danmaku/has-danmaku`
+
+    从`user-data/uosc_danmaku/has-danmaku`属性中可以获取到表示当前是否有弹幕在显示的布尔值，具体用法可以参考[此pr](https://github.com/Tony15246/uosc_danmaku/pull/276)
 
 ## 常见问题
 
