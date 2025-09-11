@@ -243,7 +243,7 @@ function TopBar:render()
 			end
 
 			local rect = {ax = button_ax, ay = ay, bx = button_ax + self.size, by = by}
-			local is_hover = get_point_to_rectangle_proximity(cursor, rect) == 0
+			local is_hover = get_point_to_rectangle_proximity(cursor, rect) <= 0
 			local opacity = is_hover and 1 or config.opacity.controls
 			local button_fg = is_hover and (button.hover_fg or bg) or fg
 			local button_bg = is_hover and (button.hover_bg or fg) or bg
@@ -290,7 +290,7 @@ function TopBar:render()
 				bx = ax + rect_width,
 				by = by - margin,
 			}
-			local opacity = get_point_to_rectangle_proximity(cursor, rect) == 0
+			local opacity = get_point_to_rectangle_proximity(cursor, rect) <= 0
 				and 1 or config.opacity.playlist_position
 			if opacity > 0 then
 				ass:rect(rect.ax, rect.ay, rect.bx, rect.by, {
