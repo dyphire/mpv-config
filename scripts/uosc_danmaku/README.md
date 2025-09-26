@@ -731,7 +731,7 @@ api_server
 
 > **⚠️NOTE！**
 >
-> 请确保自定义服务的 API 与弹弹play 的兼容，已知兼容：[l429609201/misaka_danmu_server](https://github.com/l429609201/misaka_danmu_server)，[laozishen/abetsy](https://hub.docker.com/r/laozishen/abetsy)
+> 请确保自定义服务的 API 与弹弹play 的兼容，已知兼容：[misaka_danmu_server](https://github.com/l429609201/misaka_danmu_server)，[danmu_api](https://github.com/huangxd-/danmu_api)
 
 #### 使用方法
 

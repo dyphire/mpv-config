@@ -40,7 +40,7 @@ function set_episode_id(input, from_menu)
     local episodeId = tonumber(input)
     write_history(episodeId)
     set_danmaku_button()
-    if options.load_more_danmaku then
+    if options.load_more_danmaku and options.api_server:find("api%.dandanplay%.") then
         fetch_danmaku_all(episodeId, from_menu)
     else
         fetch_danmaku(episodeId, from_menu)
@@ -74,9 +74,6 @@ function get_danmaku_fallback(query)
             return
         end
         if file_exists(danmaku_xml) then
-            if query:find("iqiyi%.com") ~= nil then
-                DANMAKU.strict = true
-            end
             save_danmaku_downloaded(query, danmaku_xml)
             load_danmaku(true)
         end
@@ -276,7 +273,7 @@ local function match_file(file_path, file_name, callback)
             ["Content-Type"] = "application/json"
         }, {
             fileName = file_name,
-            fileHash = hash or "",
+            fileHash = hash or "a1b2c3d4e5f67890abcd1234ef567890",
             matchMode = "hashAndFileName"
         }
     )

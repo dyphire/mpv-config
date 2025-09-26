@@ -55,7 +55,6 @@ local function parse_ass_events(ass_path, callback)
     end
 
     local events = {}
-    local time_tolerance = options.merge_tolerance
 
     for line in ass_file:lines() do
         if line:match("^Dialogue:") then

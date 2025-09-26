@@ -378,8 +378,6 @@ end
 -- 滚动弹幕 Y 坐标算法
 function get_position_y(font_size, appear_time, text_length, resolution_x, roll_time, array)
     local velocity = (text_length + resolution_x) / roll_time
-    local best_row = 0
-    local best_bias = -math.huge
 
     for i = 1, array.rows do
         local previous_appear_time = array:get_time(i)
@@ -391,7 +389,7 @@ function get_position_y(font_size, appear_time, text_length, resolution_x, roll_
         local previous_length = array:get_length(i)
         local previous_velocity = (previous_length + resolution_x) / roll_time
         local delta_velocity = velocity - previous_velocity
-        local delta_x = (appear_time - previous_appear_time) * previous_velocity - (previous_length + text_length) / 2
+        local delta_x = (appear_time - previous_appear_time) * previous_velocity - previous_length
 
         if delta_x >= 0 then
             if delta_velocity <= 0 then
@@ -400,21 +398,9 @@ function get_position_y(font_size, appear_time, text_length, resolution_x, roll_
             end
 
             local delta_time = delta_x / delta_velocity
-            local bias = appear_time - previous_appear_time - delta_time
-            -- 判断：追及点是否在屏幕之外
-            local t_catch = previous_appear_time + delta_time
-            local distance_prev = previous_velocity * (t_catch - previous_appear_time)
-            if distance_prev > resolution_x then
-                -- 追及发生在屏幕之外，允许放置
+            if delta_time >= roll_time then
                 array:set_time_length(i, appear_time, text_length)
                 return 1 + (i - 1) * font_size
-            end
-            if bias > 0 then
-                array:set_time_length(i, appear_time, text_length)
-                return 1 + (i - 1) * font_size
-            elseif bias > best_bias then
-                best_bias = bias
-                best_row = i
             end
         end
     end
@@ -424,8 +410,6 @@ end
 
 -- 固定弹幕 Y 坐标算法
 function get_fixed_y(font_size, appear_time, fixtime, array, from_top)
-    local best_row = 0
-    local best_bias = -1
     local row_start, row_end, row_step
     if from_top then
         row_start, row_end, row_step = 1, array.rows, 1
@@ -443,9 +427,6 @@ function get_fixed_y(font_size, appear_time, fixtime, array, from_top)
             if delta_time > fixtime then
                 array:set_time_length(i, appear_time, 0)
                 return (i - 1) * font_size + 1
-            elseif delta_time > best_bias then
-                best_bias = delta_time
-                best_row = i
             end
         end
     end
