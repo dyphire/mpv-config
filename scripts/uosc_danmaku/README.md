@@ -368,6 +368,48 @@ load_more_danmaku=yes
 
 <details>
 <summary>
+excluded_platforms
+
+> 排除指定平台的弹幕源
+
+</summary>
+
+### excluded_platforms
+
+#### 功能说明
+
+排除指定平台的弹幕源，支持域名关键词匹配。多个平台用逗号分隔。
+
+当启用 `load_more_danmaku` 选项时，脚本会从弹弹play API 获取所有相关弹幕源。此选项允许你过滤掉不想要的平台弹幕。
+
+#### 常见平台
+
+- `bilibili.com` - B站
+- `gamer.com.tw` - 巴哈姆特
+- `acfun.cn` - A站
+- `iqiyi.com` - 爱奇艺
+- `qq.com` - 腾讯视频
+- `youku.com` - 优酷
+
+#### 使用示例
+
+想要开启此选项，请在mpv配置文件夹下的 `script-opts`中创建 `uosc_danmaku.conf`文件并添加如下内容：
+
+```
+excluded_platforms=["bilibili.com", "gamer.com.tw", "iqiyi.com"]
+```
+
+注意⚠️：
+- 此选项仅在 `load_more_danmaku=yes` 时生效
+- 使用 JSON 数组格式，注意保留方括号和引号
+- 支持域名关键词匹配，不需要精确匹配完整URL
+
+</details>
+
+---
+
+<details>
+<summary>
 auto_load
 
 > 开关全自动弹幕填装
@@ -1070,3 +1112,4 @@ blacklist_path=
 ## 相关项目
 
 - [slqy123/uosc_danmaku](https://github.com/slqy123/uosc_danmaku) 本项目的fork版本，实现了通过dandanplay api发送弹幕的功能，由于版本的兼容性以及功能的易用性问题未被合并，具体讨论请参阅 [#220](https://github.com/Tony15246/uosc_danmaku/pull/220)
+- [Loukyuu1120/uosc_danmaku](https://github.com/Loukyuu1120/uosc_danmaku) 本项目的fork版本，实现了自定义多个 api_servers 与 弹幕来源选择菜单 功能，具体讨论请参阅 [#282](https://github.com/Tony15246/uosc_danmaku/issues/282)

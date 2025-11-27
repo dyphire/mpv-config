@@ -71,6 +71,11 @@ options = {
     excluded_path = [[
         []
     ]],
+    -- 排除指定平台的弹幕源，支持域名关键词匹配。多个平台用逗号分隔
+    -- 示例：["bilibili.com", "gamer.com.tw"]
+    excluded_platforms = [[
+        []
+    ]],
 }
 
 opt.read_options(options, mp.get_script_name(), function() end)

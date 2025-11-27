@@ -66,6 +66,11 @@ function get_danmaku_fallback(query)
         url,
     }
 
+    if options.proxy ~= "" then
+        table.insert(arg, '-x')
+        table.insert(arg, options.proxy)
+    end
+
     call_cmd_async(arg, function(error)
         async_running = false
         if error then
@@ -117,6 +122,11 @@ function make_danmaku_request_args(method, url, headers, body)
         table.insert(args, string.format('X-Signature: %s', generateXSignature(url, time, appid, app_accept)))
         table.insert(args, '-H')
         table.insert(args, string.format('X-Timestamp: %s', time))
+    end
+
+    if options.proxy ~= "" then
+        table.insert(args, '-x')
+        table.insert(args, options.proxy)
     end
 
     table.insert(args, url)
@@ -476,6 +486,47 @@ function handle_fetched_danmaku(data, url, from_menu)
     end
 end
 
+-- 过滤被排除的平台
+function filter_excluded_platforms(relateds)
+    -- 解析排除的平台列表
+    local excluded_list = {}
+    local excluded_json = options.excluded_platforms
+    if excluded_json and excluded_json ~= "" and excluded_json ~= "[]" then
+        local success, parsed = pcall(utils.parse_json, excluded_json)
+        if success and parsed and type(parsed) == "table" then
+            excluded_list = parsed
+        end
+    end
+
+    -- 如果没有排除列表，直接返回原列表
+    if #excluded_list == 0 then
+        return relateds
+    end
+
+    -- 过滤弹幕源
+    local filtered = {}
+    for _, related in ipairs(relateds) do
+        local url = related["url"]
+        local should_exclude = false
+
+        -- 检查URL是否包含任何被排除的平台关键词
+        for _, platform in ipairs(excluded_list) do
+            if url:find(platform, 1, true) then
+                should_exclude = true
+                msg.info(string.format("已排除平台 [%s] 的弹幕源: %s", platform, url))
+                break
+            end
+        end
+
+        if not should_exclude then
+            table.insert(filtered, related)
+        end
+    end
+
+    msg.info(string.format("原始弹幕源: %d 个, 过滤后: %d 个", #relateds, #filtered))
+    return filtered
+end
+
 -- 匹配弹幕库 comment, 仅匹配dandan本身弹幕库
 -- 通过danmaku api（url）+id获取弹幕
 function fetch_danmaku(episodeId, from_menu)
@@ -511,21 +562,22 @@ function fetch_danmaku_all(episodeId, from_menu)
             return
         end
 
-        -- 处理所有的相关弹幕
+        -- 处理所有的相关弹幕，过滤掉被排除的平台
         local relateds = data["relateds"]
+        local filtered_relateds = filter_excluded_platforms(relateds)
         local function process_related(index)
-            if index > #relateds then
+            if index > #filtered_relateds then
                 -- 所有相关弹幕加载完成后，开始加载主库弹幕
                 url = options.api_server .. "/api/v2/comment/" .. episodeId .. "?withRelated=false&chConvert=0"
                 handle_main_danmaku(url, from_menu)
                 return
             end
 
-            local related = relateds[index]
+            local related = filtered_relateds[index]
             local shift = related["shift"]
 
             -- 处理当前的相关弹幕
-            handle_related_danmaku(index, relateds, related, shift, function(comments)
+            handle_related_danmaku(index, filtered_relateds, related, shift, function(comments)
                 if #comments == 0 then
                     if DANMAKU.sources[related["url"]] == nil then
                         DANMAKU.sources[related["url"]] = {from = "api_server"}

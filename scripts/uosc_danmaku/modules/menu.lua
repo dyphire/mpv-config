@@ -609,8 +609,8 @@ mp.register_script_message("set", function(prop, value)
 
     if value == "on" then
         ENABLED = true
-        set_danmaku_visibility(true)
         if COMMENTS == nil then
+            set_danmaku_visibility(true)
             local path = mp.get_property("path")
             init(path)
         else
@@ -620,7 +620,6 @@ mp.register_script_message("set", function(prop, value)
     else
         show_message("关闭弹幕", 2)
         ENABLED = false
-        set_danmaku_visibility(false)
         hide_danmaku_func()
     end
 

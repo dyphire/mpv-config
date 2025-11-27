@@ -904,9 +904,9 @@ mp.register_script_message("show_danmaku_keyboard", function()
     ENABLED = not ENABLED
     if ENABLED then
         mp.commandv("script-message-to", "uosc", "set", "show_danmaku", "on")
-        set_danmaku_visibility(true)
         if COMMENTS == nil then
             show_message("加载弹幕初始化...", 3)
+            set_danmaku_visibility(true)
             local path = mp.get_property("path")
             init(path)
         else
@@ -916,7 +916,6 @@ mp.register_script_message("show_danmaku_keyboard", function()
     else
         show_message("关闭弹幕", 2)
         mp.commandv("script-message-to", "uosc", "set", "show_danmaku", "off")
-        set_danmaku_visibility(false)
         hide_danmaku_func()
     end
 end)
