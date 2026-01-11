@@ -1,8 +1,10 @@
 local msg = require('mp.msg')
 local utils = require("mp.utils")
+local unpack = unpack or table.unpack
 
 input_loaded, input = pcall(require, "mp.input")
 uosc_available = false
+latest_menu_anime = {}
 
 -- 打开番剧数据匹配菜单
 function get_animes(query)
@@ -69,10 +71,11 @@ function get_animes(query)
     end
 
     if uosc_available then
-        update_menu_uosc(menu_type, menu_title, items, footnote, menu_cmd, query)
+        latest_menu_anime = update_menu_uosc(menu_type, menu_title, items, footnote, menu_cmd, query)
     elseif input_loaded then
         show_message("", 0)
         mp.add_timeout(0.1, function()
+            latest_menu_anime = utils.format_json(items)
             open_menu_select(items)
         end)
     end
@@ -124,6 +127,13 @@ function get_episodes(animeTitle, bangumiId)
         return
     end
 
+    table.insert(items, {
+        title = "← 返回搜索结果",
+        value = { "script-message-to", mp.get_script_name(), "open-latest-menu-anime", latest_menu_anime },
+        keep_open = false,
+        selectable = true,
+    })
+
     for _, episode in ipairs(response.bangumi.episodes) do
         table.insert(items, {
             title = episode.episodeTitle,
@@ -171,6 +181,8 @@ function update_menu_uosc(menu_type, menu_title, menu_item, menu_footnote, menu_
     }
     local json_props = utils.format_json(menu_props)
     mp.commandv("script-message-to", "uosc", "open-menu", json_props)
+
+    return json_props
 end
 
 function open_menu_select(menu_items, is_time)
@@ -250,12 +262,115 @@ end
 
 -- 打开弹幕源添加管理菜单
 function open_add_menu_get()
-    mp.commandv('script-message-to', 'console', 'disable')
+    local menu_log, deal_value = {}, {}
+
+    -- 重建菜单内容函数
+    local function rebuild_menu_log(select_num)
+        deal_value = {}
+        menu_log = {
+            { text = "【既有弹幕源】", style = "{\\c&H00CCFF&\\b1}" },
+            { text = "----------------------------", style = "{\\c&H888888&}" }
+        }
+
+        local serial = 0
+        for url, source in pairs(DANMAKU.sources) do
+            if source.data then
+                serial = serial + 1
+                local action, text
+
+                if source.from == "api_server" then
+                    action = source.blocked and "unblock" or "block"
+                    text = string.format("  [%02d] %s [来源：弹幕服务器%s]  ", serial, url,
+                        source.blocked and "（已屏蔽）" or "（未屏蔽）")
+                else
+                    action = "delete"
+                    text = string.format("  [%02d] %s [来源：用户添加]  ", serial, url)
+                end
+
+                local style = (tonumber(select_num) == serial) and
+                    "{\\c&HFFDE7F&\\b1}" or (action == "unblock" and "{\\c&H4C4CC3&\\b0}" or "{\\c&HCCCCCC&\\b0}")
+
+                deal_value[serial] = {value = url, action = action}
+                table.insert(menu_log, {text = text, style = style})
+            end
+        end
+
+        if serial == 0 then
+            table.insert(menu_log, { text = "        无", style = "" })
+        end
+    end
+
+    -- 显示菜单
+    local function show_menu(extra_lines, select_num)
+        rebuild_menu_log(select_num)
+
+        local display = {}
+        for _, item in ipairs(menu_log) do table.insert(display, item) end
+        table.insert(display, { text = "----------------------------", style = "{\\c&H888888&}" })
+
+        if extra_lines then
+            if #extra_lines < 2 then table.insert(display, { text = "\n", style = "" }) end
+            for _, line in ipairs(extra_lines) do table.insert(display, line) end
+        else
+            table.insert(display, { text = "\n", style = "" })
+            table.insert(display, {
+                text = "提示: 输入【选项数字】可屏蔽或删除既有弹幕源",
+                style = "{\\c&H999999&}"
+            })
+        end
+
+        input.set_log(display)
+    end
+
+    -- 获取操作提示
+    local function get_hint(action)
+        local hints = {
+            block = "按回车执行，屏蔽该弹幕源",
+            unblock = "按回车执行，解除该弹幕源的屏蔽",
+            delete = "按回车执行，删除该弹幕源"
+        }
+        return hints[action] or "按回车执行，获取输入源地址url的弹幕"
+    end
+
     input.get({
-        prompt = 'Input url:',
+        keep_open = true,
+        prompt = "请在此输入源地址url: ",
+        opened = function() show_menu() end,
+        edited = function(text)
+            text = text:gsub("^%s*(.-)%s*$", "%1")
+
+            if text == "" then
+                show_menu()
+                return
+            end
+
+            local num = tonumber(text)
+            local event = num and deal_value[num]
+            local hint = get_hint(event and event.action)
+
+            show_menu({
+                { text = string.format("已输入: %s", text), style = "{\\c&HCCCCCC&}" },
+                { text = hint, style = "{\\c&H999999&}" }
+            }, text)
+        end,
         submit = function(text)
-            input.terminate()
-            mp.commandv("script-message-to", mp.get_script_name(), "add-source-event", text)
+            mp.osd_message("菜单已关闭   ")
+            text = text:gsub("^%s*(.-)%s*$", "%1")
+            if text == "" then return end
+
+            local num = tonumber(text)
+            local event = num and deal_value[num]
+
+            if event then
+                local args = string.format('{"type":"activate","value":"%s","action":"%s"}',
+                    string.gsub(event.value, '\\', '\\\\'), event.action)
+                mp.commandv("script-message-to", mp.get_script_name(), "setup-danmaku-source", args)
+            else
+                input.terminate()
+                mp.commandv("script-message-to", mp.get_script_name(), "add-source-event", text)
+            end
+
+            mp.add_timeout(0.1, show_menu)
         end
     })
 end
@@ -263,19 +378,19 @@ end
 function open_add_menu_uosc()
     local sources = {}
     for url, source in pairs(DANMAKU.sources) do
-        if source.fname then
+        if source.data then
             local item = {title = url, value = url, keep_open = true,}
             if source.from == "api_server" then
                 if source.blocked then
                     item.hint = "来源：弹幕服务器（已屏蔽）"
-                    item.actions = {{icon = "check", name = "unblock"},}
+                    item.actions = {{icon = "check", name = "unblock", label = "解除屏蔽"},}
                 else
                     item.hint = "来源：弹幕服务器（未屏蔽）"
-                    item.actions = {{icon = "not_interested", name = "block"},}
+                    item.actions = {{icon = "not_interested", name = "block", label = "屏蔽"},}
                 end
             else
                 item.hint = "来源：用户添加"
-                item.actions = {{icon = "delete", name = "delete"},}
+                item.actions = {{icon = "delete", name = "delete", label = "删除"},}
             end
             table.insert(sources, item)
         end
@@ -318,7 +433,19 @@ function open_content_menu(pos)
             if text and text ~= "" and start_time >= 0 and start_time <= duration then
                 table.insert(items, {
                     title = abbr_str(text, 60),
-                    hint = seconds_to_time(start_time),
+                    hint = seconds_to_time(start_time) .. "(" .. remove_query(event.source) .. ")",
+                    actions = {
+                        {
+                            name = 'block_source',
+                            icon = 'block',
+                            label = '屏蔽对应弹幕源'
+                        },
+                        {
+                            name = 'adjust_delay',
+                            icon = 'more_time',
+                            label = '调整弹幕源延迟'
+                        },
+                    },
                     value = { "seek", start_time, "absolute" },
                     active = time_pos >= start_time and time_pos <= end_time,
                 })
@@ -330,7 +457,9 @@ function open_content_menu(pos)
         type = "menu_content",
         title = "弹幕内容",
         footnote = "使用 / 打开搜索",
-        items = items
+        items = items,
+        item_actions_place = "outside",
+        callback = {mp.get_script_name(), 'handle-danmaku-content-action'},
     }
     local json_props = utils.format_json(menu_props)
 
@@ -428,7 +557,7 @@ function danmaku_delay_setup(source_url)
 
     local sources = {}
     for url, source in pairs(DANMAKU.sources) do
-        if source.fname and not source.blocked then
+        if source.data and not source.blocked then
             local delay = 0
             if source.delay_segments then
                 for _, seg in ipairs(source.delay_segments) do
@@ -537,6 +666,7 @@ function open_add_total_menu()
     end
 end
 
+
 mp.commandv(
     "script-message-to",
     "uosc",
@@ -596,6 +726,7 @@ mp.commandv(
         command = "script-message open_add_total_menu",
     })
 )
+
 
 mp.register_script_message('uosc-version', function()
     uosc_available = true
@@ -674,6 +805,17 @@ mp.register_script_message("open_content_danmaku_menu", function()
     open_content_menu()
 end)
 
+mp.register_script_message("open-latest-menu-anime", function ()
+    if uosc_available then
+        mp.commandv("script-message-to", "uosc", "open-menu", latest_menu_anime)
+    elseif input_loaded then
+        show_message("", 0)
+        mp.add_timeout(0.1, function()
+            open_menu_select(utils.parse_json(latest_menu_anime))
+        end)
+    end
+end)
+
 mp.register_script_message("setup-danmaku-style", function(query, text)
     local event = utils.parse_json(query)
     if event ~= nil then
@@ -731,14 +873,10 @@ mp.register_script_message('setup-danmaku-source', function(json)
     if event.type == 'activate' then
 
         if event.action == "delete" then
-            local rm = DANMAKU.sources[event.value]["fname"]
-            if rm and file_exists(rm) and DANMAKU.sources[event.value]["from"] ~= "user_local" then
-                os.remove(rm)
-            end
             DANMAKU.sources[event.value] = nil
             remove_source_from_history(event.value)
             mp.commandv("script-message-to", "uosc", "close-menu", "menu_source")
-            open_add_menu_uosc()
+            open_add_menu()
             load_danmaku(true)
         end
 
@@ -746,7 +884,7 @@ mp.register_script_message('setup-danmaku-source', function(json)
             DANMAKU.sources[event.value]["blocked"] = true
             add_source_to_history(event.value, DANMAKU.sources[event.value])
             mp.commandv("script-message-to", "uosc", "close-menu", "menu_source")
-            open_add_menu_uosc()
+            open_add_menu()
             load_danmaku(true)
         end
 
@@ -754,7 +892,7 @@ mp.register_script_message('setup-danmaku-source', function(json)
             DANMAKU.sources[event.value]["blocked"] = false
             add_source_to_history(event.value, DANMAKU.sources[event.value])
             mp.commandv("script-message-to", "uosc", "close-menu", "menu_source")
-            open_add_menu_uosc()
+            open_add_menu()
             load_danmaku(true)
         end
     end
@@ -798,6 +936,34 @@ mp.register_script_message("setup-source-delay", function(query, text)
             mp.commandv("script-message-to", "uosc", "close-menu", "menu_delay")
             danmaku_delay_setup(query)
             load_danmaku(true, true)
+        end
+    end
+end)
+
+mp.register_script_message('handle-danmaku-content-action', function(json)
+    local event = utils.parse_json(json)
+    if not event or event.type ~= 'activate' then return end
+
+    if event.action then
+        local d = COMMENTS[event.index]
+        if not d or not d.source then return end
+
+        if event.action == "block_source" then
+            DANMAKU.sources[d.source]["blocked"] = true
+            add_source_to_history(d.source, DANMAKU.sources[d.source])
+            mp.commandv("script-message-to", "uosc", "close-menu", "menu_content")
+            load_danmaku(true)
+        elseif event.action == "adjust_delay" then
+            mp.commandv("script-message", "open_source_delay_menu", d.source)
+        end
+    else
+        if event.value then
+            if type(event.value) == "table" then
+                mp.commandv(unpack(event.value))
+            else
+                mp.command(event.value)
+            end
+            mp.commandv("script-message-to", "uosc", "close-menu", "menu_content")
         end
     end
 end)

@@ -1,25 +1,17 @@
 -- modified from https://github.com/rkscv/danmaku/blob/main/danmaku.lua
 local msg = require('mp.msg')
 local utils = require("mp.utils")
+local unpack = unpack or table.unpack
 
 local INTERVAL = options.vf_fps and 0.01 or 0.001
 local osd_width, osd_height, pause = 0, 0, true
 
--- 提取 \move 参数 (x1, y1, x2, y2) 并返回
-local function parse_move_tag(text)
-    -- 匹配包括小数和负数在内的坐标值
-    local x1, y1, x2, y2 = text:match("\\move%((%-?[%d%.]+),%s*(%-?[%d%.]+),%s*(%-?[%d%.]+),%s*(%-?[%d%.]+).*%)")
-    if x1 and y1 and x2 and y2 then
-        return tonumber(x1), tonumber(y1), tonumber(x2), tonumber(y2)
-    end
-    return nil
-end
+local overlay = mp.create_osd_overlay('ass-events')
 
-local function parse_comment(event, pos, height, delay)
-    local x1, y1, x2, y2 = parse_move_tag(event.text)
+local function realtime_position_text(event, pos, height, delay)
     local displayarea = tonumber(height * options.displayarea)
-    if not x1 then
-        local current_x, current_y = event.text:match("\\pos%((%-?[%d%.]+),%s*(%-?[%d%.]+).*%)")
+    if not event.move then
+        local _, current_y = unpack(event.pos)
         if not current_y or tonumber(current_y) > displayarea then return end
         if event.style ~= "SP" and event.style ~= "MSG" then
             return string.format("{\\an8}%s", event.text)
@@ -28,6 +20,7 @@ local function parse_comment(event, pos, height, delay)
         end
     end
 
+    local x1, y1, x2, y2 = unpack(event.move)
     -- 计算移动的时间范围
     local duration = event.end_time - event.start_time  --mean: options.scrolltime
     local progress = (pos - event.start_time - delay) / duration  -- 移动进度 [0, 1]
@@ -45,46 +38,6 @@ local function parse_comment(event, pos, height, delay)
         return string.format("{\\pos(%.1f,%.1f)\\an7}%s", current_x, current_y, clean_text)
     end
 end
-
--- 从 ASS 文件中解析样式和事件
-local function parse_ass_events(ass_path, callback)
-    local ass_file = io.open(ass_path, "r")
-    if not ass_file then
-        callback("无法打开 ASS 文件")
-        return
-    end
-
-    local events = {}
-
-    for line in ass_file:lines() do
-        if line:match("^Dialogue:") then
-            local start_time, end_time, style, text = line:match("Dialogue:%s*[^,]*,%s*([^,]*),%s*([^,]*),%s*([^,]*),[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,(.*)")
-
-            if start_time and end_time and text then
-                local event = {
-                    start_time = time_to_seconds(start_time),
-                    end_time = time_to_seconds(end_time),
-                    style = style,
-                    text = text:gsub("%s+$", ""),
-                    clean_text = text:gsub("\\h+", " "):gsub("{[\\=].-}", ""):gsub("^%s*(.-)%s*$", "%1"),
-                    pos = text:match("\\pos"),
-                    move = text:match("\\move"),
-                }
-
-                table.insert(events, event)
-            end
-        end
-    end
-
-    table.sort(events, function(a, b)
-        return a.start_time < b.start_time
-    end)
-
-    ass_file:close()
-    callback(nil, events)
-end
-
-local overlay = mp.create_osd_overlay('ass-events')
 
 function render()
     if COMMENTS == nil then return end
@@ -111,7 +64,7 @@ function render()
 
     for _, event in ipairs(COMMENTS) do
         if pos >= event.start_time + delay and pos <= event.end_time + delay then
-            local text = parse_comment(event, pos, height, delay)
+            local text = realtime_position_text(event, pos, height, delay)
             if text then
                 text = text:gsub("&#%d+;","")
             end
@@ -138,25 +91,17 @@ end
 
 local timer = mp.add_periodic_timer(INTERVAL, render, true)
 
-function parse_danmaku(ass_file_path, from_menu, no_osd)
-    parse_ass_events(ass_file_path, function(err, events)
-        COMMENTS = events
-        if err then
-            msg.error("ASS 解析错误: " .. err)
-            return
+function render_danmaku(from_menu, no_osd)
+    if ENABLED and (from_menu or get_danmaku_visibility()) then
+        if not no_osd then
+            show_loaded(true)
         end
-
-        if ENABLED and (from_menu or get_danmaku_visibility()) then
-            if not no_osd then
-                show_loaded(true)
-            end
-            mp.commandv("script-message-to", "uosc", "set", "show_danmaku", "on")
-            show_danmaku_func()
-        else
-            show_message("")
-            hide_danmaku_func()
-        end
-    end)
+        mp.commandv("script-message-to", "uosc", "set", "show_danmaku", "on")
+        show_danmaku_func()
+    else
+        show_message("")
+        hide_danmaku_func()
+    end
 end
 
 local function filter_state(label, name)
@@ -274,13 +219,10 @@ mp.add_hook("on_unload", 50, function()
     end
 
     local files_to_remove = {
-        file1 = utils.join_path(DANMAKU_PATH, "danmaku-" .. PID .. ".json"),
-        file2 = utils.join_path(DANMAKU_PATH, "danmaku-" .. PID .. ".ass"),
-        file3 = utils.join_path(DANMAKU_PATH, "temp-" .. PID .. ".mp4"),
-        file4 = utils.join_path(DANMAKU_PATH, "bahamut-" .. PID .. ".json")
+        file1 = utils.join_path(DANMAKU_PATH, "temp-" .. PID .. ".mp4"),
     }
 
-    if options.save_danmaku and file_exists(files_to_remove.file2) then
+    if options.save_danmaku then
         save_danmaku(true)
     end
 
@@ -290,10 +232,5 @@ mp.add_hook("on_unload", 50, function()
         end
     end
 
-    for _, source in pairs(DANMAKU.sources) do
-        if source.fname and source.from and source.from ~= "user_local" and file_exists(source.fname) then
-            os.remove(source.fname)
-        end
-    end
     DANMAKU = {sources = {}, count = 1}
 end)

@@ -247,7 +247,7 @@ end
 
 local function set_danmaku_delay(dly, time)
     for url, source in pairs(DANMAKU.sources) do
-        if source.fname and not source.blocked then
+        if source.data and not source.blocked then
             source.delay_segments = source.delay_segments or {}
             if dly == 0 then
                 source.delay_segments = {}
@@ -300,9 +300,6 @@ local function clear_source()
 
     for url, source in pairs(DANMAKU.sources) do
         if source.from == "user_custom" then
-            if source.fname and file_exists(source.fname) then
-                os.remove(source.fname)
-            end
             DANMAKU.sources[url] = nil
         end
     end
@@ -497,39 +494,8 @@ function read_danmaku_source_record(path)
     end
 end
 
--- 收集现有的弹幕文件和延迟记录
-local function collect_danmaku_sources()
-    local danmaku_input = {}
-    local delays = {}
-
-    for _, source in pairs(DANMAKU.sources) do
-        if not source.blocked and source.fname then
-            if not file_exists(source.fname) then
-                show_message("未找到弹幕文件", 3)
-                msg.info("未找到弹幕文件")
-                return
-            end
-            table.insert(danmaku_input, source.fname)
-
-            if source.delay_segments and #source.delay_segments > 0 then
-                table.insert(delays, source.delay_segments)
-            end
-        end
-    end
-
-    return danmaku_input, delays
-end
-
 -- 视频播放时保存弹幕
 function save_danmaku(not_forced)
-    local danmaku_input, delays = collect_danmaku_sources()
-    if #danmaku_input == 0 then
-        show_message("弹幕内容为空，无法保存", 3)
-        msg.verbose("弹幕内容为空，无法保存")
-        COMMENTS = {}
-        return
-    end
-
     local path = mp.get_property("path")
     local dir = get_parent_directory(path) or ""
     local filename = mp.get_property('filename/no-ext')
@@ -545,7 +511,7 @@ function save_danmaku(not_forced)
             msg.info("已存在同名弹幕文件：" .. danmaku_out)
             return
         else
-            convert_danmaku_to_xml(danmaku_input, danmaku_out, delays)
+            convert_danmaku_to_xml(danmaku_out)
         end
     end
 end
@@ -553,19 +519,8 @@ end
 -- 加载弹幕
 function load_danmaku(from_menu, no_osd)
     if not ENABLED then return end
-    local temp_file = "danmaku-" .. PID .. ".ass"
-    local danmaku_file = utils.join_path(DANMAKU_PATH, temp_file)
-    local danmaku_input, delays = collect_danmaku_sources()
-    -- 如果没有弹幕文件，退出加载
-    if #danmaku_input == 0 then
-        show_message("该集弹幕内容为空，结束加载", 3)
-        msg.verbose("该集弹幕内容为空，结束加载")
-        COMMENTS = {}
-        return
-    end
-
-    convert_danmaku_format(danmaku_input, danmaku_file, delays)
-    parse_danmaku(danmaku_file, from_menu, no_osd)
+    convert_danmaku_to_ass_events()
+    render_danmaku(from_menu, no_osd)
 end
 
 -- 为 bilibli 网站的视频播放加载弹幕

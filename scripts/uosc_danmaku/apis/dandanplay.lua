@@ -26,14 +26,10 @@ function set_episode_id(input, from_menu)
     DANMAKU.source = "dandanplay"
     for url, source in pairs(DANMAKU.sources) do
         if source.from == "api_server" then
-            if source.fname and file_exists(source.fname) then
-                os.remove(source.fname)
-            end
-
             if not source.from_history then
                 DANMAKU.sources[url] = nil
             else
-                DANMAKU.sources[url]["fname"] = nil
+                DANMAKU.sources[url]["data"] = nil
             end
         end
     end
@@ -327,31 +323,24 @@ end
 
 -- 保存弹幕数据
 function save_danmaku_data(comments, query, danmaku_source)
-    local temp_file = "danmaku-" .. PID .. DANMAKU.count .. ".json"
-    local danmaku_file = utils.join_path(DANMAKU_PATH, temp_file)
-    DANMAKU.count = DANMAKU.count + 1
-    local success = save_danmaku_json(comments, danmaku_file)
+    local danmaku_list = save_danmaku_to_list(comments)
 
-    if success then
-        if DANMAKU.sources[query] ~= nil then
-            if DANMAKU.sources[query].fname and file_exists(DANMAKU.sources[query].fname) then
-                os.remove(DANMAKU.sources[query].fname)
-            end
-            DANMAKU.sources[query]["fname"] = danmaku_file
-        else
-            DANMAKU.sources[query] = {from = danmaku_source, fname = danmaku_file}
-        end
+    if DANMAKU.sources[query] ~= nil then
+        DANMAKU.sources[query]["data"] = danmaku_list
+    else
+        DANMAKU.sources[query] = {from = danmaku_source, data = danmaku_list}
     end
 end
 
 function save_danmaku_downloaded(url, downloaded_file)
+    local danmaku_list = parse_danmaku_file(downloaded_file)
+    if file_exists(downloaded_file) then
+        os.remove(downloaded_file)
+    end
     if DANMAKU.sources[url] ~= nil then
-        if DANMAKU.sources[url].fname and file_exists(DANMAKU.sources[url].fname) then
-            os.remove(DANMAKU.sources[url].fname)
-        end
-        DANMAKU.sources[url]["fname"] = downloaded_file
+        DANMAKU.sources[url]["data"] = danmaku_list
     else
-        DANMAKU.sources[url] = {from = "user_custom", fname = downloaded_file}
+        DANMAKU.sources[url] = {from = "user_custom", data = danmaku_list}
     end
 end
 
@@ -636,19 +625,16 @@ function add_danmaku_source_local(query, from_menu)
         msg.warn("无效的文件路径")
         return
     end
-    if not (string.match(path, "%.xml$") or string.match(path, "%.json$") or string.match(path, "%.ass$")) then
+    if not (string.match(path, "%.xml$") or string.match(path, "%.json$")) then
         msg.warn("仅支持弹幕文件")
         return
     end
 
     if DANMAKU.sources[query] ~= nil then
-        if DANMAKU.sources[query].fname and file_exists(DANMAKU.sources[query].fname) then
-            os.remove(DANMAKU.sources[query].fname)
-        end
         DANMAKU.sources[query]["from"] = "user_local"
-        DANMAKU.sources[query]["fname"] = path
+        DANMAKU.sources[query]["data"] = parse_danmaku_file(path)
     else
-        DANMAKU.sources[query] = {from = "user_local", fname = path}
+        DANMAKU.sources[query] = {from = "user_local", data = parse_danmaku_file(path)}
     end
 
     set_danmaku_button()
@@ -677,44 +663,37 @@ function add_danmaku_source_online(query, from_menu)
     end)
 end
 
--- 将弹幕转换为factory可读的json格式
-function save_danmaku_json(comments, json_filename)
-    local temp_file = "danmaku-" .. PID .. ".json"
-    json_filename = json_filename or utils.join_path(DANMAKU_PATH, temp_file)
-    local json_file = io.open(json_filename, "w")
+-- 将弹幕转换为 Lua table
+function save_danmaku_to_list(comments)
+    local danmaku_list = {}
 
-    if json_file then
-        json_file:write("[\n")
-        for _, comment in ipairs(comments) do
-            local p = comment["p"]
-            local shift = comment["shift"]
-            if p then
-                local fields = split(p, ",")
-                if shift ~= nil then
-                    fields[1] = tonumber(fields[1]) + tonumber(shift)
-                end
-                local c_value = string.format(
-                    "%s,%s,%s,25,,,",
-                    tostring(fields[1]), -- first field of p to first field of c
-                    fields[3], -- third field of p to second field of c
-                    fields[2]  -- second field of p to third field of c
-                )
-                local m_value = comment["m"]
-                                :gsub("[%z\1-\31]", "")
-                                :gsub("\\", "")
-                                :gsub("\"", "")
-
-                -- Write the JSON object as a single line, no spaces or extra formatting
-                local json_entry = string.format('{"c":"%s","m":"%s"},\n', c_value, m_value)
-                json_file:write(json_entry)
+    for _, comment in ipairs(comments) do
+        local p = comment["p"]
+        local shift = comment["shift"]
+        if p then
+            local fields = split(p, ",")
+            if shift ~= nil then
+                fields[1] = tonumber(fields[1]) + tonumber(shift)
             end
+            local time = tonumber(fields[1])
+            local type = tonumber(fields[2])
+            local color = tonumber(fields[3]) or 0xFFFFFF
+            local size = 25
+            local m_value = comment["m"]
+                            :gsub("[%z\1-\31]", "")
+                            :gsub("\\", "")
+                            :gsub("\"", "")
+            table.insert(danmaku_list, {
+                time = time,
+                type = type,
+                size = size,
+                color = color,
+                text = m_value
+            })
         end
-        json_file:write("]")
-        json_file:close()
-        return true
     end
 
-    return false
+    return danmaku_list
 end
 
 -- 通过文件前 16M 的 hash 值进行弹幕匹配

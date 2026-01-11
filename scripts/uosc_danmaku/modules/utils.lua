@@ -1,4 +1,5 @@
 local utils = require("mp.utils")
+local unpack = unpack or table.unpack
 
 -- from http://lua-users.org/wiki/LuaUnicode
 local UTF8_PATTERN = '[%z\1-\127\194-\244][\128-\191]*'
@@ -648,7 +649,7 @@ function call_cmd_async(args, callback)
         name = 'subprocess',
         capture_stderr = true,
         capture_stdout = true,
-        playback_only = false,
+        playback_only = true,
         args = args,
     }, function(success, result, error)
         if not success or not result or result.status ~= 0 then

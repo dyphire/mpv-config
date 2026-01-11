@@ -34,7 +34,7 @@ end
 
 local function query_tmdb(title, class, menu)
     local encoded_title = url_encode(title)
-    local url = string.format("https://api.themoviedb.org/3/search/%s?api_key=%s&query=%s&language=zh-CN",
+    local url = string.format("https://api.tmdb.org/3/search/%s?api_key=%s&query=%s&language=zh-CN",
     class, Base64.decode(options.tmdb_api_key), encoded_title)
 
     local cmd = {
@@ -174,6 +174,14 @@ function get_details(class, id, site, title, year, number, episodenum)
                 return
             end
         end
+
+        table.insert(items, {
+            title = "← 返回搜索结果",
+            value = { "script-message-to", "uosc", "open-menu", latest_menu_anime },
+            keep_open = false,
+            selectable = true,
+        })
+
         for _, item in ipairs(data[site]) do
             table.insert(items, {
                 title = "第" .. item.playlink_num .. "集",
@@ -257,7 +265,7 @@ local function search_query(query, class, menu)
     end
     if #items > 0 then
         if uosc_available then
-            update_menu_uosc(menu.type, menu.title, items, menu.footnote, menu.cmd, query)
+            latest_menu_anime = update_menu_uosc(menu.type, menu.title, items, menu.footnote, menu.cmd, query)
         else
             show_message("", 0)
             mp.add_timeout(0.1, function()

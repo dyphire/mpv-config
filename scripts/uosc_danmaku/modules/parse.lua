@@ -151,6 +151,7 @@ local function merge_duplicate_danmaku(danmakus, threshold)
                 size = base.size,
                 color = base.color,
                 text = base.text,
+                source = base.source,
             }
             if count > 2 or not same_time then
                 danmaku.text = danmaku.text .. string.format("x%d", count)
@@ -207,7 +208,7 @@ local function limit_danmaku(danmakus, limit)
 end
 
 -- 解析 XML 弹幕
-local function parse_xml_danmaku(xml_string, delay_segments)
+local function parse_xml_danmaku(xml_string)
     local danmakus = {}
     -- [^>]* 匹配其他 attributes
     -- %f[^%s] 确保 p= 前面是空白字符
@@ -220,10 +221,8 @@ local function parse_xml_danmaku(xml_string, delay_segments)
         end
 
         if params[1] and params[2]  and params[3] and params[4] then
-            local base_time = params[1]
-            local delay = get_delay_for_time(delay_segments, base_time)
             table.insert(danmakus, {
-                time = base_time + delay,
+                time = params[1],
                 type = params[2] or 1,
                 size = params[3] or 25,
                 color = params[4] or 0xFFFFFF,
@@ -237,7 +236,7 @@ local function parse_xml_danmaku(xml_string, delay_segments)
 end
 
 -- 解析 JSON 弹幕
-local function parse_json_danmaku(json_string, delay_segments)
+local function parse_json_danmaku(json_string)
     local danmakus = {}
     if json_string:sub(1, 3) == "\239\187\191" then
         json_string = json_string:sub(4)
@@ -261,10 +260,8 @@ local function parse_json_danmaku(json_string, delay_segments)
             end
 
             if params[1] and params[2] and params[3] and params[4] then
-                local base_time = params[1]
-                local delay = get_delay_for_time(delay_segments, base_time)
                 table.insert(danmakus, {
-                    time = base_time + delay,
+                    time = params[1],
                     color = params[2] or 0xFFFFFF,
                     type = params[3] or 1,
                     size = params[4] or 25,
@@ -279,64 +276,40 @@ local function parse_json_danmaku(json_string, delay_segments)
 end
 
 -- 解析弹幕文件
-function parse_danmaku_files(danmaku_input, delays)
-    local DANMAKU_PATHs = {}
-    if type(danmaku_input) == "string" then
-        DANMAKU_PATHs = { danmaku_input }
-    else
-        for i, input in ipairs(danmaku_input) do
-            DANMAKU_PATHs[#DANMAKU_PATHs + 1] = input
-        end
-    end
+function parse_danmaku_file(danmaku_input)
+    local danmakus = {}
 
-    local all_danmaku = {}
+    if file_exists(danmaku_input) then
+        local content = read_file(danmaku_input)
+        if content then
+            local parsed = {}
+            if danmaku_input:match("%.xml$") then
+                parsed = parse_xml_danmaku(content)
+            elseif danmaku_input:match("%.json$") then
+                parsed = parse_json_danmaku(content)
+            end
 
-    for i, DANMAKU_PATH in ipairs(DANMAKU_PATHs) do
-        if file_exists(DANMAKU_PATH) then
-            local content = read_file(DANMAKU_PATH)
-            if content then
-                local parsed = {}
-                local delay_segments = delays and delays[i] or {}
-                if DANMAKU_PATH:match("%.xml$") then
-                    parsed = parse_xml_danmaku(content, delay_segments)
-                elseif DANMAKU_PATH:match("%.json$") then
-                    parsed = parse_json_danmaku(content, delay_segments)
+            for _, d in ipairs(parsed) do
+                local matched, pattern = is_blacklisted(d.text, black_patterns)
+                if not matched then
+                    table.insert(danmakus, d)
+                else
+                    -- msg.debug("命中黑名单: " .. pattern)
                 end
-
-                for _, d in ipairs(parsed) do
-                    local matched, pattern = is_blacklisted(d.text, black_patterns)
-                    if not matched then
-                        d.text = ch_convert_cached(d.text)
-                        table.insert(all_danmaku, d)
-                    else
-                        -- msg.debug("命中黑名单: " .. pattern)
-                    end
-                end
-            else
-                msg.info("无法读取文件内容: " .. DANMAKU_PATH)
             end
         else
-            msg.info("文件不存在: " .. DANMAKU_PATH)
+            msg.info("无法读取文件内容: " .. danmaku_input)
         end
+    else
+        msg.info("文件不存在: " .. danmaku_input)
     end
 
-    if #all_danmaku == 0 then
+    if #danmakus == 0 then
         msg.info("未能解析任何弹幕")
         return nil
     end
 
-    if options.max_screen_danmaku > 0 and options.merge_tolerance <= 0 then
-        options.merge_tolerance = options.scrolltime
-    end
-
-    -- 按时间排序
-    table.sort(all_danmaku, function(a, b)
-        return a.time < b.time
-    end)
-
-    all_danmaku = merge_duplicate_danmaku(all_danmaku, options.merge_tolerance)
-
-    return all_danmaku
+    return danmakus
 end
 
 --# 弹幕数组与布局算法 (Danmaku Array & Layout Algorithms)
@@ -436,21 +409,94 @@ function get_fixed_y(font_size, appear_time, fixtime, array, from_top)
     return nil
 end
 
--- 将弹幕转换为 ASS 格式
-function convert_danmaku_to_ass(all_danmaku, danmaku_file)
-    if #all_danmaku == 0 then
-        msg.info("弹幕文件为空或解析失败")
+-- 将弹幕转换为 XML 格式
+function convert_danmaku_to_xml(danmaku_out)
+    local danmakus = {}
+    for _, source in pairs(DANMAKU.sources) do
+        if not source.blocked and source.data then
+            for _, d in ipairs(source.data) do
+                table.insert(danmakus, d)
+            end
+        end
+    end
+
+    if #danmakus == 0 then
+        show_message("弹幕内容为空，无法保存", 3)
+        msg.verbose("弹幕内容为空，无法保存")
+        COMMENTS = {}
         return false
     end
-    msg.info("已解析 " .. #all_danmaku .. " 条弹幕")
 
-    local alpha = string.format("%02X", (1 - tonumber(options.opacity)) * 255)
-    local bold = options.bold and "1" or "0"
+    -- 拼接为 XML 内容
+    local xml = { '<?xml version="1.0" encoding="UTF-8"?><i>\n' }
+    for _, d in ipairs(danmakus) do
+       local time = d.time
+       local type = d.type or 1
+       local size = d.size or 25
+       local color = d.color or 0xFFFFFF
+       local text = d.text or ""
+
+       text = text:gsub("&", "&amp;")
+                  :gsub("<", "&lt;")
+                  :gsub(">", "&gt;")
+                  :gsub("\"", "&quot;")
+                  :gsub("'", "&apos;")
+
+       table.insert(xml, string.format('<d p="%s,%s,%s,%s">%s</d>\n', time, type, size, color, text))
+    end
+    table.insert(xml, '</i>')
+
+    -- 写入 XML 文件
+    local file = io.open(danmaku_out, "w")
+    if not file then
+       show_message("无法写入目标 XML 文件", 3)
+       msg.info("无法写入目标 XML 文件: " .. danmaku_out)
+       return false
+    end
+    file:write(table.concat(xml))
+    file:close()
+    show_message("转换 XML 弹幕成功： " .. danmaku_out, 3)
+    msg.info("转换 XML 弹幕成功： " .. danmaku_out)
+    return true
+end
+
+function convert_danmaku_to_ass_events()
+    local danmakus = {}
+    for url, source in pairs(DANMAKU.sources) do
+        if not source.blocked and source.data then
+            for _, d in ipairs(source.data) do
+                local delay_segments = (source.delay_segments and #source.delay_segments > 0) and source.delay_segments or {}
+                local delay = get_delay_for_time(delay_segments, d.time)
+                d.time = d.time + delay
+                d.source = url
+                table.insert(danmakus, d)
+            end
+        end
+    end
+
+    if options.max_screen_danmaku > 0 and options.merge_tolerance <= 0 then
+        options.merge_tolerance = options.scrolltime
+    end
+
+    -- 按时间排序
+    table.sort(danmakus, function(a, b)
+        return a.time < b.time
+    end)
+
+    danmakus = merge_duplicate_danmaku(danmakus, options.merge_tolerance)
+
+    if #danmakus == 0 then
+        show_message("该集弹幕内容为空，结束加载", 3)
+        msg.verbose("该集弹幕内容为空，结束加载")
+        COMMENTS = {}
+        return
+    end
+
+    msg.info("已解析 " .. #danmakus .. " 条弹幕")
+
     local fontsize = tonumber(options.fontsize) or 50
     local scrolltime = tonumber(options.scrolltime) or 15
     local fixtime = tonumber(options.fixtime) or 5
-    local outline = tonumber(options.outline) or 1.0
-    local shadow = tonumber(options.shadow) or 0.0
 
     local res_x = 1920
     local res_y = 1080
@@ -458,32 +504,9 @@ function convert_danmaku_to_ass(all_danmaku, danmaku_file)
     local roll_array = DanmakuArray:new(res_x, res_y, fontsize)
     local top_array = DanmakuArray:new(res_x, res_y, fontsize)
 
-    local ass_header = string.format([[
-[Script Info]
-Title: DanmakuConvert for mpv
-ScriptType: v4.00+
-Collisions: Normal
-PlayResX: %d
-PlayResY: %d
-Timer: 100.0000
-WrapStyle: 2
-ScaledBorderAndShadow: yes
-
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: R2L,%s,%d,&H%sFFFFFF,&H00FFFFFF,&H00000000,&H%s000000,%d,0,0,0,100,100,0,0,1,%.1f,%.1f,7,0,0,0,1
-Style: TOP,%s,%d,&H%sFFFFFF,&H00FFFFFF,&H00000000,&H%s000000,%d,0,0,0,100,100,0,0,1,%.1f,%.1f,8,0,0,0,1
-Style: BTM,%s,%d,&H%sFFFFFF,&H00FFFFFF,&H00000000,&H%s000000,%d,0,0,0,100,100,0,0,1,%.1f,%.1f,2,0,0,0,1
-
-[Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-]], res_x, res_y, options.fontname, fontsize, alpha, alpha, bold, outline, shadow,
-    options.fontname, fontsize, alpha, alpha, bold, outline, shadow,
-    options.fontname, fontsize, alpha, alpha, bold, outline, shadow)
-
     -- 预处理弹幕，先计算时间段以便进行数量限制
     local pre_events = {}
-    for _, d in ipairs(all_danmaku) do
+    for _, d in ipairs(danmakus) do
         local time = d.type == 1 and math.floor(d.time + 0.5) or d.time
         local appear_time = time
         local danmaku_type = d.type
@@ -509,7 +532,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         local d = ev.danmaku
         local appear_time = ev.start_time
         local danmaku_type = d.type
-        local text = ass_escape(decode_html_entities(d.text))
+        local clean_text = ch_convert_cached(decode_html_entities(d.text))
+        local text = ass_escape(clean_text)
                     :gsub("x(%d+)$", "{\\b1\\i1}x%1")
 
         -- 颜色从十进制转为 BGR Hex
@@ -520,13 +544,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         local b = string.sub(color_hex, 5, 6)
         local color_text = string.format("{\\c&H%s%s%s&}", b, g, r)
 
-        local start_time_str = seconds_to_time(appear_time)
-        local layer, end_time_str, style, effect
+        local style, effect
+        local pos, move = nil, nil
 
         -- 滚动弹幕 (类型 1, 2, 3)
         if danmaku_type >= 1 and danmaku_type <= 3 then
-            layer = 0
-            end_time_str = seconds_to_time(ev.end_time)
             style = "R2L"
             local text_length = get_str_width(text, fontsize)
             local x1 = res_x + text_length / 2
@@ -534,105 +556,44 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             local y = get_position_y(fontsize, appear_time, text_length, res_x, scrolltime, roll_array)
             if y then
                 effect = string.format("{\\move(%d, %d, %d, %d)}", x1, y, x2, y)
+                move = {x1, y, x2, y}
             end
 
         -- 顶部弹幕 (类型 5)
         elseif danmaku_type == 5 then
-            layer = 1
-            end_time_str = seconds_to_time(ev.end_time)
             style = "TOP"
             local x = res_x / 2
             local y = get_fixed_y(fontsize, appear_time, fixtime, top_array, true)
             if y then
                 effect = string.format("{\\pos(%d, %d)}", x, y)
+                pos = {x, y}
             end
 
         -- 底部弹幕 (类型 4)
         elseif danmaku_type == 4 then
-            layer = 1
-            end_time_str = seconds_to_time(ev.end_time)
             style = "BTM"
             local x = res_x / 2
             local y = get_fixed_y(fontsize, appear_time, fixtime, top_array, false)
             if y then
                 effect = string.format("{\\pos(%d, %d)}", x, y)
+                pos = {x, y}
             end
         end
 
-        if style then
-            local line = nil
-            if effect then
-               line = string.format("Dialogue: %d,%s,%s,%s,,0,0,0,,%s%s%s", layer, start_time_str, end_time_str, style, effect, color_text, text)
-            else
-               line = string.format("Comment: %d,%s,%s,%s,,0,0,0,,%s%s", layer, start_time_str, end_time_str, style, color_text, text)
-            end
-            table.insert(ass_events, line)
+        if style and effect then
+            text = effect .. color_text .. text
+            local event = {
+                start_time = ev.start_time,
+                end_time = ev.end_time,
+                style = style,
+                text = text,
+                clean_text = clean_text,
+                pos = pos,
+                move = move,
+                source = d.source,
+            }
+            table.insert(ass_events, event)
+            COMMENTS = ass_events
         end
-    end
-
-    local final_ass = ass_header .. table.concat(ass_events, "\n")
-
-    local ass_file = io.open(danmaku_file, "w")
-    if not ass_file then
-        msg.info("错误: 无法写入 ASS 弹幕文件")
-        return false
-    end
-    ass_file:write(final_ass)
-    ass_file:close()
-
-    msg.debug("已成功转换并写入 ASS：" .. danmaku_file)
-    return true
-end
-
--- 将弹幕转换为 XML 格式
-function convert_danmaku_to_xml(danmaku_input, danmaku_out, delays)
-   local all_danmaku = parse_danmaku_files(danmaku_input, delays)
-   if not all_danmaku then
-        show_message("转换 XML 弹幕失败", 3)
-        msg.info("转换 XML 弹幕失败")
-        return
-   end
-
-    -- 拼接为 XML 内容
-    local xml = { '<?xml version="1.0" encoding="UTF-8"?><i>\n' }
-    for _, d in ipairs(all_danmaku) do
-        local time = d.time
-        local type = d.type or 1
-        local size = d.size or 25
-        local color = d.color or 0xFFFFFF
-        local text = d.text or ""
-
-        text = text:gsub("&", "&amp;")
-                   :gsub("<", "&lt;")
-                   :gsub(">", "&gt;")
-                   :gsub("\"", "&quot;")
-                   :gsub("'", "&apos;")
-
-        table.insert(xml, string.format('<d p="%s,%s,%s,%s">%s</d>\n', time, type, size, color, text))
-    end
-    table.insert(xml, '</i>')
-
-    -- 写入 XML 文件
-    local file = io.open(danmaku_out, "w")
-    if not file then
-        show_message("无法写入目标 XML 文件", 3)
-        msg.info("无法写入目标 XML 文件: " .. danmaku_out)
-        return false
-    end
-    file:write(table.concat(xml))
-    file:close()
-    show_message("转换 XML 弹幕成功： " .. danmaku_out, 3)
-    msg.info("转换 XML 弹幕成功： " .. danmaku_out)
-    return true
-end
-
--- 解析和转换弹幕
-function convert_danmaku_format(danmaku_input, danmaku_file, delays)
-    local all_danmaku = parse_danmaku_files(danmaku_input, delays)
-    if all_danmaku then
-        convert_danmaku_to_ass(all_danmaku, danmaku_file)
-    else
-        msg.info("未能解析对应的 .xml 或 .json 弹幕文件")
-        return false
     end
 end
