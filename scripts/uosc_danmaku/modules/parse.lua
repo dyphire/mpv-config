@@ -324,7 +324,7 @@ function DanmakuArray:new(res_x, res_y, font_size)
         time_length_array = {}
     }
     for i = 1, obj.rows do
-        obj.time_length_array[i] = { time = -1, length = 0 }
+        obj.time_length_array[i] = { time = 0, length = 0, empty = true }
     end
     setmetatable(obj, self)
     return obj
@@ -332,7 +332,7 @@ end
 
 function DanmakuArray:set_time_length(row, time, length)
     if row > 0 and row <= self.rows then
-        self.time_length_array[row] = { time = time, length = length }
+        self.time_length_array[row] = { time = time, length = length, empty = false }
     end
 end
 
@@ -350,13 +350,20 @@ function DanmakuArray:get_length(row)
     return 0
 end
 
+function DanmakuArray:is_empty(row)
+    if row > 0 and row <= self.rows then
+        return self.time_length_array[row].empty
+    end
+    return false
+end
+
 -- 滚动弹幕 Y 坐标算法
 function get_position_y(font_size, appear_time, text_length, resolution_x, roll_time, array)
     local velocity = (text_length + resolution_x) / roll_time
 
     for i = 1, array.rows do
         local previous_appear_time = array:get_time(i)
-        if array:get_time(i) < 0 then
+        if array:is_empty(i) then
             array:set_time_length(i, appear_time, text_length)
             return 1 + (i - 1) * font_size
         end
@@ -394,7 +401,7 @@ function get_fixed_y(font_size, appear_time, fixtime, array, from_top)
 
     for i = row_start, row_end, row_step do
         local previous_appear_time = array:get_time(i)
-        if previous_appear_time < 0 then
+        if array:is_empty(i) then
             array:set_time_length(i, appear_time, 0)
             return (i - 1) * font_size + 1
         else

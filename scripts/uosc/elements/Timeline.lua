@@ -413,7 +413,7 @@ function Timeline:render()
 
 	-- Time values
 	if text_opacity > 0 then
-		local time_opts = {size = self.font_size, opacity = text_opacity, border = 2 * state.scale}
+		local time_opts = {size = self.font_size, opacity = text_opacity, border = options.text_border * state.scale}
 		-- Upcoming cache time
 		local cache_duration = state.cache_duration and state.cache_duration / state.speed or nil
 		if cache_duration and options.buffered_time_threshold > 0
