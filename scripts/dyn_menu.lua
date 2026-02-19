@@ -286,19 +286,60 @@ local function build_track_items(list, type, prop, prefix)
 end
 
 -- update menu item to a submenu
-local function to_submenu(item)
+local function to_submenu(item, min_items)
     item.type = 'submenu'
     item.submenu = {}
     item.cmd = nil
+    item.min_items = min_items or 1  -- store minimum required items
 
     menu_items_dirty = true
 
     return item.submenu
 end
 
+-- update submenu state based on item count
+local function update_submenu_state(item)
+    local min = item.min_items or 1
+    local count = 0
+    
+    -- count non-separator items
+    if item.submenu then
+        for _, subitem in ipairs(item.submenu) do
+            if subitem.type ~= 'separator' then
+                count = count + 1
+            end
+        end
+    end
+    
+    -- initialize state if not exists
+    if not item.state then
+        item.state = {}
+    end
+    
+    -- check if disabled state should be added or removed
+    local has_disabled = false
+    for i, state in ipairs(item.state) do
+        if state == 'disabled' then
+            has_disabled = true
+            if count >= min then
+                -- remove disabled state
+                table.remove(item.state, i)
+                menu_items_dirty = true
+            end
+            break
+        end
+    end
+    
+    -- add disabled state if needed
+    if not has_disabled and count < min then
+        item.state[#item.state + 1] = 'disabled'
+        menu_items_dirty = true
+    end
+end
+
 -- handle #@tracks menu update
 local function update_tracks_menu(menu)
-    local submenu = to_submenu(menu.item)
+    local submenu = to_submenu(menu.item, 1)
     local track_list = get('track-list', {})
     if #track_list == 0 then return end
 
@@ -316,7 +357,7 @@ end
 
 -- handle #@tracks/<type> menu update for given type
 local function update_track_menu(menu, type, prop)
-    local submenu = to_submenu(menu.item)
+    local submenu = to_submenu(menu.item, 1)
     local track_list = get('track-list', {})
     if #track_list == 0 then return end
 
@@ -326,7 +367,7 @@ end
 
 -- handle #@chapters menu update
 local function update_chapters_menu(menu)
-    local submenu = to_submenu(menu.item)
+    local submenu = to_submenu(menu.item, 1)
     local chapter_list = get('chapter-list', {})
     if #chapter_list == 0 then return end
 
@@ -346,7 +387,7 @@ end
 
 -- handle #@edition menu update
 local function update_editions_menu(menu)
-    local submenu = to_submenu(menu.item)
+    local submenu = to_submenu(menu.item, 2)  -- editions need at least 2 items to be useful
     local edition_list = get('edition-list', {})
     if #edition_list == 0 then return end
 
@@ -365,7 +406,7 @@ end
 
 -- handle #@audio-devices menu update
 local function update_audio_devices_menu(menu)
-    local submenu = to_submenu(menu.item)
+    local submenu = to_submenu(menu.item, 1)
     local device_list = get('audio-device-list', {})
     if #device_list == 0 then return end
 
@@ -395,7 +436,7 @@ end
 
 -- handle #@playlist menu update
 local function update_playlist_menu(menu)
-    local submenu = to_submenu(menu.item)
+    local submenu = to_submenu(menu.item, 1)
     local playlist = get('playlist', {})
     if #playlist == 0 then return end
 
@@ -441,7 +482,7 @@ end
 
 -- handle #@profiles menu update
 local function update_profiles_menu(menu)
-    local submenu = to_submenu(menu.item)
+    local submenu = to_submenu(menu.item, 1)
     local profile_list = get('profile-list', {})
     if #profile_list == 0 then return end
 
@@ -494,6 +535,11 @@ local function update_menu(menu)
         current_menu = menu
         menu.updater(menu)
         current_menu = nil
+        
+        -- update submenu state based on item count
+        if menu.item.type == 'submenu' then
+            update_submenu_state(menu.item)
+        end
     end
 end
 
