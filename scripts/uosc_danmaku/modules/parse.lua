@@ -40,10 +40,50 @@ local function load_blacklist_patterns(filepath)
         return patterns
     end
 
-    for line in file:lines() do
-        line = line:match("^%s*(.-)%s*$")
-        if line ~= "" then
-            table.insert(patterns, line)
+    if string.match(filepath, "%.xml$") then
+        -- xml文件格式示例
+        --<?xml version="1.0" encoding="utf-8"?>
+        --<filters>
+        --  <item enabled="true">t=卡在</item>
+        --  <item enabled="true">t=进度条</item>
+        --</filters>
+        print("加载黑名单文件: " .. filepath)
+        for line in file:lines() do
+            local pattern = line:match('<item%s+enabled="true">t=(.-)</item>')
+            if pattern then
+                print("加载黑名单模式: " .. pattern)
+                table.insert(patterns, pattern)
+            end
+        end
+    end
+
+    if string.match(filepath, "%.json$") then
+        -- json文件格式示例
+        -- [{"type":0,"filter":"开门","opened":true,"id":15628936}
+        -- ,{"type":0,"filter":"tony","opened":true,"id":15628939}
+        -- ,{"type":1,"filter":"0+.1","opened":true,"id":15628951}]
+        local content = read_file(filepath)
+        if content then
+            local json = utils.parse_json(content)
+            if json and type(json) == "table" then
+                for _, entry in ipairs(json) do
+                    if entry.opened and entry.filter and entry.type == 0 then
+                        table.insert(patterns, entry.filter)
+                    end
+                end
+            end
+        end
+    end
+
+    if string.match(filepath, "%.txt$") then
+        -- 文本文件格式示例
+        -- 卡在
+        -- 进度条
+        for line in file:lines() do
+            line = line:match("^%s*(.-)%s*$")
+            if line ~= "" then
+                table.insert(patterns, line)
+            end
         end
     end
 
@@ -114,51 +154,62 @@ local function merge_duplicate_danmaku(danmakus, threshold)
     local groups = {}
 
     for _, d in ipairs(danmakus) do
-        local key = d.type .. "|" .. d.color .. "|" .. d.text
-        if not groups[key] then groups[key] = {} end
-        table.insert(groups[key], d)
+        local tkey = tostring(d.type or "")
+        local ckey = tostring(d.color or "")
+        local text = d.text or ""
+
+        groups[tkey] = groups[tkey] or {}
+        groups[tkey][ckey] = groups[tkey][ckey] or {}
+        groups[tkey][ckey][text] = groups[tkey][ckey][text] or {}
+        table.insert(groups[tkey][ckey][text], d)
     end
 
     local merged = {}
+    local abs = math.abs
 
-    for _, group in pairs(groups) do
-        table.sort(group, function(a, b) return a.time < b.time end)
+    for _, bytype in pairs(groups) do
+        for _, bycolor in pairs(bytype) do
+            for _, group in pairs(bycolor) do
+                table.sort(group, function(a, b) return a.time < b.time end)
 
-        local i = 1
-        while i <= #group do
-            local base = group[i]
-            local times = { base.time }
-            local count = 1
-            local j = i + 1
+                local i = 1
+                while i <= #group do
+                    local base = group[i]
+                    local times = { base.time }
+                    local count = 1
+                    local j = i + 1
 
-            while j <= #group and math.abs(group[j].time - base.time) <= threshold do
-                table.insert(times, group[j].time)
-                count = count + 1
-                j = j + 1
-            end
+                    while j <= #group and abs(group[j].time - base.time) <= threshold do
+                        times[#times+1] = group[j].time
+                        count = count + 1
+                        j = j + 1
+                    end
 
-            local same_time = true
-            for k = 2, #times do
-                if times[k] ~= times[1] then
-                    same_time = false
-                    break
+                    local same_time = true
+                    for k = 2, #times do
+                        if times[k] ~= times[1] then
+                            same_time = false
+                            break
+                        end
+                    end
+
+                    local danmaku = {
+                        time = base.time,
+                        type = base.type,
+                        size = base.size,
+                        color = base.color,
+                        text = base.text,
+                        source = base.source,
+                        orig_time = base.orig_time,
+                    }
+                    if count > 2 or not same_time then
+                        danmaku.text = danmaku.text .. string.format("x%d", count)
+                    end
+
+                    table.insert(merged, danmaku)
+                    i = j
                 end
             end
-
-            local danmaku = {
-                time = base.time,
-                type = base.type,
-                size = base.size,
-                color = base.color,
-                text = base.text,
-                source = base.source,
-            }
-            if count > 2 or not same_time then
-                danmaku.text = danmaku.text .. string.format("x%d", count)
-            end
-
-            table.insert(merged, danmaku)
-            i = j
         end
     end
 
@@ -290,18 +341,17 @@ function parse_danmaku_file(danmaku_input)
             end
 
             for _, d in ipairs(parsed) do
-                local matched, pattern = is_blacklisted(d.text, black_patterns)
-                if not matched then
-                    table.insert(danmakus, d)
-                else
-                    -- msg.debug("命中黑名单: " .. pattern)
-                end
+                table.insert(danmakus, d)
             end
         else
             msg.info("无法读取文件内容: " .. danmaku_input)
         end
     else
         msg.info("文件不存在: " .. danmaku_input)
+    end
+
+    for _, d in ipairs(danmakus) do
+        if d.orig_time == nil then d.orig_time = d.time end
     end
 
     if #danmakus == 0 then
@@ -467,17 +517,79 @@ function convert_danmaku_to_xml(danmaku_out)
     return true
 end
 
-function convert_danmaku_to_ass_events()
-    local danmakus = {}
+function convert_danmaku_to_ass_events(force)
+    local per_source_lists = {}
     for url, source in pairs(DANMAKU.sources) do
         if not source.blocked and source.data then
-            for _, d in ipairs(source.data) do
-                local delay_segments = (source.delay_segments and #source.delay_segments > 0) and source.delay_segments or {}
-                local delay = get_delay_for_time(delay_segments, d.time)
-                d.time = d.time + delay
-                d.source = url
-                table.insert(danmakus, d)
+            local segments = nil
+            local prefix = nil
+            if source.delay_segments and #source.delay_segments > 0 then
+                segments = {}
+                for i, v in ipairs(source.delay_segments) do segments[i] = v end
+                table.sort(segments, function(a, b) return (a.start or 0) < (b.start or 0) end)
+                prefix = {}
+                local s = 0
+                for i, v in ipairs(segments) do
+                    s = s + (v.delay or 0)
+                    prefix[i] = s
+                end
             end
+
+            local function get_cached_delay(t)
+                local segs = segments or {}
+                local pre = prefix or {}
+                if #segs == 0 then return 0 end
+                local idx = binary_search(segs, t, function(s) return (s and s.start) or 0 end)
+                local target = idx - 1
+                if target < 1 then return 0 end
+                return pre[target] or 0
+            end
+
+            local list = {}
+            for _, d in ipairs(source.data) do
+                local base_time = d.orig_time or d.time
+                if d.orig_time == nil then d.orig_time = base_time end
+                local adjusted_time = base_time + get_cached_delay(base_time)
+                local entry = {
+                    orig_time = d.orig_time,
+                    time = adjusted_time,
+                    type = d.type,
+                    size = d.size,
+                    color = d.color,
+                    text = d.text,
+                    source = url,
+                }
+                if not is_blacklisted(d.text, black_patterns) then
+                    table.insert(list, entry)
+                end
+            end
+
+            if #list > 0 then
+                table.sort(list, function(a, b) return a.time < b.time end)
+                per_source_lists[#per_source_lists + 1] = list
+            end
+        end
+    end
+
+    local danmakus = {}
+
+    local heap = new_min_heap()
+    for li = 1, #per_source_lists do
+        local lst = per_source_lists[li]
+        if lst and #lst > 0 then
+            heap.push({ time = lst[1].time, list_idx = li, pos = 1, entry = lst[1] })
+        end
+    end
+
+    while true do
+        local node = heap.pop()
+        if not node then break end
+        table.insert(danmakus, node.entry)
+        local li = node.list_idx
+        local next_pos = node.pos + 1
+        local lst = per_source_lists[li]
+        if lst and lst[next_pos] then
+            heap.push({ time = lst[next_pos].time, list_idx = li, pos = next_pos, entry = lst[next_pos] })
         end
     end
 
@@ -485,21 +597,20 @@ function convert_danmaku_to_ass_events()
         options.merge_tolerance = options.scrolltime
     end
 
-    -- 按时间排序
-    table.sort(danmakus, function(a, b)
-        return a.time < b.time
-    end)
-
     danmakus = merge_duplicate_danmaku(danmakus, options.merge_tolerance)
 
     if #danmakus == 0 then
-        show_message("该集弹幕内容为空，结束加载", 3)
-        msg.verbose("该集弹幕内容为空，结束加载")
+        if not force then
+            show_message("该集弹幕内容为空，结束加载", 3)
+            msg.verbose("该集弹幕内容为空，结束加载")
+        end
         COMMENTS = {}
         return
     end
 
-    msg.info("已解析 " .. #danmakus .. " 条弹幕")
+    if not force then
+        msg.info("已解析 " .. #danmakus .. " 条弹幕")
+    end
 
     local fontsize = tonumber(options.fontsize) or 50
     local scrolltime = tonumber(options.scrolltime) or 15
@@ -515,6 +626,7 @@ function convert_danmaku_to_ass_events()
     local pre_events = {}
     for _, d in ipairs(danmakus) do
         local time = d.type == 1 and math.floor(d.time + 0.5) or d.time
+        local orig_time = d.type == 1 and math.floor(d.orig_time + 0.5) or d.orig_time
         local appear_time = time
         local danmaku_type = d.type
 
@@ -526,7 +638,7 @@ function convert_danmaku_to_ass_events()
         end
 
         if end_time then
-            table.insert(pre_events, {start_time = appear_time, end_time = end_time, danmaku = d})
+            table.insert(pre_events, {orig_time = orig_time, start_time = appear_time, end_time = end_time, danmaku = d})
         end
     end
 
@@ -590,8 +702,10 @@ function convert_danmaku_to_ass_events()
         if style and effect then
             text = effect .. color_text .. text
             local event = {
+                orig_time = ev.orig_time,
                 start_time = ev.start_time,
                 end_time = ev.end_time,
+                delay = ev.start_time - (ev.orig_time or ev.start_time),
                 style = style,
                 text = text,
                 clean_text = clean_text,

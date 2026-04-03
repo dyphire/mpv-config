@@ -196,10 +196,16 @@ function open_menu_select(menu_items, is_time)
     end
     mp.commandv('script-message-to', 'console', 'disable')
     input.select({
-        prompt = '筛选:',
+        prompt = is_time and '筛选:' or '选择:',
         items = item_titles,
         submit = function(id)
-            mp.commandv(unpack(item_values[id]))
+            input.terminate()
+            local v = item_values[id]
+            if type(v) == 'table' then
+                mp.commandv(unpack(v))
+            elseif type(v) == 'string' then
+                mp.command(v)
+            end
         end,
     })
 end
@@ -428,13 +434,24 @@ function open_content_menu(pos)
     if COMMENTS ~= nil then
         for _, event in ipairs(COMMENTS) do
             local text = event.clean_text:gsub("^m%s[mbl%s%-%d%.]+$", ""):gsub("^%s*(.-)%s*$", "%1")
-            local delay = get_delay_for_time(DELAYS, event.start_time)
-            local start_time = event.start_time + delay
-            local end_time = event.end_time + delay
+            local delay = event.delay
+            local start_time = event.start_time
+            local end_time = event.end_time
             if text and text ~= "" and start_time >= 0 and start_time <= duration then
+                local delay_label_suffix = nil
+                local delay_num = delay and tonumber(delay)
+                if delay_num and math.abs(delay_num) > 0 then
+                    delay_label_suffix = string.format("已存在延迟: %+0.1fs", delay_num)
+                end
+
+                local adjust_label = '调整弹幕延迟'
+                if delay_label_suffix then
+                    adjust_label = adjust_label .. '（' .. delay_label_suffix .. '）'
+                end
+
                 table.insert(items, {
                     title = abbr_str(text, 60),
-                    hint = seconds_to_time(start_time) .. "(" .. remove_query(event.source) .. ")",
+                    hint = seconds_to_time(start_time) .. "  (" .. utf8_sub(remove_query(event.source), 1, 70) .. ")",
                     actions = {
                         {
                             name = 'block_source',
@@ -444,7 +461,7 @@ function open_content_menu(pos)
                         {
                             name = 'adjust_delay',
                             icon = 'more_time',
-                            label = '调整弹幕源延迟'
+                            label = adjust_label,
                         },
                     },
                     value = { "seek", start_time, "absolute" },
@@ -683,6 +700,93 @@ function open_style_menu(actived, status)
     end
 end
 
+-- 打开以指定时间为起点的延迟菜单
+function open_delay_from_time_get(source, time, status)
+    mp.commandv('script-message-to', 'console', 'disable')
+    local menu_log = {}
+
+    local function build_menu(query, input_text)
+        menu_log = {
+            { text = "【从该时间起调整弹幕延迟】", style = "{\\c&H00CCFF&\\b1}" },
+            { text = ("-"):rep(33), style = "{\\c&H888888&}" }
+        }
+
+        table.insert(menu_log, { text = "\n", style = "" })
+        local hint_text = "提示：请输入数字，单位（秒）/ 或者按照形如\"14m15s\"的格式输入分钟数加秒数"
+        local hint_style = "{\\c&H999999&}"
+        if status == "error" then
+            hint_text = "提示: 输入非数字字符或范围出错"
+            hint_style = "{\\c&H4C4CC3&}"
+        end
+
+        table.insert(menu_log, { text = input_text and ("已输入：" .. input_text) or "", style = "{\\c&HCCCCCC&}" })
+        table.insert(menu_log, { text = hint_text, style = hint_style })
+        input.set_log(menu_log)
+    end
+
+    input.get({
+        keep_open = true,
+        prompt = "请输入要设置的延迟（秒或 XmYs）: ",
+        opened = function() build_menu() end,
+        edited = function(text)
+            text = text:gsub("^%s*(.-)%s*$", "%1")
+            if text == "" then
+                build_menu()
+                return
+            end
+            build_menu(text)
+        end,
+        submit = function(text)
+            text = text and text:gsub("^%s*(.-)%s*$", "%1") or ""
+            if text == "" then return end
+            input.terminate()
+            local parsed = parse_delay_input(text)
+            if parsed ~= nil then
+                mp.commandv("script-message", "danmaku-delay", tostring(parsed), tostring(time), tostring(source))
+            else
+                open_delay_from_time(time, "error")
+            end
+        end
+    })
+end
+
+function open_delay_from_time_uosc(source, time, status)
+    if not uosc_available then
+        show_message("无uosc UI框架，不支持使用该功能", 2)
+        return
+    end
+
+    local menu_props = {
+        type = "menu_delay_from_time",
+        title = "从该时间起调整弹幕延迟",
+        search_style = "palette",
+        search_debounce = "submit",
+        footnote = "请输入数字，单位（秒）/ 或者按照形如\"14m15s\"的格式输入分钟数加秒数",
+        items = {},
+        on_search = { "script-message-to", mp.get_script_name(), "setup-content-delay", tostring(time), tostring(source) },
+    }
+
+    if status == "error" then
+    menu_props.title = "输入非数字字符或范围出错"
+    mp.add_timeout(1.0, function() open_delay_from_time_uosc(source, time) end)
+    end
+
+    local json_props = utils.format_json(menu_props)
+    mp.commandv("script-message-to", "uosc", "open-menu", json_props)
+end
+
+function open_delay_from_time(source, time, status)
+    if uosc_available then
+        open_delay_from_time_uosc(source, time, status)
+    elseif input_loaded then
+        mp.add_timeout(0.01, function()
+            open_delay_from_time_get(source, time, status)
+        end)
+    else
+        show_message("无支持可用的 UI框架，不支持使用该功能", 3)
+    end
+end
+
 -- 设置弹幕源延迟菜单
 function open_delay_menu_get(source, status)
     mp.commandv('script-message-to', 'console', 'disable')
@@ -701,7 +805,7 @@ function open_delay_menu_get(source, status)
             { text = ("-"):rep(33), style = "{\\c&H888888&}" }
         }
 
-        serial = 0
+        serial, select_num = 0, 0
         for url, src in pairs(DANMAKU.sources) do
             if src.data and not src.blocked then
                 local delay = 0
@@ -842,12 +946,12 @@ function open_delay_menu_uosc(source_url, status)
     mp.commandv("script-message-to", "uosc", "open-menu", json_props)
 end
 
-function open_delay_menu(source, query)
+function open_delay_menu(source, status)
     if uosc_available then
-        open_delay_menu_uosc(source, query)
+        open_delay_menu_uosc(source, status)
     elseif input_loaded then
         mp.add_timeout(0.01, function()
-            open_delay_menu_get(source, query)
+            open_delay_menu_get(source, status)
         end)
     else
         show_message("无支持可用的 UI框架，不支持使用该功能", 3)
@@ -1167,32 +1271,13 @@ mp.register_script_message("setup-source-delay", function(query, text)
         if text == nil or text == "" then
             return
         end
-        local newText, _ = text:gsub("%s", "") -- 移除所有空白字符
-        local num = tonumber(newText)
-        local delay_segments = shallow_copy(DANMAKU.sources[query]["delay_segments"] or {})
-        for i = #delay_segments, 1, -1 do
-            if delay_segments[i].start == 0 then
-                table.remove(delay_segments, i)
-            end
-        end
-        if num ~= nil then
-            table.insert(delay_segments, 1, { start = 0, delay = tonumber(num) })
-            DANMAKU.sources[query]["delay_segments"] = delay_segments
-            add_source_to_history(query, DANMAKU.sources[query])
+        local delay = parse_delay_input(text)
+        if delay ~= nil then
+            mp.commandv("script-message", "danmaku-delay", tostring(delay), "0")
             mp.commandv("script-message-to", "uosc", "close-menu", "menu_delay")
-            open_delay_menu(query, "refresh")
-            load_danmaku(true, true)
-        elseif newText:match("^%-?%d+m%d+s$") then
-            local minutes, seconds = string.match(newText, "^(%-?%d+)m(%d+)s$")
-            minutes = tonumber(minutes)
-            seconds = tonumber(seconds)
-            if minutes < 0 then seconds = -seconds end
-            table.insert(delay_segments, 1, { start = 0, delay = 60 * minutes + seconds })
-            DANMAKU.sources[query]["delay_segments"] = delay_segments
-            add_source_to_history(query, DANMAKU.sources[query])
-            mp.commandv("script-message-to", "uosc", "close-menu", "menu_delay")
-            open_delay_menu(query, "refresh")
-            load_danmaku(true, true)
+            mp.add_timeout(0.1, function()
+                open_delay_menu(query, "refresh")
+            end)
         else
             open_delay_menu(query, "error")
         end
@@ -1213,7 +1298,8 @@ mp.register_script_message('handle-danmaku-content-action', function(json)
             mp.commandv("script-message-to", "uosc", "close-menu", "menu_content")
             load_danmaku(true)
         elseif event.action == "adjust_delay" then
-            mp.commandv("script-message", "open_source_delay_menu", d.source)
+            -- 打开以该弹幕时间为起点的延迟菜单（该延迟将作用于该时间点及之后的弹幕），仅针对该条弹幕的 source
+            mp.commandv("script-message", "open_content_delay_menu", d.source, tostring(d.start_time))
         end
     else
         if event.value then
@@ -1223,6 +1309,29 @@ mp.register_script_message('handle-danmaku-content-action', function(json)
                 mp.command(event.value)
             end
             mp.commandv("script-message-to", "uosc", "close-menu", "menu_content")
+        end
+    end
+end)
+
+mp.register_script_message("open_content_delay_menu", function(source, time)
+    open_delay_from_time(source, tonumber(time))
+end)
+
+mp.register_script_message("setup-content-delay", function(...)
+    local args = {...}
+    if #args == 1 then
+        return
+    end
+    if #args >= 2 then
+        local time = tonumber(args[1])
+        local source = args[2]
+        local delay_str = args[3]
+        local delay = parse_delay_input(delay_str)
+        if delay ~= nil then
+            mp.commandv("script-message", "danmaku-delay", tostring(delay), tostring(time), tostring(source))
+            mp.commandv("script-message-to", "uosc", "close-menu", "menu_delay_from_time")
+        else
+            open_delay_from_time(source, tonumber(time), "error")
         end
     end
 end)

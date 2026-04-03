@@ -12,9 +12,18 @@ local function load_extra_danmaku(url, episode, number, class, id, site, title, 
     local play_url = nil
     if url:match("^.-%.html") then
         play_url = url:match("^(.-%.html).*")
+    elseif url:match("^https?://v%.youku%.com/") and url:match("[?&]vid=") then
+        -- 转换 youku 的短链接形式 video?vid=... 到真实播放页 v_show/id_*.html
+        local vid = url:match("[?&]vid=([^&]+)")
+        if vid then
+            play_url = "https://v.youku.com/v_show/id_" .. vid .. ".html"
+        else
+            play_url = url:gsub("%?bsource=360ogvys$",""):gsub("&.*$","")
+        end
     else
-        play_url = url:gsub("%?bsource=360ogvys$","")
+        play_url = url:gsub("%?bsource=360ogvys$",""):gsub("&.*$","")
     end
+
     ENABLED = true
     DANMAKU.anime = title .. " (" .. year .. ")"
     DANMAKU.episode = "第" .. episode .. "话"
@@ -98,6 +107,63 @@ local function get_number(cat, id, site)
     return nil
 end
 
+local function get_episodes_v2(cat, id, site)
+    local s_param = string.format('[{"cat_id":"%s","ent_id":"%s","site":"%s"}]', tostring(cat), tostring(id), tostring(site))
+
+    local url = string.format("https://api.so.360kan.com/episodesv2?v_ap=1&s=%s&cb=__jp8", url_encode(s_param))
+
+    local cmd = { "curl", "-s", url }
+    local res = mp.command_native({
+        name = "subprocess",
+        args = cmd,
+        capture_stdout = true,
+        capture_stderr = true,
+    })
+
+    if not res.status or res.status ~= 0 then
+        msg.error("Failed to fetch episodesv2: " .. (res.stderr or "unknown error"))
+        return nil
+    end
+
+    local data_text = res.stdout or ""
+    -- 兼容 JSONP 和 纯 JSON：提取最外层括号内 JSON
+    local json_payload = data_text
+    local first_paren = data_text:find('%(')
+    local last_paren = data_text:match('.*()%)')
+    if first_paren and last_paren and last_paren > first_paren then
+        json_payload = data_text:sub(first_paren + 1, last_paren - 1)
+    end
+
+    local parsed = utils.parse_json(json_payload)
+    if not parsed then
+        msg.error("episodesv2: 解析返回失败: " .. (res.stdout or ""))
+        return nil
+    end
+
+    local episodes = {}
+    if parsed.code == 0 and parsed.data and #parsed.data > 0 then
+        local seriesHTML = parsed.data[1] and parsed.data[1].seriesHTML
+        if seriesHTML and seriesHTML.seriesPlaylinks then
+            for i, ep in ipairs(seriesHTML.seriesPlaylinks) do
+                local episode_url = nil
+                if type(ep) == 'string' then
+                    episode_url = ep
+                elseif type(ep) == 'table' and ep.url then
+                    episode_url = ep.url
+                end
+                if episode_url and episode_url ~= '' then
+                    table.insert(episodes, { index = i, url = episode_url })
+                end
+            end
+        end
+    end
+
+    if #episodes == 0 then
+        return nil
+    end
+    return episodes
+end
+
 function get_details(class, id, site, title, year, number, episodenum)
     local message = episodenum and "查询弹幕中..." or "加载数据中..."
     local menu_type = "menu_details"
@@ -120,58 +186,72 @@ function get_details(class, id, site, title, year, number, episodenum)
         cat = 4
     end
 
-    if not number and cat ~= 0 then
-        number = get_number(cat, id, site)
-    end
-    if not number or cat == 0 then
-        local message = "无结果"
-        if uosc_available and not episodenum then
-            update_menu_uosc(menu_type, menu_title, message, footnote)
-        else
-            show_message(message, 3)
-        end
-        msg.verbose("无结果")
-        return
-    end
-
-    local url = string.format("https://api.web.360kan.com/v1/detail?cat=%s&id=%s&start=1&end=%s&site=%s",
-        cat, id, number, site)
-
-    local cmd = { "curl", "-s", url }
-    local res = mp.command_native({
-        name = "subprocess",
-        args = cmd,
-        capture_stdout = true,
-        capture_stderr = true,
-    })
-
-    if not res.status or res.status ~= 0 then
-        local message = "无结果"
-        if uosc_available and not episodenum then
-            update_menu_uosc(menu_type, menu_title, message, footnote)
-        else
-            show_message(message, 3)
-        end
-        msg.verbose("无结果")
-        return
-    end
-
-    local result = utils.parse_json(res.stdout)
     local items = {}
-    if result and result.data and result.data.allepidetail then
-        local data = result.data.allepidetail
-        local playurl, episode = nil, nil
-        if episodenum then
-            for _, item in ipairs(data[site]) do
-                if tonumber(item.playlink_num) == tonumber(episodenum) then
-                    playurl = item.url
-                    episode = item.playlink_num
-                    break
-                end
+    local episodes = nil
+    if cat == 2 or cat == 4 then
+        episodes = get_episodes_v2(cat, id, site)
+    end
+
+    -- 统一构建 episode_rows：优先使用 episodesv2 返回的数据，否则使用 v1/detail
+    local episode_rows = nil
+    if episodes then
+        episode_rows = {}
+        for _, ep in ipairs(episodes) do
+            table.insert(episode_rows, { index = tostring(ep.index), url = ep.url })
+        end
+    else
+        if not number and cat ~= 0 then
+            number = get_number(cat, id, site)
+        end
+        if not number or cat == 0 then
+            local message = "无结果"
+            if uosc_available and not episodenum then
+                update_menu_uosc(menu_type, menu_title, message, footnote)
+            else
+                show_message(message, 3)
             end
-            if playurl then
-                load_extra_danmaku(playurl, episode, number, class, id, site, title, year)
-                return
+            msg.verbose("无结果")
+            return
+        end
+
+        local url = string.format("https://api.web.360kan.com/v1/detail?cat=%s&id=%s&start=1&end=%s&site=%s",
+            cat, id, number, site)
+
+        local cmd = { "curl", "-s", url }
+        local res = mp.command_native({
+            name = "subprocess",
+            args = cmd,
+            capture_stdout = true,
+            capture_stderr = true,
+        })
+
+        if not res.status or res.status ~= 0 then
+            local message = "无结果"
+            if uosc_available and not episodenum then
+                update_menu_uosc(menu_type, menu_title, message, footnote)
+            else
+                show_message(message, 3)
+            end
+            msg.verbose("无结果")
+            return
+        end
+
+        local result = utils.parse_json(res.stdout)
+        if result and result.data and result.data.allepidetail and result.data.allepidetail[site] then
+            episode_rows = {}
+            for _, it in ipairs(result.data.allepidetail[site]) do
+                table.insert(episode_rows, { index = tostring(it.playlink_num), url = it.url })
+            end
+        end
+    end
+
+    if episode_rows and #episode_rows > 0 then
+        if episodenum then
+            for _, ep in ipairs(episode_rows) do
+                if tonumber(ep.index) == tonumber(episodenum) then
+                    load_extra_danmaku(ep.url, ep.index, number, class, id, site, title, year)
+                    return
+                end
             end
         end
 
@@ -182,15 +262,15 @@ function get_details(class, id, site, title, year, number, episodenum)
             selectable = true,
         })
 
-        for _, item in ipairs(data[site]) do
+        for _, ep in ipairs(episode_rows) do
             table.insert(items, {
-                title = "第" .. item.playlink_num .. "集",
-                hint = item.playlink_num,
+                title = "第" .. ep.index .. "集",
+                hint = ep.index,
                 value = {
                     "script-message-to",
                     mp.get_script_name(),
                     "add-extra-event",
-                    item.url, item.playlink_num, number, class, id, site, title, year
+                    ep.url, ep.index, tostring(number), class, id, site, title, year
                 },
             })
         end

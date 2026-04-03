@@ -211,6 +211,31 @@ function hex_to_char(x)
     return string.char(tonumber(x, 16))
 end
 
+function hex_to_int_color(hex_color)
+    -- 移除颜色代码中的'#'字符
+    hex_color = hex_color:sub(2)  -- 只保留颜色代码部分
+
+    -- 提取R, G, B的十六进制值并转为整数
+    local r = tonumber(hex_color:sub(1, 2), 16)
+    local g = tonumber(hex_color:sub(3, 4), 16)
+    local b = tonumber(hex_color:sub(5, 6), 16)
+
+    -- 计算32位整数值
+    local color_int = (r * 256 * 256) + (g * 256) + b
+
+    return color_int
+end
+
+local function get_type_from_position(position)
+    if position == 0 then
+        return 1
+    end
+    if position == 1 then
+        return 4
+    end
+    return 5
+end
+
 -- url编码转换
 function url_encode(str)
     -- 将非安全字符转换为百分号编码
@@ -317,6 +342,67 @@ function file_exists(path)
         return meta and meta.is_file
     end
     return false
+end
+
+function binary_search(tbl, target, key)
+    if not tbl or #tbl == 0 then return 1 end
+    key = key or function(x) return x end
+    local lo, hi = 1, #tbl
+    local res = #tbl + 1
+    while lo <= hi do
+        local mid = math.floor((lo + hi) / 2)
+        local v = tbl[mid]
+        local val = key(v)
+        if val >= target then
+            res = mid
+            hi = mid - 1
+        else
+            lo = mid + 1
+        end
+    end
+    return res
+end
+
+function new_min_heap()
+    local h = {}
+    local function swap(i, j)
+        h[i], h[j] = h[j], h[i]
+    end
+    local function up(i)
+        while i > 1 do
+            local p = math.floor(i/2)
+            if h[p].time <= h[i].time then break end
+            swap(p, i)
+            i = p
+        end
+    end
+    local function down(i)
+        local n = #h
+        while true do
+            local l = i * 2
+            local r = l + 1
+            local smallest = i
+            if l <= n and h[l].time < h[smallest].time then smallest = l end
+            if r <= n and h[r].time < h[smallest].time then smallest = r end
+            if smallest == i then break end
+            swap(i, smallest)
+            i = smallest
+        end
+    end
+    local function push(node)
+        h[#h + 1] = node
+        up(#h)
+    end
+    local function pop()
+        if #h == 0 then return nil end
+        local root = h[1]
+        if #h == 1 then h[1] = nil; return root end
+        h[1] = h[#h]
+        h[#h] = nil
+        down(1)
+        return root
+    end
+    return { push = push, pop = pop, size = function() return #h end }
 end
 
 function is_writable(path)
