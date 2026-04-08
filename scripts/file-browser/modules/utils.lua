@@ -272,7 +272,7 @@ end
 ---@param str string
 ---@return string
 function fb_utils.pattern_escape(str)
-    return (string.gsub(str, "([%^%$%(%)%%%.%[%]%*%+%-])", "%%%1"))
+    return (string.gsub(str, "([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1"))
 end
 
 ---Standardises filepaths across systems.

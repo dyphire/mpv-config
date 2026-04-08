@@ -392,6 +392,7 @@ local info_timer = nil
 
 local function info(w, h)
     local rotate = properties["video-params"] and properties["video-params"]["rotate"]
+    local rtx_hdr = properties["video-params"] and properties["video-params"]["gamma"] == "bt.1886" and properties["video-out-params"] and properties["video-out-params"]["gamma"] ~= "bt.1886"
     local dovi_p5 = properties["video-params"] and properties["video-params"]["colormatrix"] == "dolbyvision" and properties["video-params"]["colorlevels"] == "full"
     local image = properties["current-tracks/video"] and properties["current-tracks/video"]["image"]
     local albumart = image and properties["current-tracks/video"]["albumart"]
@@ -407,6 +408,7 @@ local function info(w, h)
         (dir and need_ignore(excluded_dir, dir)) or
         (file_ext and exclude(file_ext:lower(), ext_blacklist)) or
         ((properties["demuxer-via-network"] or is_protocol(properties["path"]) or (properties["cache"] == "auto" and #cached_ranges > 0)) and not options.network) or
+        (rtx_hdr) or
         (dovi_p5) or
         (albumart and not options.audio) or
         (image and not albumart) or

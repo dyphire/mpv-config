@@ -211,6 +211,31 @@ function hex_to_char(x)
     return string.char(tonumber(x, 16))
 end
 
+function hex_to_int_color(hex_color)
+    -- 移除颜色代码中的'#'字符
+    hex_color = hex_color:sub(2)  -- 只保留颜色代码部分
+
+    -- 提取R, G, B的十六进制值并转为整数
+    local r = tonumber(hex_color:sub(1, 2), 16)
+    local g = tonumber(hex_color:sub(3, 4), 16)
+    local b = tonumber(hex_color:sub(5, 6), 16)
+
+    -- 计算32位整数值
+    local color_int = (r * 256 * 256) + (g * 256) + b
+
+    return color_int
+end
+
+function color_dist(c1, c2)
+    local r1 = math.floor(c1 / 65536) % 256
+    local g1 = math.floor(c1 / 256) % 256
+    local b1 = c1 % 256
+    local r2 = math.floor(c2 / 65536) % 256
+    local g2 = math.floor(c2 / 256) % 256
+    local b2 = c2 % 256
+    return math.sqrt((r1-r2)^2 + (g1-g2)^2 + (b1-b2)^2)
+end
+
 -- url编码转换
 function url_encode(str)
     -- 将非安全字符转换为百分号编码
@@ -319,6 +344,67 @@ function file_exists(path)
     return false
 end
 
+function binary_search(tbl, target, key)
+    if not tbl or #tbl == 0 then return 1 end
+    key = key or function(x) return x end
+    local lo, hi = 1, #tbl
+    local res = #tbl + 1
+    while lo <= hi do
+        local mid = math.floor((lo + hi) / 2)
+        local v = tbl[mid]
+        local val = key(v)
+        if val >= target then
+            res = mid
+            hi = mid - 1
+        else
+            lo = mid + 1
+        end
+    end
+    return res
+end
+
+function new_min_heap()
+    local h = {}
+    local function swap(i, j)
+        h[i], h[j] = h[j], h[i]
+    end
+    local function up(i)
+        while i > 1 do
+            local p = math.floor(i/2)
+            if h[p].time <= h[i].time then break end
+            swap(p, i)
+            i = p
+        end
+    end
+    local function down(i)
+        local n = #h
+        while true do
+            local l = i * 2
+            local r = l + 1
+            local smallest = i
+            if l <= n and h[l].time < h[smallest].time then smallest = l end
+            if r <= n and h[r].time < h[smallest].time then smallest = r end
+            if smallest == i then break end
+            swap(i, smallest)
+            i = smallest
+        end
+    end
+    local function push(node)
+        h[#h + 1] = node
+        up(#h)
+    end
+    local function pop()
+        if #h == 0 then return nil end
+        local root = h[1]
+        if #h == 1 then h[1] = nil; return root end
+        h[1] = h[#h]
+        h[#h] = nil
+        down(1)
+        return root
+    end
+    return { push = push, pop = pop, size = function() return #h end }
+end
+
 function is_writable(path)
     local file = io.open(path, "w")
     if file then
@@ -336,6 +422,42 @@ function contains_any(tab, val)
         end
     end
     return false
+end
+
+-- 将一个逗号分隔的 api_server 字符串解析为有序列表
+function get_api_server_list(api_server_str, meta)
+    local want_meta = meta or false
+    local metas = {}
+    if not api_server_str or api_server_str == "" then
+        if want_meta then return metas end
+        return {}
+    end
+
+    for part in string.gmatch(api_server_str, "[^,]+") do
+        local s = part:gsub('^%s*(.-)%s*$', '%1')
+        if s ~= '' then
+            local u, n = s:match('^(.-)[|#](.*)$')
+            local url = nil
+            local note = nil
+            if u then
+                url = u:gsub('^%s*(.-)%s*$', '%1')
+                note = n and n:gsub('^%s*(.-)%s*$', '%1') or nil
+            else
+                url = s:gsub('^%s*(.-)%s*$', '%1')
+                note = nil
+            end
+            table.insert(metas, { url = url, note = note })
+        end
+    end
+
+    if #metas == 0 and api_server_str ~= '' then
+        table.insert(metas, { url = api_server_str, note = nil })
+    end
+
+    if want_meta then return metas end
+    local urls = {}
+    for _, m in ipairs(metas) do table.insert(urls, m.url) end
+    return urls
 end
 
 --读history 和 写history
@@ -641,10 +763,29 @@ function number_to_chinese(num)
     return result
 end
 
+-- 内部的异步运行计数
+local async_running_count = 0
+
+function mark_async_start()
+    async_running_count = async_running_count + 1
+end
+
+function mark_async_end()
+    if async_running_count > 0 then
+        async_running_count = async_running_count - 1
+    end
+end
+
+function is_async_running()
+    return async_running_count > 0
+end
+
 -- 异步执行命令
 -- 同时返回 abort 函数，用于取消异步命令
 function call_cmd_async(args, callback)
-    async_running = true
+    -- 标记异步开始
+    mark_async_start()
+
     local abort_signal = mp.command_native_async({
         name = 'subprocess',
         capture_stderr = true,
@@ -652,9 +793,14 @@ function call_cmd_async(args, callback)
         playback_only = true,
         args = args,
     }, function(success, result, error)
+        -- 标记异步结束
+        mark_async_end()
+
         if not success or not result or result.status ~= 0 then
             local exit_code = (result and result.status or 'unknown')
-            local message = error or (result and result.stdout .. result.stderr) or ''
+            local message = error or (
+                result and ((result.stdout or '') .. (result.stderr or ''))
+            ) or ''
             callback('Calling failed. Exit code: ' .. exit_code .. ' Error: ' .. message, {})
             return
         end
@@ -665,5 +811,167 @@ function call_cmd_async(args, callback)
 
     return function()
         mp.abort_async_command(abort_signal)
+    end
+end
+
+local function yield_once()
+    local co = coroutine.running()
+    mp.add_timeout(0, function()
+        coroutine.resume(co)
+    end)
+    coroutine.yield()
+end
+
+local function make_safe_resume(co, timer_ref)
+    local resumed = false
+
+    return function(...)
+        if resumed then return end
+        resumed = true
+
+        if timer_ref.timer then
+            timer_ref.timer:kill()
+            timer_ref.timer = nil
+        end
+
+        local ok, err = coroutine.resume(co, ...)
+        if not ok then
+            mp.msg.warn("resume failed: " .. tostring(err))
+        end
+    end
+end
+
+function await_call_cmd(args, timeout, on_start)
+    local co = coroutine.running()
+
+    local timer_ref = { timer = nil }
+    local safe_resume = make_safe_resume(co, timer_ref)
+
+    local abort_fn = call_cmd_async(args, function(err, out)
+        safe_resume(err, out)
+    end)
+
+    if on_start and type(on_start) == 'function' then
+        pcall(on_start, abort_fn)
+    end
+
+    if timeout and type(timeout) == 'number' and timeout > 0 then
+        timer_ref.timer = mp.add_timeout(timeout, function()
+            if abort_fn then pcall(abort_fn) end
+            safe_resume("timeout", nil)
+        end)
+    end
+
+    return coroutine.yield()
+end
+
+-- 并行请求调度器
+-- servers: { "url1", "url2", ... }
+-- build_args_fn(server) -> args
+-- per_response_cb(server, err, stdout)
+-- final_cb() 可选
+-- opts: { concurrency=3, per_request_timeout=10 }
+function parallel_requests(servers, build_args_fn, per_response_cb, final_cb, opts)
+    if type(final_cb) == 'table' and opts == nil then
+        opts = final_cb
+        final_cb = nil
+    end
+
+    opts = opts or {}
+    local concurrency = opts.concurrency or 3
+    local timeout = opts.per_request_timeout or 10
+
+    local in_flight_abort = {}
+    local in_flight_count = 0
+    local aborted = false
+    local idx = 1
+    local monitor = nil
+
+    -- worker 协程
+    local function worker()
+        while true do
+            if aborted then return end
+
+            local i = idx
+            if i > #servers then return end
+            idx = idx + 1
+
+            local server = servers[i]
+            local args = build_args_fn(server)
+
+            if not args then
+                if not aborted then
+                    pcall(per_response_cb, server, "no_args", nil)
+                end
+
+                yield_once()
+            else
+                local ok, err, out = pcall(function()
+                    return await_call_cmd(args, timeout, function(ab)
+                        in_flight_abort[i] = ab
+                        in_flight_count = in_flight_count + 1
+                    end)
+                end)
+
+                -- 请求结束
+                if in_flight_abort[i] then
+                    in_flight_abort[i] = nil
+                    in_flight_count = in_flight_count - 1
+                end
+
+                if aborted then return end
+
+                if not ok then
+                    pcall(per_response_cb, server, tostring(err), nil)
+                else
+                    pcall(per_response_cb, server, err, out)
+                end
+            end
+        end
+    end
+
+    -- 启动 worker
+    local workers = {}
+    for i = 1, math.min(concurrency, #servers) do
+        local co = coroutine.create(worker)
+        local ok, res = coroutine.resume(co)
+        if not ok then
+            mp.msg.warn("worker start failed: " .. tostring(res))
+        end
+        workers[#workers + 1] = co
+    end
+
+    -- monitor（完成检测）
+    monitor = mp.add_periodic_timer(0.05, function()
+        if aborted then
+            monitor:kill()
+            return
+        end
+
+        local all_assigned = (idx > #servers)
+        local any_inflight = (in_flight_count > 0)
+
+        if all_assigned and not any_inflight then
+            monitor:kill()
+            if final_cb then pcall(final_cb) end
+        end
+    end)
+
+    -- 返回取消函数
+    return function()
+        if aborted then return end
+        aborted = true
+
+        for i, abort_fn in pairs(in_flight_abort) do
+            if abort_fn then pcall(abort_fn) end
+            in_flight_abort[i] = nil
+        end
+
+        in_flight_count = 0
+
+        if monitor then
+            monitor:kill()
+            monitor = nil
+        end
     end
 end

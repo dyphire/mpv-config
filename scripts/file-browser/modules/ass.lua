@@ -11,6 +11,10 @@ local state = g.state
 local style = g.style
 local ass = g.ass
 
+--- https://www.unicode.org/reports/tr9/#Explicit_Directional_Isolates
+local ISOLATE_DIRECTION_START = '\226\129\168' -- U+2068 FIRST STRONG ISOLATE
+local ISOLATE_DIRECTION_END = '\226\129\169' -- U+2069 POP DIRECTIONAL ISOLATE
+
 local function draw()
     ass:update()
 end
@@ -57,6 +61,15 @@ local function highlight_entry(v)
         return g.current_file.path == full_path
             or (alt_path and g.current_file.path == alt_path)
     end
+end
+
+---Escapes unwanted unicode control characters that may affect the rest of the display.
+---Currently this only isolates unicode directional overrides.
+---Based on: https://github.com/mpv-player/mpv/pull/17606
+---@param str string
+---@return string
+local function unicode_escape(str)
+    return ISOLATE_DIRECTION_START..str..ISOLATE_DIRECTION_END
 end
 
 ---escape ass values and replace newlines
@@ -203,7 +216,7 @@ local function update_ass()
         end
 
         --adds the actual name of the item
-        append(v.ass or ass_escape(v.label or v.name, item_style), '\\h')
+        append(v.ass or ass_escape( unicode_escape(v.label or v.name) , item_style), '\\h')
         if g.ALIGN_X == 'right' then draw_cursor(i, o.cursor_icon_flipped) end
         newline()
     end

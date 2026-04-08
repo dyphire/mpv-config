@@ -1,5 +1,5 @@
 --[[
-  * chapterskip.lua v.2026-02-23
+  * chapterskip.lua v.2026-04-08
   *
   * AUTHORS: detuur, microraptor, Eisa01, dyphire
   * License: MIT
@@ -924,13 +924,11 @@ local function check_skip()
 
     local used_chapters = {}
     for _, s in ipairs(skip_list) do
-        local matched = false
         for i, chapter in ipairs(chapters) do
             if not used_chapters[i] then
                 local start_time = chapter.time
                 local end_time   = chapters[i + 1] and chapters[i + 1].time or duration
                 if math.abs((end_time - start_time) - (s.ended - s.start)) <= 0.05 then
-                    matched = true
                     used_chapters[i] = true
                     -- Infer category for chapter-matched skips
                     local category = nil
@@ -947,21 +945,6 @@ local function check_skip()
                     break
                 end
             end
-        end
-        if not matched then
-            -- Unmatched skip: always infer category based on position
-            local category = nil
-            if s.start < o.intro_time_window then
-                category = "opening"
-            elseif duration > 0 and s.start >= (duration - o.outro_time_window) then
-                category = "ending"
-            end
-            add_active_skip({
-                start = s.start,
-                ended = s.ended,
-                title = s.title,
-                category = category
-            })
         end
     end
 end

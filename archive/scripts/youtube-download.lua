@@ -621,7 +621,7 @@ local function download(download_type, config_file, overwrite_opts)
         local info_status, info_stdout, info_stderr = exec(command, true, true)
         if info_status ~= 0 then
             mp.set_osd_ass(0, 0, "")
-            mp.osd_message("Could not retieve download stream url: status=" .. tostring(info_status) .. "\n" ..
+            mp.osd_message("Could not retrieve download stream url: status=" .. tostring(info_status) .. "\n" ..
                 ass0 .. "{\\fs8} " .. info_stdout:gsub("\r", "") .."\n" .. info_stderr:gsub("\r", "") .. ass1, 20)
             msg.debug("info_stdout:\n" .. info_stdout)
             msg.debug("info_stderr:\n" .. info_stderr)

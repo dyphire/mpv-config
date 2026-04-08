@@ -3,27 +3,32 @@ local opt = require("mp.options")
 -- 选项
 options = {
     -- 指定弹幕服务器地址，自定义服务需兼容 dandanplay 的 api
+    -- 可指定多个用逗号分隔的有序 api_server 列表
+    -- 支持每项使用 '|' 或 '#' 分隔备注，例如: "https://a.example.com|备用A" 或 "https://b.example.com#备用B"
     api_server = "https://api.dandanplay.net",
     -- 指定 b 站和爱腾优的弹幕获取的兜底服务器地址，主要用于获取非动画弹幕
-    -- 服务器可以自托管：https://github.com/lyz05/danmaku
-    fallback_server = "https://fc.lyz05.cn",
+    -- 可用： https://api.danmu.icu，https://dmku.hls.one
+    fallback_server = "https://api.danmu.icu",
     -- 设置 tmdb 的 API Key，用于获取非动画条目的中文信息(当搜索内容非中文时)
     -- 可以在 https://www.themoviedb.org 注册后去个人账号设置界面获取
     -- 注意：自定义此参数时还需要对获取到的 API Key 进行 base64 编码
     tmdb_api_key = "NmJmYjIxOTZkNzIyN2UyMTIzMGM3Y2YzZjQ4MDNkZGM=",
-    load_more_danmaku = false,
     auto_load = false,
     autoload_local_danmaku = false,
     autoload_for_url = false,
     save_danmaku = false,
     user_agent = "mpv_danmaku/1.0",
     proxy = "",
+    -- 可选：向 HTTP 请求传递 cookie.txt 文件路径
+    cookie_file = "",
     -- 使用 fps 视频滤镜，大幅提升弹幕平滑度。默认禁用
     vf_fps = false,
     -- 设置要使用的 fps 滤镜参数
     fps = "60/1.001",
     -- 指定合并重复弹幕的时间间隔的容差值，单位为秒。默认值: -1，表示禁用
     merge_tolerance = -1,
+    -- 合并重复弹幕时是否强制合并类型和颜色不同的弹幕。默认值: false，表示仅合并类型和颜色相同的弹幕
+    merge_without_style = false,
     -- 指定弹幕关联历史记录文件的路径，支持绝对路径和相对路径
     history_path = "~~/danmaku-history.json",
     open_search_danmaku_menu_key = "Ctrl+d",
@@ -69,11 +74,6 @@ options = {
     -- 指定哈希匹配中需忽略的共享盘（挂载盘）的路径/目录。支持绝对路径和相对路径，多个路径用逗号分隔
     -- 示例：["X:", "Z:", "F:/Download/", "Download"]
     excluded_path = [[
-        []
-    ]],
-    -- 排除指定平台的弹幕源，支持域名关键词匹配。多个平台用逗号分隔
-    -- 示例：["bilibili.com", "gamer.com.tw"]
-    excluded_platforms = [[
         []
     ]],
 }
