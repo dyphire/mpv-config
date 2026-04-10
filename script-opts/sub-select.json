@@ -1,0 +1,208 @@
+[
+    {
+        "alang": "*",
+        "slang": ["chs", "sc", "zho?%-cn", "zho?%-hans", "cht", "tc", "zho?%-hant", "zho?%-tw", "zho?%-hk", "zho?%-", "chi", "zho?", "und"],
+        "whitelist": ["chs&j[ap]n?"],
+        "condition": "sub.codec ~= 'null'"
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["sc&j[ap]n?"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["cht&j[ap]n?"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["ch&j[ap]n?"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["tc&j[ap]n?"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["zh&j[ap]n?"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["chs&eng?"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["sc&eng?"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["cht&eng?"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["ch&eng?"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["tc&eng?"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["zh&eng?"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["中日"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["中英"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["中上英下"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["简英"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["双语"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["特效"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["简体&英文"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["繁英"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["繁体&英文"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["繁體&英文"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["chs"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["sc"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["cn"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["hans"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["cht"]
+    },
+    {
+        "inherit": "^",
+        "blacklist": ["dutch"],
+        "whitelist": ["tc"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["hant"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["hk"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["tw"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["简"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["中"]
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["繁"]
+    },
+    {
+        "alang": "*",
+        "slang": "und",
+        "blacklist": [ "sign", "song", "comment", "danmaku", "danmu", "xml" ],
+        "condition": "sub.codec ~= 'null'"
+    },
+    {
+        "alang": "*",
+        "slang": ["chi", "zho?", "und"],
+        "whitelist": ["simplified"],
+        "condition": "sub.codec ~= 'null'"
+    },
+    {
+        "inherit": "^",
+        "whitelist": ["traditional"]
+    },
+    {
+        "alang": "*",
+        "slang": "zho?%-cn",
+        "condition": "sub.codec ~= 'null'"
+    },
+    {
+        "inherit": "^",
+        "slang": "zho?%-hans"
+    },
+    {
+        "inherit": "^",
+        "slang": "zho?%-hant"
+    },
+    {
+        "inherit": "^",
+        "slang": "zho?%-hk"
+    },
+    {
+        "inherit": "^",
+        "slang": "zho?%-tw"
+    },
+    {
+        "inherit": "^",
+        "slang": "zho?%-"
+    },
+    {
+        "inherit": "^",
+        "slang": "chi"
+    },
+    {
+        "inherit": "^",
+        "slang": "zho?"
+    },
+    {
+        "inherit": "^",
+        "slang": "default"
+    },
+    {
+        "inherit": "^",
+        "slang": "forced"
+    },
+    {
+        "inherit": "^",
+        "slang": "j[ap]n?",
+        "blacklist": [ "sign", "song" ]
+    },
+    {
+        "inherit": "^",
+        "slang": "eng?",
+        "blacklist": [ "sign", "song" ]
+    }
+]
