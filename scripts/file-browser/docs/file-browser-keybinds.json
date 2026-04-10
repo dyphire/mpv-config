@@ -1,0 +1,51 @@
+[
+    {
+        "comment": "deletes the currently selected file",
+        "key": "Alt+DEL",
+        "command": ["script-message", "run-statement", "os.remove(%F) ; fb.rescan()"],
+        "multiselect": true,
+        "multi-type": "repeat"
+    },
+    {
+        "comment": "opens the currently selected items in a new mpv window",
+        "key": "Ctrl+ENTER",
+        "command": ["run", "mpv", "%F"],
+        "multiselect": true,
+        "multi-type": "concat"
+    },
+    {
+        "key": "Ctrl+c",
+        "command": [
+            ["run", "powershell", "-command", "Set-Clipboard", "%F"],
+            ["print-text", "copied filepath to clipboard"]
+        ],
+        "condition": "fb.get_platform() == 'windows'",
+        "api_version": "1.9.0",
+        "multiselect": true,
+        "delay": 0.3
+    },
+
+
+    {
+        "key": "WHEEL_UP",
+        "command": ["script-binding", "file_browser/dynamic/scroll_up"],
+        "flags": { "repeat": true }
+    },
+    {
+        "key": "WHEEL_DOWN",
+        "command": ["script-binding", "file_browser/dynamic/scroll_down"],
+        "flags": { "repeat": true }
+    },
+    {
+        "key": "MBTN_LEFT",
+        "command": ["script-binding", "file_browser/dynamic/down_dir"]
+    },
+    {
+        "key": "MBTN_RIGHT",
+        "command": ["script-binding", "file_browser/dynamic/up_dir"]
+    },
+    {
+        "key": "MBTN_MID",
+        "command": ["script-binding", "file_browser/dynamic/play"]
+    }
+]
