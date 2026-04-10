@@ -544,7 +544,12 @@ local function record()
         return
     else
         pl_name = get_record(bookmark_path)
-        pl_path = utils.join_path(dir, pl_name)
+        if pl_name then
+            pl_path = utils.join_path(dir, pl_name)
+        else
+            pl_name = fname
+            pl_path = path
+        end
     end
 
     if o.use_playlist or pl_count > 1 then

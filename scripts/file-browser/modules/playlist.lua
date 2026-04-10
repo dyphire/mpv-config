@@ -81,6 +81,8 @@ local function loadfile(file, opts, mpv_opts)
     end
 
     if not legacy_loadfile_wrapper(file, opts.flag, mpv_opts) then msg.warn(file) end
+    if opts.flag == 'replace' and mp.get_property_bool('pause') then mp.set_property_bool('pause', false) end
+
     opts.flag = "append-play"
     opts.items_appended = opts.items_appended + 1
 end

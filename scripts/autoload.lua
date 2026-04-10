@@ -568,6 +568,9 @@ function find_and_add_entries()
         added_entries[entry.filename] = true
     end
 
+    -- stop initial file from being added twice
+    added_entries[path] = true
+
     local append = {[-1] = {}, [1] = {}}
     for direction = -1, 1, 2 do -- 2 iterations, with direction = -1 and +1
         for i = 1, MAXENTRIES do

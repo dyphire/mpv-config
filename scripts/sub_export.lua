@@ -33,6 +33,17 @@ options.read_options(o)
 
 local is_windows = package.config:sub(1, 1) == "\\" -- detect path separator, windows uses backslashes
 
+local TEMP_DIR = os.getenv("TEMP") or "/tmp"
+local function is_writable(path)
+    local file = io.open(path, "w")
+    if file then
+        file:close()
+        os.remove(path)
+        return true
+    end
+    return false
+end
+
 local function export_selected_subtitles()
     local i = 0
     local tracks_count = mp.get_property_number("track-list/count")
@@ -79,6 +90,10 @@ local function export_selected_subtitles()
             end
 
             subtitles_file = utils.join_path(dir, fname .. subtitles_ext)
+
+            if not is_writable(subtitles_file) then
+                subtitles_file = utils.join_path(TEMP_DIR, fname .. subtitles_ext)
+            end
 
             if o.language == 'chs' then
                 msg.info("正在导出当前字幕")

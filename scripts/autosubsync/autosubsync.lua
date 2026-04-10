@@ -171,7 +171,7 @@ local function get_active_track(track_type)
             end
         end
     end
-    return notify(string.format("Error: No track of type '%s' selected", track_type), "error", 3)
+    return notify(string.format("错误: 没有选择类型为 '%s' 的轨道", track_type), "error", 3)
 end
 
 local function remove_extension(filename)
@@ -207,10 +207,10 @@ local function extract_to_file(subtitle_track)
     local codec_ext_map = { subrip = "srt", ass = "ass" }
     local ext = codec_ext_map[subtitle_track['codec']]
     if ext == nil then
-        return notify(string.format("Error: Unsupported format: %s", subtitle_track['codec']), "error", 3)
+        return notify(string.format("错误: 不支持的格式: %s", subtitle_track['codec']), "error", 3)
     end
     local temp_sub_fp = utils.join_path(os_temp(), 'autosubsync_extracted.' .. ext)
-    notify("Extract embedded subtitles...", nil, 3)
+    notify("提取内封字幕...", nil, 3)
     local screenx, screeny, aspect = mp.get_osd_size()
     mp.set_osd_ass(screenx, screeny, "{\\an9}● ")
     local ret = subprocess {
@@ -228,7 +228,7 @@ local function extract_to_file(subtitle_track)
     }
     mp.set_osd_ass(screenx, screeny, "")
     if ret == nil or ret.status ~= 0 then
-        return notify("Unable to extract embedded subtitles.\nPlease make sure you specified the correct path for ffmpeg in the script configuration file\nand make sure the video has embedded subtitles.", "error", 7)
+        return notify("无法提取内封字幕.\n请先确保在脚本配置文件中为 ffmpeg 指定了正确的路径\n并确保视频有内封字幕.", "error", 7)
     end
     return temp_sub_fp
 end
@@ -246,8 +246,8 @@ local function sync_subtitles(ref_sub_path)
     if not file_exists(subtitle_path) then
         return notify(
                 table.concat {
-                    "Subtitle synchronization failed:\nCannot be found ",
-                    subtitle_path or "External subtitle file."
+                    "字幕同步失败:\n无法找到 ",
+                    subtitle_path or "外部字幕文件."
                 },
                 "error",
                 3
@@ -256,7 +256,7 @@ local function sync_subtitles(ref_sub_path)
 
     local retimed_subtitle_path = mkfp_retimed(subtitle_path)
 
-    notify(string.format("Start %s...", engine_name), nil, 2)
+    notify(string.format("开始 %s...", engine_name), nil, 2)
 
     local ret
     local screenx, screeny, aspect = mp.get_osd_size()
@@ -276,22 +276,22 @@ local function sync_subtitles(ref_sub_path)
     end
 
     if ret == nil then
-        return notify("Parsing failed or no arguments were passed.", "fatal", 3)
+        return notify("解析失败或没有传递参数.", "fatal", 3)
     end
 
     if ret.status == 0 then
         local old_sid = mp.get_property("sid")
         if mp.commandv("sub_add", retimed_subtitle_path) then
-            notify("Subtitle synchronized.", nil, 2)
+            notify("字幕同步.", nil, 2)
             mp.set_property("sub-delay", 0)
             if config.unload_old_sub then
                 mp.commandv("sub_remove", old_sid)
             end
         else
-            notify("Error: Unable to add synchronized subtitles.", "error", 3)
+            notify("错误: 不能添加同步字幕.", "error", 3)
         end
     else
-        notify(string.format("Subtitle synchronization failed.\nPlease ensure that the correct path is specified for %s in the script configuration file.\nOr audio track extraction failed", engine_name), "error", 3)
+        notify(string.format("字幕同步失败.\n请确保在脚本配置文件中为 %s 指定了正确的路径.\n或音轨提取失败", engine_name), "error", 3)
     end
 end
 
@@ -313,7 +313,7 @@ local function sync_to_manual_offset()
     local _, track = get_active_track('sub')
     local sub_delay = tonumber(mp.get_property("sub-delay"))
     if tonumber(sub_delay) == 0 then
-        return notify("Nothing can be done without manually adjusting the time axis!", "error", 7)
+        return notify("没有手动调整时轴，什么都做不了！", "error", 7)
     end
     local file_path = track.external and track['external-filename'] or extract_to_file(track)
     if file_path == nil then
@@ -324,7 +324,7 @@ local function sync_to_manual_offset()
     local codec_parser_map = { ass = sub.ASS, subrip = sub.SRT }
     local parser = codec_parser_map[track['codec']]
     if parser == nil then
-        return notify(string.format("Error: Unsupported format: %s", track['codec']), "error", 3)
+        return notify(string.format("错误: 不支持的格式: %s", track['codec']), "error", 3)
     end
     local s = parser:populate(file_path)
     s:shift_timing(sub_delay)
@@ -340,14 +340,14 @@ local function sync_to_manual_offset()
         mp.commandv("sub_remove", track.id)
     end
     mp.set_property("sub-delay", 0)
-    return notify(string.format("Manual synchronization save and load '%s'", s.filename), "info", 7)
+    return notify(string.format("手动同步保存，加载 '%s'", s.filename), "info", 7)
 end
 
 ------------------------------------------------------------
 -- Menu actions & bindings
 
 ref_selector = menu:new {
-    items = { 'Sync with audio', 'Sync with other subtitles', 'Save current timeline', 'Exit' },
+    items = { '与音频同步', '与其他字幕同步', '保存当前时轴', '退出' },
     last_choice = 'audio',
     pos_x = 50,
     pos_y = 50,
@@ -443,7 +443,7 @@ end
 -- Engine selector
 
 engine_selector = ref_selector:new {
-    items = { 'ffsubsync', 'alass', 'exit' },
+    items = { 'ffsubsync', 'alass', '退出' },
     last_choice = 'ffsubsync',
 }
 
@@ -517,11 +517,11 @@ function track_selector:init()
     end
 
     if #self.items == 0 then
-        notify("No supported subtitle tracks found.", "warn", 5)
+        notify("没有找到受支持的字幕轨道.", "warn", 5)
         return
     end
 
-    table.insert(self.items, "exit")
+    table.insert(self.items, "退出")
     self:open()
 end
 

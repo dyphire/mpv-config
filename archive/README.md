@@ -1,5 +1,5 @@
-**Description**
+**说明**
 
-This folder contains configuration files that are no longer in use, but because they can still meet the needs of some scenes, they are archived. 
+此文件夹下存放不再使用的配置文件，但因其仍可满足部分场景需求，故存档保留。
 
- folder structure remains the original, which can be directly placed in the main configuration directory and used after adjustment.
+文件夹结构保持原本样式，可直接放入主配置目录后通过调整后使用。

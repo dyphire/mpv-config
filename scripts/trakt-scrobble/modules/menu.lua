@@ -238,7 +238,6 @@ function open_input_menu_uosc(name)
             "script-message-to",
             mp.get_script_name(),
             "search-event",
-            name,
         },
         footnote = "Use Enter or Ctrl+Enter to search",
         items = items,

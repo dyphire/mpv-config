@@ -26,7 +26,8 @@ o = {
     max_title_length = 100,
     -- https://trakt.tv/oauth/applications
     client_id = "MmU5ZDg5MDcyYmIxNThlZWZhZmNlNTA5ZjZiMWJmMzM3MzcwMTQwMDU4ODFlZGZiYjgzZWI3ZGRkMWMwNGY1YQ==",
-    client_secret = "MDcxYTUzZTVkZDhkODA1NTM2MTU2YWNlZTJjYjU5Njc5YjUwOTAwZWU3YmZkYmVmMTZiNGZmODdkMzQ2NGFiNg=="
+    client_secret = "MDcxYTUzZTVkZDhkODA1NTM2MTU2YWNlZTJjYjU5Njc5YjUwOTAwZWU3YmZkYmVmMTZiNGZmODdkMzQ2NGFiNg==",
+    redirect_uri = "https://zapp.com",
 }
 
 options.read_options(o, _, function() end)
@@ -301,7 +302,7 @@ end
 
 -- Send HTTP request using curl
 function http_request(method, url, headers, body)
-    local cmd = { "curl", "-s", "-X", method, url }
+    local cmd = { "curl", "-sL", "-X", method, url }
     if headers then
         for k, v in pairs(headers) do
             table.insert(cmd, "-H")
@@ -385,7 +386,7 @@ local function auth()
     -- Get user info
     local user_res = http_request("GET", "https://api.trakt.tv/users/settings", {
         ["trakt-api-key"] = base64.decode(o.client_id),
-        ["Authorization"] = "Bearer " .. base64.decode(config.access_token),
+        ["Authorization"] = config.access_token and "Bearer " .. base64.decode(config.access_token),
         ["trakt-api-version"] = "2"
     })
     if not user_res or not user_res.user then
@@ -403,13 +404,17 @@ local function activation()
     local status, output = device_code()
 
     if status == 0 then
-        send_message("Open https://trakt.tv/activate and type: " .. output .. "\nPress x when done", 60, "FF8800")
-        msg.info("Open https://trakt.tv/activate and type: " .. output)
+        local message = string.format("https://trakt.tv/activate/%s", output)
+        if mp.get_property('clipboard-backends') ~= nil or mp.get_property_bool('clipboard-enable') then
+            mp.commandv('set', 'clipboard/text', message)
+        end
+        send_message("Open " .. message .. "\nPress x when done", 60, "FF8800")
+        msg.info("Open " .. message)
         mp.add_forced_key_binding("x", "auth-trakt", function()
             mp.remove_key_binding("auth-trakt")
             local status = auth()
             if status == 0 then
-                send_message("It's done. Enjoy!", "00FF00", 3)
+                send_message("It's done. Enjoy!", 3, "00FF00")
             else
                 send_message("Authentication failed. Check the console for more info.", 5, "0000FF")
                 msg.error("Authentication failed")
@@ -429,6 +434,7 @@ local function refresh_token(config)
         client_id = base64.decode(o.client_id),
         client_secret = base64.decode(o.client_secret),
         refresh_token = base64.decode(config.refresh_token),
+        redirect_uri = o.redirect_uri,
         grant_type = "refresh_token"
     })
 
@@ -467,7 +473,7 @@ local function check_access_token(config)
 
     local res = http_request("GET", "https://api.trakt.tv/users/settings", {
         ["trakt-api-key"] = base64.decode(o.client_id),
-        ["Authorization"] = "Bearer " .. base64.decode(config.access_token),
+        ["Authorization"] = config.access_token and "Bearer " .. base64.decode(config.access_token),
         ["trakt-api-version"] = "2"
     })
 
@@ -525,7 +531,7 @@ function start_scrobble(config, data, no_osd)
     local res = http_request("POST", "https://api.trakt.tv/scrobble/start", {
         ["Content-Type"] = "application/json",
         ["trakt-api-key"] = base64.decode(o.client_id),
-        ["Authorization"] = "Bearer " .. config.access_token and base64.decode(config.access_token),
+        ["Authorization"] = config.access_token and "Bearer " .. base64.decode(config.access_token),
         ["trakt-api-version"] = "2"
     }, data)
     if not res then
@@ -567,7 +573,7 @@ function stop_scrobble(config, data)
     local res = http_request("POST", "https://api.trakt.tv/scrobble/stop", {
         ["Content-Type"] = "application/json",
         ["trakt-api-key"] = base64.decode(o.client_id),
-        ["Authorization"] = "Bearer " .. config.access_token and base64.decode(config.access_token),
+        ["Authorization"] = config.access_token and "Bearer " .. base64.decode(config.access_token),
         ["trakt-api-version"] = "2"
     }, data)
     if not res then
@@ -786,7 +792,6 @@ local function trackt_scrobble(force)
     end
 
     local status = init()
-    config = read_config(config_file)
 
     if status == 10 then
         send_message("[trakt] Please make sure you have set client_id and client_secret correctly!", 5, "0000FF")

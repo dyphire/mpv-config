@@ -91,6 +91,49 @@ function utf8_length(str)
 	return str_length
 end
 
+---Get the next character in an utf-8 encoded string
+---@param str string
+---@param i integer
+---@return integer
+function utf8_next(str, i)
+	if i >= #str then return #str end
+	local len = utf8_char_bytes(str, i + 1)
+	return math.min(i + len, #str)
+end
+
+---Get the previous character in an utf-8 encoded string
+---@param str string
+---@param i integer
+---@return integer
+function utf8_prev(str, i)
+	if i <= 0 then return 0 end
+	local pos = 1
+	local last_valid = 0
+	while pos <= #str do
+		local len = utf8_char_bytes(str, pos)
+		if pos > i then break end
+		last_valid = pos - 1
+		pos = pos + len
+	end
+	return last_valid
+end
+
+---Convert character position to byte position in utf-8 encoded string
+---@param str string
+---@param char_pos integer
+---@return integer
+function utf8_charpos_to_bytepos(str, char_pos)
+	local byte_pos = 1
+	local current_char = 1
+	local str_len = #str
+	while byte_pos <= str_len and current_char < char_pos do
+		local char_len = utf8_char_bytes(str, byte_pos)
+		byte_pos = byte_pos + char_len
+		current_char = current_char + 1
+	end
+	return byte_pos
+end
+
 ---Extract Unicode code point from utf-8 character at index i in str
 ---@param str string
 ---@param i integer
@@ -512,4 +555,106 @@ do
 		end
 		return initials
 	end
+end
+
+-- Returns the index of the beginning or end of the current word/segment in a string.
+---@param str string String to search in.
+---@param cursor number Where in the string to start searching.
+---@param direction number `1` to search forward, `-1` backward.
+function find_string_segment_bound(str, cursor, direction)
+	if #str < 2 then return #str end
+	cursor = math.max(1, math.min(cursor, #str))
+	local head, tail = string.sub(str, 1, cursor), string.sub(str, cursor + 1)
+	if direction < 0 then
+		local word_pat, other_pat = '[^%c%s%p]+$', '[%c%s%p]+$'
+		local pat = head:sub(#head):match(word_pat) and word_pat or other_pat
+		-- First we match all same type consecutive chars starting at cursor
+		local segment = head:match(pat) or ''
+		-- If there's only one, we extend the segment with opposite type chars
+		if segment and #segment == 1 then
+			local match = head:sub(1, #head - #segment):match(pat == word_pat and other_pat or word_pat)
+			segment = (match or '') .. segment
+		end
+		return cursor - #segment + 1
+	else
+		local word_pat, other_pat = '^[^%c%s%p]+', '^[%c%s%p]+'
+		local pat = tail:sub(1, 1):match(word_pat) and word_pat or other_pat
+		local segment = tail:match(pat) or ''
+		if segment and #segment == 1 then
+			local match = tail:sub(#segment):match(pat == word_pat and other_pat or word_pat)
+			segment = segment .. (match or '')
+		end
+		return cursor + #segment
+	end
+end
+
+-- Highlight matching text in a string.
+---@param text string
+---@param byte_positions number[]
+---@param font_color string
+---@return string
+function highlight_match(text, byte_positions, font_color, bold)
+	if not byte_positions or #byte_positions == 0 then
+		return ass_escape(text)
+	end
+
+	table.sort(byte_positions)
+	local start_tag = '{\\c&H' .. config.color.match .. '&\\b' .. (bold and '1' or '0') .. '}'
+	local end_tag   = '{\\c&H' .. font_color .. '&}'
+
+	local result = {}
+	local pos_set = {}
+	for _, p in ipairs(byte_positions) do
+		pos_set[p] = true
+	end
+
+	local i = 1
+	local len = #text
+	while i <= len do
+		if pos_set[i] then
+			table.insert(result, start_tag)
+			local char_len = utf8_char_bytes(text, i)
+			table.insert(result, ass_escape(text:sub(i, i + char_len - 1)))
+			table.insert(result, end_tag)
+			i = i + char_len
+		else
+			local char_len = utf8_char_bytes(text, i)
+			table.insert(result, ass_escape(text:sub(i, i + char_len - 1)))
+			i = i + char_len
+		end
+	end
+
+	return table.concat(result)
+end
+
+-- Get positions of matching characters in a romanized string.
+---@param title string
+---@param query string
+---@param mode string
+---@param roman string[]
+function get_roman_match_positions(title, query, mode, roman)
+	local romans = {}
+	local char_ranges = {}
+	local total_len = 0
+	for _, char in ipairs(roman) do
+		local part = (mode == "initial") and char:sub(1, 1) or char
+		part = part:lower()
+		romans[#romans + 1] = part
+		char_ranges[#char_ranges + 1] = {total_len + 1, total_len + #part}
+		total_len = total_len + #part
+	end
+
+	local full_roman = table.concat(romans)
+	local s, e = full_roman:find(query, 1, true)
+	if not s then return nil end
+
+	local byte_positions = {}
+	for i, range in ipairs(char_ranges) do
+		local rs, re = range[1], range[2]
+		if not (re < s or rs > e) then
+			byte_positions[#byte_positions + 1] = utf8_charpos_to_bytepos(title, i)
+		end
+	end
+
+	return byte_positions
 end

@@ -36,11 +36,11 @@ end
 function Button:render()
 	local visibility = self:get_visibility()
 	if visibility <= 0 then return end
-	cursor:zone('primary_click', self, function() self:handle_cursor_click() end)
+	cursor:zone('primary_down', self, function() self:handle_cursor_click() end)
 
 	local ass = assdraw.ass_new()
 	local is_clickable = self.is_clickable and self.on_click ~= nil
-	local is_hover = self.proximity_raw == 0
+	local is_hover = self.proximity_raw <= 0
 	local foreground = self.active and self.background or self.foreground
 	local background = self.active and self.foreground or self.background
 	local background_opacity = self.active and 1 or config.opacity.controls

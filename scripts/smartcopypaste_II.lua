@@ -2473,20 +2473,20 @@ function trigger_paste_action(action)
 		mp.commandv('sub-add', clip_file, 'select')
 		msg.info("Pasted the below subtitle into mpv:\n"..clip_file)
 	end
-	
+
 	if action == 'file-seek' then
-		local video_duration = mp.get_property_number('duration')
+		local video_duration = mp.get_property_number('duration', 0)
 		seekTime = clip_time + o.resume_offset
 		
-		if seekTime > video_duration then 
+		if seekTime > video_duration then
 			if o.osd_messages == true then
 				mp.osd_message('Time Paste Exceeds Video Length' .. o.time_seperator .. format_time(clip_time, o.osd_time_format[3], o.osd_time_format[2], o.osd_time_format[1]))
 			end
 			msg.info("The time pasted exceeds the video length:\n"..format_time(clip_time))
 			return
-		end 
+		end
 		
-		if (seekTime < 0) then
+		if seekTime < 0 then
 			seekTime = 0
 		end
 	

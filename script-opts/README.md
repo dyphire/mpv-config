@@ -1,14 +1,15 @@
-### This folder stores the corresponding settings file of the MPV script
+### This folder stores configuration files for mpv scripts
 
-Usually, the name of the script file is the same as that of the script file, and the '-' in the script file name needs to be translated into '_' by default. The actual settings are subject to the script developer's settings. 
+Usually, the script configuration file name is the same as the script file it belongs to. Note that the `-` in the script filename needs to be escaped to `_` by default. The actual behavior depends on the script developer's settings.
 
-Script settings files should not be formatted (e.g. by adding meaningless spaces); Do not comment after the argument (you should write a separate comment on a separate line). 
+Do not beautify the format of script configuration files (e.g., adding meaningless spaces); do not add comments after parameters (comments should be written on a separate line).
 
-The script and its settings file may not support CRLF line breaks for windows (try changing to LF). 
+Scripts and their configuration files may not support Windows CRLF line endings (try changing to LF).
 
- the above situations may cause the script configuration file (partial) to become invalid in the process of self-modification。 
+In the above cases, modifying the script configuration files yourself may cause them to become (partially) invalid.
 
- The following are the settings files used by the built-in script of MPV：
+The following are configuration files used by mpv's built-in scripts:
+
 
 ```
 console.conf
@@ -16,5 +17,4 @@ osc.conf
 stats.conf
 ytdl_hook.conf
 ```
-
 

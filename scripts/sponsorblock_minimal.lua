@@ -139,6 +139,7 @@ end
 local function end_file()
     if not ON then return end
     mp.unobserve_property(skip_ads)
+    video_id = nil
     cache = nil
     ranges = nil
     ON = false

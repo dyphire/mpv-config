@@ -48,14 +48,14 @@ function Elements:update_proximities()
 				element:update_proximity()
 			end
 
-			if element.proximity_raw == 0 then
+			if element.proximity_raw <= 0 then
 				-- Mouse entered element area
-				if previous_proximity_raw ~= 0 then
+				if previous_proximity_raw > 0 then
 					mouse_enter_elements[#mouse_enter_elements + 1] = element
 				end
 			else
 				-- Mouse left element area
-				if previous_proximity_raw == 0 then
+				if previous_proximity_raw <= 0 then
 					mouse_leave_elements[#mouse_leave_elements + 1] = element
 				end
 			end
@@ -71,7 +71,7 @@ end
 ---@param ids string[] IDs of elements to peek.
 function Elements:toggle(ids)
 	local has_invisible = itable_find(ids, function(id)
-		return Elements[id] and Elements[id].enabled and Elements[id]:get_visibility() ~= 1
+		return Elements[id] and Elements[id].enabled and (Elements[id].min_visibility or 0) ~= 1
 	end)
 
 	self:set_min_visibility(has_invisible and 1 or 0, ids)
@@ -122,7 +122,7 @@ function Elements:proximity_trigger(name, ...)
 	for i = #self._all, 1, -1 do
 		local element = self._all[i]
 		if element.enabled then
-			if element.proximity_raw == 0 then
+			if element.proximity_raw <= 0 then
 				if element:trigger(name, ...) == 'stop_propagation' then break end
 			end
 			if element:trigger('global_' .. name, ...) == 'stop_propagation' then break end
