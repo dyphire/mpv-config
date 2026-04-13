@@ -42,7 +42,7 @@
   {
     "git":"https://github.com/dyphire/Eisa01_mpv-scripts",
     "branch":"dev",
-    "whitelist":"undoredo%.lua$|simplehistory%.lua$|simplebookmark%.lua$|smartcopypaste_*%.lua$",
+    "whitelist":"undoredo%.lua$|simplehistory%.lua$|simplebookmark%.lua$",
     "dest":"~~/scripts"
   },
   {

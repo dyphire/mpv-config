@@ -1,5 +1,5 @@
 --[[
-  * chapterskip.lua v.2026-04-08
+  * chapterskip.lua v.2026-04-13
   *
   * AUTHORS: detuur, microraptor, Eisa01, dyphire
   * License: MIT
@@ -827,7 +827,9 @@ local function chapterskip(_, current)
     end
     local chapters = mp.get_property_native("chapter-list")
     local duration = mp.get_property_number("duration") or 0
-    local total_chapters = #chapters
+    local total_chapters = #chapters or 0
+
+    if duration <= o.intro_time_window or total_chapters <= 1 then return end
 
     for i, chapter in ipairs(chapters) do
         -- Calculate chapter duration
@@ -865,6 +867,8 @@ local function check_skip()
     local file_ext = filename:lower():match("%.([^%.]+)$") or ""
     local title = mp.get_property_native("media-title"):gsub("%.[^%.]+$", "")
     local dir = get_parent_dir(path)
+
+    if duration <= o.intro_time_window then return end
 
     if is_protocol(filename) then
         title = url_decode(title)
