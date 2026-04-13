@@ -11,7 +11,7 @@ local o = {
     autofit_restore_smaller = "40%x30%",
     geometry = "100%:100%",        -- pip position, bottom-right: 100%:100%
     geometry_restore = "50%:50%",  -- restore position, center: 50%:50%
-    geometry_delay = 0.02          -- delay to avoid geometry race on state change
+    geometry_delay = 0.05          -- delay to avoid geometry race on state change
 }
 
 options.read_options(o, _, function() end)
@@ -24,7 +24,6 @@ local original_options = {}
 local function save_original_options()
     original_options.fullscreen   = mp.get_property_bool("fullscreen")
     original_options.window_maximized = mp.get_property_bool("window-maximized")
-    original_options.auto_window_resize = mp.get_property_bool("auto-window-resize")
     original_options.force_window_position = mp.get_property_bool("force-window-position")
     original_options.keepaspect_window = mp.get_property_bool("keepaspect-window")
     original_options.border        = mp.get_property_bool("border")
@@ -40,7 +39,6 @@ end
 local function restore_original_options()
     if original_options.fullscreen    ~= nil then mp.set_property_bool("fullscreen",    original_options.fullscreen)    end
     if original_options.window_maximized ~= nil then mp.set_property_bool("window-maximized", original_options.window_maximized) end
-    if original_options.auto_window_resize ~= nil then mp.set_property_bool("auto-window-resize", original_options.auto_window_resize) end
     if original_options.force_window_position ~= nil then mp.set_property_bool("force-window-position", original_options.force_window_position) end
     if original_options.border        ~= nil then mp.set_property_bool("border",        original_options.border)        end
     if original_options.ontop         ~= nil then mp.set_property_bool("ontop",         original_options.ontop)         end
@@ -74,9 +72,7 @@ local function enable_pip()
     save_original_options()
 
     mp.set_property_bool("fullscreen",   false)   -- exit fullscreen if necessary
-    mp.set_property_bool("window-maximized", false) -- exit window-maximized if necessary
     mp.set_property_bool("window-minimized", false)
-    mp.set_property_bool("auto-window-resize", false)
     mp.set_property_bool("force-window-position", false)
     mp.set_property_bool("border",       false)   -- remove decorations
     mp.set_property_bool("ontop",        true)    -- keep above other windows
