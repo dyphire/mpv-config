@@ -69,6 +69,9 @@
 
 一般的mpv配置目录结构大致如下
 
+> [!NOTE]
+> Windows 系统上等价全局配置路径`%APPDATA%/mpv/`，也可使用 mpv.exe 所在目录的 portable_config 文件夹（便携配置路径）
+
 ```
 ~/.config/mpv
 ├── fonts
@@ -490,37 +493,6 @@ save_danmaku
 
 ```
 save_danmaku=yes
-```
-
-</details>
-
----
-
-<details>
-<summary>
-
-~~add_from_source~~
-
-> ~~开关记录通过 从弹幕源向当前弹幕添加新弹幕内容 关联过的弹幕源并自动加载（已废除）~~
-
-</summary>
-
-### add_from_source
-
-> **⚠️NOTE！**
-> 
-> 该可选配置项在Release v1.2.0之后已废除。现在通过 `从弹幕源向当前弹幕添加新弹幕内容`功能关联过的弹幕源被记录，并且下次播放同一个视频的时候自动关联并加载所有添加过的弹幕源，这样的行为已经成为了插件的默认行为，不需要再通过 `add_from_source`来开启。在[从源获取弹幕](#从弹幕源向当前弹幕添加新弹幕内容可选)菜单中可以可视化地管理所有添加过的弹幕源。
-
-#### 功能说明
-
-开启此选项后，通过 `从弹幕源向当前弹幕添加新弹幕内容`功能关联过的弹幕源会被记录，并且下次播放同一个视频的时候会自动关联并加载添加过的弹幕源。
-
-#### 使用方法
-
-想要开启此选项，请在mpv配置文件夹下的 `script-opts`中创建 `uosc_danmaku.conf`文件并添加如下内容：
-
-```
-add_from_source=yes
 ```
 
 </details>
@@ -1046,6 +1018,9 @@ blacklist_path=
 - `user-data/uosc_danmaku/has-danmaku`
     从`user-data/uosc_danmaku/has-danmaku`属性中可以获取到表示当前是否有弹幕在显示的布尔值，具体用法可以参考[此pr](https://github.com/Tony15246/uosc_danmaku/pull/276)
 
+- `user-data/uosc_danmaku/danmaku-switch-on`
+    从`user-data/uosc_danmaku/danmaku-switch-on`属性中可以获取到表示当前弹幕开关状态的布尔值，具体用法可以参考[此issue](https://github.com/Tony15246/uosc_danmaku/issues/362)
+
 ## 常见问题
 
 ### 来自弹弹play的弹幕源问题如何从根源进行调整解决
@@ -1086,4 +1061,4 @@ blacklist_path=
 ## 相关项目
 
 - [slqy123/uosc_danmaku](https://github.com/slqy123/uosc_danmaku) 本项目的fork版本，实现了通过dandanplay api发送弹幕的功能，由于版本的兼容性以及功能的易用性问题未被合并，具体讨论请参阅 [#220](https://github.com/Tony15246/uosc_danmaku/pull/220)
-- [Loukyuu1120/uosc_danmaku](https://github.com/Loukyuu1120/uosc_danmaku) 本项目的fork版本，实现了自定义多个 api_servers 与 弹幕来源选择菜单 功能，具体讨论请参阅 [#282](https://github.com/Tony15246/uosc_danmaku/issues/282)
+- ~~[Loukyuu1120/uosc_danmaku](https://github.com/Loukyuu1120/uosc_danmaku) 本项目的fork版本，实现了自定义多个 api_servers 与 弹幕来源选择菜单 功能，具体讨论请参阅 [#282](https://github.com/Tony15246/uosc_danmaku/issues/282)~~ 相关功能主仓库已实现

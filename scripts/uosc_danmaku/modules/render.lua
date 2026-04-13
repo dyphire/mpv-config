@@ -154,7 +154,7 @@ function render_danmaku(from_menu, no_osd)
         if not no_osd then
             show_loaded(true)
         end
-        mp.commandv("script-message-to", "uosc", "set", "show_danmaku", "on")
+        toggle_danmaku_switch("on")
         show_danmaku_func()
     else
         show_message("")

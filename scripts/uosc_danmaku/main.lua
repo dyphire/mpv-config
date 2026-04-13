@@ -30,6 +30,8 @@ DELAY_PROPERTY = string.format("user-data/%s/danmaku-delay", mp.get_script_name(
 mp.set_property_native(DELAY_PROPERTY, 0)
 HAS_DANMAKU = string.format("user-data/%s/has-danmaku", mp.get_script_name())
 mp.set_property_bool(HAS_DANMAKU, false)
+DANMAKU_SWITCH_ON = string.format("user-data/%s/danmaku-switch-on", mp.get_script_name())
+mp.set_property_bool(DANMAKU_SWITCH_ON, false)
 KEY = table_to_zero_indexed({
     0x00,0x01,0x02,0x03,0x04,
     0x05,0x06,0x07,0x08,0x09,
@@ -92,7 +94,7 @@ end
 
 function set_danmaku_button()
     if get_danmaku_visibility() then
-        mp.commandv("script-message-to", "uosc", "set", "show_danmaku", "on")
+        toggle_danmaku_switch("on")
     end
 end
 
@@ -908,7 +910,8 @@ end)
 mp.register_script_message("show_danmaku_keyboard", function()
     ENABLED = not ENABLED
     if ENABLED then
-        mp.commandv("script-message-to", "uosc", "set", "show_danmaku", "on")
+        toggle_danmaku_switch("on")
+
         if COMMENTS == nil then
             show_message("加载弹幕初始化...", 3)
             set_danmaku_visibility(true)
@@ -920,7 +923,7 @@ mp.register_script_message("show_danmaku_keyboard", function()
         end
     else
         show_message("关闭弹幕", 2)
-        mp.commandv("script-message-to", "uosc", "set", "show_danmaku", "off")
+        toggle_danmaku_switch("off")
         hide_danmaku_func()
     end
 end)

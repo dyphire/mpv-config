@@ -170,7 +170,7 @@ function get_details(class, id, site, title, year, number, episodenum)
     local menu_title = "剧集信息"
     local footnote = "使用 / 打开筛选"
     if uosc_available and not episodenum then
-        update_menu_uosc(menu_type, menu_title, message, footnote)
+        update_menu_uosc(menu_type, menu_title, message, footnote, nil, nil, "spinner")
     else
         show_message(message, 3)
     end
@@ -375,7 +375,7 @@ function query_extra(name, class)
     }
     menu.cmd = { "script-message-to", mp.get_script_name(), "search-anime-event" }
     if uosc_available then
-        update_menu_uosc(menu.type, menu.title, message, menu.footnote, menu.cmd, name)
+        update_menu_uosc(menu.type, menu.title, message, menu.footnote, menu.cmd, name, "spinner")
     else
         show_message(message, 30)
     end
