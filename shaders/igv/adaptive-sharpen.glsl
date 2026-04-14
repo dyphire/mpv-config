@@ -25,7 +25,7 @@
 // Adaptive sharpen - version 2021-10-17
 // Tuned for use post-resize
 
-//!HOOK OUTPUT
+//!HOOK SCALED
 //!BIND HOOKED
 //!DESC adaptive-sharpen
 
@@ -180,6 +180,11 @@ vec4 hook() {
     for (int pix = 0; pix < 12; ++pix)
     {
         float lowthr = sat((20.*4.5*c_comp*e[pix + 1] - 0.221));
+
+        // Aliasing Suppression
+        float diff = abs(luma[pix+1] - c0_Y);
+        float aliasing_weight = sat(0.1 / (diff + 0.01));
+        lowthr *= aliasing_weight;
 
         neg_laplace += luma[pix+1] * luma[pix+1] * weights[pix] * lowthr;
         weightsum   += weights[pix] * lowthr;
