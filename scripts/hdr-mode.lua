@@ -151,6 +151,56 @@ local function should_switch_hdr(hdr_active, is_fullscreen)
     return false
 end
 
+-- ============================================================
+-- 改动1：新增两个函数（从这里开始）
+-- ============================================================
+
+local function wait_for_hdr_state(target_state, callback, timeout_sec)
+    timeout_sec = timeout_sec or 5.0
+    local start = mp.get_time()
+    local last = nil
+    local stable_cnt = 0
+
+    local function poll()
+        query_hdr_state()
+        local current = hdr_active
+        if current == target_state then
+            if last == current then
+                stable_cnt = stable_cnt + 1
+            else
+                stable_cnt = 0
+            end
+            last = current
+            if stable_cnt >= 2 then
+                callback()
+                return
+            end
+        else
+            stable_cnt = 0
+            last = nil
+        end
+        if mp.get_time() - start > timeout_sec then
+            msg.warn("Timeout waiting for HDR state to become " .. tostring(target_state))
+            callback()
+            return
+        end
+        mp.add_timeout(0.1, poll)
+    end
+    poll()
+end
+
+local function after_hdr_switch(pause_changed, continue_func)
+    mp.commandv("frame-back-step")
+    if not pause_changed then
+        mp.set_property_native("pause", false)
+    end
+    continue_func()
+end
+
+-- ============================================================
+-- 改动1结束
+-- ============================================================
+
 local function switch_hdr()
     query_hdr_state()
     local params = mp.get_property_native("video-params")
@@ -180,11 +230,28 @@ local function switch_hdr()
             if hdr_active and o.fullscreen_only and not is_fullscreen then
                 msg.info("Switching to SDR output...")
                 switch_display_mode(false)
+                -- ============================================================
+                -- 改动2：原 mp.add_timeout(3, continue_hdr) 替换为下面这行
+                -- ============================================================
+                wait_for_hdr_state(false, function()
+                    after_hdr_switch(pause_changed, continue_hdr)
+                end)
+                -- ============================================================
+                -- 改动2结束
+                -- ============================================================
             else
                 msg.info("Switching to HDR output...")
                 switch_display_mode(true)
+                -- ============================================================
+                -- 改动2：原 mp.add_timeout(3, continue_hdr) 替换为下面这行
+                -- ============================================================
+                wait_for_hdr_state(true, function()
+                    after_hdr_switch(pause_changed, continue_hdr)
+                end)
+                -- ============================================================
+                -- 改动2结束
+                -- ============================================================
             end
-            mp.add_timeout(3, continue_hdr)
             return
         end
 
@@ -199,7 +266,15 @@ local function switch_hdr()
             msg.info("Switching back to SDR output...")
             pause_changed = pause_if_needed()
             switch_display_mode(false)
-            mp.add_timeout(3, continue_sdr)
+            -- ============================================================
+            -- 改动3：原 mp.add_timeout(3, continue_sdr) 替换为下面这行
+            -- ============================================================
+            wait_for_hdr_state(false, function()
+                after_hdr_switch(pause_changed, continue_sdr)
+            end)
+            -- ============================================================
+            -- 改动3结束
+            -- ============================================================
             return
         end
 
