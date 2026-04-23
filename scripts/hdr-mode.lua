@@ -184,7 +184,18 @@ local function switch_hdr()
                 msg.info("Switching to HDR output...")
                 switch_display_mode(true)
             end
-            mp.add_timeout(3, continue_hdr)
+            mp.add_timeout(3, function()
+                msg.info("Seeking to 0 after HDR switch to prevent frame drop")
+                mp.set_property_number("time-pos", 0)
+                mp.commandv("vf", "toggle", "null")
+                mp.add_timeout(0.05, function()
+                    mp.commandv("vf", "toggle", "null")
+                end)
+                if not pause_changed then
+                    mp.set_property_native("pause", false)
+                end
+                continue_hdr()
+            end)
             return
         end
 
