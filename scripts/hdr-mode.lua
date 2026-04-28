@@ -170,6 +170,7 @@ local function switch_hdr()
 
     if current_state == "hdr" then
         local function continue_hdr()
+            mp.commandv("frame-back-step")
             handle_hdr_logic(pause_changed, target_peak, target_prim, target_trc)
         end
 
@@ -192,6 +193,7 @@ local function switch_hdr()
 
     elseif current_state == "sdr" then
         local function continue_sdr()
+            mp.commandv("frame-back-step")
             handle_sdr_logic(pause_changed, target_peak, target_prim, target_trc)
         end
 
