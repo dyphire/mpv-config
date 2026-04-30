@@ -100,11 +100,11 @@ local function is_protocol(path)
     return type(path) == 'string' and (path:find('^%a[%w.+-]-://') ~= nil or path:find('^%a[%w.+-]-:%?') ~= nil)
 end
 
-function url_decode(str)
-    local function hex_to_char(x)
-        return string.char(tonumber(x, 16))
-    end
+local function hex_to_char(x)
+    return string.char(tonumber(x, 16))
+end
 
+local function url_decode(str)
     if str ~= nil then
         str = str:gsub('^%a[%a%d-_]+://', '')
               :gsub('^%a[%a%d-_]+:\\?', '')
@@ -112,9 +112,13 @@ function url_decode(str)
         if str:find('://localhost:?') then
             str = str:gsub('^.*/', '')
         end
-        str = str:gsub('[\\/:%?]*', '')
-        return str
+        str = str:gsub("%?.+", ""):gsub("%+", " ")
+        local last_pos = str:match('.*[\\/:%?]()')
+        if last_pos then
+            str = str:sub(last_pos)
+        end
     end
+    return str
 end
 
 --create global_chapters_dir if it doesn't exist

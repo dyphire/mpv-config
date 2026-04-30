@@ -1,4 +1,4 @@
--- quality-menu 4.2.0 - 2024-Oct-04
+-- quality-menu 4.2.1 - 2025-Jun-29
 -- https://github.com/christoph-heinrich/mpv-quality-menu
 --
 -- Change the stream video and audio quality on the fly.
@@ -483,9 +483,10 @@ end
 
 ---@return string | nil
 local function get_url()
-    local path = mp.get_property('path')
+    local path, n = mp.get_property('path'), nil
     if not path then return nil end
-    path = path:gsub('ytdl://', '') -- Strip possible ytdl:// prefix.
+    path, n = path:gsub('^ytdl://', '') -- Strip possible ytdl:// prefix.
+    if n > 0 then return path end
 
     ---@param str string
     ---@return boolean
@@ -885,7 +886,7 @@ local function format_table(formats, columns, column_align_left)
         end
     end
 
-    local identical_columns = identical_for_all(formats, columns)
+    local identical_columns = #formats < 2 and {} or identical_for_all(formats, columns)
 
     local show_columns = {}
     for i, width in ipairs(column_widths) do
@@ -918,7 +919,7 @@ end
 ---@param columns string[]
 ---@return string[]
 local function format_csv(formats, columns)
-    local identical_props = identical_for_all(formats, columns)
+    local identical_props = #formats < 2 and {} or identical_for_all(formats, columns)
     local hints = {}
     for i, format in ipairs(formats) do
         local row = {}

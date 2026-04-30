@@ -54,12 +54,13 @@ local function url_decode(str)
         if str:find('://localhost:?') then
             str = str:gsub('^.*/', '')
         end
-        str = str:gsub('%?.+', '')
-              :gsub('%+', ' ')
-        return str
-    else
-        return
+        str = str:gsub("%?.+", ""):gsub("%+", " ")
+        local last_pos = str:match('.*[\\/:%?]()')
+        if last_pos then
+            str = str:sub(last_pos)
+        end
     end
+    return str
 end
 
 local function is_compressed_file(filename)

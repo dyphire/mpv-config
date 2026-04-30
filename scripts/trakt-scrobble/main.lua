@@ -77,18 +77,19 @@ end
 
 function url_decode(str)
     if str ~= nil then
-        str = str:gsub("^%a[%a%d-_]+://", "")
-              :gsub("^%a[%a%d-_]+:\\?", "")
-              :gsub("%%(%x%x)", hex_to_char)
-        if str:find("://localhost:?") then
-            str = str:gsub("^.*/", "")
+        str = str:gsub('^%a[%a%d-_]+://', '')
+              :gsub('^%a[%a%d-_]+:\\?', '')
+              :gsub('%%(%x%x)', hex_to_char)
+        if str:find('://localhost:?') then
+            str = str:gsub('^.*/', '')
         end
-        str = str:gsub("%?.+", "")
-              :gsub("%+", " ")
-        return str
-    else
-        return
+        str = str:gsub("%?.+", ""):gsub("%+", " ")
+        local last_pos = str:match('.*[\\/:%?]()')
+        if last_pos then
+            str = str:sub(last_pos)
+        end
     end
+    return str
 end
 
 -- from http://lua-users.org/wiki/LuaUnicode
