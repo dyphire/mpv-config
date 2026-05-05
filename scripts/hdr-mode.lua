@@ -20,14 +20,18 @@ local o = {
     -- Specify whether to switch HDR mode only when the window is in fullscreen or window maximized
     -- only works with hdr_mode = "switch", default: false
     fullscreen_only = false,
-    -- Specify the target peak of the HDR display, default: 203
-    -- must be the true peak brightness of the monitor,
-    -- otherwise it will cause HDR content to display incorrectly
-    target_peak = "203",
+     -- Specify the target peak of the HDR display, default: 0
+    -- By default, the display peak information property provided by mpv-display-plugin 
+    -- will be used: "user-data/display-info/max-luminance"
+    -- Specific values can also be specified to override internal detection,
+    -- but it must be the true peak brightness of the monitor,
+    target_peak = "0",
     -- Specifies the measured contrast of the output display.
     -- Used in black point compensation during HDR tone-mapping and HDR passthrough.
     -- Must be the true contrast information of the display, e.g. 100000 means 100000:1 maximum contrast
-    -- OLED display do not need to change this, default: auto
+    -- The default value auto will try to use the display black level attribute provided 
+    -- by mpv-display-plugin to calculate the correct value: "user-data/display-info/min-luminance"
+    -- OLED displays can specify the special value "inf" to apply infinite contrast
     target_contrast = "auto",
 }
 options.read_options(o, _, function() end)
@@ -64,7 +68,7 @@ local function apply_hdr_settings()
     mp.set_property_native("icc-profile-auto", false)
     mp.set_property_native("target-prim", "bt.2020")
     mp.set_property_native("target-trc", "pq")
-    mp.set_property_native("target-peak", o.target_peak)
+    mp.set_property_native("target-peak", tonumber(o.target_peak))
     mp.set_property_native("target-contrast", o.target_contrast)
     mp.set_property_native("target-colorspace-hint", "yes")
     mp.set_property_native("inverse-tone-mapping", "no")
@@ -116,27 +120,26 @@ end
 
 local function handle_hdr_logic(paused_before, target_peak, target_prim, target_trc)
     query_hdr_state()
-    if hdr_active and o.hdr_mode ~= "noth" then
+    if hdr_active then
         apply_hdr_settings()
         resume_if_needed(paused_before)
-    elseif not hdr_active and o.hdr_mode ~= "noth" and
-    (tonumber(target_peak) ~= 203 or target_prim == "bt.2020" or target_trc == "pq") then
+    elseif (tonumber(target_peak) ~= 203 or target_prim == "bt.2020" or
+        target_trc == "pq") then
         apply_sdr_settings()
     end
 end
 
 local function handle_sdr_logic(paused_before, target_peak, target_prim, target_trc)
     query_hdr_state()
-    if not hdr_active or o.hdr_mode ~= "noth" then
-        if (not hdr_active or not state.inverse_mapping) and
-        (tonumber(target_peak) ~= 203 or target_prim == "bt.2020" or target_trc == "pq") then
+    if not hdr_active then
+        if not state.inverse_mapping and (tonumber(target_peak) ~= 203 or
+            target_prim == "bt.2020" or target_trc == "pq") then
             apply_sdr_settings()
-        elseif hdr_active and state.inverse_mapping then
+        elseif state.inverse_mapping then
             reset_target_settings()
         end
         resume_if_needed(paused_before)
-    end
-    if hdr_active and o.hdr_mode == "pass" and state.inverse_mapping then
+    elseif o.hdr_mode == "pass" and state.inverse_mapping then
         reset_target_settings()
     end
 end
@@ -153,11 +156,25 @@ end
 
 local function switch_hdr()
     query_hdr_state()
-    local params = mp.get_property_native("video-params")
+    local params = mp.get_property_native("video-out-params")
     local gamma = params and params["gamma"]
     local max_luma = params and params["max-luma"]
+    local target_max_luma = mp.get_property_native("user-data/display-info/max-luminance", "203")
+    local target_min_luma = mp.get_property_native("user-data/display-info/min-luminance")
     local is_hdr = max_luma and max_luma > 203
     if not gamma then return end
+
+    if tonumber(o.target_peak) <= 203 and tonumber(target_max_luma) > 203 then
+        o.target_peak = math.floor(tonumber(target_max_luma))
+    end
+
+    if o.target_contrast == "auto" and tonumber(o.target_peak) > 203 and target_min_luma then
+        if tonumber(target_min_luma) == 0 then
+            o.target_contrast = "inf"
+        else
+            o.target_contrast = math.floor(tonumber(o.target_peak) / tonumber(target_min_luma))
+        end
+    end
 
     local current_state = is_hdr and "hdr" or "sdr"
     local pause_changed = false
@@ -168,9 +185,16 @@ local function switch_hdr()
     local target_trc = mp.get_property_native("target-trc")
     local is_fullscreen = fullscreen or maximized
 
-    if current_state == "hdr" then
+    if current_state == "hdr" and tonumber(o.target_peak) > 203 then
         local function continue_hdr()
-            mp.commandv("frame-back-step")
+            local time = mp.get_property_number("time-pos")
+            local paused = mp.get_property_native("pause")
+            if time > 0 then
+                mp.commandv("frame-back-step")
+                if not paused then
+                    pause_changed = true
+                end
+            end
             handle_hdr_logic(pause_changed, target_peak, target_prim, target_trc)
         end
 
@@ -190,10 +214,16 @@ local function switch_hdr()
         end
 
         handle_hdr_logic(false, target_peak, target_prim, target_trc)
-
     elseif current_state == "sdr" then
         local function continue_sdr()
-            mp.commandv("frame-back-step")
+            local time = mp.get_property_native("time-pos")
+            local paused = mp.get_property_native("pause")
+            if time > 0 then
+                mp.commandv("frame-back-step")
+                if not paused then
+                    pause_changed = true
+                end
+            end
             handle_sdr_logic(pause_changed, target_peak, target_prim, target_trc)
         end
 
@@ -217,13 +247,13 @@ local function check_paramet()
     local target_contrast = mp.get_property_native("target-contrast")
     local colorspace_hint = mp.get_property_native("target-colorspace-hint")
     local inverse_mapping = mp.get_property_native("inverse-tone-mapping")
-    local params = mp.get_property_native("video-params")
+    local params = mp.get_property_native("video-out-params")
     local gamma = params and params["gamma"]
     local max_luma = params and params["max-luma"]
     local is_hdr = max_luma and max_luma > 203
     if not gamma then return end
 
-    if is_hdr and hdr_active and o.hdr_mode ~= "noth" then
+    if is_hdr and hdr_active and o.hdr_mode ~= "noth" and tonumber(o.target_peak) > 203 then
         if target_peak ~= o.target_peak then
             mp.set_property_native("target-peak", o.target_peak)
         end
@@ -243,14 +273,10 @@ local function check_paramet()
             mp.set_property_native("inverse-tone-mapping", "no")
         end
     end
-    if not is_hdr and o.hdr_mode ~= "noth" and not state.inverse_mapping
-    and (tonumber(target_peak) ~= 203 or target_prim == "bt.2020" or target_trc == "pq") then
-        apply_sdr_settings()
-    end
 end
 
 local function on_start()
-    if o.hdr_mode == "noth" or tonumber(o.target_peak) <= 203 then
+    if o.hdr_mode == "noth" then
         return
     end
     local vo = mp.get_property("vo")
@@ -260,7 +286,7 @@ local function on_start()
     end
     file_loaded = true
     query_hdr_state()
-    mp.observe_property("video-params", "native", switch_hdr)
+    mp.observe_property("video-out-params", "native", switch_hdr)
     mp.observe_property("target-peak", "native", check_paramet)
     mp.observe_property("target-prim", "native", check_paramet)
     mp.observe_property("target-trc", "native", check_paramet)
@@ -287,13 +313,6 @@ local function on_end(event)
 end
 
 local function on_idle(_, active)
-    local target_peak = mp.get_property_native("target-peak")
-    local target_prim = mp.get_property_native("target-prim")
-    local target_trc = mp.get_property_native("target-trc")
-    if active and o.hdr_mode ~= "noth" and
-    (tonumber(target_peak) ~= 203 or target_prim == "bt.2020" or target_trc == "pq") then
-        apply_sdr_settings()
-    end
     if active and file_loaded and o.hdr_mode == "switch" then
         file_loaded = false
         query_hdr_state()

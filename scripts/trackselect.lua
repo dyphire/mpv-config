@@ -162,7 +162,8 @@ end
 local function preferred_or_equals(track, words, attr, title)
     local score = contains(track, words, attr)
     if not score then
-        if tracks[track.type][title] == nil or tracks[track.type][title] == -math.huge then
+        if (tracks[track.type][title] == nil or
+           tracks[track.type][title] == -math.huge) and track.default then
             return true
         end
         return false
@@ -278,6 +279,16 @@ local function trackselect()
             local excluded_words = options["excluded_" .. track.type .. "_words"]
             local expected_words = options["expected_" .. track.type .. "_words"]
             local preferred_channels = options["preferred_" .. track.type .. "_channels"]
+
+            if preferred_lang == "" then
+                if track.type == "video" then
+                    preferred_lang = mp.get_property("vlang", ""):gsub(",", "/")
+                elseif track.type == "audio" then
+                    preferred_lang = mp.get_property("alang", ""):gsub(",", "/")
+                elseif track.type == "sub" then
+                    preferred_lang = mp.get_property("slang", ""):gsub(",", "/")
+                end
+            end
             if track.selected then
                 tracks[track.type].selected = track.id
                 if options.smart_keep then
@@ -288,13 +299,11 @@ local function trackselect()
             if (next(tracks[track.type].best) == nil or not (tracks[track.type].best.external
                 and tracks[track.type].best.lang ~= nil and not track.external)) then
                 if excluded_words == "" or not contains(track, excluded_words, "title") then
-                    local pass = true
                     local channels = false
                     local lang = false
                     if (preferred_channels or "") ~= "" and
                         preferred_or_equals(track, preferred_lang, "lang", "lang_score") then
                         channels = preferred(track, preferred_channels, "demux-channel-count", "channels_score")
-                        pass = channels
                     end
                     if preferred_lang ~= "" then
                         lang = preferred(track, preferred_lang, "lang", "lang_score")
@@ -318,7 +327,7 @@ local function trackselect()
                             tracks[track.type].best = track
                         end
                     elseif tracks[track.type].expected_score == nil then
-                        if (preferred_lang == "" and pass) or channels or lang or
+                        if (preferred_lang == "" and track.default) or channels or lang or
                             (track.external and track.lang == nil and next(tracks[track.type].best) == nil) then
                             tracks[track.type].best = track
                         end
