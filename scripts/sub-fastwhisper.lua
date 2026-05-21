@@ -1065,7 +1065,7 @@ local function whisper()
     local cache = mp.get_property_native("cache")
     local cache_state = mp.get_property_native("demuxer-cache-state")
     local cache_ranges = cache_state and cache_state["seekable-ranges"] or {}
-    if path and is_protocol(path) or cache == "auto" and #cache_ranges > 0 then
+    if path and is_protocol(path) or (cache == "auto" and #cache_ranges > 0) then
         time_ranges = {}
         local subtitle_count = 0
         local current_pos = mp.get_property_native("time-pos")
