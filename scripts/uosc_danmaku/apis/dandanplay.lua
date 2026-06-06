@@ -56,22 +56,79 @@ end
 
 -- 回退使用额外的弹幕获取方式
 function get_danmaku_fallback(query)
-    local url = options.fallback_server .. "/?ac=dm&url=" .. query
-    msg.verbose("尝试获取弹幕：" .. url)
+    local function do_fallback()
+        if options.fallback_server == "" then return end
+        local url = options.fallback_server .. "/?ac=dm&url=" .. query
+        msg.verbose("尝试获取弹幕：" .. url)
 
-    local args = make_danmaku_request_args("GET", url)
-    if not args then return end
+        local args = make_danmaku_request_args("GET", url)
+        if not args then return end
 
-    fetch_danmaku_data(args, function(data)
-        if not data or not data["comments"] or data["count"] <= 1 then
-            msg.info("备用服务器无数据或返回格式不正确")
-            show_message("备用服务器无数据或返回格式不正确", 3)
-            return
-        end
+        fetch_danmaku_data(args, function(data)
+            if data ~= nil and data["xml"] ~= nil then
+                if DANMAKU.sources[query] ~= nil then
+                    DANMAKU.sources[query]["data"] = data["xml"]
+                else
+                    DANMAKU.sources[query] = {from = "user_custom", data = data["xml"]}
+                end
+                load_danmaku(true)
+                return
+            end
 
-        save_danmaku_data(data["comments"], query, "user_custom")
-        load_danmaku(true)
-    end)
+            if not data or not data["comments"] or data["count"] <= 1 then
+                msg.info("备用服务器无数据或返回格式不正确")
+                show_message("备用服务器无数据或返回格式不正确", 3)
+                return
+            end
+
+            save_danmaku_data(data["comments"], query, "user_custom")
+            load_danmaku(true)
+        end)
+    end
+
+    if query:find('bilibili.com') or query:find('bilivideo.c[nom]+') then
+        load_danmaku_for_bilibili(query, function(success)
+            if not success then do_fallback() end
+        end)
+        return
+    end
+
+    if query:find('bahamut.akamaized.net') then
+        load_danmaku_for_bahamut(query, function(success)
+            if not success then do_fallback() end
+        end)
+        return
+    end
+
+    if query:find('mgtv.com') then
+        load_danmaku_for_mgtv(query, function(success)
+            if not success then do_fallback() end
+        end)
+        return
+    end
+
+    if query:find('iqiyi.com') then
+        load_danmaku_for_iqiyi(query, function(success)
+            if not success then do_fallback() end
+        end)
+        return
+    end
+
+    if query:find('v.qq.com') then
+        load_danmaku_for_tencent(query, function(success)
+            if not success then do_fallback() end
+        end)
+        return
+    end
+
+    if query:find('v.youku.com') then
+        load_danmaku_for_youku(query, function(success)
+            if not success then do_fallback() end
+        end)
+        return
+    end
+
+    do_fallback()
 end
 
 -- 返回弹幕请求参数
@@ -100,6 +157,8 @@ function make_danmaku_request_args(method, url, headers, body)
         table.insert(args, '-H')
         table.insert(args, 'Content-Type: application/json')
     end
+
+    table.insert(args, '--compressed')
 
     if url:find("api%.dandanplay%.") then
         local time = os.time()
@@ -370,7 +429,15 @@ function fetch_danmaku_data(args, callback)
             return
         end
         local data = utils.parse_json(json)
-        data = normalize_danmaku_response(data)
+        if data ~= nil then
+            data = normalize_danmaku_response(data)
+        else
+            local danmaku = parse_xml_danmaku(json)
+            if #danmaku > 0 then
+                data = {}
+                data["xml"] = danmaku
+            end
+        end
         callback(data)
     end)
 end
@@ -383,6 +450,26 @@ function save_danmaku_data(comments, query, danmaku_source)
         DANMAKU.sources[query]["data"] = danmaku_list
     else
         DANMAKU.sources[query] = {from = danmaku_source, data = danmaku_list}
+    end
+end
+
+function save_danmaku_xml(url, xml_string)
+    local danmaku_list = parse_xml_danmaku(xml_string)
+
+    if DANMAKU.sources[url] ~= nil then
+        DANMAKU.sources[url]["data"] = danmaku_list
+    else
+        DANMAKU.sources[url] = {from = "user_custom", data = danmaku_list}
+    end
+end
+
+function save_danmaku_json(url, json_string)
+    local danmaku_list = parse_json_danmaku(json_string)
+
+    if DANMAKU.sources[url] ~= nil then
+        DANMAKU.sources[url]["data"] = danmaku_list
+    else
+        DANMAKU.sources[url] = {from = "user_custom", data = danmaku_list}
     end
 end
 

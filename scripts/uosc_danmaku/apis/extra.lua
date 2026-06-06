@@ -1,8 +1,11 @@
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
 
+local cached_series_playlinks = {}
+
 local Source = {
     ["b 站"] = "bilibili1",
+    ["芒果TV"] = "imgo",
     ["腾讯"] = "qq",
     ["爱奇艺"] = "qiyi",
     ["优酷"] = "youku",
@@ -83,6 +86,31 @@ local function query_tmdb(title, class, menu)
     end
 end
 
+-- 从单个 seriesPlaylinks 项解析出有效的播放 URL
+local function extract_episode_url(item, playlink)
+    if not item then return nil end
+    if type(item) == 'string' then
+        return playlink or item
+    elseif type(item) == 'table' then
+        return item.url or nil
+    end
+    return nil
+end
+
+-- 将 seriesPlaylinks 转换为统一的 episode_rows 列表：{ index=string, url=string }
+local function build_episode_rows(seriesPlaylinks, playlink)
+    if not seriesPlaylinks or type(seriesPlaylinks) ~= 'table' then return nil end
+    local rows = {}
+    for i, it in ipairs(seriesPlaylinks) do
+        local url = extract_episode_url(it, playlink)
+        if url and url ~= '' then
+            table.insert(rows, { index = tostring(i), url = url })
+        end
+    end
+    if #rows == 0 then return nil end
+    return rows
+end
+
 local function get_number(cat, id, site)
     local url = string.format("https://api.web.360kan.com/v1/detail?cat=%s&id=%s&site=%s",
         cat, id, site)
@@ -107,6 +135,53 @@ local function get_number(cat, id, site)
     return nil
 end
 
+-- 使用 /v1/detail 分批获取集数（每批最多200集）
+local function get_episodes_v1(cat, id, site, number)
+    if not number or tonumber(number) == 0 then
+        return nil
+    end
+
+    local batch_size = 200
+    local start_idx = 1
+    local episodes = {}
+    while start_idx <= tonumber(number) do
+        local end_idx = math.min(start_idx + batch_size - 1, tonumber(number))
+        local url = string.format("https://api.web.360kan.com/v1/detail?cat=%s&id=%s&start=%s&end=%s&site=%s",
+            cat, id, start_idx, end_idx, site)
+
+        local cmd = { "curl", "-s", url }
+        local res = mp.command_native({
+            name = "subprocess",
+            args = cmd,
+            capture_stdout = true,
+            capture_stderr = true,
+        })
+
+        if not res.status or res.status ~= 0 then
+            msg.error(string.format("Failed to fetch detail batch %d-%d: %s", start_idx, end_idx, res.stderr or "unknown"))
+            if start_idx == 1 then
+                return nil
+            else
+                break
+            end
+        end
+
+        local result = utils.parse_json(res.stdout)
+        if result and result.data and result.data.allepidetail and result.data.allepidetail[site] then
+            for _, it in ipairs(result.data.allepidetail[site]) do
+                table.insert(episodes, { index = tostring(it.playlink_num), url = it.url })
+            end
+        end
+
+        start_idx = end_idx + 1
+    end
+
+    if #episodes == 0 then
+        return nil
+    end
+    return episodes
+end
+
 local function get_episodes_v2(cat, id, site)
     local s_param = string.format('[{"cat_id":"%s","ent_id":"%s","site":"%s"}]', tostring(cat), tostring(id), tostring(site))
 
@@ -121,22 +196,13 @@ local function get_episodes_v2(cat, id, site)
     })
 
     if not res.status or res.status ~= 0 then
-        msg.error("Failed to fetch episodesv2: " .. (res.stderr or "unknown error"))
+        msg.warn("Failed to fetch episodesv2: " .. (res.stderr or "unknown error"))
         return nil
     end
 
-    local data_text = res.stdout or ""
-    -- 兼容 JSONP 和 纯 JSON：提取最外层括号内 JSON
-    local json_payload = data_text
-    local first_paren = data_text:find('%(')
-    local last_paren = data_text:match('.*()%)')
-    if first_paren and last_paren and last_paren > first_paren then
-        json_payload = data_text:sub(first_paren + 1, last_paren - 1)
-    end
-
-    local parsed = utils.parse_json(json_payload)
+    local parsed = utils.parse_json(res.stdout)
     if not parsed then
-        msg.error("episodesv2: 解析返回失败: " .. (res.stdout or ""))
+        msg.warn("episodesv2: 解析返回失败: " .. (res.stdout or ""))
         return nil
     end
 
@@ -144,15 +210,10 @@ local function get_episodes_v2(cat, id, site)
     if parsed.code == 0 and parsed.data and #parsed.data > 0 then
         local seriesHTML = parsed.data[1] and parsed.data[1].seriesHTML
         if seriesHTML and seriesHTML.seriesPlaylinks then
-            for i, ep in ipairs(seriesHTML.seriesPlaylinks) do
-                local episode_url = nil
-                if type(ep) == 'string' then
-                    episode_url = ep
-                elseif type(ep) == 'table' and ep.url then
-                    episode_url = ep.url
-                end
-                if episode_url and episode_url ~= '' then
-                    table.insert(episodes, { index = i, url = episode_url })
+            local rows = build_episode_rows(seriesHTML.seriesPlaylinks)
+            if rows then
+                for _, r in ipairs(rows) do
+                    table.insert(episodes, { index = tonumber(r.index), url = r.url })
                 end
             end
         end
@@ -188,59 +249,57 @@ function get_details(class, id, site, title, year, number, episodenum)
 
     local items = {}
     local episodes = nil
+    local episode_rows = nil
+
+    -- 优先尝试使用搜索时缓存的 seriesPlaylinks（若存在且站点匹配）
     if cat == 2 or cat == 4 then
-        episodes = get_episodes_v2(cat, id, site)
+        local cid = tostring(id)
+        local cached = cached_series_playlinks[cid]
+        if cached and cached.seriesPlaylinks and cached.seriesSite and tostring(cached.seriesSite) == tostring(site) then
+            local rows = build_episode_rows(cached.seriesPlaylinks, cached.playlink)
+            if rows then
+                episode_rows = rows
+            end
+        end
     end
 
-    -- 统一构建 episode_rows：优先使用 episodesv2 返回的数据，否则使用 v1/detail
-    local episode_rows = nil
-    if episodes then
-        episode_rows = {}
-        for _, ep in ipairs(episodes) do
-            table.insert(episode_rows, { index = tostring(ep.index), url = ep.url })
-        end
-    else
-        if not number and cat ~= 0 then
-            number = get_number(cat, id, site)
-        end
-        if not number or cat == 0 then
-            local message = "无结果"
-            if uosc_available and not episodenum then
-                update_menu_uosc(menu_type, menu_title, message, footnote)
-            else
-                show_message(message, 3)
-            end
-            msg.verbose("无结果")
-            return
+    -- 若未命中缓存，则继续使用 episodesv2/v1 的原有流程
+    if not episode_rows then
+        if cat == 2 or cat == 4 then
+            episodes = get_episodes_v2(cat, id, site)
         end
 
-        local url = string.format("https://api.web.360kan.com/v1/detail?cat=%s&id=%s&start=1&end=%s&site=%s",
-            cat, id, number, site)
-
-        local cmd = { "curl", "-s", url }
-        local res = mp.command_native({
-            name = "subprocess",
-            args = cmd,
-            capture_stdout = true,
-            capture_stderr = true,
-        })
-
-        if not res.status or res.status ~= 0 then
-            local message = "无结果"
-            if uosc_available and not episodenum then
-                update_menu_uosc(menu_type, menu_title, message, footnote)
-            else
-                show_message(message, 3)
-            end
-            msg.verbose("无结果")
-            return
-        end
-
-        local result = utils.parse_json(res.stdout)
-        if result and result.data and result.data.allepidetail and result.data.allepidetail[site] then
+        -- 统一构建 episode_rows：优先使用 episodesv2 返回的数据，否则使用 v1/detail
+        if episodes then
             episode_rows = {}
-            for _, it in ipairs(result.data.allepidetail[site]) do
-                table.insert(episode_rows, { index = tostring(it.playlink_num), url = it.url })
+            for _, ep in ipairs(episodes) do
+                table.insert(episode_rows, { index = tostring(ep.index), url = ep.url })
+            end
+        else
+            if not number and cat ~= 0 then
+                number = get_number(cat, id, site)
+            end
+            if not number or cat == 0 then
+                local message = "无结果"
+                if uosc_available and not episodenum then
+                    update_menu_uosc(menu_type, menu_title, message, footnote)
+                else
+                    show_message(message, 3)
+                end
+                msg.verbose("无结果")
+                return
+            end
+
+            episode_rows = get_episodes_v1(cat, id, site, number)
+            if not episode_rows or #episode_rows == 0 then
+                local message = "无结果"
+                if uosc_available and not episodenum then
+                    update_menu_uosc(menu_type, menu_title, message, footnote)
+                else
+                    show_message(message, 3)
+                end
+                msg.verbose("无结果")
+                return
             end
         end
     end
@@ -325,6 +384,18 @@ local function search_query(query, class, menu)
     if result and result.data.longData and result.data.longData.rows then
         for _, item in ipairs(result.data.longData.rows) do
             if item.playlinks then
+                -- 如果搜索结果中包含 seriesPlaylinks，则缓存它（使用 en_id 作为 key）
+                if item.seriesPlaylinks and item.en_id then
+                    local playlink = nil
+                    if item.playlinks and item.seriesSite then
+                        playlink = item.playlinks[item.seriesSite]
+                    end
+                    cached_series_playlinks[tostring(item.en_id)] = {
+                        seriesPlaylinks = item.seriesPlaylinks,
+                        seriesSite = item.seriesSite,
+                        playlink = playlink,
+                    }
+                end
                 for source_name, source_id in pairs(Source) do
                     if item.playlinks[source_id] then
                         table.insert(items, {

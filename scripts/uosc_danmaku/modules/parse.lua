@@ -327,8 +327,11 @@ local function limit_danmaku(danmakus, limit)
 end
 
 -- 解析 XML 弹幕
-local function parse_xml_danmaku(xml_string)
+function parse_xml_danmaku(xml_string)
     local danmakus = {}
+    if not xml_string then
+        return danmakus
+    end
     -- [^>]* 匹配其他 attributes
     -- %f[^%s] 确保 p= 前面是空白字符
     for p_attr, text in xml_string:gmatch('<d%s+[^>]*%f[^%s]p="([^"]+)"[^>]*>([^<]+)</d>') do
@@ -355,7 +358,7 @@ local function parse_xml_danmaku(xml_string)
 end
 
 -- 解析 JSON 弹幕
-local function parse_json_danmaku(json_string)
+function parse_json_danmaku(json_string)
     local danmakus = {}
     if json_string:sub(1, 3) == "\239\187\191" then
         json_string = json_string:sub(4)

@@ -476,7 +476,9 @@ function open_input_menu()
     if uosc_available then
         open_input_menu_uosc()
     elseif input_loaded then
-        open_input_menu_get()
+        mp.add_timeout(0.01, function()
+            open_input_menu_get()
+        end)
     end
 end
 
@@ -649,7 +651,9 @@ function open_add_menu()
     if uosc_available then
         open_add_menu_uosc()
     elseif input_loaded then
-        open_add_menu_get()
+        mp.add_timeout(0.01, function()
+            open_add_menu_get()
+        end)
     end
 end
 
@@ -1241,7 +1245,10 @@ function open_add_total_menu_select()
         prompt = '选择:',
         items = item_titles,
         submit = function(id)
-            mp.commandv(unpack(item_values[id]))
+            local cmd = item_values[id]
+            mp.add_timeout(0.1, function()
+                mp.commandv(unpack(cmd))
+            end)
         end,
     })
 end

@@ -63,6 +63,35 @@
 
 </details>
 
+## 目录
+
+- [项目简介](#项目简介)
+  - [主要功能](#主要功能)
+- [安装](#安装)
+  - [下载](#下载)
+- [基本配置](#基本配置)
+  - [uosc控件配置](#uosc控件配置)
+  - [绑定快捷键（可选）](#绑定快捷键可选)
+- [拓展功能（可选）](#拓展功能可选)
+  - [从弹幕源向当前弹幕添加新弹幕内容（从网络url或本地添加弹幕）](#从弹幕源向当前弹幕添加新弹幕内容可选)
+  - [弹幕源延迟设置](#弹幕源延迟设置可选)
+  - [实时修改弹幕样式](#实时修改弹幕样式可选)
+  - [弹幕设置总菜单](#弹幕设置总菜单可选)
+  - [设置弹幕延迟（可选）](#设置弹幕延迟可选)
+  - [保存当前视频弹幕（可选）](#保存当前视频弹幕可选)
+  - [清空当前视频关联的弹幕源（可选）](#清空当前视频关联的弹幕源可选)
+  - [检查脚本更新（可选）](#检查脚本更新可选)
+- [可配置选项（可选）](#可配置选项可选)
+  - [弹幕加载相关](#弹幕加载相关)
+  - [弹幕显示相关](#弹幕显示相关)
+  - [弹幕解析服务相关](#弹幕解析服务相关)
+  - [插件配置相关](#插件配置相关)
+  - [自定义弹幕样式相关配置](#自定义弹幕样式相关配置)
+- [插件自定义属性](#插件自定义属性)
+- [常见问题](#常见问题)
+- [特别感谢](#特别感谢)
+- [相关项目](#相关项目)
+
 ## 安装
 
 ### 下载
@@ -1055,6 +1084,8 @@ blacklist_path=
 - 弹幕格式解析转换：[DanmakuConvert](https://github.com/timerring/DanmakuConvert)
 - 简繁转换：[OpenCC](https://github.com/BYVoid/OpenCC)
 - lua原生md5计算实现：https://github.com/rkscv/danmaku
+- lua原生zip解压缩实现：[lua-inflate](https://github.com/TohruMKDM/lua-inflate)
+- 爱优腾及芒果TV的弹幕解析参考：https://github.com/lyz05/danmaku
 - b站在线播放弹幕获取实现参考：[MPV-Play-BiliBili-Comments](https://github.com/itKelis/MPV-Play-BiliBili-Comments)
 - 巴哈姆特在线播放弹幕获取实现参考：[MPV-Play-BAHA-Comments](https://github.com/s594569321/MPV-Play-BAHA-Comments)
 

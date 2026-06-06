@@ -20,6 +20,9 @@ local o = {
     model = "base",
     -- Device to use, available devices are: cpu, cuda
     device = "cpu",
+    -- Compute type to use, 
+    -- available types are: default,auto,int8,int8_float16,int8_float32,int8_bfloat16,int16,float16,float32,bfloat16
+    compute_type = "default",
     -- Specify the language of transcription
     -- Leave it blank and it will be automatically detected
     language = "",
@@ -706,6 +709,11 @@ local function fastwhisper_cmd(file_path, sub_path)
     if o.language ~= "" then
         table.insert(args, "--language")
         table.insert(args, o.language)
+    end
+
+    if o.compute_type ~= "" and o.compute_type ~= "default" then
+        table.insert(args, "--compute_type")
+        table.insert(args, o.compute_type)
     end
 
     return args
