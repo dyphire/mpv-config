@@ -33,6 +33,7 @@ local o = {
     -- by mpv-display-plugin to calculate the correct value: "user-data/display-info/min-luminance"
     -- OLED displays can specify the special value "inf" to apply infinite contrast
     target_contrast = "auto",
+    hdr_wait = 3,
 }
 options.read_options(o, _, function() end)
 
@@ -214,7 +215,7 @@ local function switch_hdr()
                 msg.info("Switching to HDR output...")
                 switch_display_mode(true)
             end
-            mp.add_timeout(3, continue_hdr)
+            mp.add_timeout(o.hdr_wait, continue_hdr)
             return
         end
 
@@ -236,7 +237,7 @@ local function switch_hdr()
             msg.info("Switching back to SDR output...")
             pause_changed = pause_if_needed()
             switch_display_mode(false)
-            mp.add_timeout(3, continue_sdr)
+            mp.add_timeout(o.hdr_wait, continue_sdr)
             return
         end
 
