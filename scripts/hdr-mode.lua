@@ -313,6 +313,7 @@ local function on_end(event)
         if hdr_active then
             msg.info("Restoring display to SDR on shutdown")
             switch_display_mode(false)
+            utils.sleep(0.5)
         end
     end
 end
