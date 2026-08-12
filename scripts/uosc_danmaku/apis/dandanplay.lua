@@ -349,7 +349,7 @@ local function match_file(file_path, file_name, callback)
     -- 计算文件哈希
     local hash = nil
     local file_info = utils.file_info(file_path)
-    if file_info and file_info.size > 16 * 1024 * 1024 then
+    if file_info and file_info.size >= 16 * 1024 * 1024 then
         local file, error = io.open(normalize(file_path), 'rb')
         if file and not error then
             local m = MD5.new()

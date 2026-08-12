@@ -6,6 +6,9 @@
 > Release1.2.0及Release1.2.0之前的发行版，都由于弹弹play接口使用政策改版，部分功能无法使用。如果发现插件功能异常，比如搜索弹幕总是显示无结果，请拉取或下载主分支最新源代码；或下载[最新发行版](https://github.com/Tony15246/uosc_danmaku/releases/latest)
 
 > [!NOTE]
+> 插件默认通过项目维护的 API 代理 `https://danmaku-api.152468.xyz` 访问弹弹play开放弹幕网络。普通用户无需注册账号，也无需配置或持有弹弹play的 AppId/AppSecret。代理包含缓存和访问频率限制，请勿用于批量抓取。
+
+> [!NOTE]
 > 已添加对mpv内部 `mp.input`的支持，在uosc不可用时通过键绑定调用此方式渲染菜单
 > 
 > 欲启用此支持mpv最低版本要求：0.39.0
@@ -333,7 +336,7 @@ key script-message danmaku-delay <seconds> ${=time-pos}
 
 > #### 保存当前视频弹幕（可选）
 
-在视频播放时手动保存弹幕至视频所在文件夹，保存格式为 `xml`（注：此功能将保存为视频同名弹幕，若视频文件夹下存在同名文件将不会执行该功能）
+在视频播放时手动保存弹幕，保存格式为 `xml`（注：此功能将保存为视频同名弹幕，若目标文件夹下存在同名文件将不会执行该功能）。默认保存至视频所在文件夹，也可以通过 `save_danmaku_path` 和 `save_danmaku_path_mode` 保存到指定文件夹。
 
 想要通过快捷键使用此功能，请添加类似下面的配置到 `input.conf`中。从源添加弹幕功能对应的脚本消息为 `immediately_save_danmaku`。
 
@@ -504,7 +507,7 @@ save_danmaku
 
 #### 功能说明
 
-当文件关闭时自动保存弹幕文件（xml格式）至视频同目录，保存的弹幕文件名与对应的视频文件名相同。配合[autoload_local_danmaku选项](#autoload_local_danmaku)可以实现弹幕自动保存到本地并且下次播放时自动加载本地保存的弹幕。此功能默认禁用。
+当文件关闭时自动保存弹幕文件（xml格式），保存的弹幕文件名与对应的视频文件名相同。默认保存至视频同目录，配合[autoload_local_danmaku选项](#autoload_local_danmaku)可以实现弹幕自动保存到本地并且下次播放时自动加载本地保存的弹幕。此功能默认禁用。
 
 > **⚠️NOTE！**
 > 
@@ -522,6 +525,32 @@ save_danmaku
 
 ```
 save_danmaku=yes
+```
+
+如需保存到指定文件夹，请提前创建目标文件夹，然后配置 `save_danmaku_path` 和 `save_danmaku_path_mode`。插件不会自动创建目录。
+
+保存本地媒体到指定文件夹时，文件名会包含视频父目录名，用于减少不同目录下同名视频的弹幕文件冲突。例如 `动画/01.mkv` 会保存为类似 `动画_01.xml`。网络媒体保存到指定文件夹时仍使用媒体标题作为文件名。
+
+`save_danmaku_path_mode` 可选值如下：
+
+- `local`：默认值，仅本地媒体保存到 `save_danmaku_path`，网络媒体仍不保存
+- `url`：仅网络媒体保存到 `save_danmaku_path`，本地媒体仍保存到视频同目录
+- `all`：本地媒体和网络媒体都保存到 `save_danmaku_path`
+
+例如，仅将网络媒体的弹幕保存到 `~~/danmaku`：
+
+```
+save_danmaku=yes
+save_danmaku_path=~~/danmaku
+save_danmaku_path_mode=url
+```
+
+例如，将所有媒体的弹幕都保存到 `~~/danmaku`：
+
+```
+save_danmaku=yes
+save_danmaku_path=~~/danmaku
+save_danmaku_path_mode=all
 ```
 
 </details>
@@ -743,20 +772,24 @@ api_server
 
 #### 功能说明
 
-允许自定义弹幕 API 的服务地址，可指定多个用逗号分隔的有序 api_server 列表
+允许自定义弹幕 API 的服务地址。默认使用项目维护的 `https://danmaku-api.152468.xyz`，由代理完成弹弹play API 鉴权，插件用户无需配置密钥。
+
+可指定多个用逗号分隔的有序 api_server 列表。
 
 支持每项使用 '|' 或 '#' 分隔备注，例如: "https://a.example.com|备用A" 或 "https://b.example.com#备用B"
 
 > **⚠️NOTE！**
 > 
 > 请确保自定义服务的 API 与弹弹play 的兼容，已知兼容：[misaka_danmu_server](https://github.com/l429609201/misaka_danmu_server)，[danmu_api](https://github.com/huangxd-/danmu_api)
+>
+> 通过默认 API 代理访问弹弹play时，无需配置弹弹play的 AppId/AppSecret；如需使用个人申请的弹弹play AppId/AppSecret 凭据，可以自行部署服务端代理，并将 `api_server` 指向该代理。
 
 #### 使用方法
 
 想要使用此选项，请在mpv配置文件夹下的 `script-opts`中创建 `uosc_danmaku.conf`文件并自定义如下内容：
 
 ```
-api_server=https://api.dandanplay.net
+api_server=https://danmaku-api.152468.xyz
 ```
 
 </details>
@@ -845,7 +878,7 @@ user_agent
 
 > **⚠️NOTE！**
 > 
-> User-Agent格式必须符合弹弹play的标准，否则无法成功请求。具体格式要求见[弹弹play官方文档](https://github.com/kaedei/dandanplay-libraryindex/blob/master/api/OpenPlatform.md#5user-agent)
+> 使用默认 API 代理时无需为弹弹play鉴权而修改 User-Agent。直接接入弹弹play官方 API 或其他自定义服务时，请遵循对应服务的 User-Agent 要求。
 > 
 > 若想提高URL播放的哈希匹配成功率，可以将此项设为 `mpv`或浏览器的User-Agent
 

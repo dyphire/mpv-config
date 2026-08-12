@@ -254,10 +254,12 @@ local function set_danmaku_delay(dly, time, specific_source)
         end
     end
 
-    if dly == 0 then
-        DELAY = 0
-    else
-        DELAY = DELAY + dly
+    if not specific_source then
+        if dly == 0 then
+            DELAY = 0
+        else
+            DELAY = DELAY + dly
+        end
     end
 
     if ENABLED and COMMENTS ~= nil then
@@ -277,8 +279,14 @@ local function set_danmaku_delay(dly, time, specific_source)
         rebuild_convert_timer = nil
     end)
 
-    show_message('设置弹幕延迟: ' .. string.format("%.1f", DELAY + 1e-10) .. ' s')
-    mp.set_property_native(DELAY_PROPERTY, DELAY)
+    if specific_source then
+        local source = DANMAKU.sources[specific_source]
+        local source_delay = get_delay_for_time(source and source.delay_segments, time or 0)
+        show_message('设置弹幕源延迟: ' .. string.format("%.1f", source_delay + 1e-10) .. ' s')
+    else
+        show_message('设置弹幕延迟: ' .. string.format("%.1f", DELAY + 1e-10) .. ' s')
+        mp.set_property_native(DELAY_PROPERTY, DELAY)
+    end
 end
 
 local function clear_source()
@@ -493,14 +501,48 @@ function read_danmaku_source_record(path)
     end
 end
 
+local function get_save_danmaku_output(path, filename)
+    if not path or not filename then return nil end
+
+    local custom_dir = options.save_danmaku_path ~= "" and
+        mp.command_native({"expand-path", options.save_danmaku_path}) or nil
+    local is_url = is_protocol(path)
+    local mode = options.save_danmaku_path_mode
+    local dir = nil
+
+    if mode ~= "url" and mode ~= "all" then
+        mode = "local"
+    end
+
+    if custom_dir and (mode == "all" or (mode == "url" and is_url) or (mode == "local" and not is_url)) then
+        local output_name = sanitize_filename(filename)
+        if not is_url then
+            dir = get_parent_directory(path)
+            local _, parent_name = dir and utils.split_path(dir:sub(1, -2))
+            if parent_name and parent_name ~= "" then
+                output_name = sanitize_filename(parent_name .. "_" .. filename)
+            end
+        end
+        return utils.join_path(custom_dir, output_name .. ".xml")
+    end
+
+    if is_url then
+        return nil
+    end
+
+    dir = get_parent_directory(path)
+    if not dir then
+        return nil
+    end
+    return utils.join_path(dir, filename .. ".xml")
+end
+
 -- 视频播放时保存弹幕
 function save_danmaku(not_forced)
     local path = mp.get_property("path")
-    local dir = get_parent_directory(path) or ""
-    local filename = mp.get_property('filename/no-ext')
-    local danmaku_out = utils.join_path(dir, filename .. ".xml")
-    -- 排除网络播放场景
-    if not path or is_protocol(path) or (not file_exists(danmaku_out)
+    local filename = is_protocol(path) and mp.get_property("media-title") or mp.get_property('filename/no-ext')
+    local danmaku_out = get_save_danmaku_output(path, filename)
+    if not danmaku_out or (not file_exists(danmaku_out)
     and not is_writable(danmaku_out)) then
         show_message("此弹幕文件不支持保存至本地")
         msg.warn("此弹幕文件不支持保存至本地")

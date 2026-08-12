@@ -201,6 +201,18 @@ function is_protocol(path)
     return type(path) == 'string' and (path:find('^%a[%w.+-]-://') ~= nil or path:find('^%a[%w.+-]-:%?') ~= nil)
 end
 
+function sanitize_filename(name)
+    if not name or name == "" then
+        return "danmaku"
+    end
+    name = name:gsub('[/\\:*?"<>|]', "_")
+               :gsub('^%s*(.-)%s*$', '%1')
+    if name == "" then
+        return "danmaku"
+    end
+    return name
+end
+
 function hex_to_bin(hexstr)
     return (hexstr:gsub('..', function (cc)
         return string.char(tonumber(cc, 16))

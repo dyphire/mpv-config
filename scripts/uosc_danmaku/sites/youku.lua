@@ -112,7 +112,7 @@ end
 
 -- Helper: 构造 curl 参数（POST form data）
 local function youku_build_curl_args_for_server(server)
-    local headers = { 
+    local headers = {
         'Content-Type: application/x-www-form-urlencoded',
         'Referer: https://v.youku.com',
         'User-Agent: ' .. user_agent,
