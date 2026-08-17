@@ -122,6 +122,28 @@ local function resume_if_needed(paused_before)
     end
 end
 
+-- Polling wait for display mode switch, up to ~10s
+local function wait_for_hdr_state(expected_hdr, callback)
+    local max_retries = 50
+    local retry_count = 0
+    local interval = 0.2
+
+    local function poll()
+        query_hdr_state()
+        retry_count = retry_count + 1
+        if hdr_active == expected_hdr or retry_count >= max_retries then
+            if retry_count >= max_retries then
+                msg.warn("Display mode switch timeout after " .. ((max_retries - 1) * interval) .. "s, proceeding with current state")
+            end
+            callback()
+            return
+        end
+        mp.add_timeout(interval, poll)
+    end
+
+    poll()
+end
+
 local function handle_hdr_logic(paused_before, target_peak, target_prim, target_trc)
     query_hdr_state()
     if hdr_active then
@@ -130,6 +152,8 @@ local function handle_hdr_logic(paused_before, target_peak, target_prim, target_
     elseif (tonumber(target_peak) ~= 203 or target_prim == "bt.2020" or
         target_trc == "pq") then
         apply_sdr_settings()
+        -- Resume playback even if display mode switch failed
+        resume_if_needed(paused_before)
     end
 end
 
@@ -145,6 +169,9 @@ local function handle_sdr_logic(paused_before, target_peak, target_prim, target_
         resume_if_needed(paused_before)
     elseif o.hdr_mode == "pass" and state.inverse_mapping then
         reset_target_settings()
+    else
+        -- Resume playback even if display mode switch failed
+        resume_if_needed(paused_before)
     end
 end
 
@@ -214,7 +241,7 @@ local function switch_hdr()
                 msg.info("Switching to HDR output...")
                 switch_display_mode(true)
             end
-            mp.add_timeout(3, continue_hdr)
+            wait_for_hdr_state(true, continue_hdr)
             return
         end
 
@@ -236,7 +263,7 @@ local function switch_hdr()
             msg.info("Switching back to SDR output...")
             pause_changed = pause_if_needed()
             switch_display_mode(false)
-            mp.add_timeout(3, continue_sdr)
+            wait_for_hdr_state(false, continue_sdr)
             return
         end
 
