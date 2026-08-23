@@ -37,6 +37,9 @@ local options = {
     -- Enable on audio playback
     audio = false,
 
+    -- Enable on Dolby Vision Profile 5 (full range) playback. Colors may be inaccurate
+    dovi_p5 = false,
+
     -- Enable hardware decoding
     hwdec = false,
 
@@ -409,7 +412,7 @@ local function info(w, h)
         (file_ext and exclude(file_ext:lower(), ext_blacklist)) or
         ((properties["demuxer-via-network"] or is_protocol(properties["path"]) or (properties["cache"] == "auto" and #cached_ranges > 0)) and not options.network) or
         (rtx_hdr) or
-        (dovi_p5) or
+        (dovi_p5 and not options.dovi_p5) or
         (albumart and not options.audio) or
         (image and not albumart) or
         force_disabled
