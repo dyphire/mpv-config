@@ -60,6 +60,9 @@ local options = {
 
     -- Try to re-select the last track if mpv cannot do it e.g. when fingerprint changes
     smart_keep = false,
+
+    -- Prefer the single external subtitle track when it doesn't match excluded_sub_words
+    prefer_single_external_sub = true,
 }
 
 for _type, track in pairs(defaults) do
@@ -247,6 +250,26 @@ local function trackselect()
         tracklist_changed = true
     end
 
+    -- Prefer single external subtitle when enabled and conditions are met
+    local sub_locked = false
+    if options.prefer_single_external_sub then
+        local external_sub_count = 0
+        local single_external_sub = nil
+        for _, track in ipairs(tracklist) do
+            if track.type == "sub" and track.external and track.codec ~= "null" then
+                external_sub_count = external_sub_count + 1
+                single_external_sub = track
+            end
+        end
+        if external_sub_count == 1 and single_external_sub then
+            local excluded_words = options["excluded_sub_words"]
+            if excluded_words == "" or not contains(single_external_sub, excluded_words, "title") then
+                tracks.sub.best = single_external_sub
+                sub_locked = true
+            end
+        end
+    end
+
     for _, track in ipairs(tracklist) do
         sanitize_title(track, path, filename, media_title)
         if options.smart_keep and last[track.type] ~= nil and
@@ -275,68 +298,79 @@ local function trackselect()
             options["excluded_" .. track.type .. "_words"] ~= "" or
             options["expected_" .. track.type .. "_words"] ~= "" or
             (options["preferred_" .. track.type .. "_channels"] or "") ~= "" then
-            local preferred_lang = options["preferred_" .. track.type .. "_lang"]
-            local excluded_words = options["excluded_" .. track.type .. "_words"]
-            local expected_words = options["expected_" .. track.type .. "_words"]
-            local preferred_channels = options["preferred_" .. track.type .. "_channels"]
-
-            if preferred_lang == "" then
-                if track.type == "video" then
-                    preferred_lang = mp.get_property("vlang", ""):gsub(",", "/")
-                elseif track.type == "audio" then
-                    preferred_lang = mp.get_property("alang", ""):gsub(",", "/")
-                elseif track.type == "sub" then
-                    preferred_lang = mp.get_property("slang", ""):gsub(",", "/")
+            -- Skip subtitle processing if single external sub is locked
+            if sub_locked and track.type == "sub" then
+                -- still track selected for smart_keep
+                if track.selected then
+                    tracks.sub.selected = track.id
+                    if options.smart_keep then
+                        last.sub = track
+                    end
                 end
-            end
-            if track.selected then
-                tracks[track.type].selected = track.id
-                if options.smart_keep then
-                    last[track.type] = track
+            else
+                local preferred_lang = options["preferred_" .. track.type .. "_lang"]
+                local excluded_words = options["excluded_" .. track.type .. "_words"]
+                local expected_words = options["expected_" .. track.type .. "_words"]
+                local preferred_channels = options["preferred_" .. track.type .. "_channels"]
+
+                if preferred_lang == "" then
+                    if track.type == "video" then
+                        preferred_lang = mp.get_property("vlang", ""):gsub(",", "/")
+                    elseif track.type == "audio" then
+                        preferred_lang = mp.get_property("alang", ""):gsub(",", "/")
+                    elseif track.type == "sub" then
+                        preferred_lang = mp.get_property("slang", ""):gsub(",", "/")
+                    end
                 end
-            end
 
-            if (next(tracks[track.type].best) == nil or not (tracks[track.type].best.external
-                and tracks[track.type].best.lang ~= nil and not track.external)) then
-                if excluded_words == "" or not contains(track, excluded_words, "title") then
-                    local channels = false
-                    local lang = false
-                    if (preferred_channels or "") ~= "" and
-                        preferred_or_equals(track, preferred_lang, "lang", "lang_score") then
-                        channels = preferred(track, preferred_channels, "demux-channel-count", "channels_score")
+                if track.selected then
+                    tracks[track.type].selected = track.id
+                    if options.smart_keep then
+                        last[track.type] = track
                     end
-                    if preferred_lang ~= "" then
-                        lang = preferred(track, preferred_lang, "lang", "lang_score")
-                    end
+                end
 
-                    local exp_score = nil
-                    if expected_words then
-                        exp_score = contains(track, expected_words, "title")
-                    end
-                    if exp_score then
-                        local lang_score = nil
-                        local existing_lang = nil
-                        local existing_exp = tracks[track.type].expected_score
-                        if next(tracks[track.type].best) ~= nil and preferred_lang ~= "" then
-                            existing_lang = contains(tracks[track.type].best, preferred_lang, "lang")
-                            lang_score = contains(track, preferred_lang, "lang")
+                if (next(tracks[track.type].best) == nil or not (tracks[track.type].best.external
+                    and tracks[track.type].best.lang ~= nil and not track.external)) then
+                    if excluded_words == "" or not contains(track, excluded_words, "title") then
+                        local channels = false
+                        local lang = false
+                        if (preferred_channels or "") ~= "" and
+                            preferred_or_equals(track, preferred_lang, "lang", "lang_score") then
+                            channels = preferred(track, preferred_channels, "demux-channel-count", "channels_score")
                         end
-                        if existing_exp == nil or exp_score > existing_exp or (exp_score == existing_exp and
-                            ((lang_score or -math.huge) > (existing_lang or -math.huge) or channels)) then
-                            tracks[track.type].expected_score = exp_score
-                            tracks[track.type].best = track
+                        if preferred_lang ~= "" then
+                            lang = preferred(track, preferred_lang, "lang", "lang_score")
                         end
-                    elseif tracks[track.type].expected_score == nil then
-                        if (preferred_lang == "" and track.default) or channels or lang or
-                            (track.external and track.lang == nil and next(tracks[track.type].best) == nil) then
-                            tracks[track.type].best = track
+
+                        local exp_score = nil
+                        if expected_words then
+                            exp_score = contains(track, expected_words, "title")
+                        end
+                        if exp_score then
+                            local lang_score = nil
+                            local existing_lang = nil
+                            local existing_exp = tracks[track.type].expected_score
+                            if next(tracks[track.type].best) ~= nil and preferred_lang ~= "" then
+                                existing_lang = contains(tracks[track.type].best, preferred_lang, "lang")
+                                lang_score = contains(track, preferred_lang, "lang")
+                            end
+                            if existing_exp == nil or exp_score > existing_exp or (exp_score == existing_exp and
+                                ((lang_score or -math.huge) > (existing_lang or -math.huge) or channels)) then
+                                tracks[track.type].expected_score = exp_score
+                                tracks[track.type].best = track
+                            end
+                        elseif tracks[track.type].expected_score == nil then
+                            if (preferred_lang == "" and track.default) or channels or lang or
+                                (track.external and track.lang == nil and next(tracks[track.type].best) == nil) then
+                                tracks[track.type].best = track
+                            end
                         end
                     end
                 end
             end
         end
     end
-
     for _type, track in pairs(tracks) do
         if next(track.best) ~= nil and track.best.id ~= track.selected then
             mp.set_property('file-local-options/'.. _type:sub(1, 1) .. "id", track.best.id)
