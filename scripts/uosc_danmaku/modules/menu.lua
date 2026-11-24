@@ -883,7 +883,7 @@ function open_content_menu(pos)
                 end
 
                 table.insert(items, {
-                    title = abbr_str(text, 60),
+                    title = abbr_str(text, 60) .. (event.count_suffix or ""),
                     hint = seconds_to_time(start_time) .. "  (" .. utf8_sub(remove_query(event.source), 1, 70) .. ")",
                     actions = {
                         {

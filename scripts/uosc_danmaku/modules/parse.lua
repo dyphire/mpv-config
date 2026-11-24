@@ -171,117 +171,71 @@ local function ch_convert_cached(text)
     return converted
 end
 
--- 合并重复弹幕
+-- 比较前先统一文字写法, 例如把全角的 Ａ 转成 A. 显示时保留第一条的原文
+local function merge_key(text, reaction_window)
+    local key = decode_html_entities(xml_unescape(text))
+    key = key:gsub("　", " "):gsub("\194\160", " ") -- 全角空格及不换行空格
+    key = key:gsub("\239[\188\189][\128-\191]", function(c)
+        local offset = (c:byte(2) - 188) * 64 + c:byte(3) - 128
+        if offset >= 1 and offset <= 94 then return string.char(32 + offset) end
+        return c
+    end)
+    key = key:gsub("%s+", " "):gsub("^ ", ""):gsub(" $", "")
+    if reaction_window >= 0 then
+        if key:match("^666+$") then return "666", reaction_window end
+        if key:match("^233+$") then return "233", reaction_window end
+        if key:match("^哈哈哈") and key:gsub("哈", "") == "" then return "哈哈哈", reaction_window end
+    end
+    return key
+end
+
+-- 文字和类型相同时, 颜色接近的弹幕归到同一组. 再遇到相同颜色就直接用之前的分组
+local function merge_color_group(bucket, color)
+    if options.merge_without_style then return bucket end
+    local group = bucket.colors[color]
+    if group then return group end
+    for _, candidate in ipairs(bucket) do
+        if color_dist(candidate.color, color) <= 15 then
+            bucket.colors[color] = candidate
+            return candidate
+        end
+    end
+    group = {color = color}
+    bucket.colors[color] = group
+    bucket[#bucket + 1] = group
+    return group
+end
+
 local function merge_duplicate_danmaku(danmakus, threshold)
-    if not threshold or tonumber(threshold) < 0 then return danmakus end
+    if threshold < 0 then return danmakus end
 
-    local groups = {}
-
+    local groups, merged = {}, {}
+    -- 已经按调整后的播放时间排好顺序, 每组都从第一条弹幕出现时开始计时
     for _, d in ipairs(danmakus) do
-        local tkey = options.merge_without_style and "any" or tostring(d.type or "")
-        local text = d.text or ""
-
-        groups[text] = groups[text] or {}
-        groups[text][tkey] = groups[text][tkey] or {}
-        table.insert(groups[text][tkey], d)
-    end
-
-    local final_groups = {}
-
-    -- 颜色合并
-    for _, type_groups in pairs(groups) do
-        for _, list in pairs(type_groups) do
-            if options.merge_without_style then
-                table.insert(final_groups, list)
-            else
-                local color_groups = {}
-                -- 利用弹幕同色大量重复的特征，缓存 颜色值 -> color_groups 索引
-                local exact_color_cache = {}
-
-                for _, d in ipairs(list) do
-                    local c = d.color or 16777215
-                    local g_idx = exact_color_cache[c]
-
-                    if g_idx then
-                        -- 命中缓存，直接插入
-                        table.insert(color_groups[g_idx], d)
-                    else
-                        -- 未命中的颜色值，计算它是否落入已有代表颜色的 15 容差范围内
-                        local found = false
-                        for i, cg in ipairs(color_groups) do
-                            if color_dist(cg[1].color or 16777215, c) <= 15 then
-                                table.insert(cg, d)
-                                -- 将该颜色值缓存为这个代表颜色的索引，后续遇到完全相同的颜色值可以直接命中
-                                exact_color_cache[c] = i
-                                found = true
-                                break
-                            end
-                        end
-
-                        -- 超出容差范围的全新颜色代表，开辟新组
-                        if not found then
-                            table.insert(color_groups, {d})
-                            exact_color_cache[c] = #color_groups
-                        end
-                    end
-                end
-
-                for _, cg in ipairs(color_groups) do
-                    table.insert(final_groups, cg)
-                end
-            end
+        local key, window = merge_key(d.text or "", options.merge_reaction_tolerance)
+        local types = groups[key]
+        if not types then
+            types = {}
+            groups[key] = types
+        end
+        local mode = options.merge_without_style and "any" or (d.type or "")
+        local bucket = types[mode]
+        if not bucket then
+            bucket = {colors = {}}
+            types[mode] = bucket
+        end
+        local group = merge_color_group(bucket, d.color or 0xffffff)
+        local first = group.first
+        if first and d.time <= first.time + (window or threshold) then
+            first.merge_count = (first.merge_count or 1) + 1
+        else
+            group.first = d
+            merged[#merged + 1] = d
         end
     end
-
-    local merged = {}
-    local abs = math.abs
-
-    for _, group in ipairs(final_groups) do
-        table.sort(group, function(a, b) return a.time < b.time end)
-
-        local i = 1
-        while i <= #group do
-            local base = group[i]
-            local times = { base.time }
-            local count = 1
-            local j = i + 1
-
-            while j <= #group and abs(group[j].time - base.time) <= threshold do
-                times[#times+1] = group[j].time
-                count = count + 1
-                j = j + 1
-            end
-
-            local same_time = true
-            for k = 2, #times do
-                if times[k] ~= times[1] then
-                    same_time = false
-                    break
-                end
-            end
-
-            local danmaku = {
-                time = base.time,
-                type = base.type,
-                size = base.size,
-                color = base.color,
-                text = base.text,
-                source = base.source,
-                orig_time = base.orig_time,
-                merge_count = count,
-            }
-            if count > 2 or not same_time then
-                danmaku.text = danmaku.text .. string.format("x%d", count)
-            end
-
-            table.insert(merged, danmaku)
-            i = j
-        end
-    end
-
-    table.sort(merged, function(a, b) return a.time < b.time end)
     return merged
 end
+
 
 -- 限制每屏弹幕条数
 local function limit_danmaku(danmakus, limit)
@@ -490,6 +444,47 @@ local function rolling_danmaku_collides(previous, start_time, velocity)
     return delta_time < remaining_time
 end
 
+local function crowd_settings()
+    local medium_scale, high_scale = options.crowd_shrink_scale_medium, options.crowd_shrink_scale_high
+    local medium_threshold, high_threshold = options.crowd_shrink_threshold_medium, options.crowd_shrink_threshold_high
+    if not (0 < high_scale and high_scale <= medium_scale and medium_scale <= 1) then
+        msg.warn("自动缩字的字号比例无效，使用 0.90 / 0.80")
+        medium_scale, high_scale = 0.90, 0.80
+    end
+    if not (0 < medium_threshold and medium_threshold < high_threshold and high_threshold <= 1) then
+        msg.warn("自动缩字的轨道占用阈值无效，使用 0.60 / 0.80")
+        medium_threshold, high_threshold = 0.60, 0.80
+    end
+    return {medium_scale = medium_scale, high_scale = high_scale,
+        medium_threshold = medium_threshold, high_threshold = high_threshold}
+end
+
+-- 找出新弹幕会撞上哪些弹幕, 再看它们一共占了多少行. 两条弹幕占了同一行, 那一行只算一次
+function DanmakuArray:crowded_size(time, length, size, width, duration, settings)
+    local velocity = (width + length) / duration
+    local blocked = {}
+    for _, previous in ipairs(self.danmakus) do
+        if previous.end_time > time and rolling_danmaku_collides(previous, time, velocity) then
+            blocked[#blocked + 1] = previous
+        end
+    end
+    if #blocked == 0 then return size end
+    table.sort(blocked, function(a, b) return a.y < b.y end)
+    local occupied, bottom = 0, 1
+    for _, previous in ipairs(blocked) do
+        local edge = previous.y + previous.height
+        occupied = occupied + math.max(0, edge - math.max(bottom, previous.y))
+        bottom = math.max(bottom, edge)
+    end
+    local fill = (occupied + size) / self.max_y
+    if fill >= settings.high_threshold then
+        return math.max(1, math.floor(size * settings.high_scale + 0.5))
+    elseif fill >= settings.medium_threshold then
+        return math.max(1, math.floor(size * settings.medium_scale + 0.5))
+    end
+    return size
+end
+
 -- 从 y 轴顶部开始寻找可插入位置。对于每个候选位置，只检查 y 轴区间
 -- 与新弹幕相交的已有弹幕；若其中存在碰撞，则跳到碰撞区间下方继续寻找。
 local function find_y_from_top(array, height, collides)
@@ -638,7 +633,7 @@ function convert_danmaku_to_ass_events(force)
             local get_cached_delay = make_delay_lookup(source)
 
             local list = {}
-            for _, d in ipairs(source.data) do
+            for index, d in ipairs(source.data) do
                 local base_time = d.orig_time or d.time
                 if d.orig_time == nil then d.orig_time = base_time end
                 local adjusted_time = base_time + get_cached_delay(base_time)
@@ -650,6 +645,7 @@ function convert_danmaku_to_ass_events(force)
                     color = d.color,
                     text = d.text,
                     source = url,
+                    source_index = index,
                 }
                 if not is_blacklisted(d.text, get_blacklist_patterns()) then
                     table.insert(list, entry)
@@ -657,7 +653,10 @@ function convert_danmaku_to_ass_events(force)
             end
 
             if #list > 0 then
-                table.sort(list, function(a, b) return a.time < b.time end)
+                table.sort(list, function(a, b)
+                    if a.time == b.time then return a.source_index < b.source_index end
+                    return a.time < b.time
+                end)
                 per_source_lists[#per_source_lists + 1] = list
             end
         end
@@ -665,6 +664,7 @@ function convert_danmaku_to_ass_events(force)
 
     local danmakus = {}
 
+    table.sort(per_source_lists, function(a, b) return a[1].source < b[1].source end)
     local heap = new_min_heap()
     for li = 1, #per_source_lists do
         local lst = per_source_lists[li]
@@ -683,10 +683,6 @@ function convert_danmaku_to_ass_events(force)
         if lst and lst[next_pos] then
             heap.push({ time = lst[next_pos].time, list_idx = li, pos = next_pos, entry = lst[next_pos] })
         end
-    end
-
-    if options.max_screen_danmaku > 0 and options.merge_tolerance <= 0 then
-        options.merge_tolerance = options.scrolltime
     end
 
     danmakus = merge_duplicate_danmaku(danmakus, options.merge_tolerance)
@@ -714,7 +710,14 @@ function convert_danmaku_to_ass_events(force)
     local res_y = 1080
 
     local display_height = math.max(1, math.floor(res_y * (tonumber(options.displayarea) or 1)))
-    local roll_array = DanmakuArray:new(display_height)
+    local crowd, rolling_font, rolling_height
+    if options.crowd_shrink then
+        crowd = crowd_settings()
+        local height, font = danmaku_geometry()
+        rolling_font = font
+        rolling_height = math.floor(height * options.displayarea)
+    end
+    local roll_array = DanmakuArray:new(rolling_height or display_height)
     local fixed_array = DanmakuArray:new(display_height)
 
     -- 预处理弹幕，先计算时间段以便进行数量限制
@@ -737,18 +740,40 @@ function convert_danmaku_to_ass_events(force)
         end
     end
 
+    -- 普通滚动弹幕的出现时间会四舍五入到整秒. 和其他弹幕一起排位置前, 先按实际出现时间排序
+    for index, event in ipairs(pre_events) do event.order = index end
+    table.sort(pre_events, function(a, b)
+        if a.start_time == b.start_time then return a.order < b.order end
+        return a.start_time < b.start_time
+    end)
     if options.max_screen_danmaku > 0 then
         pre_events = limit_danmaku(pre_events, options.max_screen_danmaku)
     end
 
     local ass_events = {}
+    if crowd then
+        ass_events.layout_font = rolling_font
+        ass_events.visible_height = rolling_height
+    end
+    local count_threshold = options.merge_count_threshold
+    if count_threshold < 2 or count_threshold % 1 ~= 0 then
+        msg.warn("merge_count_threshold 需要至少为 2 的整数，使用默认值 3")
+        count_threshold = 3
+    end
     for _, ev in ipairs(pre_events) do
         local d = ev.danmaku
         local appear_time = ev.start_time
         local danmaku_type = d.type
         local clean_text = ch_convert_cached(decode_html_entities(d.text))
         local text = ass_escape(clean_text)
-                    :gsub("x(%d+)$", "{\\b1\\i1}x%1")
+        local visible_text = clean_text
+        local suffix
+        if d.merge_count and d.merge_count >= count_threshold then
+            suffix = " ×" .. d.merge_count
+            text = text .. "{\\b1\\i1}" .. suffix
+            visible_text = visible_text .. suffix
+        end
+
         local event_fontsize = DanmakuArray.get_merged_font_size(
             fontsize, d.merge_count or 1, fontsize_growth, fontsize_max
         )
@@ -767,7 +792,15 @@ function convert_danmaku_to_ass_events(force)
         -- 滚动弹幕 (类型 1, 2, 3)
         if danmaku_type >= 1 and danmaku_type <= 3 then
             style = "R2L"
-            local text_length = get_str_width(clean_text, event_fontsize)
+            if crowd then
+                event_fontsize = math.max(1, event_fontsize + rolling_font - fontsize)
+            end
+            local text_length = get_str_width(visible_text, event_fontsize)
+            if crowd then
+                local size = roll_array:crowded_size(appear_time, text_length, event_fontsize, res_x, scrolltime, crowd)
+                text_length = text_length * size / event_fontsize
+                event_fontsize = size
+            end
             local x1 = res_x + text_length / 2
             local x2 = -text_length / 2
             local y = roll_array:get_position_y(appear_time, text_length, event_fontsize, res_x, scrolltime)
@@ -807,6 +840,7 @@ function convert_danmaku_to_ass_events(force)
                 style = style,
                 text = text,
                 clean_text = clean_text,
+                count_suffix = suffix,
                 pos = pos,
                 move = move,
                 layer = (style == "R2L") and 0 or 1,

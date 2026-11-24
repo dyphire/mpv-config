@@ -8,6 +8,16 @@ local time_pos_observer_active = false
 local overlay_low = mp.create_osd_overlay('ass-events')
 local overlay_high = mp.create_osd_overlay('ass-events')
 
+function danmaku_geometry()
+    local height, size = 1080, tonumber(options.fontsize) or 50
+    if osd_height > 0 and osd_width / osd_height > 1920 / height then
+        local ratio = osd_width / osd_height
+        height = 1920 / ratio
+        size = size - ratio * 2
+    end
+    return height, math.max(1, math.floor(size))
+end
+
 local function realtime_position_text(event, pos, displayarea)
     if not event.move then
         local _, current_y = unpack(event.pos)
@@ -58,15 +68,14 @@ function render(pos_arg)
     end
 
     local fontname = options.fontname
-    local fontsize = options.fontsize
     local opacity = tonumber(options.opacity)
     local alpha = string.format("%02X", (1 - (opacity or 0)) * 255)
 
-    local width, height = 1920, 1080
-    local ratio = osd_width / osd_height
-    if width / height < ratio then
-        height = width / ratio
-        fontsize = options.fontsize - ratio * 2
+    local width = 1920
+    local height, fontsize = danmaku_geometry()
+    if COMMENTS.layout_font and (COMMENTS.layout_font ~= fontsize or
+            COMMENTS.visible_height ~= math.floor(height * options.displayarea)) then
+        convert_danmaku_to_ass_events(true)
     end
 
     local ass_events_low = {}
@@ -104,7 +113,10 @@ function render(pos_arg)
             local event_font_prefix = ""
             if event.font_size then
                 local configured_size = tonumber(options.fontsize) or fontsize
-                local adjusted_size = math.max(1, math.floor(event.font_size + fontsize - configured_size))
+                local adjusted_size = event.font_size
+                if not (COMMENTS.layout_font and event.style == "R2L") then
+                    adjusted_size = math.max(1, math.floor(event.font_size + fontsize - configured_size))
+                end
                 event_font_prefix = string.format("{\\fs%d}", adjusted_size)
             end
             local ass_text = text and (ass_prefix .. event_font_prefix .. text)

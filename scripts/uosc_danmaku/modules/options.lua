@@ -39,6 +39,9 @@ options = {
     fps = "60/1.001",
     -- 指定合并重复弹幕的时间间隔的容差值，单位为秒。默认值: -1，表示禁用
     merge_tolerance = -1,
+    -- 同类刷屏弹幕在几秒内合成一条. 设为负数时按普通弹幕处理, merge_tolerance 为负数时关闭所有合并
+    merge_reaction_tolerance = -1,
+    merge_count_threshold = 3,
     -- 合并重复弹幕时是否强制合并类型和颜色不同的弹幕。默认值: false，表示仅合并类型和颜色相同的弹幕
     merge_without_style = false,
     -- 合并弹幕字号的对数增长系数，必须为正整数
@@ -64,6 +67,12 @@ options = {
     fontname = "sans-serif",
     --字体大小 
     fontsize = 50,
+    -- 滚动弹幕太挤时, 缩小刚出现的弹幕
+    crowd_shrink = false,
+    crowd_shrink_scale_medium = 0.90,
+    crowd_shrink_scale_high = 0.80,
+    crowd_shrink_threshold_medium = 0.60,
+    crowd_shrink_threshold_high = 0.80,
     --字体阴影
     shadow = 0,
     --字体粗体
